@@ -11,7 +11,7 @@ import { ImageSize } from "./igdb.constants";
 import { getSizedImageUrl } from "./igdb.utils";
 import {
     IgdbAuthService,
-    tokenRefreshIntervalSeconds,
+    TOKEN_REFRESH_INTERVAL_SECONDS,
 } from "./igdb.auth.service";
 import * as process from "process";
 import { Interval } from "@nestjs/schedule";
@@ -107,7 +107,7 @@ export class IgdbService {
         this.buildIgdbClient().then();
     }
 
-    @Interval(tokenRefreshIntervalSeconds * 1000)
+    @Interval(TOKEN_REFRESH_INTERVAL_SECONDS * 1000)
     async buildIgdbClient(): Promise<void> {
         const token = await this.igdbAuthService.refreshToken();
         this.igdbClient = igdb(process.env.IGDB_CLIENT_ID, token);

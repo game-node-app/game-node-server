@@ -10,6 +10,12 @@ async function bootstrap() {
         type: VersioningType.URI,
         defaultVersion: "1",
     });
+    app.enableCors({
+        credentials: true,
+        origin: true,
+        optionsSuccessStatus: 204,
+        methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    });
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     const swaggerConfig = new DocumentBuilder()
         .setTitle("GameNode API")

@@ -31,7 +31,7 @@ export class AuthService {
             },
             recipeList: [
                 ThirdPartyPasswordless.init({
-                    flowType: "USER_INPUT_CODE",
+                    flowType: "MAGIC_LINK",
                     contactMethod: "EMAIL",
                     providers: [
                         // We have provided you with development keys which you can use for testing.

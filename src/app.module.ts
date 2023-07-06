@@ -14,6 +14,7 @@ import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { ReviewsModule } from "./reviews/reviews.module";
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
     imports: [
@@ -61,6 +62,7 @@ import { ReviewsModule } from "./reviews/reviews.module";
         }),
         StatisticsModule,
         ReviewsModule,
+        ProfileModule,
     ],
     controllers: [AppController],
     providers: [AppService],

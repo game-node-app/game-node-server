@@ -9,12 +9,12 @@ import { Cache } from "cache-manager";
 
 type TokenResponse = {
     access_token: string;
-    // Converted to miliseconds since epoch when stored.
+    // Converted to 'milliseconds since epoch' when stored.
     expires_in: number;
     token_type: string;
 };
 
-export const tokenRefreshIntervalSeconds = 604800;
+export const TOKEN_REFRESH_INTERVAL_SECONDS = 604800;
 
 export class IgdbAuthService {
     private logger: Logger;
@@ -35,7 +35,7 @@ export class IgdbAuthService {
         await this.cacheManager.set(
             this.cacheKey,
             token,
-            tokenRefreshIntervalSeconds * 1000,
+            TOKEN_REFRESH_INTERVAL_SECONDS * 1000,
         );
     }
 
@@ -76,7 +76,7 @@ export class IgdbAuthService {
         const tokenOnStore = await this.getFromStore();
         // (tokenRefreshIntervalSeconds * 1000) days in ms from now.
         const considerExpiredAt =
-            Date.now() + tokenRefreshIntervalSeconds * 1000;
+            Date.now() + TOKEN_REFRESH_INTERVAL_SECONDS * 1000;
         if (
             tokenOnStore == undefined ||
             tokenOnStore.expires_in < considerExpiredAt
