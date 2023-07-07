@@ -38,7 +38,7 @@ describe("LibrariesController", () => {
 
             await controller.findByUserId(mockSession);
 
-            expect(service.findByUserId).toHaveBeenCalledWith("testUserId");
+            expect(service.findOneById).toHaveBeenCalledWith("testUserId");
         });
     });
 

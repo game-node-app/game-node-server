@@ -113,7 +113,7 @@ describe("CollectionsService", () => {
                 name: "testName",
                 description: "testDescription",
             };
-            jest.spyOn(librariesService, "findByUserId").mockResolvedValueOnce(
+            jest.spyOn(librariesService, "findOneById").mockResolvedValueOnce(
                 null,
             );
 
@@ -134,7 +134,7 @@ describe("CollectionsService", () => {
                 description: "testDescription",
             };
             const mockUserLibrary = { id: "testLibraryId" };
-            jest.spyOn(librariesService, "findByUserId").mockRejectedValueOnce(
+            jest.spyOn(librariesService, "findOneById").mockRejectedValueOnce(
                 mockUserLibrary,
             );
 

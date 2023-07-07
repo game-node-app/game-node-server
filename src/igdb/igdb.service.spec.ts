@@ -32,7 +32,7 @@ describe("LibrariesService", () => {
     describe("findByUserId", () => {
         it("should call libraryRepository.findOne with the correct arguments", async () => {
             const mockUserId = "testUserId";
-            await service.findByUserId(mockUserId);
+            await service.findOneById(mockUserId);
             expect(libraryRepositoryMock.findOne).toHaveBeenCalledWith({
                 where: { userId: mockUserId },
                 relations: service["relations"],

@@ -10,6 +10,7 @@ import { CollectionsService } from "../collections/collections.service";
 import { LibrariesService } from "../libraries/libraries.service";
 import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 import { EUserRoles } from "../utils/constants";
+import { ProfileService } from "../profile/profile.service";
 
 /**
  * The Auth Service
@@ -22,6 +23,7 @@ export class AuthService {
         @Inject(ConfigInjectionToken) private config: AuthModuleConfig,
         private collectionsService: CollectionsService,
         private librariesService: LibrariesService,
+        private profileService: ProfileService,
     ) {
         supertokens.init({
             appInfo: config.appInfo,
@@ -127,6 +129,8 @@ export class AuthService {
      *
      * The initialization should not fail no matter what. If it does, unexpected things
      * may happen in all endpoints.
+     *
+     * Make sure to implement uninitialized handlers for each resource.
      * @param userId
      */
     async initUser(userId: string) {
@@ -138,13 +142,33 @@ export class AuthService {
             await UserRoles.addRoleToUser(userId, EUserRoles.USER);
         } catch (e) {}
 
-        await this.librariesService.create(userId);
-        this.logger.log(`Created library for user ${userId} at signup`);
-        for (const defCollection of DEFAULT_COLLECTIONS) {
-            await this.collectionsService.create(userId, defCollection);
+        try {
+            await this.librariesService.create(userId);
+            this.logger.log(`Created library for user ${userId} at signup`);
+            for (const defCollection of DEFAULT_COLLECTIONS) {
+                // Registers the promise but does not wait for it
+                this.collectionsService
+                    .create(userId, defCollection)
+                    .then()
+                    .catch();
+            }
+            this.logger.log(
+                `Created default collections for user ${userId} at signup`,
+            );
+        } catch (e: any) {
+            this.logger.error(
+                `Failed to create library and default collections for user ${userId} at signup`,
+                e,
+            );
         }
-        this.logger.log(
-            `Created default collections for user ${userId} at signup`,
-        );
+
+        try {
+            await this.profileService.create(userId);
+        } catch (e: any) {
+            this.logger.error(
+                `Failed to create profile for user ${userId} at signup`,
+                e,
+            );
+        }
     }
 }

@@ -16,8 +16,6 @@ export class ReviewStatistics {
         nullable: false,
     })
     review: Review;
-    @OneToMany(() => UserLike, (userLike) => userLike.reviewStatistics, {
-        nullable: false,
-    })
+    @OneToMany(() => UserLike, (userLike) => userLike.reviewStatistics)
     likes: UserLike[];
 }

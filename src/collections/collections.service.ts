@@ -1,8 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { Library } from "../libraries/entities/library.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Collection } from "./entities/collection.entity";
-import { Repository } from "typeorm";
+import { FindOptionsRelations, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { IgdbService } from "../igdb/igdb.service";
@@ -11,19 +10,12 @@ import { GameMetadata } from "../utils/game-metadata.dto";
 import { CollectionEntry } from "./entities/collectionEntry.entity";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 
-function formatCollectionName(name: string) {
-    if (!name) {
-        return undefined;
-    }
-    if (name[0] === name[0].toUpperCase()) {
-        return name;
-    } else {
-        return name[0].toUpperCase() + name.slice(1);
-    }
-}
-
 @Injectable()
 export class CollectionsService {
+    private relations: FindOptionsRelations<Collection> = {
+        entries: true,
+        library: true,
+    };
     constructor(
         @InjectRepository(Collection)
         private collectionsRepository: Repository<Collection>,
@@ -38,11 +30,34 @@ export class CollectionsService {
             where: {
                 id,
             },
+            relations: this.relations,
+        });
+    }
+
+    async findOneByIdWithPermissions(userId: string, targetUserId: string) {
+        const collection = await this.collectionsRepository.findOne({
+            where: {
+                id: targetUserId,
+            },
             relations: {
                 entries: true,
                 library: true,
             },
         });
+        if (!collection) {
+            throw new HttpException(
+                "Collection not found.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        if (collection.library.id !== userId && !collection.isPublic) {
+            throw new HttpException(
+                "Collection is not accessible.",
+                HttpStatus.FORBIDDEN,
+            );
+        }
+        return collection;
     }
 
     async findOneEntryById(id: number) {
@@ -69,6 +84,18 @@ export class CollectionsService {
         });
     }
 
+    async findFavoritesCollection(userId: string) {
+        return await this.collectionsRepository.findOne({
+            where: {
+                library: {
+                    id: userId,
+                },
+                isFavoritesCollection: true,
+            },
+            relations: this.relations,
+        });
+    }
+
     /**
      * Shorthand method that fails with a HttpException.
      * @param id {string}
@@ -78,10 +105,7 @@ export class CollectionsService {
             where: {
                 id,
             },
-            relations: {
-                entries: true,
-                library: true,
-            },
+            relations: this.relations,
         });
         if (!collection) {
             throw new HttpException(
@@ -93,7 +117,10 @@ export class CollectionsService {
     }
 
     async create(userId: string, createCollectionDto: CreateCollectionDto) {
-        const userLibrary = await this.librariesService.findByUserId(userId);
+        const userLibrary = await this.librariesService.findOneById(
+            userId,
+            true,
+        );
         if (!userLibrary) {
             throw new HttpException(
                 "User has no library defined.",
@@ -101,10 +128,30 @@ export class CollectionsService {
             );
         }
         const collectionEntity = this.collectionsRepository.create({
-            name: formatCollectionName(createCollectionDto.name),
+            name: createCollectionDto.name,
             description: createCollectionDto.description,
             library: userLibrary,
+            isPublic: createCollectionDto.isPublic,
+            isFavoritesCollection: createCollectionDto.isFavoritesCollection,
         });
+
+        if (collectionEntity.isFavoritesCollection) {
+            const possibleFavoriteCollection =
+                await this.collectionsRepository.findOne({
+                    where: {
+                        library: {
+                            id: userId,
+                        },
+                        isFavoritesCollection: true,
+                    },
+                });
+            if (possibleFavoriteCollection) {
+                throw new HttpException(
+                    "User already has a favourite collection.",
+                    HttpStatus.CONFLICT,
+                );
+            }
+        }
 
         try {
             return await this.collectionsRepository.save(collectionEntity);
@@ -115,12 +162,33 @@ export class CollectionsService {
 
     async update(id: string, updateCollectionDto: UpdateCollectionDto) {
         const collection = await this.findOneByIdOrFail(id);
+        const libraryId = collection.library.id;
+
         const updatedCollection = this.collectionsRepository.create({
             ...collection,
             ...updateCollectionDto,
         });
+
+        if (updatedCollection.isFavoritesCollection) {
+            const possibleFavouriteCollection =
+                await this.collectionsRepository.findOne({
+                    where: {
+                        library: {
+                            id: libraryId,
+                        },
+                        isFavoritesCollection: true,
+                    },
+                });
+            if (possibleFavouriteCollection) {
+                throw new HttpException(
+                    "User already has a favourite collection.",
+                    HttpStatus.CONFLICT,
+                );
+            }
+        }
+
         try {
-            return this.collectionsRepository.save(updatedCollection);
+            return await this.collectionsRepository.save(updatedCollection);
         } catch (e) {
             throw new HttpException(e, 500);
         }

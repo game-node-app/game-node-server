@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
@@ -14,7 +14,8 @@ import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { ReviewsModule } from "./reviews/reviews.module";
-import { ProfileModule } from './profile/profile.module';
+import { ProfileModule } from "./profile/profile.module";
+import { LoggerMiddleware } from "./app.logger.middlewhare";
 
 @Module({
     imports: [
@@ -67,4 +68,8 @@ import { ProfileModule } from './profile/profile.module';
     controllers: [AppController],
     providers: [AppService],
 })
-export class AppModule {}
+export class AppModule {
+    configure(consumer: MiddlewareConsumer): void {
+        consumer.apply(LoggerMiddleware).forRoutes("*");
+    }
+}

@@ -28,33 +28,22 @@ import { CacheInterceptor } from "@nestjs/cache-manager";
 export class CollectionsController {
     constructor(private readonly collectionsService: CollectionsService) {}
 
-    @Get(":id")
-    async findOneById(@Param("id") id: string) {
-        return this.collectionsService.findOneById(id);
-    }
-
-    @Post()
-    async create(
-        @Session() session: SessionContainer,
-        @Body() createCollectionDto: CreateCollectionDto,
-    ) {
-        await this.collectionsService.create(
+    @Get("favorites")
+    async findFavoritesCollection(@Session() session: SessionContainer) {
+        return this.collectionsService.findFavoritesCollection(
             session.getUserId(),
-            createCollectionDto,
         );
     }
 
     /**
      * Returns a specific collection entry based on ID or IGDB ID
-     * It's redudant to return all the entries in the collection, since it's already
-     * included in the /collections/:id endpoint.
      * @param collectionId
      * @param findEntryDto
      */
-    @Get(":colId/entries")
+    @Get(":id/entry")
     @ApiBadRequestResponse({ description: "Invalid query" })
-    async getEntries(
-        @Param("colId") collectionId: string,
+    async findEntryByIgdbIdOrId(
+        @Param("id") collectionId: string,
         @Query() findEntryDto: FindCollectionEntryDto,
     ) {
         if (findEntryDto.entryId) {
@@ -72,14 +61,44 @@ export class CollectionsController {
             );
         }
     }
-    @Post(":colId/entries")
+
+    @Post(":id/entry")
     async addEntry(
-        @Param("colId") collectionId: string,
+        @Param("id") collectionId: string,
         @Body() createCollectionEntryDto: CreateCollectionEntryDto,
     ) {
         return this.collectionsService.createEntry(
             collectionId,
             createCollectionEntryDto,
+        );
+    }
+
+    /**
+     * Returns a collection which the user has access to
+     *
+     * (Either its own collection or a public one)
+     * @param session
+     * @param collectionId
+     */
+    @Get(":id")
+    async findOneByIdWithPermissions(
+        @Session() session: SessionContainer,
+        @Param("id") collectionId: string,
+    ) {
+        return this.collectionsService.findOneByIdWithPermissions(
+            session.getUserId(),
+            collectionId,
+        );
+    }
+
+    @Post()
+    async create(
+        @Session() session: SessionContainer,
+        @Body() createCollectionDto: CreateCollectionDto,
+    ) {
+        await this.collectionsService.create(
+            session.getUserId(),
+            createCollectionDto,
         );
     }
 }

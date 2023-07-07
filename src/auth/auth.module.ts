@@ -10,7 +10,8 @@ import { ConfigInjectionToken, AuthModuleConfig } from "./config.interface";
 import { AuthService } from "./auth.service";
 import { LibrariesModule } from "../libraries/libraries.module";
 import { CollectionsModule } from "../collections/collections.module";
-import { AuthController } from './auth.controller';
+import { AuthController } from "./auth.controller";
+import { ProfileModule } from "../profile/profile.module";
 
 @Module({
     providers: [],
@@ -40,7 +41,7 @@ export class AuthModule implements NestModule {
                 AuthService,
             ],
             exports: [],
-            imports: [LibrariesModule, CollectionsModule],
+            imports: [LibrariesModule, CollectionsModule, ProfileModule],
             module: AuthModule,
         };
     }

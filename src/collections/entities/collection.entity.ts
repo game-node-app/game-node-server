@@ -32,6 +32,8 @@ export class Collection {
         (collectionEntry) => collectionEntry.collection,
     )
     entries: CollectionEntry[];
+    @Column({ nullable: false, default: false })
+    isFavoritesCollection: boolean;
 
     @CreateDateColumn()
     createdAt: Date;

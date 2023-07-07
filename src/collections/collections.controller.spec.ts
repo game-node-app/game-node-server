@@ -80,7 +80,10 @@ describe("CollectionsController", () => {
                 entryId: 5,
             };
 
-            await controller.getEntries(mockCollectionId, mockFindEntryDto);
+            await controller.findEntryByIgdbIdOrId(
+                mockCollectionId,
+                mockFindEntryDto,
+            );
 
             expect(service.findOneEntryById).toHaveBeenCalledWith(
                 mockFindEntryDto.entryId,
@@ -93,7 +96,10 @@ describe("CollectionsController", () => {
                 igdbId: 5,
             };
 
-            await controller.getEntries(mockCollectionId, mockFindEntryDto);
+            await controller.findEntryByIgdbIdOrId(
+                mockCollectionId,
+                mockFindEntryDto,
+            );
 
             expect(service.findOneEntryByIgdbId).toHaveBeenCalledWith(
                 mockFindEntryDto.igdbId,
@@ -105,7 +111,10 @@ describe("CollectionsController", () => {
             const mockFindEntryDto: FindCollectionEntryDto = {};
 
             await expect(
-                controller.getEntries(mockCollectionId, mockFindEntryDto),
+                controller.findEntryByIgdbIdOrId(
+                    mockCollectionId,
+                    mockFindEntryDto,
+                ),
             ).rejects.toThrowError(
                 new HttpException(
                     "Invalid query. Either entryId or igdbId must be provided.",

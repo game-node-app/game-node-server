@@ -5,6 +5,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Library } from "./entities/library.entity";
 import { CollectionsModule } from "../collections/collections.module";
 
+// TODO: Rename this module to the singular form
 @Module({
     imports: [TypeOrmModule.forFeature([Library])],
     controllers: [LibrariesController],

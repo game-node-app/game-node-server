@@ -1,26 +1,130 @@
-import { Injectable } from '@nestjs/common';
-import { CreateProfileDto } from './dto/create-profile.dto';
-import { UpdateProfileDto } from './dto/update-profile.dto';
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import { CreateProfileDto } from "./dto/create-profile.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Profile } from "./entities/profile.entity";
+import { Repository } from "typeorm";
+import { ProfileAvatar } from "./entities/profile-avatar.entity";
+import * as crypto from "crypto";
+import * as path from "path";
+import { publicUploadDir } from "../utils/constants";
+import * as fs from "fs";
+import { generateUsername } from "unique-username-generator";
 
 @Injectable()
 export class ProfileService {
-  create(createProfileDto: CreateProfileDto) {
-    return 'This action adds a new profile';
-  }
+    private logger = new Logger(ProfileService.name);
+    constructor(
+        @InjectRepository(Profile)
+        private profileRepository: Repository<Profile>,
+        @InjectRepository(ProfileAvatar)
+        private profileAvatarRepository: Repository<ProfileAvatar>,
+    ) {}
 
-  findAll() {
-    return `This action returns all profile`;
-  }
+    /**
+     * Called at initial user registration
+     * on initUser() in auth.service.ts
+     * @param userId
+     * @param createProfileDto
+     * @param avatarFile
+     */
+    async create(userId: string) {
+        const placeholderUsername = generateUsername("-", 4, 20);
+        const profile = this.profileRepository.create({
+            id: userId,
+            username: placeholderUsername,
+        });
+        await this.profileRepository.save(profile);
+    }
 
-  findOne(id: number) {
-    return `This action returns a #${id} profile`;
-  }
+    async createAvatar(avatarFile: Express.Multer.File) {
+        const fileName = crypto.randomBytes(16).toString("hex");
+        const fileExt = path.extname(avatarFile.originalname);
 
-  update(id: number, updateProfileDto: UpdateProfileDto) {
-    return `This action updates a #${id} profile`;
-  }
+        const filePath = `${publicUploadDir}/${fileName}${fileExt}`;
+        try {
+            fs.writeFileSync(filePath, avatarFile.buffer);
+        } catch (e) {
+            this.logger.error(e);
+            throw new HttpException("Error saving employee picture.", 500);
+        }
+        const profileAvatar = this.profileAvatarRepository.create({
+            encoding: avatarFile.encoding,
+            filename: fileName,
+            mimetype: avatarFile.mimetype,
+            extension: fileExt,
+            size: avatarFile.size,
+            path: filePath,
+        });
 
-  remove(id: number) {
-    return `This action removes a #${id} profile`;
-  }
+        return await this.profileAvatarRepository.save(profileAvatar);
+    }
+
+    async findAll() {
+        return await this.profileRepository.find();
+    }
+
+    async findOneById(
+        id: string,
+        handleUninitialized = false,
+    ): Promise<Profile | null> {
+        const profile = await this.profileRepository.findOne({
+            where: {
+                id,
+            },
+        });
+        if (!profile && handleUninitialized) {
+            await this.handleUninitializedProfile(id);
+            return await this.findOneById(id);
+        }
+        return profile;
+    }
+
+    async findOneByUserName(username: string) {
+        return await this.profileRepository.findOne({
+            where: {
+                username,
+            },
+        });
+    }
+
+    async update(
+        id: string,
+        updateProfileDto: UpdateProfileDto,
+        avatarFile?: Express.Multer.File,
+    ) {
+        const profile = await this.findOneById(id);
+        if (!profile) {
+            await this.handleUninitializedProfile(id);
+            throw new HttpException(
+                "Profile was not found",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+        if (updateProfileDto.username) {
+            const possibleProfile = await this.findOneByUserName(
+                updateProfileDto.username,
+            );
+            if (possibleProfile) {
+                throw new HttpException(
+                    "A profile with the same username already exists",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+            profile.username = updateProfileDto.username;
+        }
+        if (updateProfileDto.avatar && avatarFile) {
+            if (profile.avatar) {
+                await this.profileAvatarRepository.delete({
+                    id: profile.avatar.id,
+                });
+            }
+            profile.avatar = await this.createAvatar(avatarFile);
+        }
+        await this.profileRepository.save(profile);
+    }
+
+    async handleUninitializedProfile(userId: string) {
+        await this.create(userId);
+    }
 }

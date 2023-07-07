@@ -13,6 +13,14 @@ export class Review {
     id: string;
     @Column({ nullable: false })
     userId: string;
+    @Column({ nullable: false })
+    igdbId: number;
+    @Column({ nullable: false })
+    title: string;
+    @Column({ nullable: false, type: "longtext" })
+    content: string;
+    @Column({ nullable: false })
+    rating: number;
     @OneToOne(
         () => ReviewStatistics,
         (reviewStatistics) => reviewStatistics.review,

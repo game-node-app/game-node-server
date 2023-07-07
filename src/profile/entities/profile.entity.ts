@@ -5,14 +5,21 @@ import {
     JoinColumn,
     OneToOne,
     PrimaryColumn,
+    PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { ProfileAvatar } from "./profile-avatar.entity";
 
 @Entity()
 export class Profile {
-    // Same as SuperTokens' userId
-    @PrimaryColumn()
+    /**
+     * Shareable string ID
+     *
+     * Same as SuperTokens' userId.
+     */
+    @PrimaryColumn({
+        type: "uuid",
+    })
     id: string;
     @Column({ nullable: true })
     username?: string;

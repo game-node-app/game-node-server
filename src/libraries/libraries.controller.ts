@@ -9,8 +9,6 @@ import {
     UseGuards,
 } from "@nestjs/common";
 import { LibrariesService } from "./libraries.service";
-import { CreateLibraryDto } from "./dto/create-library.dto";
-import { UpdateLibraryDto } from "./dto/update-library.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiTags } from "@nestjs/swagger";
 import { SessionContainer } from "supertokens-node/recipe/session";
@@ -24,11 +22,17 @@ export class LibrariesController {
 
     @Get()
     async findByUserId(@Session() session: SessionContainer) {
-        return this.librariesService.findByUserId(session.getUserId());
+        return this.librariesService.findOneById(session.getUserId(), true);
     }
 
     @Get(":id")
-    async findById(@Param("id") id: string) {
-        return this.librariesService.findById(id);
+    async findById(
+        @Session() session: SessionContainer,
+        @Param("id") id: string,
+    ) {
+        return this.librariesService.findOneByIdWithPermissions(
+            session.getUserId(),
+            id,
+        );
     }
 }
