@@ -22,7 +22,9 @@ import { LoggerMiddleware } from "./app.logger.middlewhare";
         ScheduleModule.forRoot(),
         ConfigModule.forRoot(),
         AuthModule.forRoot({
-            // https://try.supertokens.com is for demo purposes. Replace this with the address of your core instance (sign up on supertokens.com), or self host a core.
+            // https://try.supertokens.com is for demo purposes.
+            // Replace this with the address of your core instance (sign up on supertokens.com),
+            // or self-host a core.
             connectionURI: process.env.SUPERTOKENS_CORE_URI as string,
             // apiKey: <API_KEY(if configured)>,
             appInfo: {
@@ -43,6 +45,7 @@ import { LoggerMiddleware } from "./app.logger.middlewhare";
             database: process.env.DB_DATABASE,
             autoLoadEntities: true,
             synchronize: false,
+            debug: process.env.NODE_ENV === "development",
         }),
         CollectionsModule,
         LibrariesModule,
