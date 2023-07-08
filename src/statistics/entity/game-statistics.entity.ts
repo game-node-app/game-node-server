@@ -1,4 +1,10 @@
-import { Entity, OneToMany, PrimaryColumn } from "typeorm";
+import {
+    CreateDateColumn,
+    Entity,
+    OneToMany,
+    PrimaryColumn,
+    UpdateDateColumn,
+} from "typeorm";
 import { UserLike } from "./user-like.entity";
 import { UserView } from "./user-view.entity";
 
@@ -16,4 +22,8 @@ export class GameStatistics {
     likes: UserLike[];
     @OneToMany(() => UserView, (userView) => userView.gameStatistics)
     views: UserView[];
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
 }

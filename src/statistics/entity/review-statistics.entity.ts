@@ -1,9 +1,10 @@
 import {
-    Column,
+    CreateDateColumn,
     Entity,
     OneToMany,
     OneToOne,
     PrimaryGeneratedColumn,
+    UpdateDateColumn,
 } from "typeorm";
 import { UserLike } from "./user-like.entity";
 import { Review } from "../../reviews/entities/review.entity";
@@ -18,4 +19,8 @@ export class ReviewStatistics {
     review: Review;
     @OneToMany(() => UserLike, (userLike) => userLike.reviewStatistics)
     likes: UserLike[];
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
 }

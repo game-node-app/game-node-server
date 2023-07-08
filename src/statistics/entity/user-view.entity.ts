@@ -1,6 +1,12 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {
+    Column,
+    CreateDateColumn,
+    Entity,
+    ManyToOne,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
+} from "typeorm";
 import { GameStatistics } from "./game-statistics.entity";
-import { ReviewStatistics } from "./review-statistics.entity";
 
 /**
  * While it's called UserView, it also contains anonymous views (userId is set to null).
@@ -13,8 +19,12 @@ export class UserView {
     id: number;
 
     @Column({ nullable: true })
-    userId: string;
+    userId?: string;
 
     @ManyToOne(() => GameStatistics, (gameStatistics) => gameStatistics.views)
     gameStatistics: GameStatistics;
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
 }

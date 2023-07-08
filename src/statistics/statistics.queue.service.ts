@@ -14,7 +14,7 @@ export class StatisticsQueueService {
         );
     }
 
-    async registerGameLike(igdbId: number, userId: string) {
+    async registerGameLike(igdbId: number, userId?: string) {
         await this.statisticsQueue.add("registerGameLike", { igdbId, userId });
     }
 }

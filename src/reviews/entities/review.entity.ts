@@ -1,9 +1,11 @@
 import {
     Column,
+    CreateDateColumn,
     Entity,
     JoinColumn,
     OneToOne,
     PrimaryGeneratedColumn,
+    UpdateDateColumn,
 } from "typeorm";
 import { ReviewStatistics } from "../../statistics/entity/review-statistics.entity";
 
@@ -27,4 +29,8 @@ export class Review {
     )
     @JoinColumn()
     reviewStatistics: ReviewStatistics;
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
 }
