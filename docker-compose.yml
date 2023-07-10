@@ -1,0 +1,112 @@
+version: '3'
+
+# The only exposed service here is the actual app.
+# It's your call if you want to expose the other services to the host. However, make sure to use actual
+# env variables here if you choose to map the port to the host!!
+
+
+services:
+  db:
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE: ${DB_DATABASE}
+
+    expose:
+      - 3306
+    networks:
+      - app_network
+    restart: always
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+
+  supertokens:
+    image: registry.supertokens.io/supertokens/supertokens-mysql:6.0
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - 3567
+
+    environment:
+      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/${DB_DATABASE}
+    networks:
+      - app_network
+    restart: always
+
+    healthcheck:
+      test: >
+        bash -c 'exec 3<>/dev/tcp/127.0.0.1/3567 && echo -e "GET /hello HTTP/1.1\r\nhost: 127.0.0.1:3567\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep "Hello"'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    expose:
+      - 6379
+    environment:
+      ALLOW_EMPTY_PASSWORD: 'yes'
+
+    restart: always
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+
+    volumes:
+      - redis:/data
+
+    networks:
+      - app_network
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    depends_on:
+      db:
+        condition: service_healthy
+      supertokens:
+          condition: service_healthy
+      redis:
+          condition: service_healthy
+
+    env_file: ./.env
+
+    # Most of the env vars are loaded directly from .env, we only need to override some to make sure
+    # the docker resources are accessible.
+    environment:
+      DB_HOST: db
+      SUPERTOKENS_CORE_URI: http://śupertokens:3567
+      REDIS_URL: redis://redis:6379
+
+    restart: always
+
+    command: ["yarn", "start:dev"]
+
+    networks:
+      - app_network
+    volumes:
+      # This links the current folder (root) to the /app directory in the container. All file changes will be tracked
+      # by NestJS and the server will be restarted automatically.
+      - .:/app
+
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  redis:
+  db:
+

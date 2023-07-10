@@ -26,37 +26,52 @@
 
 A NestJS API responsible for handling all GameNode requests.
 
-## Installation
 
+## Docker
+You can use the `docker-compose.yml` file in the root folder to start a local instance of GameNode.  
+It will automatically set up a Supertokens instance, the NestJS server, a MySQL database and a Redis instance.  
+If you are looking to self-host GameNode (server), this is the easiest way to do it.  
+
+Running with Docker + Docker Swarm is the easiest way to deploy GameNode (server) to production.  
+Basically, point your NGINX configuration to the port specified in `SERVER_PORT` in your `.env` file, and choose an appropriate number of instances 
+under gamenode's service deploy section.
+
+#### Important:
+You still need to set up `.env` file. Most of the docker-compose parameters come from it. See [Installation](#installation) for more details.
+
+#### Migrations and Docker
+The default docker-compose files will **not** run migrations automatically.    
+Migrations are dangerous and should be run manually, after checking each generated migration file.  
+
+You can attach to any running gamenode container and run the migrations manually:
+```bash
+$ docker exec -it gamenode_gamenode_1 bash # Replace gamenode_gamenode_1 with your container name
+$ yarn typeorm:migration:generate
+# ... manually check the generated migration file (it's on /usr/src/gamenode/src/migrations by default)
+$ yarn typeorm:migration:run
+# No need to restart the container, changes are made directly to MySQL.
+```
+
+Bugs and issues related to migrations are not covered by support, and should instead be reported to the [TypeORM team](https://github.com/typeorm/typeorm).
+
+
+## Installation
 ```bash
 $ yarn
 ```
 
 Use the `.env.example` file as an example for your own `.env` file.  
-All parameters are required.
+All parameters are required.  
 
-### Dependencies
 You will also need to install MySQL, Redis and have a Supertokens instance running.
 You can use a managed version of all of these services.
 
+### SuperTokens
 Hosting your own instance of Supertokens is not required for local development.
 You can instead use their public instance url:  
 ```dotenv
 SUPERTOKENS_CORE_URI=https://try.supertokens.io
 ```
-
-### IGDB
-IGDB is used to fetch game data.  
-It's mandatory to have a Twitch Developer account to use its services.  
-You can create one here: https://dev.twitch.tv/console/apps/create
-Use the client id and secret to fill the IGDB parameters in your `.env` file.
-```dotenv
-TWITCH_CLIENT_ID=your_twitch_client_id
-TWITCH_CLIENT_SECRET=your_twitch_client_secret
-```
-
-The `IGDBAuthService` on the `igdb` module will fetch a new access token (which is a Bearer token) periodically, and store it in your Redis instance.  
-Make sure it's secure.
 
 ### Database
 After setting up your database credentials in `.env`, run the migrations:
@@ -68,6 +83,20 @@ $ yarn typeorm:migration:run
 We use TypeORM to handle everything related to database. You only need to run migrations when changing the models (.entity.ts) files, or when you first start the app.
 #### Important
 ALWAYS check your migrations before running them. Typeorm may sometimes drop important tables and columns.
+
+## IGDB
+IGDB is used to fetch game data.  
+It's mandatory to have a Twitch Developer account to use its services.  
+You can create one here: https://dev.twitch.tv/console/apps/create  
+
+Use the client id and secret to fill the IGDB parameters in your `.env` file.
+```dotenv
+TWITCH_CLIENT_ID=your_twitch_client_id
+TWITCH_CLIENT_SECRET=your_twitch_client_secret
+```
+
+The `IGDBAuthService` on the `igdb` module will fetch a new access token (which is a Bearer token) periodically, and store it in your Redis instance.  
+Make sure it's secure.
 
 
 ## Running the app

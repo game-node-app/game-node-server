@@ -59,10 +59,7 @@ import { LoggerMiddleware } from "./app.logger.middlewhare";
             }),
         }),
         BullModule.forRoot({
-            redis: {
-                host: process.env.REDIS_HOST,
-                port: parseInt(process.env.REDIS_PORT as string),
-            },
+            redis: process.env.REDIS_URL,
         }),
         StatisticsModule,
         ReviewsModule,

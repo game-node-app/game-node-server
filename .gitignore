@@ -38,11 +38,13 @@ lerna-debug.log*
 .env.local
 .env.development
 .env.production
+.env.docker
 
 /src/migrations/*
 !/src/migrations
 
 /public/uploads/*
+!/public/uploads
 
 build
 dist

@@ -7,6 +7,8 @@ import { GameStatistics } from "./entity/game-statistics.entity";
 import { ReviewStatistics } from "./entity/review-statistics.entity";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
+import { StatisticsGameController } from "./statistics.game.controller";
+import { StatisticsGameService } from "./statistics.game.service";
 
 @Module({
     imports: [
@@ -18,7 +20,11 @@ import { UserView } from "./entity/user-view.entity";
             UserView,
         ]),
     ],
-    controllers: [],
-    providers: [StatisticsQueueService, StatisticsProcessorService],
+    controllers: [StatisticsGameController],
+    providers: [
+        StatisticsQueueService,
+        StatisticsProcessorService,
+        StatisticsGameService,
+    ],
 })
 export class StatisticsModule {}

@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { NestExpressApplication } from "@nestjs/platform-express";
 
 import { publicUploadDir } from "./utils/constants";
+import * as process from "process";
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -35,17 +36,14 @@ async function bootstrap() {
         .setVersion("1.0")
         .build();
 
-    const swaggerDocument = await SwaggerModule.createDocument(
-        app,
-        swaggerConfig,
-    );
+    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
 
     SwaggerModule.setup("v1/docs", app, swaggerDocument);
     app.useGlobalFilters(new SupertokensExceptionFilter());
     app.useStaticAssets(publicUploadDir, {
         prefix: "/v1/public/uploads",
     });
-    await app.listen(5000);
+    await app.listen(process.env.SERVER_PORT || 5000);
 }
 
 bootstrap();

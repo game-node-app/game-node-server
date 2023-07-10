@@ -12,6 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "start:docker": "docker compose up -d --build",
     "typeorm": "typeorm-ts-node-commonjs",
     "typeorm:migration:generate": "npm run typeorm migration:generate ./src/migrations/all -- -d ./data-source.ts",
     "typeorm:migration:run": "npm run typeorm migration:run -- -d ./data-source.ts",

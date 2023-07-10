@@ -19,7 +19,10 @@ export class Library {
      * Same as SuperTokens' userId.
      */
     @PrimaryColumn({
-        type: "uuid",
+        generated: "uuid",
+        nullable: false,
+        length: 36,
+        type: "varchar",
     })
     id: string;
     @OneToMany(() => Collection, (collection) => collection.library)
