@@ -1,10 +1,3 @@
-export enum DataSources {
-    igdb = "igdb",
-    psn = "psn",
-    steam = "steam",
-    xbox = "xbox",
-}
-
 enum PossibleImageSizes {
     cover_small = "cover_small",
     screenshot_med = "screenshot_med",

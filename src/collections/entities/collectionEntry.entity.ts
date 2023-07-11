@@ -7,8 +7,8 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 import { Collection } from "./collection.entity";
-import { DataSources } from "../../igdb/igdb.constants";
 import { GameMetadata } from "../../utils/game-metadata.dto";
+import { DataSources } from "../../app.constants";
 
 /**
  * The entity that represents a game in a collection.

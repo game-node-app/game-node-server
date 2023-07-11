@@ -23,17 +23,22 @@ import { FindIgdbIdDto } from "./dto/find-igdb-id.dto";
 export class IgdbController {
     constructor(private readonly igdbService: IgdbService) {}
 
-    @Post()
+    @Get()
     @HttpCode(200)
     @CacheTTL(300)
-    async find(@Body() dto: FindIgdbDto): Promise<GameMetadata[]> {
+    async find(@Query() dto: FindIgdbDto): Promise<GameMetadata[]> {
         return await this.igdbService.find(dto);
     }
 
-    @Post("ids")
+    /**
+     * A post request allows us to easily send the array of ids in the body, making it easier for some API clients (like Imsomnia).
+     * Since CacheManager doesn't work with anything non-GET, the cache is handled internally in the service.
+     * @param dto
+     */
+    @Post(":igdbIds")
     @HttpCode(200)
-    @CacheTTL(60)
-    async findByIds(@Body() dto: FindIgdbIdDto) {
+    @CacheTTL(120)
+    async findByIds(@Param() dto: FindIgdbIdDto) {
         return await this.igdbService.findByIds(dto);
     }
 }

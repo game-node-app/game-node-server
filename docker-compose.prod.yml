@@ -84,7 +84,7 @@ services:
     # the docker resources are accessible.
     environment:
       DB_HOST: db
-      SUPERTOKENS_CORE_URI: http://śupertokens:3567
+      SUPERTOKENS_CORE_URI: http://@supertokens:3567
       REDIS_URL: redis://redis:6379
       SERVER_PORT: 5000
 

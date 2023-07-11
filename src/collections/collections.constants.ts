@@ -27,13 +27,13 @@ export const DEFAULT_COLLECTIONS: CreateCollectionDto[] = [
     },
     {
         name: "Dropped",
-        description: "Games that you have dropped",
+        description: "Games that i've have dropped",
         isPublic: true,
         isFavoritesCollection: false,
     },
     {
         name: "Favorites",
-        description: "Games that you have favorited",
+        description: "My favorite games",
         isPublic: true,
         isFavoritesCollection: true,
     },

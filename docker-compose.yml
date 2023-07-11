@@ -36,6 +36,7 @@ services:
 
     environment:
       MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/${DB_DATABASE}
+      # SUPERTOKENS_HOST: db
     networks:
       - app_network
     restart: always
@@ -66,9 +67,7 @@ services:
       - app_network
 
   server:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: node:18
 
     depends_on:
       db:
@@ -84,12 +83,15 @@ services:
     # the docker resources are accessible.
     environment:
       DB_HOST: db
-      SUPERTOKENS_CORE_URI: http://śupertokens:3567
+      # Specifies the host of the supertokens core instance. This is used to connect to the core instance.
+      SUPERTOKENS_CORE_URI: http://@supertokens:3567
       REDIS_URL: redis://redis:6379
+
 
     restart: always
 
-    command: ["yarn", "start:dev"]
+    command: "yarn start:dev:docker"
+
 
     networks:
       - app_network
@@ -97,6 +99,8 @@ services:
       # This links the current folder (root) to the /app directory in the container. All file changes will be tracked
       # by NestJS and the server will be restarted automatically.
       - .:/app
+
+    working_dir: "/app"
 
     ports:
       - ${SERVER_PORT}:${SERVER_PORT}

@@ -13,9 +13,18 @@ type TokenResponse = {
     expires_in: number;
     token_type: string;
 };
+/**
+ * The interval in seconds to refresh the access token.
+ *
+ * IGDB tokens actually last 60 days, but we're using 3 days to be safe.
+ */
+export const TOKEN_REFRESH_INTERVAL_SECONDS = 259200;
 
-export const TOKEN_REFRESH_INTERVAL_SECONDS = 604800;
-
+/**
+ * This is used internally by the IgdbService. <br>
+ * Automatically refreshes the access token every ${TOKEN_REFRESH_INTERVAL_SECONDS} seconds, storing it in the
+ * Redis Instance used by the CacheManager.
+ */
 export class IgdbAuthService {
     private logger: Logger;
     private cacheKey = "TWITCH_ACCESS_TOKEN";
@@ -47,7 +56,8 @@ export class IgdbAuthService {
                 "TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET is not defined. Aborting.",
             );
         }
-        const response = await this.httpService.post<TokenResponse>(
+
+        const response = this.httpService.post<TokenResponse>(
             "https://id.twitch.tv/oauth2/token",
             null,
             {
@@ -59,7 +69,7 @@ export class IgdbAuthService {
             },
         );
 
-        return lastValueFrom(
+        return await lastValueFrom(
             response.pipe(
                 map((res) => {
                     const { data } = res;

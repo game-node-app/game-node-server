@@ -43,6 +43,7 @@ async function bootstrap() {
     app.useStaticAssets(publicUploadDir, {
         prefix: "/v1/public/uploads",
     });
+
     await app.listen(process.env.SERVER_PORT || 5000);
 }
 

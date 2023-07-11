@@ -30,11 +30,7 @@ A NestJS API responsible for handling all GameNode requests.
 ## Docker
 You can use the `docker-compose.yml` file in the root folder to start a local instance of GameNode.  
 It will automatically set up a Supertokens instance, the NestJS server, a MySQL database and a Redis instance.  
-If you are looking to self-host GameNode (server), this is the easiest way to do it.  
-
-Running with Docker + Docker Swarm is the easiest way to deploy GameNode (server) to production.  
-Basically, point your NGINX configuration to the port specified in `SERVER_PORT` in your `.env` file, and choose an appropriate number of instances 
-under gamenode's service deploy section.
+If you are looking to self-host GameNode (server), this is the easiest way to do it.
 
 #### Important:
 You still need to set up `.env` file. Most of the docker-compose parameters come from it. See [Installation](#installation) for more details.
@@ -51,6 +47,10 @@ $ yarn typeorm:migration:generate
 $ yarn typeorm:migration:run
 # No need to restart the container, changes are made directly to MySQL.
 ```
+
+You can also attach your editor to the Docker container if it supports remote development (like VS Code, IntelliJ IDEA, etc.).
+
+The provided MySQL instance will hold all data for both GameNode Server itself and from Supertokens.  
 
 Bugs and issues related to migrations are not covered by support, and should instead be reported to the [TypeORM team](https://github.com/typeorm/typeorm).
 

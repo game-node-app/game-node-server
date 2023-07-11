@@ -91,12 +91,14 @@ export class IgdbService {
         "genres.*",
         "platforms.*",
         "dlcs.*",
+        "rating",
         "expansions.*",
         "similar_games",
         "cover.*",
         "artworks.*",
         "collection",
         "category",
+        "language_supports.*",
     ];
     private logger: Logger;
     constructor(
@@ -141,6 +143,11 @@ export class IgdbService {
         return JSON.stringify(dto);
     }
 
+    /**
+     * Retrieves games from IGDB from a list of IGDB IDs.
+     * Automatically caches the results, and only make requests for non-cached entries.
+     * @param queryIdDto
+     */
     async findByIds(queryIdDto: FindIgdbIdDto) {
         try {
             const storeKey = this.buildStoreKey(queryIdDto);
