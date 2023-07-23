@@ -60,23 +60,10 @@ export class CollectionsService {
         return collection;
     }
 
-    async findOneEntryById(id: number) {
-        return this.collectionEntriesRepository.findOne({
-            where: {
-                id,
-            },
-            relations: {
-                collection: true,
-            },
-        });
-    }
-
     async findOneEntryByIgdbId(igdbId: number) {
         return this.collectionEntriesRepository.findOne({
             where: {
-                data: {
-                    igdbId,
-                },
+                igdbId,
             },
             relations: {
                 collection: true,
@@ -200,7 +187,8 @@ export class CollectionsService {
     ) {
         const collection = await this.findOneByIdOrFail(collectionId);
         const { igdbId } = createEntryDto;
-        const games: GameMetadata[] = await this.igdbService.findByIdsOrFail({
+
+        const [games] = await this.igdbService.findByIdsOrFail({
             igdbIds: [igdbId],
         });
 

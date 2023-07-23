@@ -103,9 +103,31 @@ services:
       restart_policy:
         condition: on-failure
 
-    ports:
-      - "5000-5002:5000"
+    expose:
+      - "5000"
 
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.server.rule=Host(`${GAME_NODE_SERVER_HOSTNAME}`)'
+      - 'traefik.http.routers.server.entrypoints=websecure'
+      - 'traefik.http.services.server.loadbalancer.server.port=5000'
+
+  traefik:
+    image: traefik:v2.5
+    command:
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+
+    # Point your domain to the server's hostname:8080.
+    # This avoids conflicts with the web-client's compose file.
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - app_network
 
 networks:
   app_network:

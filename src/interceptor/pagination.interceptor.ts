@@ -8,8 +8,10 @@ import { BaseFindDto } from "../utils/base-find.dto";
 
 /**
  * Interceptor that automatically builds pagination data based on results.<br>
- * This only affects requests that return a TPaginationData<T> = [T[], number] array. <br>
- * If another type of object is received, it will be passed through without any changes. <br>
+ * This only affects requests that return a [T[], number] array. <br>
+ * If another type of object is received, an error will be thrown. <br>
+ * Keep in mind that decorators (and thereby interceptors) can't inspect the actual type of the object returned by the controller,
+ * so Typescript won't know if it's being used on the wrong data type.
  */
 export class PaginationInterceptor<T>
     implements NestInterceptor<TPaginationData<T>, TPaginationResponse<T>>
@@ -37,6 +39,7 @@ export class PaginationInterceptor<T>
             limit: Number.isNaN(limit) ? undefined : limit,
         };
     }
+
     intercept(
         context: ExecutionContext,
         next: CallHandler<TPaginationData<T>>,
@@ -47,10 +50,7 @@ export class PaginationInterceptor<T>
         const simplifiedDto = this.buildSimplifiedDto(request);
         return next.handle().pipe(
             map((data) => {
-                if (data instanceof Array) {
-                    return buildPaginationResponse<T>(data, simplifiedDto);
-                }
-                return data;
+                return buildPaginationResponse<T>(data, simplifiedDto);
             }),
         );
     }

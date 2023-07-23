@@ -41,7 +41,6 @@ lerna-debug.log*
 .env.docker
 
 /src/migrations/*
-!/src/migrations
 
 /public/uploads/*
 !/public/uploads

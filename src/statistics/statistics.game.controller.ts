@@ -10,7 +10,7 @@ import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { StatisticsQueueService } from "./statistics.queue.service";
 import { StatisticsGameService } from "./statistics.game.service";
-import { CacheInterceptor } from "@nestjs/cache-manager";
+import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 
 /**
  * StatisticsGameController

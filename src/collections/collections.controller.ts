@@ -3,11 +3,8 @@ import {
     Get,
     Post,
     Body,
-    Patch,
     Param,
-    Delete,
     UseGuards,
-    Query,
     HttpException,
     UseInterceptors,
 } from "@nestjs/common";
@@ -18,7 +15,6 @@ import { AuthGuard } from "../auth/auth.guard";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { CreateCollectionEntryDto } from "./dto/create-collectionEntry.dto";
-import { FindCollectionEntryDto } from "./dto/find-collection-entry.dto";
 import { ApiBadRequestResponse } from "@nestjs/swagger";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 
@@ -36,30 +32,23 @@ export class CollectionsController {
     }
 
     /**
-     * Returns a specific collection entry based on ID or IGDB ID
+     * Returns a specific collection entry based on IGDB ID
      * @param collectionId
      * @param findEntryDto
      */
-    @Get(":id/entry")
+    @Get(":id/entry/:igdbId")
     @ApiBadRequestResponse({ description: "Invalid query" })
     async findEntryByIgdbIdOrId(
         @Param("id") collectionId: string,
-        @Query() findEntryDto: FindCollectionEntryDto,
+        @Param("igdbId") igdbId: number,
     ) {
-        if (findEntryDto.entryId) {
-            return this.collectionsService.findOneEntryById(
-                findEntryDto.entryId,
-            );
-        } else if (findEntryDto.igdbId) {
-            return this.collectionsService.findOneEntryByIgdbId(
-                findEntryDto.igdbId,
-            );
-        } else {
+        if (igdbId == undefined) {
             throw new HttpException(
-                "Invalid query. Either entryId or igdbId must be provided.",
+                "Invalid query. igdbId must be provided.",
                 400,
             );
         }
+        return this.collectionsService.findOneEntryByIgdbId(igdbId);
     }
 
     @Post(":id/entry")

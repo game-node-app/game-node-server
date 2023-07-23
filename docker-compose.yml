@@ -9,16 +9,16 @@ services:
   db:
     image: mysql:latest
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASS}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASS}
-      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: gamenode
+      MYSQL_PASSWORD: gamenode
+      MYSQL_DATABASE: gamenode
 
-    expose:
-      - 3306
+    ports:
+      - "3306:3306"
     networks:
       - app_network
-    restart: always
+    restart: no
     volumes:
       - db:/var/lib/mysql
     healthcheck:
@@ -31,15 +31,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    expose:
-      - 3567
+    ports:
+      - "3567:3567"
 
     environment:
-      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/${DB_DATABASE}
+      MYSQL_CONNECTION_URI: mysql://gamenode:gamenode@db:3306/gamenode
       # SUPERTOKENS_HOST: db
     networks:
       - app_network
-    restart: always
+    restart: no
 
     healthcheck:
       test: >
@@ -50,12 +50,12 @@ services:
 
   redis:
     image: redis:latest
-    expose:
-      - 6379
+    ports:
+      - "6379:6379"
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
 
-    restart: always
+    restart: no
 
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -65,45 +65,6 @@ services:
 
     networks:
       - app_network
-
-  server:
-    image: node:18
-
-    depends_on:
-      db:
-        condition: service_healthy
-      supertokens:
-          condition: service_healthy
-      redis:
-          condition: service_healthy
-
-    env_file: ./.env
-
-    # Most of the env vars are loaded directly from .env, we only need to override some to make sure
-    # the docker resources are accessible.
-    environment:
-      DB_HOST: db
-      # Specifies the host of the supertokens core instance. This is used to connect to the core instance.
-      SUPERTOKENS_CORE_URI: http://@supertokens:3567
-      REDIS_URL: redis://redis:6379
-
-
-    restart: always
-
-    command: "yarn start:dev:docker"
-
-
-    networks:
-      - app_network
-    volumes:
-      # This links the current folder (root) to the /app directory in the container. All file changes will be tracked
-      # by NestJS and the server will be restarted automatically.
-      - .:/app
-
-    working_dir: "/app"
-
-    ports:
-      - ${SERVER_PORT}:${SERVER_PORT}
 
 
 networks:

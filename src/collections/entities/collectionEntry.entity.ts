@@ -3,7 +3,7 @@ import {
     CreateDateColumn,
     Entity,
     ManyToOne,
-    PrimaryGeneratedColumn,
+    PrimaryColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { Collection } from "./collection.entity";
@@ -18,29 +18,33 @@ import { DataSources } from "../../app.constants";
  */
 @Entity()
 export class CollectionEntry {
-    /**
-     * Not to be confused with the igdbId property from GameMetadata
-     */
-    @PrimaryGeneratedColumn()
-    id: number;
-    /**
-     * Redudant, since it's also available in the data property.
-     * Still, this allows us to easily find a entry by the igdbId, so it's worth it.
-     * Feel free to open a PR if you have a better idea (i know you do).
-     */
-    @Column({ nullable: false })
+    @PrimaryColumn()
     igdbId: number;
+
+    @PrimaryColumn()
+    collectionId: string;
+
     @Column({
         nullable: false,
         type: "json",
     })
     data: GameMetadata;
+
     @ManyToOne(() => Collection, (collection) => collection.entries, {
         nullable: false,
     })
     collection: Collection;
+
     @CreateDateColumn()
     createdAt: Date;
+
     @UpdateDateColumn()
     updatedAt: Date;
+
+    /**
+     * Call this after setting collection to update the collectionId
+     */
+    updateCollectionId(): void {
+        this.collectionId = this.collection.id;
+    }
 }

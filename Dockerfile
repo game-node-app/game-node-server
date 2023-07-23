@@ -15,4 +15,4 @@ RUN rm -f .env
 # Build app
 RUN yarn build
 
-# Do not start the application here, since env variables are not yet loaded.
+CMD yarn start

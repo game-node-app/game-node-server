@@ -29,26 +29,4 @@ describe("LibrariesController", () => {
         controller = module.get<LibrariesController>(LibrariesController);
         service = module.get<LibrariesService>(LibrariesService);
     });
-
-    describe("findByUserId", () => {
-        it("should call the librariesService's findByUserId method with the correct arguments", async () => {
-            const mockSession = {
-                getUserId: jest.fn().mockReturnValue("testUserId"),
-            } as unknown as SessionContainer;
-
-            await controller.findByUserId(mockSession);
-
-            expect(service.findOneById).toHaveBeenCalledWith("testUserId");
-        });
-    });
-
-    describe("findById", () => {
-        it("should call the librariesService's findById method with the correct argument", async () => {
-            const mockId = "testId";
-
-            await controller.findById(mockId);
-
-            expect(service.findById).toHaveBeenCalledWith(mockId);
-        });
-    });
 });

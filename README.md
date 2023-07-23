@@ -43,9 +43,14 @@ You can attach to any running gamenode container and run the migrations manually
 ```bash
 $ docker exec -it gamenode_gamenode_1 bash # Replace gamenode_gamenode_1 with your container name
 $ yarn typeorm:migration:generate
-# ... manually check the generated migration file (it's on /usr/src/gamenode/src/migrations by default)
+# ... manually check the generated migration file
 $ yarn typeorm:migration:run
 # No need to restart the container, changes are made directly to MySQL.
+```
+
+If you are developing locally, you can use this command to spin up your containers and start the server:
+```bash
+$ yarn start:dev:docker # docker compose up -d && yarn start:dev
 ```
 
 You can also attach your editor to the Docker container if it supports remote development (like VS Code, IntelliJ IDEA, etc.).

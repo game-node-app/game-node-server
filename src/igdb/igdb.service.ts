@@ -19,12 +19,24 @@ import { GameMetadata } from "../utils/game-metadata.dto";
 import { FindIgdbIdDto } from "./dto/find-igdb-id.dto";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
+import { AxiosResponse } from "axios";
+import {
+    TPaginationData,
+    TPaginationInfo,
+    TPaginationResponse,
+} from "../utils/buildPaginationResponse";
 
 function normalizeResults(
     results: any[],
     coverSize?: ImageSize,
     imageSize?: ImageSize,
 ): GameMetadata[] {
+    /**
+     * Predefined descriptions of some of the images that IGDB returns.
+     * Cover: The cover image of the game.
+     * Screenshots: The screenshots of the game. Generally these should be bigger than a cover's.
+     * Artworks: The artworks of the game. Generally these should be bigger than a cover's.
+     */
     const images = [
         { name: "cover", size: coverSize, fallback: "cover_big" },
         {
@@ -99,6 +111,7 @@ export class IgdbService {
         "collection",
         "category",
         "language_supports.*",
+        "first_release_date",
     ];
     private logger: Logger;
     constructor(
@@ -144,64 +157,44 @@ export class IgdbService {
     }
 
     /**
-     * Retrieves games from IGDB from a list of IGDB IDs.
-     * Automatically caches the results, and only make requests for non-cached entries.
+     * A shorthand that builds a where clause based on the provided ids.
      * @param queryIdDto
      */
-    async findByIds(queryIdDto: FindIgdbIdDto) {
-        try {
-            const storeKey = this.buildStoreKey(queryIdDto);
-            const cached = await this.getFromStore(storeKey);
-            if (cached) {
-                return cached;
-            }
-        } catch (e) {
-            this.logger.error("Error while loading cached entries");
-            this.logger.error(e.message, e.stack);
-        }
-
-        const search = this.igdbClient
-            .fields(this.igdbFields)
-            .limit(queryIdDto.limit || 20)
-            .offset(queryIdDto.offset || 0);
-
-        if (queryIdDto.sort) {
-            search.sort(queryIdDto.sort);
+    async findByIds(
+        queryIdDto: FindIgdbIdDto,
+    ): Promise<TPaginationData<GameMetadata>> {
+        if (!queryIdDto || !queryIdDto.igdbIds) {
+            throw new HttpException("No ids provided", HttpStatus.BAD_REQUEST);
         }
         const idsStringArray = queryIdDto.igdbIds.map((v) => `${v}`);
-        search.where(`id = (${idsStringArray})`);
-        const request = await search.request("/games");
-
-        const results = normalizeResults(
-            request.data,
-            queryIdDto.coverSize,
-            queryIdDto.imageSize,
-        );
-
-        try {
-            const storeKey = this.buildStoreKey(queryIdDto);
-            await this.setToStore(storeKey, results);
-        } catch (e) {
-            this.logger.error("Error while saving cached entries");
-            this.logger.error(e.message, e.stack);
+        if (idsStringArray.length === 0) {
+            throw new HttpException("No ids provided", HttpStatus.BAD_REQUEST);
         }
+        const idsString = idsStringArray.join(",");
 
-        return results;
+        const where = `id = (${idsString})`;
+        const queryDto: FindIgdbDto = {
+            ...queryIdDto,
+            where,
+        };
+        return await this.find(queryDto);
     }
 
     async findByIdsOrFail(queryIdDto: FindIgdbIdDto) {
-        const games = await this.findByIds(queryIdDto);
-        if (games === undefined || games.length === 0) {
+        const result = await this.findByIds(queryIdDto);
+        if (result === undefined || result[0].length === 0) {
             throw new HttpException("No games found", HttpStatus.NOT_FOUND);
         }
-        return games;
+        return result;
     }
 
-    async find(queryDto: FindIgdbDto): Promise<GameMetadata[]> {
+    async find(queryDto: FindIgdbDto): Promise<TPaginationData<GameMetadata>> {
+        const limit = queryDto.limit || 20;
+        const offset = queryDto.offset || 0;
         const search = this.igdbClient
             .fields(this.igdbFields)
-            .limit(queryDto.limit || 20)
-            .offset(queryDto.offset || 0);
+            .limit(limit)
+            .offset(offset);
 
         if (queryDto.search) {
             search.search(queryDto.search);
@@ -212,13 +205,10 @@ export class IgdbService {
         if (queryDto.where) {
             search.where(queryDto.where);
         }
+
+        let results: AxiosResponse;
         try {
-            const results = await search.request("/games");
-            return normalizeResults(
-                results.data,
-                queryDto.coverSize,
-                queryDto.imageSize,
-            );
+            results = (await search.request("/games")) as AxiosResponse<any>;
         } catch (e: any) {
             this.logger.error(e.message, e.stack);
             if (e.status) {
@@ -230,5 +220,46 @@ export class IgdbService {
                 );
             }
         }
+        let normalizedResults: GameMetadata[] = [];
+        try {
+            normalizedResults = normalizeResults(
+                results.data,
+                queryDto.coverSize,
+                queryDto.imageSize,
+            );
+        } catch (e) {
+            this.logger.error(e.message, e.stack);
+            throw new HttpException(
+                e.message,
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+
+        if (normalizedResults == null || normalizedResults.length === 0) {
+            throw new HttpException(
+                "No games found for the given query parameters.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        // Fallback to the total count of the first result if the total count is not available
+        // If this is used, hasNextPage will always be false.
+        let totalItems = normalizedResults.length;
+        const countHeader = results.headers["x-count"];
+        if (countHeader && countHeader !== "") {
+            totalItems = parseInt(countHeader, 10);
+        }
+
+        return [normalizedResults, totalItems];
+    }
+
+    async findOrFail(queryDto: FindIgdbDto) {
+        const result = await this.find(queryDto);
+        const [games, _] = result;
+        if (games === undefined || games.length === 0) {
+            throw new HttpException("No games found", HttpStatus.NOT_FOUND);
+        }
+
+        return result;
     }
 }
