@@ -32,30 +32,30 @@ export class LibrariesService {
      * The calling user is guaranteed to be the owner of the library by Supertokens Session at the controller level.
      *
      * If fetching a user's own library, prefer this method over findOneByIdWithPermissions.
-     * @param id
+     * @param userId
      * @param handleUnitialized
      */
     async findOneById(
-        id: string,
+        userId: string,
         handleUnitialized = false,
     ): Promise<Library | null> {
         const library = await this.libraryRepository.findOne({
             where: {
-                id,
+                userId,
             },
             relations: this.relations,
         });
 
         if (!library && handleUnitialized) {
-            await this.handleUnitializedLibrary(id);
-            return await this.findOneById(id);
+            await this.handleUnitializedLibrary(userId);
+            return await this.findOneById(userId);
         }
 
         return library;
     }
 
     /**
-     * Returns a Library with content that is accessible to the user (excludes non-public collections).
+     * Returns a Library with content that is accessible to the user (excludes non-public / non-own collections).
      *
      * If trying to get a user's own library, prefer the findOneById method.
      * @param userId
@@ -70,7 +70,9 @@ export class LibrariesService {
 
         const acessibleCollections = library.collections.filter(
             (collection) => {
-                return collection.isPublic || collection.library.id === userId;
+                return (
+                    collection.isPublic || collection.library.userId === userId
+                );
             },
         );
 
@@ -81,7 +83,7 @@ export class LibrariesService {
 
     async create(userId: string) {
         const possibleLibrary = await this.libraryRepository.findOneBy({
-            id: userId,
+            userId: userId,
         });
 
         if (possibleLibrary) {
@@ -92,7 +94,7 @@ export class LibrariesService {
         }
 
         const createdLibrary = this.libraryRepository.create({
-            id: userId,
+            userId: userId,
         });
         try {
             await this.libraryRepository.save(createdLibrary);

@@ -51,7 +51,7 @@ export class CollectionsService {
             );
         }
 
-        if (collection.library.id !== userId && !collection.isPublic) {
+        if (collection.library.userId !== userId && !collection.isPublic) {
             throw new HttpException(
                 "Collection is not accessible.",
                 HttpStatus.FORBIDDEN,
@@ -60,27 +60,27 @@ export class CollectionsService {
         return collection;
     }
 
-    async findOneEntryByIgdbId(igdbId: number) {
-        return this.collectionEntriesRepository.findOne({
-            where: {
-                igdbId,
-            },
-            relations: {
-                collection: true,
-            },
-        });
-    }
+    //TODO: UPDATE LIBRARY AND PROFILE ID TO USERID
 
     async findFavoritesCollection(userId: string) {
-        return await this.collectionsRepository.findOne({
+        const favoritesCollection = await this.collectionsRepository.findOne({
             where: {
                 library: {
-                    id: userId,
+                    userId: userId,
                 },
                 isFavoritesCollection: true,
             },
             relations: this.relations,
         });
+
+        if (!favoritesCollection) {
+            throw new HttpException(
+                "User has no favorites collection.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        return favoritesCollection;
     }
 
     /**
@@ -127,7 +127,7 @@ export class CollectionsService {
                 await this.collectionsRepository.findOne({
                     where: {
                         library: {
-                            id: userId,
+                            userId: userId,
                         },
                         isFavoritesCollection: true,
                     },
@@ -149,7 +149,7 @@ export class CollectionsService {
 
     async update(id: string, updateCollectionDto: UpdateCollectionDto) {
         const collection = await this.findOneByIdOrFail(id);
-        const libraryId = collection.library.id;
+        const libraryId = collection.library.userId;
 
         const updatedCollection = this.collectionsRepository.create({
             ...collection,
@@ -161,7 +161,7 @@ export class CollectionsService {
                 await this.collectionsRepository.findOne({
                     where: {
                         library: {
-                            id: libraryId,
+                            userId: libraryId,
                         },
                         isFavoritesCollection: true,
                     },
@@ -176,31 +176,6 @@ export class CollectionsService {
 
         try {
             return await this.collectionsRepository.save(updatedCollection);
-        } catch (e) {
-            throw new HttpException(e, 500);
-        }
-    }
-
-    async createEntry(
-        collectionId: string,
-        createEntryDto: CreateCollectionEntryDto,
-    ) {
-        const collection = await this.findOneByIdOrFail(collectionId);
-        const { igdbId } = createEntryDto;
-
-        const [games] = await this.igdbService.findByIdsOrFail({
-            igdbIds: [igdbId],
-        });
-
-        const collectionEntryEntity = this.collectionEntriesRepository.create({
-            igdbId: igdbId,
-            data: games[0],
-            collection,
-        });
-        try {
-            return await this.collectionEntriesRepository.save(
-                collectionEntryEntity,
-            );
         } catch (e) {
             throw new HttpException(e, 500);
         }

@@ -18,12 +18,11 @@ export class Profile {
      * Same as SuperTokens' userId.
      */
     @PrimaryColumn({
-        generated: "uuid",
         nullable: false,
         length: 36,
         type: "varchar",
     })
-    id: string;
+    userId: string;
     @Column({ nullable: true })
     username?: string;
 

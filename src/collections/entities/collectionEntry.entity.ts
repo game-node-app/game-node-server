@@ -21,6 +21,7 @@ export class CollectionEntry {
     @PrimaryColumn()
     igdbId: number;
 
+    // This should have the same name as the generated column in from the Collection relationship.
     @PrimaryColumn()
     collectionId: string;
 
@@ -40,11 +41,4 @@ export class CollectionEntry {
 
     @UpdateDateColumn()
     updatedAt: Date;
-
-    /**
-     * Call this after setting collection to update the collectionId
-     */
-    updateCollectionId(): void {
-        this.collectionId = this.collection.id;
-    }
 }

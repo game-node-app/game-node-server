@@ -32,37 +32,6 @@ export class CollectionsController {
     }
 
     /**
-     * Returns a specific collection entry based on IGDB ID
-     * @param collectionId
-     * @param findEntryDto
-     */
-    @Get(":id/entry/:igdbId")
-    @ApiBadRequestResponse({ description: "Invalid query" })
-    async findEntryByIgdbIdOrId(
-        @Param("id") collectionId: string,
-        @Param("igdbId") igdbId: number,
-    ) {
-        if (igdbId == undefined) {
-            throw new HttpException(
-                "Invalid query. igdbId must be provided.",
-                400,
-            );
-        }
-        return this.collectionsService.findOneEntryByIgdbId(igdbId);
-    }
-
-    @Post(":id/entry")
-    async addEntry(
-        @Param("id") collectionId: string,
-        @Body() createCollectionEntryDto: CreateCollectionEntryDto,
-    ) {
-        return this.collectionsService.createEntry(
-            collectionId,
-            createCollectionEntryDto,
-        );
-    }
-
-    /**
      * Returns a collection which the user has access to
      *
      * (Either its own collection or a public one)

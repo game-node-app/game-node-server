@@ -31,7 +31,7 @@ export class ProfileService {
     async create(userId: string) {
         const placeholderUsername = generateUsername("-", 4, 20);
         const profile = this.profileRepository.create({
-            id: userId,
+            userId: userId,
             username: placeholderUsername,
         });
         await this.profileRepository.save(profile);
@@ -65,17 +65,17 @@ export class ProfileService {
     }
 
     async findOneById(
-        id: string,
+        userId: string,
         handleUninitialized = false,
     ): Promise<Profile | null> {
         const profile = await this.profileRepository.findOne({
             where: {
-                id,
+                userId,
             },
         });
         if (!profile && handleUninitialized) {
-            await this.handleUninitializedProfile(id);
-            return await this.findOneById(id);
+            await this.handleUninitializedProfile(userId);
+            return await this.findOneById(userId);
         }
         return profile;
     }

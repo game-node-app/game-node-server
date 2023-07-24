@@ -6,6 +6,8 @@ import { Collection } from "./entities/collection.entity";
 import { CollectionEntry } from "./entities/collectionEntry.entity";
 import { LibrariesModule } from "../libraries/libraries.module";
 import { IgdbModule } from "../igdb/igdb.module";
+import { CollectionsEntriesService } from './collections-entries/collections-entries.service';
+import { CollectionsEntriesController } from './collections-entries/collections-entries.controller';
 
 @Module({
     imports: [
@@ -13,8 +15,8 @@ import { IgdbModule } from "../igdb/igdb.module";
         LibrariesModule,
         IgdbModule,
     ],
-    controllers: [CollectionsController],
-    providers: [CollectionsService],
+    controllers: [CollectionsController, CollectionsEntriesController],
+    providers: [CollectionsService, CollectionsEntriesService],
     exports: [CollectionsService],
 })
 export class CollectionsModule {}

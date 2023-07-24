@@ -16,6 +16,7 @@ import { StatisticsModule } from "./statistics/statistics.module";
 import { ReviewsModule } from "./reviews/reviews.module";
 import { ProfileModule } from "./profile/profile.module";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
+import { UserInitModule } from './user-init/user-init.module';
 
 @Module({
     imports: [
@@ -64,6 +65,7 @@ import { LoggerMiddleware } from "./app.logger.middlewhare";
         StatisticsModule,
         ReviewsModule,
         ProfileModule,
+        UserInitModule,
     ],
     controllers: [AppController],
     providers: [AppService],
