@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsArray, IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { DataSources } from "../../app.constants";
 
 export class CreateCollectionEntryDto {
     @IsNotEmpty()
@@ -7,4 +8,7 @@ export class CreateCollectionEntryDto {
     @IsNotEmpty()
     @IsNumber()
     igdbId: number;
+    @IsArray()
+    @IsString({ each: true })
+    dataSources: DataSources[];
 }

@@ -3,6 +3,7 @@ import {
     Entity,
     OneToMany,
     OneToOne,
+    PrimaryColumn,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
@@ -11,8 +12,8 @@ import { Review } from "../../reviews/entities/review.entity";
 
 @Entity()
 export class ReviewStatistics {
-    @PrimaryGeneratedColumn()
-    id: number;
+    @PrimaryColumn()
+    reviewId: string;
     @OneToOne(() => Review, (review) => review.reviewStatistics, {
         nullable: false,
     })

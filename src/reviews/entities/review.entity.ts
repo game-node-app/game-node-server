@@ -3,18 +3,18 @@ import {
     CreateDateColumn,
     Entity,
     JoinColumn,
+    ManyToOne,
     OneToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { ReviewStatistics } from "../../statistics/entity/review-statistics.entity";
+import { Profile } from "../../profile/entities/profile.entity";
 
 @Entity()
 export class Review {
     @PrimaryGeneratedColumn("uuid")
     id: string;
-    @Column({ nullable: false })
-    userId: string;
     @Column({ nullable: false })
     igdbId: number;
     @Column({ nullable: false })
@@ -29,6 +29,9 @@ export class Review {
     )
     @JoinColumn()
     reviewStatistics: ReviewStatistics;
+    @ManyToOne(() => Profile)
+    profile: Profile;
+
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

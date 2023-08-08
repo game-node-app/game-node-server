@@ -2,21 +2,15 @@ import { MiddlewareConsumer, Module } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import * as process from "process";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { CollectionsModule } from "./collections/collections.module";
-import { LibrariesModule } from "./libraries/libraries.module";
 import { IgdbModule } from "./igdb/igdb.module";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ScheduleModule } from "@nestjs/schedule";
 import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
-import { StatisticsModule } from "./statistics/statistics.module";
-import { ReviewsModule } from "./reviews/reviews.module";
-import { ProfileModule } from "./profile/profile.module";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
-import { UserInitModule } from './user-init/user-init.module';
 
 @Module({
     imports: [
@@ -48,8 +42,6 @@ import { UserInitModule } from './user-init/user-init.module';
             synchronize: false,
             debug: process.env.NODE_ENV === "development",
         }),
-        CollectionsModule,
-        LibrariesModule,
         IgdbModule,
         CacheModule.registerAsync({
             isGlobal: true,
@@ -62,10 +54,6 @@ import { UserInitModule } from './user-init/user-init.module';
         BullModule.forRoot({
             redis: process.env.REDIS_URL,
         }),
-        StatisticsModule,
-        ReviewsModule,
-        ProfileModule,
-        UserInitModule,
     ],
     controllers: [AppController],
     providers: [AppService],

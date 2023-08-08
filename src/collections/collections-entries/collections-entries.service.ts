@@ -1,23 +1,31 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "../entities/collectionEntry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { LibrariesService } from "../../libraries/libraries.service";
+import { FindOptionsRelations, In, Repository } from "typeorm";
 import { IgdbService } from "../../igdb/igdb.service";
 import { CollectionsService } from "../collections.service";
 import { CreateCollectionEntryDto } from "../dto/create-collectionEntry.dto";
+import { UpdateCollectionEntryDto } from "../dto/update-collectionEntry.dto";
 
 @Injectable()
 export class CollectionsEntriesService {
+    private readonly relations: FindOptionsRelations<CollectionEntry> = {
+        collection: true,
+        review: true,
+    };
     constructor(
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
         private collectionsService: CollectionsService,
-        private readonly librariesService: LibrariesService,
         private readonly igdbService: IgdbService,
     ) {}
 
-    async findOneByIgdbId(userId: string, igdbId: number) {
+    /**
+     * This is mainly used to check if a given entry exists in a given user's library.
+     * @param userId
+     * @param igdbId
+     */
+    async findOneByUserIdAndIgdbId(userId: string, igdbId: number) {
         return await this.collectionEntriesRepository.findOne({
             // Where igdbId (entry id) === igdbId (param) and libraryId (which is the Supertokens userId) === userId
             where: {
@@ -28,14 +36,12 @@ export class CollectionsEntriesService {
                     },
                 },
             },
-            relations: {
-                collection: true,
-            },
+            relations: this.relations,
         });
     }
 
-    async findOneByIgdbIdOrFail(userId: string, igdbId: number) {
-        const entry = await this.findOneByIgdbId(userId, igdbId);
+    async findOneByUserIdAndIgdbIdOrFail(userId: string, igdbId: number) {
+        const entry = await this.findOneByUserIdAndIgdbId(userId, igdbId);
         if (!entry) {
             throw new HttpException(
                 "Collection entry not found.",
@@ -43,6 +49,14 @@ export class CollectionsEntriesService {
             );
         }
         return entry;
+    }
+
+    async findAllByIdIn(collectionEntryIds: string[]) {
+        return await this.collectionEntriesRepository.find({
+            where: {
+                id: In(collectionEntryIds),
+            },
+        });
     }
 
     async create(createEntryDto: CreateCollectionEntryDto) {
@@ -59,6 +73,7 @@ export class CollectionsEntriesService {
             igdbId: igdbId,
             data: games[0],
             collection,
+            dataSources: createEntryDto.dataSourcs,
         });
 
         try {
@@ -66,5 +81,19 @@ export class CollectionsEntriesService {
         } catch (e) {
             throw new HttpException(e, 500);
         }
+    }
+
+    async update(
+        userId: string,
+        igdbId: number,
+        updateEntryDto: UpdateCollectionEntryDto,
+    ) {
+        const entry = await this.findOneByUserIdAndIgdbIdOrFail(userId, igdbId);
+        const updatedEntry = this.collectionEntriesRepository.merge(
+            entry,
+            updateEntryDto,
+        );
+
+        await this.collectionEntriesRepository.save(updatedEntry);
     }
 }

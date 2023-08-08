@@ -2,13 +2,17 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinColumn,
     ManyToOne,
+    OneToOne,
     PrimaryColumn,
+    PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { Collection } from "./collection.entity";
 import { GameMetadata } from "../../utils/game-metadata.dto";
 import { DataSources } from "../../app.constants";
+import { Review } from "../../reviews/entities/review.entity";
 
 /**
  * The entity that represents a game in a collection.
@@ -18,18 +22,28 @@ import { DataSources } from "../../app.constants";
  */
 @Entity()
 export class CollectionEntry {
-    @PrimaryColumn()
+    @PrimaryGeneratedColumn("uuid")
+    id: string;
+
+    @Column({ nullable: false })
     igdbId: number;
-
-    // This should have the same name as the generated column in from the Collection relationship.
-    @PrimaryColumn()
-    collectionId: string;
-
     @Column({
         nullable: false,
         type: "json",
     })
     data: GameMetadata;
+
+    /**
+     * The source from which the game was added to the collection.
+     */
+    @Column({ type: "json" })
+    dataSources: DataSources[];
+
+    @OneToOne(() => Review, {
+        nullable: true,
+    })
+    @JoinColumn()
+    review: Review;
 
     @ManyToOne(() => Collection, (collection) => collection.entries, {
         nullable: false,

@@ -7,11 +7,10 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 import { GameStatistics } from "./game-statistics.entity";
+import { ActivityStatistics } from "./activity-statistics.entity";
 
 /**
  * While it's called UserView, it also contains anonymous views (userId is set to null).
- * This table will allow us to keep track of what games are being viewed by a user,
- * and may be used in a possible future feature.
  */
 @Entity()
 export class UserView {
@@ -23,6 +22,11 @@ export class UserView {
 
     @ManyToOne(() => GameStatistics, (gameStatistics) => gameStatistics.views)
     gameStatistics: GameStatistics;
+    @ManyToOne(
+        () => ActivityStatistics,
+        (activityStatistics) => activityStatistics.views,
+    )
+    activityStatistics: ActivityStatistics;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

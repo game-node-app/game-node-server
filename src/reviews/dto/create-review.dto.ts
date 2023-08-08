@@ -1,6 +1,16 @@
-import { IsNumber, IsString, Max, Min, MinLength } from "class-validator";
+import {
+    IsNotEmpty,
+    IsNumber,
+    IsString,
+    Max,
+    Min,
+    MinLength,
+} from "class-validator";
 
 export class CreateReviewDto {
+    @IsNumber()
+    @IsNotEmpty()
+    igdbId: number;
     @IsString()
     @MinLength(3)
     title: string;

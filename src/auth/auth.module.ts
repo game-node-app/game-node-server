@@ -8,19 +8,18 @@ import {
 import { AuthMiddleware } from "./auth.middleware";
 import { ConfigInjectionToken, AuthModuleConfig } from "./config.interface";
 import { AuthService } from "./auth.service";
-import { LibrariesModule } from "../libraries/libraries.module";
-import { CollectionsModule } from "../collections/collections.module";
 import { AuthController } from "./auth.controller";
-import { ProfileModule } from "../profile/profile.module";
+import { UserInitModule } from "../user-init/user-init.module";
 
 @Module({
+    imports: [UserInitModule],
     providers: [],
     exports: [],
     controllers: [AuthController],
 })
 export class AuthModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {
-        consumer.apply(AuthMiddleware).forRoutes("*");
+        consumer.apply(AuthMiddleware).forRoutes();
     }
 
     static forRoot({
@@ -41,7 +40,7 @@ export class AuthModule implements NestModule {
                 AuthService,
             ],
             exports: [],
-            imports: [LibrariesModule, CollectionsModule, ProfileModule],
+            imports: [UserInitModule],
             module: AuthModule,
         };
     }

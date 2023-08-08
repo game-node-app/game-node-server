@@ -9,7 +9,6 @@ import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { StatisticsGameController } from "./statistics.game.controller";
 import { StatisticsGameService } from "./statistics.game.service";
-import { IgdbModule } from "../igdb/igdb.module";
 
 @Module({
     imports: [

@@ -5,8 +5,6 @@ import { FindOptionsRelations, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { IgdbService } from "../igdb/igdb.service";
-import { CreateCollectionEntryDto } from "./dto/create-collectionEntry.dto";
-import { GameMetadata } from "../utils/game-metadata.dto";
 import { CollectionEntry } from "./entities/collectionEntry.entity";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 
@@ -16,11 +14,11 @@ export class CollectionsService {
         entries: true,
         library: true,
     };
+
     constructor(
         @InjectRepository(Collection)
         private collectionsRepository: Repository<Collection>,
         @InjectRepository(CollectionEntry)
-        private collectionEntriesRepository: Repository<CollectionEntry>,
         private readonly librariesService: LibrariesService,
         private readonly igdbService: IgdbService,
     ) {}

@@ -1,7 +1,12 @@
-import { Module } from '@nestjs/common';
-import { UserInitService } from './user-init.service';
+import { Module } from "@nestjs/common";
+import { UserInitService } from "./user-init.service";
+import { LibrariesModule } from "../libraries/libraries.module";
+import { CollectionsModule } from "../collections/collections.module";
+import { ProfileModule } from "../profile/profile.module";
 
 @Module({
-  providers: [UserInitService]
+    exports: [UserInitService],
+    imports: [LibrariesModule, CollectionsModule, ProfileModule],
+    providers: [UserInitService],
 })
 export class UserInitModule {}

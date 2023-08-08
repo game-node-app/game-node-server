@@ -11,6 +11,7 @@ import { LibrariesService } from "../libraries/libraries.service";
 import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 import { EUserRoles } from "../utils/constants";
 import { ProfileService } from "../profile/profile.service";
+import { UserInitService } from "../user-init/user-init.service";
 
 /**
  * The Auth Service
@@ -19,11 +20,10 @@ import { ProfileService } from "../profile/profile.service";
 @Injectable()
 export class AuthService {
     private logger = new Logger(AuthService.name);
+
     constructor(
         @Inject(ConfigInjectionToken) private config: AuthModuleConfig,
-        private collectionsService: CollectionsService,
-        private librariesService: LibrariesService,
-        private profileService: ProfileService,
+        private userInitService: UserInitService,
     ) {
         supertokens.init({
             appInfo: config.appInfo,
@@ -81,7 +81,7 @@ export class AuthService {
                                         );
                                     if (response.status === "OK") {
                                         if (response.createdNewUser) {
-                                            await this.initUser(
+                                            await this.userInitService.initUser(
                                                 response.user.id,
                                             );
                                         }
@@ -104,7 +104,7 @@ export class AuthService {
                                         );
                                     if (response.status === "OK") {
                                         if (response.createdNewUser) {
-                                            await this.initUser(
+                                            await this.userInitService.initUser(
                                                 response.user.id,
                                             );
                                         }
@@ -121,54 +121,5 @@ export class AuthService {
                 Dashboard.init(),
             ],
         });
-    }
-
-    /**
-     * Initialize the user
-     * This function should be called on the PostSignup event for SuperTokens.
-     *
-     * The initialization should not fail no matter what. If it does, unexpected things
-     * may happen in all endpoints.
-     *
-     * Make sure to implement uninitialized handlers for each resource.
-     * @param userId
-     */
-    async initUser(userId: string) {
-        this.logger.log(
-            `Started init routine for userId ${userId} at ${new Date().toISOString()}`,
-        );
-
-        try {
-            await UserRoles.addRoleToUser(userId, EUserRoles.USER);
-        } catch (e) {}
-
-        try {
-            await this.librariesService.create(userId);
-            this.logger.log(`Created library for user ${userId} at signup`);
-            for (const defCollection of DEFAULT_COLLECTIONS) {
-                // Registers the promise but does not wait for it
-                this.collectionsService
-                    .create(userId, defCollection)
-                    .then()
-                    .catch();
-            }
-            this.logger.log(
-                `Created default collections for user ${userId} at signup`,
-            );
-        } catch (e: any) {
-            this.logger.error(
-                `Failed to create library and default collections for user ${userId} at signup`,
-                e,
-            );
-        }
-
-        try {
-            await this.profileService.create(userId);
-        } catch (e: any) {
-            this.logger.error(
-                `Failed to create profile for user ${userId} at signup`,
-                e,
-            );
-        }
     }
 }

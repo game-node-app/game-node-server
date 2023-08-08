@@ -4,6 +4,7 @@ import {
     Get,
     HttpException,
     Param,
+    Patch,
     Post,
 } from "@nestjs/common";
 import { CollectionsEntriesService } from "./collections-entries.service";
@@ -11,23 +12,37 @@ import { ApiBadRequestResponse } from "@nestjs/swagger";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { CreateCollectionEntryDto } from "../dto/create-collectionEntry.dto";
+import { UpdateCollectionEntryDto } from "../dto/update-collectionEntry.dto";
 
 @Controller("collections/entries")
 export class CollectionsEntriesController {
     constructor(private collectionsEntriesService: CollectionsEntriesService) {}
 
     @Post()
-    async addEntry(
-        @Param("id") collectionId: string,
-        @Body() createCollectionEntryDto: CreateCollectionEntryDto,
+    async create(@Body() createCollectionEntryDto: CreateCollectionEntryDto) {
+        return await this.collectionsEntriesService.create(
+            createCollectionEntryDto,
+        );
+    }
+
+    @Patch(":igdbId")
+    async update(
+        @Session() session: SessionContainer,
+        @Param("igdbId") igdbId: number,
+        @Body() updateCollectionEntryDto: UpdateCollectionEntryDto,
     ) {
-        if (!collectionId) {
+        if (igdbId == undefined) {
             throw new HttpException(
-                "Invalid query. collectionId must be provided at the path level.",
+                "Invalid query. igdbId must be provided.",
                 400,
             );
         }
-        return this.collectionsEntriesService.create(createCollectionEntryDto);
+        const userId = session.getUserId();
+        return this.collectionsEntriesService.update(
+            userId,
+            igdbId,
+            updateCollectionEntryDto,
+        );
     }
 
     /**
@@ -48,7 +63,7 @@ export class CollectionsEntriesController {
             );
         }
         const userId = session.getUserId();
-        return this.collectionsEntriesService.findOneByIgdbIdOrFail(
+        return this.collectionsEntriesService.findOneByUserIdAndIgdbIdOrFail(
             userId,
             igdbId,
         );
