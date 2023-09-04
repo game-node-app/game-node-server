@@ -74,7 +74,7 @@ export class ReviewsService {
     async create(userId: string, createReviewDto: CreateReviewDto) {
         const possibleExistingReview = await this.findOneByUserIdAndIgdbId(
             userId,
-            createReviewDo.igdbId,
+            createReviewDto.igdbId,
         );
         if (possibleExistingReview) {
             throw new HttpException(
@@ -106,7 +106,7 @@ export class ReviewsService {
     async update(
         userId: string,
         reviewId: string,
-        updateReviewDto: UpdateReviewto,
+        updateReviewDto: UpdateReviewDto,
     ) {
         const review = await this.findOneById(reviewId);
 
@@ -117,13 +117,13 @@ export class ReviewsService {
         if (review.profile.userId !== userId) {
             throw new HttpException(
                 "Review is not accessible.",
-                HttpStatus.FORBIDEN,
+                HttpStatus.FORBIDDEN,
             );
         }
 
         const updatedReviewEntity = this.reviewsRepository.merge(
             review,
-            updateReviewto,
+            updateReviewDto,
         );
 
         await this.reviewsRepository.save(updatedReviewEntity);

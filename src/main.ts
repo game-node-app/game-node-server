@@ -29,6 +29,7 @@ async function bootstrap() {
             },
         }),
     );
+
     const swaggerConfig = new DocumentBuilder()
         .setTitle("GameNode API")
         .setDescription(

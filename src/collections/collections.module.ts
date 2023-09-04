@@ -21,6 +21,6 @@ import { ReviewsModule } from "../reviews/reviews.module";
     ],
     controllers: [CollectionsController, CollectionsEntriesController],
     providers: [CollectionsService, CollectionsEntriesService],
-    exports: [CollectionsService, CollectionsEntriesService,
+    exports: [CollectionsService, CollectionsEntriesService],
 })
 export class CollectionsModule {}

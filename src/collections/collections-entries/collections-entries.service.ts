@@ -73,7 +73,7 @@ export class CollectionsEntriesService {
             igdbId: igdbId,
             data: games[0],
             collection,
-            dataSources: createEntryDto.dataSourcs,
+            dataSources: createEntryDto.dataSources,
         });
 
         try {

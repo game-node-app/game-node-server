@@ -16,6 +16,6 @@ import { StatisticsModule } from "../statistics/statistics.module";
     ],
     controllers: [ReviewsController],
     providers: [ReviewsService],
-    exports: [ReviewsService,
+    exports: [ReviewsService],
 })
 export class ReviewsModule {}

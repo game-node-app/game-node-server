@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JsonSchemaMappingsProjectConfiguration">
+    <state>
+      <map>
+        <entry key="devcontainer.json">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="devcontainer.json" />
+              <option name="relativePathToSchema" value="https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json" />
+              <option name="applicationDefined" value="true" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value=".devcontainer/.devcontainer.json" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+      </map>
+    </state>
+  </component>
+</project>
