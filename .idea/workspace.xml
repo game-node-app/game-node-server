@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AnalysisUIOptions">
+    <option name="ANALYZE_INJECTED_CODE" value="false" />
+  </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/game-node-server.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/jpa-buddy.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/jsonSchemas.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/prettier.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="feat-games" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Lamarcke&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">
+    <option name="selectedUrlAndAccountId">
+      <UrlAndAccount>
+        <option name="accountId" value="89e05d4b-03ac-41f5-af77-1b8986cf0609" />
+        <option name="url" value="https://github.com/game-node-app/game-node-server.git" />
+      </UrlAndAccount>
+    </option>
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="file://$PROJECT_DIR$/src/main.ts" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="JsbtTreeLayoutManager">
+    <layout place="tools.popupGrunt">
+      <scroll-view-position x="0" y="0" />
+    </layout>
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="2SQy7h7NItCRX7QL1o1DY2RxwHr" />
+  <component name="ProjectViewState">
+    <option name="autoscrollFromSource" value="true" />
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-server",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs.jest.jest_package": "/home/lamarck/Projects/Web/game-node-server/node_modules/jest",
+    "nodejs_package_manager_path": "yarn",
+    "prettier.import.notification.dismissed": "true",
+    "prettierjs.PrettierConfiguration.Package": "/home/lamarck/Projects/Web/game-node-server/node_modules/prettier",
+    "project.structure.last.edited": "Modules",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.2",
+    "remote.dev.show.docker.config.missing.jdk.notification": "false",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "/home/lamarck/.local/share/JetBrains/Toolbox/apps/IDEA-U/ch-0/232.8660.185/plugins/javascript-impl/jsLanguageServicesImpl/external",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
+    <layout>
+      <window_info id="Space Code Reviews" />
+      <window_info id="Bookmarks" side_tool="true" />
+      <window_info id="Commit_Guest" show_stripe_button="false" />
+      <window_info id="Pull Requests" />
+      <window_info id="Learn" />
+      <window_info content_ui="combo" id="Project" internal_type="SLIDING" order="0" type="SLIDING" weight="0.17265625" />
+      <window_info id="Commit" order="1" weight="0.25" />
+      <window_info id="Structure" order="2" weight="0.25" />
+      <window_info anchor="bottom" id="File Transfer" />
+      <window_info anchor="bottom" id="Database Changes" />
+      <window_info anchor="bottom" id="TypeScript" />
+      <window_info anchor="bottom" id="Profiler" />
+      <window_info anchor="bottom" id="Dependency Checker" />
+      <window_info anchor="bottom" id="Version Control" order="0" />
+      <window_info anchor="bottom" id="Problems View" order="2" />
+      <window_info anchor="bottom" id="Terminal" order="3" weight="0.3301887" />
+      <window_info anchor="bottom" id="Services" order="4" />
+      <window_info anchor="right" id="Endpoints" />
+      <window_info anchor="right" id="Meet New UI" show_stripe_button="false" side_tool="true" />
+      <window_info anchor="right" content_ui="combo" id="Notifications" order="0" weight="0.25" />
+      <window_info anchor="right" id="Database" order="1" weight="0.25" />
+      <window_info anchor="right" id="Gradle" order="2" weight="0.25" />
+    </layout>
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/activities/activities-repository" />
+      <recent name="$PROJECT_DIR$/src/activities/activities-repository/" />
+      <recent name="$PROJECT_DIR$/src/activities-repository/" />
+      <recent name="$PROJECT_DIR$/src/activities/activities-queue" />
+      <recent name="$PROJECT_DIR$/libs/auth/src" />
+    </key>
+  </component>
+  <component name="RunManager" selected="npm.start:dev:docker">
+    <configuration name="AppController" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
+      <node-interpreter value="project" />
+      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
+      <working-dir value="$PROJECT_DIR$" />
+      <envs />
+      <scope-kind value="SUITE" />
+      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
+      <test-names>
+        <test-name value="AppController" />
+      </test-names>
+      <method v="2" />
+    </configuration>
+    <configuration name="AppController.root" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
+      <node-interpreter value="project" />
+      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
+      <working-dir value="$PROJECT_DIR$" />
+      <envs />
+      <scope-kind value="SUITE" />
+      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
+      <test-names>
+        <test-name value="AppController" />
+        <test-name value="root" />
+      </test-names>
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
+      <deployment type="docker-compose.yml">
+        <settings />
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="docker-compose.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="sourceFilePath" value="docker-compose.yml" />
+        </settings>
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="start:dev:docker" type="js.build_tools.npm" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="start:dev:docker" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+      <item itemvalue="Jest.AppController" />
+      <item itemvalue="Jest.AppController.root" />
+      <item itemvalue="npm.start:dev:docker" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Jest.AppController.root" />
+        <item itemvalue="Jest.AppController" />
+        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+        <item itemvalue="Jest.AppController.root" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="SvnConfiguration">
+    <configuration>$USER_HOME$/.subversion</configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="" />
+      <created>1689092935321</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1689092935321</updated>
+      <workItem from="1689092936239" duration="1341000" />
+      <workItem from="1689127770366" duration="698000" />
+      <workItem from="1689128839353" duration="14000" />
+      <workItem from="1689128870472" duration="832000" />
+      <workItem from="1689130305736" duration="337000" />
+      <workItem from="1689222250795" duration="63000" />
+      <workItem from="1689290562466" duration="5241000" />
+      <workItem from="1689344851215" duration="857000" />
+      <workItem from="1689487883127" duration="1897000" />
+      <workItem from="1689490961626" duration="751000" />
+      <workItem from="1689544729057" duration="33000" />
+      <workItem from="1689544965701" duration="4607000" />
+      <workItem from="1689655091547" duration="3399000" />
+      <workItem from="1689711248651" duration="10769000" />
+      <workItem from="1689736426324" duration="3350000" />
+      <workItem from="1689744733885" duration="780000" />
+      <workItem from="1689783439220" duration="2995000" />
+      <workItem from="1689852596509" duration="122000" />
+      <workItem from="1689852730655" duration="330000" />
+      <workItem from="1689853332895" duration="625000" />
+      <workItem from="1689854976453" duration="3786000" />
+      <workItem from="1689893932018" duration="8723000" />
+      <workItem from="1689909142685" duration="1675000" />
+      <workItem from="1689968636569" duration="346000" />
+      <workItem from="1689969277585" duration="942000" />
+      <workItem from="1689989463281" duration="426000" />
+      <workItem from="1690054253985" duration="334000" />
+      <workItem from="1690054601632" duration="599000" />
+      <workItem from="1690055524721" duration="599000" />
+      <workItem from="1690056408092" duration="1810000" />
+      <workItem from="1690079011073" duration="1424000" />
+      <workItem from="1690082025112" duration="264000" />
+      <workItem from="1690082306132" duration="2028000" />
+      <workItem from="1690084841891" duration="9482000" />
+      <workItem from="1690136115781" duration="3548000" />
+      <workItem from="1690144144221" duration="4402000" />
+      <workItem from="1690206208159" duration="15584000" />
+      <workItem from="1690231522168" duration="599000" />
+      <workItem from="1690234887722" duration="507000" />
+      <workItem from="1690235404421" duration="15000" />
+      <workItem from="1690235572474" duration="2035000" />
+      <workItem from="1690465985810" duration="1030000" />
+      <workItem from="1690467029497" duration="738000" />
+      <workItem from="1690467783906" duration="12899000" />
+      <workItem from="1690489968143" duration="2171000" />
+      <workItem from="1690511261734" duration="4314000" />
+      <workItem from="1690567051420" duration="2944000" />
+      <workItem from="1690570010755" duration="501000" />
+      <workItem from="1690570525086" duration="145000" />
+      <workItem from="1690570683353" duration="2648000" />
+      <workItem from="1690653314095" duration="1030000" />
+      <workItem from="1690721569149" duration="92000" />
+      <workItem from="1690721675873" duration="5980000" />
+      <workItem from="1690759929361" duration="39000" />
+      <workItem from="1690833421014" duration="1362000" />
+      <workItem from="1690983370612" duration="443000" />
+      <workItem from="1691104015445" duration="3212000" />
+      <workItem from="1691155050684" duration="2086000" />
+      <workItem from="1691174869793" duration="2649000" />
+      <workItem from="1691205641664" duration="5000" />
+      <workItem from="1691206238314" duration="600000" />
+      <workItem from="1691430281476" duration="4352000" />
+      <workItem from="1691453017560" duration="20258000" />
+      <workItem from="1691582138807" duration="49000" />
+      <workItem from="1691582207635" duration="1303000" />
+      <workItem from="1691668731224" duration="1998000" />
+      <workItem from="1691687352141" duration="1380000" />
+      <workItem from="1691858364745" duration="704000" />
+      <workItem from="1691870718696" duration="620000" />
+      <workItem from="1692035942465" duration="5000" />
+      <workItem from="1692145270669" duration="622000" />
+      <workItem from="1692155572063" duration="3210000" />
+      <workItem from="1692312973373" duration="31000" />
+      <workItem from="1692387980004" duration="41000" />
+      <workItem from="1693750741726" duration="1336000" />
+      <workItem from="1693842830122" duration="33000" />
+      <workItem from="1696552712844" duration="165000" />
+      <workItem from="1696552894436" duration="56000" />
+    </task>
+    <task id="LOCAL-00001" summary="-">
+      <option name="closed" value="true" />
+      <created>1690091246886</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1690091246886</updated>
+    </task>
+    <task id="LOCAL-00002" summary="-">
+      <option name="closed" value="true" />
+      <created>1690222362155</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1690222362155</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Refactor auth and review modules to improve code maintainability&#10;&#10;Several changes were made throughout the project to improve code maintainability and compliance with best code practices. The diff includes multiple files and modules so here are the most notable changes:&#10;&#10;1. Removed unused modules and code from various files.&#10;2. Added new features in the `Reviews` functionality, such as `ReviewsController` and `ReviewsService`.&#10;3. Reorganized and cleaned up imports across multiple files for better readability.&#10;4. Refactored auth module by extracting user initialization logic into a separate `UserInitService`.&#10;5. Added a new `Activities` functionality.&#10;6. Code clean up and consistency improvements: changed how services are imported, moved functionality, broke down large functions, improved naming for consistency.&#10;&#10;The new auth implementation is more modular and each part of the process is easier to test and maintain. The reviews functionality has been expanded to include more use-cases giving the end user more options. Meanwhile, the new activities feature may help engage users better.">
+      <option name="closed" value="true" />
+      <created>1691525192588</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1691525192588</updated>
+    </task>
+    <task id="LOCAL-00004" summary="- New activities module">
+      <option name="closed" value="true" />
+      <created>1691525237021</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1691525237021</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
+    <MESSAGE value="-" />
+    <MESSAGE value="Refactor auth and review modules to improve code maintainability&#10;&#10;Several changes were made throughout the project to improve code maintainability and compliance with best code practices. The diff includes multiple files and modules so here are the most notable changes:&#10;&#10;1. Removed unused modules and code from various files.&#10;2. Added new features in the `Reviews` functionality, such as `ReviewsController` and `ReviewsService`.&#10;3. Reorganized and cleaned up imports across multiple files for better readability.&#10;4. Refactored auth module by extracting user initialization logic into a separate `UserInitService`.&#10;5. Added a new `Activities` functionality.&#10;6. Code clean up and consistency improvements: changed how services are imported, moved functionality, broke down large functions, improved naming for consistency.&#10;&#10;The new auth implementation is more modular and each part of the process is easier to test and maintain. The reviews functionality has been expanded to include more use-cases giving the end user more options. Meanwhile, the new activities feature may help engage users better." />
+    <MESSAGE value="- New activities module" />
+    <option name="LAST_COMMIT_MESSAGE" value="- New activities module" />
+    <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>
