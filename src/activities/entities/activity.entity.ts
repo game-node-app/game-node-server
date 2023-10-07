@@ -1,6 +1,6 @@
 import {
     Column,
-    CreateDateColumn,
+    CreateDateColumn, Entity,
     JoinColumn,
     ManyToOne,
     OneToOne,
@@ -11,6 +11,7 @@ import { ActivityType } from "../activities-queue/activities-queue.constants";
 import { Profile } from "../../profile/entities/profile.entity";
 import { ActivityStatistics } from "../../statistics/entity/activity-statistics.entity";
 
+@Entity()
 export class Activity {
     @PrimaryGeneratedColumn("uuid")
     id: string;

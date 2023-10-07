@@ -11,6 +11,8 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
+import {ActivitiesRepositoryModule} from "./activities/activities-repository/activities-repository.module";
+import {StatisticsModule} from "./statistics/statistics.module";
 
 @Module({
     imports: [
@@ -54,6 +56,8 @@ import { LoggerMiddleware } from "./app.logger.middlewhare";
         BullModule.forRoot({
             redis: process.env.REDIS_URL,
         }),
+        ActivitiesRepositoryModule,
+        StatisticsModule,
     ],
     controllers: [AppController],
     providers: [AppService],

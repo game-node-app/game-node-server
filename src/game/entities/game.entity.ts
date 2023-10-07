@@ -11,6 +11,7 @@ import { GameAlternativeName } from "./game-alternative-name.entity";
 import { GameArtwork } from "./game-artwork.entity";
 import { GameCategory } from "../game.constants";
 import { GameCollection } from "./game-collection.entity";
+import {Cover} from "./game-cover.entity";
 
 /**
  * Dear maintainer, please adhere to the following rules when updating this file or it's related entities:
@@ -53,11 +54,11 @@ export class Game {
     createdAt: Date;
 
     // Relationships
-    @OneToOne(() => Game, (game) => game.cover, {
+    @OneToOne(() => Cover, (cover) => cover.game, {
         cascade: ["insert", "update"],
     })
     @JoinColumn()
-    cover: Game;
+    cover: Cover;
     @ManyToOne(() => GameCollection, (gameCollection) => gameCollection.games, {
         cascade: ["insert", "update"],
     })

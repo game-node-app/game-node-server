@@ -8,17 +8,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/game-node-server.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/jpa-buddy.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/jsonSchemas.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/prettier.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/game-node-server.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-crud/activities-crud.module.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-crud/activities-crud.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-repository/activities-repository.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-repository/activities-repository.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/entities/activity.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/entities/activity.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-external-game.entity.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/entities/game.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics.module.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,7 +37,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="feat-games" />
+        <entry key="$PROJECT_DIR$" value="main" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -50,7 +52,7 @@
     <option name="selectedUrlAndAccountId">
       <UrlAndAccount>
         <option name="accountId" value="89e05d4b-03ac-41f5-af77-1b8986cf0609" />
-        <option name="url" value="https://github.com/game-node-app/game-node-server.git" />
+        <option name="url" value="git@github.com:game-node-app/game-node-server.git" />
       </UrlAndAccount>
     </option>
   </component>
@@ -86,32 +88,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_ADD_EXTERNAL_FILES": "true",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-server",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs.jest.jest_package": "/home/lamarck/Projects/Web/game-node-server/node_modules/jest",
-    "nodejs_package_manager_path": "yarn",
-    "prettier.import.notification.dismissed": "true",
-    "prettierjs.PrettierConfiguration.Package": "/home/lamarck/Projects/Web/game-node-server/node_modules/prettier",
-    "project.structure.last.edited": "Modules",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.2",
-    "remote.dev.show.docker.config.missing.jdk.notification": "false",
-    "run.code.analysis.last.selected.profile": "pProject Default",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "ts.external.directory.path": "/home/lamarck/.local/share/JetBrains/Toolbox/apps/IDEA-U/ch-0/232.8660.185/plugins/javascript-impl/jsLanguageServicesImpl/external",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feat-games&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/lamarck/Projects/Web/game-node-server&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs.jest.jest_package&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/jest&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;yarn&quot;,
+    &quot;prettier.import.notification.dismissed&quot;: &quot;true&quot;,
+    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/prettier&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;remote.dev.show.docker.config.missing.jdk.notification&quot;: &quot;false&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/typescript/lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;mysql&quot;
+    ]
   }
-}]]></component>
+}</component>
   <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
     <layout>
       <window_info id="Space Code Reviews" />
@@ -147,7 +154,7 @@
       <recent name="$PROJECT_DIR$/libs/auth/src" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.start:dev:docker">
+  <component name="RunManager" selected="npm.typeorm:migration:run">
     <configuration name="AppController" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
       <node-interpreter value="project" />
       <jest-package value="$PROJECT_DIR$/node_modules/jest" />
@@ -197,19 +204,41 @@
       <envs />
       <method v="2" />
     </configuration>
+    <configuration name="typeorm:migration:generate" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="typeorm:migration:generate" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <configuration name="typeorm:migration:run" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="typeorm:migration:run" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
       <item itemvalue="Jest.AppController" />
       <item itemvalue="Jest.AppController.root" />
       <item itemvalue="npm.start:dev:docker" />
+      <item itemvalue="npm.typeorm:migration:run" />
+      <item itemvalue="npm.typeorm:migration:generate" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="npm.typeorm:migration:run" />
+        <item itemvalue="npm.typeorm:migration:generate" />
         <item itemvalue="Jest.AppController.root" />
         <item itemvalue="Jest.AppController" />
         <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
-        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
-        <item itemvalue="Jest.AppController.root" />
       </list>
     </recent_temporary>
   </component>
@@ -302,6 +331,10 @@
       <workItem from="1693842830122" duration="33000" />
       <workItem from="1696552712844" duration="165000" />
       <workItem from="1696552894436" duration="56000" />
+      <workItem from="1696552956535" duration="2677000" />
+      <workItem from="1696611630190" duration="1200000" />
+      <workItem from="1696694801110" duration="3559000" />
+      <workItem from="1696707045179" duration="55000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -346,7 +379,19 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="feat-games" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>

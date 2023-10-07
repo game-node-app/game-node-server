@@ -9,11 +9,14 @@ import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { StatisticsGameController } from "./statistics.game.controller";
 import { StatisticsGameService } from "./statistics.game.service";
+import {ActivityStatistics} from "./entity/activity-statistics.entity";
+import {Activity} from "../activities/entities/activity.entity";
 
 @Module({
     imports: [
         BullModule.registerQueue({ name: "statistics" }),
         TypeOrmModule.forFeature([
+            ActivityStatistics,
             GameStatistics,
             ReviewStatistics,
             UserLike,
