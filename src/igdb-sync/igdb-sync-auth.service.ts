@@ -1,3 +1,4 @@
+import { Injectable } from "@nestjs/common";
 import * as process from "process";
 import { lastValueFrom, map } from "rxjs";
 import { Interval } from "@nestjs/schedule";
@@ -21,28 +22,26 @@ type TokenResponse = {
 export const TOKEN_REFRESH_INTERVAL_SECONDS = 259200;
 
 /**
- * This is used internally by the IgdbService. <br>
- * Automatically refreshes the access token every ${TOKEN_REFRESH_INTERVAL_SECONDS} seconds, storing it in the
- * Redis Instance used by the CacheManager.
+ * This service is used internally by the IgdbSyncService <br>
+ * It's responsible for fetching and refreshing IGDB API's token, through the Twitch API 0Auth flow.
  */
-export class IgdbAuthService {
-    private logger: Logger;
-    private cacheKey = "TWITCH_ACCESS_TOKEN";
+@Injectable()
+export class IgdbSyncAuthService {
+    private logger: Logger = new Logger(IgdbSyncAuthService.name);
+    private accessTokenCacheKey = "TWITCH_ACCESS_TOKEN";
 
     constructor(
         private readonly httpService: HttpService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    ) {
-        this.logger = new Logger(IgdbAuthService.name);
-    }
+    ) {}
 
     private async getFromStore(): Promise<TokenResponse | undefined> {
-        return this.cacheManager.get<TokenResponse>(this.cacheKey);
+        return this.cacheManager.get<TokenResponse>(this.accessTokenCacheKey);
     }
 
     private async setToStore(token: TokenResponse): Promise<void> {
         await this.cacheManager.set(
-            this.cacheKey,
+            this.accessTokenCacheKey,
             token,
             TOKEN_REFRESH_INTERVAL_SECONDS * 1000,
         );
@@ -73,6 +72,8 @@ export class IgdbAuthService {
             response.pipe(
                 map((res) => {
                     const { data } = res;
+                    // Coverts the expires_in to 'milliseconds since epoch'.
+                    // Makes it easier to compare with Date.now().
                     if (typeof data.expires_in === "number") {
                         data.expires_in = Date.now() + data.expires_in * 1000;
                     }
@@ -85,11 +86,11 @@ export class IgdbAuthService {
     async refreshToken(): Promise<string> {
         const tokenOnStore = await this.getFromStore();
         // (tokenRefreshIntervalSeconds * 1000) days in ms from now.
-        const considerExpiredAt =
+        const dateOfExpirationMs =
             Date.now() + TOKEN_REFRESH_INTERVAL_SECONDS * 1000;
         if (
             tokenOnStore == undefined ||
-            tokenOnStore.expires_in < considerExpiredAt
+            tokenOnStore.expires_in < dateOfExpirationMs
         ) {
             this.logger.log(
                 "Token is expired or not found. Fetching new token.",

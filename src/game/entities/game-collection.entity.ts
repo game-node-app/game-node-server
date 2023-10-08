@@ -24,6 +24,8 @@ export class GameCollection {
     @Column()
     url: string;
 
-    @OneToMany(() => Game, (game) => game.collection)
+    @OneToMany(() => Game, (game) => game.collection, {
+        cascade: false,
+    })
     games: Game[];
 }

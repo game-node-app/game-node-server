@@ -7,20 +7,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/game-node-server.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/activities/activities-crud/activities-crud.module.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/activities/activities-crud/activities-crud.service.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/activities/activities-repository/activities-repository.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-repository/activities-repository.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/activities/entities/activity.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/entities/activity.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/entities/game-external-game.entity.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/entities/game.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/entities/game.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game.types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game.types.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -77,7 +67,7 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+    <option name="selectedTabId" value="ProjectErrors" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
@@ -88,37 +78,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;feat-games&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/lamarck/Projects/Web/game-node-server&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs.jest.jest_package&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/jest&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;yarn&quot;,
-    &quot;prettier.import.notification.dismissed&quot;: &quot;true&quot;,
-    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/prettier&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;remote.dev.show.docker.config.missing.jdk.notification&quot;: &quot;false&quot;,
-    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/typescript/lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "feat-games",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-server",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs.jest.jest_package": "/home/lamarck/Projects/Web/game-node-server/node_modules/jest",
+    "nodejs_package_manager_path": "yarn",
+    "prettier.import.notification.dismissed": "true",
+    "prettierjs.PrettierConfiguration.Package": "/home/lamarck/Projects/Web/game-node-server/node_modules/prettier",
+    "project.structure.last.edited": "Modules",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.2",
+    "remote.dev.show.docker.config.missing.jdk.notification": "false",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "actions.on.save",
+    "ts.external.directory.path": "/home/lamarck/Projects/Web/game-node-server/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;DatabaseDriversLRU&quot;: [
-      &quot;mysql&quot;
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "mysql"
     ]
   }
-}</component>
+}]]></component>
   <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
     <layout>
       <window_info id="Space Code Reviews" />
@@ -154,19 +144,7 @@
       <recent name="$PROJECT_DIR$/libs/auth/src" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.typeorm:migration:run">
-    <configuration name="AppController" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
-      <node-interpreter value="project" />
-      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
-      <working-dir value="$PROJECT_DIR$" />
-      <envs />
-      <scope-kind value="SUITE" />
-      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
-      <test-names>
-        <test-name value="AppController" />
-      </test-names>
-      <method v="2" />
-    </configuration>
+  <component name="RunManager" selected="npm.start:dev:docker">
     <configuration name="AppController.root" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
       <node-interpreter value="project" />
       <jest-package value="$PROJECT_DIR$/node_modules/jest" />
@@ -192,6 +170,16 @@
           <option name="sourceFilePath" value="docker-compose.yml" />
         </settings>
       </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="start" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="start" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
       <method v="2" />
     </configuration>
     <configuration name="start:dev:docker" type="js.build_tools.npm" nameIsGenerated="true">
@@ -226,19 +214,19 @@
     </configuration>
     <list>
       <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
-      <item itemvalue="Jest.AppController" />
       <item itemvalue="Jest.AppController.root" />
       <item itemvalue="npm.start:dev:docker" />
+      <item itemvalue="npm.start" />
       <item itemvalue="npm.typeorm:migration:run" />
       <item itemvalue="npm.typeorm:migration:generate" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="npm.start" />
         <item itemvalue="npm.typeorm:migration:run" />
         <item itemvalue="npm.typeorm:migration:generate" />
-        <item itemvalue="Jest.AppController.root" />
-        <item itemvalue="Jest.AppController" />
         <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+        <item itemvalue="Jest.AppController.root" />
       </list>
     </recent_temporary>
   </component>
@@ -334,7 +322,7 @@
       <workItem from="1696552956535" duration="2677000" />
       <workItem from="1696611630190" duration="1200000" />
       <workItem from="1696694801110" duration="3559000" />
-      <workItem from="1696707045179" duration="55000" />
+      <workItem from="1696707045179" duration="28360000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -368,7 +356,23 @@
       <option name="project" value="LOCAL" />
       <updated>1691525237021</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="- Improved game module">
+      <option name="closed" value="true" />
+      <created>1696707109734</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1696707109734</updated>
+    </task>
+    <task id="LOCAL-00006" summary="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed">
+      <option name="closed" value="true" />
+      <created>1696747187274</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1696747187274</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -402,7 +406,9 @@
     <MESSAGE value="-" />
     <MESSAGE value="Refactor auth and review modules to improve code maintainability&#10;&#10;Several changes were made throughout the project to improve code maintainability and compliance with best code practices. The diff includes multiple files and modules so here are the most notable changes:&#10;&#10;1. Removed unused modules and code from various files.&#10;2. Added new features in the `Reviews` functionality, such as `ReviewsController` and `ReviewsService`.&#10;3. Reorganized and cleaned up imports across multiple files for better readability.&#10;4. Refactored auth module by extracting user initialization logic into a separate `UserInitService`.&#10;5. Added a new `Activities` functionality.&#10;6. Code clean up and consistency improvements: changed how services are imported, moved functionality, broke down large functions, improved naming for consistency.&#10;&#10;The new auth implementation is more modular and each part of the process is easier to test and maintain. The reviews functionality has been expanded to include more use-cases giving the end user more options. Meanwhile, the new activities feature may help engage users better." />
     <MESSAGE value="- New activities module" />
-    <option name="LAST_COMMIT_MESSAGE" value="- New activities module" />
+    <MESSAGE value="- Improved game module" />
+    <MESSAGE value="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed" />
+    <option name="LAST_COMMIT_MESSAGE" value="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">

@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { CollectionEntry } from "../entities/collectionEntry.entity";
+import { CollectionEntry } from "../entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { FindOptionsRelations, In, Repository } from "typeorm";
 import { IgdbService } from "../../igdb/igdb.service";

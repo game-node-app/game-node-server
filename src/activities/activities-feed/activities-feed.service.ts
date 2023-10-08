@@ -10,7 +10,7 @@ import { ActivitiesFeedEntryDto } from "./dto/activities-feed-entry.dto";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { Review } from "../../reviews/entities/review.entity";
-import { CollectionEntry } from "../../collections/entities/collectionEntry.entity";
+import { CollectionEntry } from "../../collections/entities/collection-entry.entity";
 
 @Injectable()
 export class ActivitiesFeedService {
@@ -132,9 +132,8 @@ export class ActivitiesFeedService {
         const latestActivities =
             await this.activitiesRepositoryService.findLatest(120);
 
-        const latestActivitiesFeedEntries = await this.resolveActivitiesSources(
-            latestActivities,
-        );
+        const latestActivitiesFeedEntries =
+            await this.resolveActivitiesSources(latestActivities);
 
         const activitiesFeed: ActivitiesFeedEntryDto[] = [];
         const exaustedActivitiesTypes: ActivityType[] = [];

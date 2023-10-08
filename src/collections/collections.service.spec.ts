@@ -4,7 +4,7 @@ import { LibrariesService } from "../libraries/libraries.service";
 import { IgdbService } from "../igdb/igdb.service";
 import { HttpException, HttpStatus } from "@nestjs/common";
 import { Collection } from "./entities/collection.entity";
-import { CollectionEntry } from "./entities/collectionEntry.entity";
+import { CollectionEntry } from "./entities/collection-entry.entity";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { CreateCollectionEntryDto } from "./dto/create-collectionEntry.dto";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";

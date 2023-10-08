@@ -9,7 +9,7 @@ import {
 } from "typeorm";
 import { Library } from "../../libraries/entities/library.entity";
 import { IsNotEmpty } from "class-validator";
-import { CollectionEntry } from "./collectionEntry.entity";
+import { CollectionEntry } from "./collection-entry.entity";
 
 @Entity()
 export class Collection {

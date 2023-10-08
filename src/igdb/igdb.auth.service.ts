@@ -16,9 +16,9 @@ type TokenResponse = {
 /**
  * The interval in seconds to refresh the access token.
  *
- * IGDB tokens actually last 60 days, but we're using 3 days to be safe.
+ * IGDB tokens actually last 60 days, but we're using 7 days to be safe.
  */
-export const TOKEN_REFRESH_INTERVAL_SECONDS = 259200;
+export const TOKEN_REFRESH_INTERVAL_SECONDS = 604800;
 
 /**
  * This is used internally by the IgdbService. <br>
