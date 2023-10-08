@@ -3,7 +3,7 @@ import { CollectionsService } from "./collections.service";
 import { CollectionsController } from "./collections.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Collection } from "./entities/collection.entity";
-import { CollectionEntry } from "./entities/collectionEntry.entity";
+import { CollectionEntry } from "./entities/collection-entry.entity";
 import { LibrariesModule } from "../libraries/libraries.module";
 import { IgdbModule } from "../igdb/igdb.module";
 import { CollectionsEntriesService } from "./collections-entries/collections-entries.service";

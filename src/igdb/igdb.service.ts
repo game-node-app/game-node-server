@@ -119,17 +119,17 @@ export class IgdbService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
     ) {
         this.logger = new Logger(IgdbService.name);
-        this.buildIgdbClient().then();
+        // this.buildIgdbClient().then();
     }
 
-    @Interval(TOKEN_REFRESH_INTERVAL_SECONDS * 1000)
-    async buildIgdbClient(): Promise<void> {
-        const token = await this.igdbAuthService.refreshToken();
-        this.igdbClient = igdb(process.env.IGDB_CLIENT_ID, token);
-        this.logger.log(
-            "Built a fresh IGDB client at " + new Date().toISOString(),
-        );
-    }
+    // @Interval(TOKEN_REFRESH_INTERVAL_SECONDS * 1000)
+    // async buildIgdbClient(): Promise<void> {
+    //     const token = await this.igdbAuthService.refreshToken();
+    //     this.igdbClient = igdb(process.env.IGDB_CLIENT_ID, token);
+    //     this.logger.log(
+    //         "Built a fresh IGDB client at " + new Date().toISOString(),
+    //     );
+    // }
 
     async getFromStore(key: string) {
         try {

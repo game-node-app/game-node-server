@@ -5,7 +5,7 @@ import { FindOptionsRelations, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { IgdbService } from "../igdb/igdb.service";
-import { CollectionEntry } from "./entities/collectionEntry.entity";
+import { CollectionEntry } from "./entities/collection-entry.entity";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 
 @Injectable()

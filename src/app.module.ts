@@ -11,8 +11,9 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
-import {ActivitiesRepositoryModule} from "./activities/activities-repository/activities-repository.module";
-import {StatisticsModule} from "./statistics/statistics.module";
+import { ActivitiesRepositoryModule } from "./activities/activities-repository/activities-repository.module";
+import { StatisticsModule } from "./statistics/statistics.module";
+import { IgdbSyncModule } from "./igdb-sync/igdb-sync.module";
 
 @Module({
     imports: [
@@ -58,6 +59,7 @@ import {StatisticsModule} from "./statistics/statistics.module";
         }),
         ActivitiesRepositoryModule,
         StatisticsModule,
+        IgdbSyncModule,
     ],
     controllers: [AppController],
     providers: [AppService],
