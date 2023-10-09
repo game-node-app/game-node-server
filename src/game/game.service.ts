@@ -46,13 +46,13 @@ export class GameService {
         }
 
         await this.buildParentRelationships(game);
-        console.log(game.createdAt);
         await this.gameRepository.upsert(game, ["id"]);
         await this.buildChildRelationships(game);
     }
 
     /**
      * Builds relationships that are necessary for the game to be saved (e.g. collections).
+     *
      * e.g. Relationships where Game is on the ManyToOne side.
      * @param game
      */

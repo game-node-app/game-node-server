@@ -2,7 +2,7 @@
  * This SHOULD follow the order of the enum in the API
  * See: https://api-docs.igdb.com/#game-enums
  */
-enum GameCategory {
+enum EGameCategory {
     Main,
     DlcAddon,
     Expansion,
@@ -20,7 +20,7 @@ enum GameCategory {
     Update,
 }
 
-enum GameExternalGameCategory {
+enum EGameExternalGameCategory {
     Steam = 0,
     Gog = 5,
     Youtube = 10,
@@ -43,20 +43,39 @@ enum GameExternalGameCategory {
     Gamejolt = 55,
 }
 
+enum EGameExternalGameMedia {
+    Digital = 1,
+    Physical = 2,
+}
+
+enum EGamePlatformCategory {
+    Console = 1,
+    Arcade = 2,
+    Platform = 3,
+    OperatingSystem = 4,
+    PortableConsole = 5,
+    Computer = 6,
+}
+
 /**
  * This SHOULD follow the order of the enum in the API
  * See: https://api-docs.igdb.com/#game-enums
  */
-enum GameStatus {
-    Released,
-    PLACEHOLDER_1,
-    Alpha,
-    Beta,
-    EarlyAccess,
-    Offline,
-    Cancelled,
-    Rumored,
-    Delisted,
+enum EGameStatus {
+    Released = 0,
+    Alpha = 2,
+    Beta = 3,
+    EarlyAccess = 4,
+    Offline = 5,
+    Cancelled = 6,
+    Rumored = 7,
+    Delisted = 8,
 }
 
-export { GameCategory, GameStatus };
+export {
+    EGameCategory,
+    EGameStatus,
+    EGameExternalGameMedia,
+    EGameExternalGameCategory,
+    EGamePlatformCategory,
+};

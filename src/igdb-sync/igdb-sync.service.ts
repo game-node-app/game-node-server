@@ -9,7 +9,7 @@ import {
 import { DeepPartial } from "typeorm";
 import { Game } from "../game/entities/game.entity";
 import { PartialGame } from "../game/game.types";
-import { GameCategory } from "../game/game.constants";
+import { EGameCategory } from "../game/game.constants";
 import { GameService } from "../game/game.service";
 import isEmptyObject from "../utils/isEmptyObject";
 

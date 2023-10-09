@@ -1,9 +1,9 @@
-import { Column, Entity, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, PrimaryColumn } from "typeorm";
 
 /**
  * Base entity for all game images (e.g. artworks, screenshots, covers).
+ * PS: Do not use @Entity() here, as this should not have its own table.
  */
-@Entity()
 export class GameImage {
     @PrimaryColumn({
         type: "bigint",

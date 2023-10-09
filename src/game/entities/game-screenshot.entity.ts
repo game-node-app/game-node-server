@@ -1,5 +1,5 @@
 import { Entity, ManyToOne, OneToOne } from "typeorm";
-import { GameImage } from "./game-image.entity";
+import { GameImage } from "./base/game-image.entity";
 import { Game } from "./game.entity";
 
 @Entity()

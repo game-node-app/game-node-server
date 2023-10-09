@@ -7,6 +7,13 @@ import { GameCollection } from "./entities/game-collection.entity";
 import { GameCover } from "./entities/game-cover.entity";
 import { GameArtwork } from "./entities/game-artwork.entity";
 import { GameScreenshot } from "./entities/game-screenshot.entity";
+import { GameExternalGame } from "./entities/game-external-game.entity";
+import { GameFranchise } from "./entities/game-franchise.entity";
+import { GameGenre } from "./entities/game-genre.entity";
+import { GameLocalization } from "./entities/game-localization.entity";
+import { GameMode } from "./entities/game-mode.entity";
+import { GamePlatform } from "./entities/game-platform.entity";
+import { GameKeyword } from "./game-keyword.entity";
 
 @Module({
     imports: [
@@ -17,6 +24,13 @@ import { GameScreenshot } from "./entities/game-screenshot.entity";
             GameCover,
             GameArtwork,
             GameScreenshot,
+            GameExternalGame,
+            GameFranchise,
+            GameGenre,
+            GameLocalization,
+            GameMode,
+            GamePlatform,
+            GameKeyword,
         ]),
     ],
     providers: [GameService],
