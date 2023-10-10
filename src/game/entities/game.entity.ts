@@ -2,6 +2,9 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinColumn,
+    JoinTable,
+    ManyToMany,
     ManyToOne,
     OneToMany,
     OneToOne,
@@ -20,6 +23,7 @@ import { GameLocalization } from "./game-localization.entity";
 import { GameMode } from "./game-mode.entity";
 import { GameGenre } from "./game-genre.entity";
 import { GameKeyword } from "../game-keyword.entity";
+import { GamePlatform } from "./game-platform.entity";
 
 /**
  * For future maintainers:
@@ -67,15 +71,21 @@ export class Game {
         default: EGameCategory.Main,
     })
     category: EGameCategory;
-    @Column()
+    @Column({
+        default: EGameStatus.Released,
+    })
     status: EGameStatus;
-    @Column("text")
+    @Column("text", {
+        nullable: true,
+    })
     summary: string;
     @Column("varchar", {
         nullable: true,
     })
     checksum: string;
-    @Column()
+    @Column({
+        nullable: true,
+    })
     url: string;
     @Column({
         nullable: true,
@@ -151,18 +161,7 @@ export class Game {
         nullable: true,
     })
     screenshots?: GameScreenshot[];
-    @OneToMany(
-        () => GameExternalGame,
-        (gameExternalGame) => gameExternalGame.game,
-        {
-            nullable: true,
-        },
-    )
-    externalGames?: GameExternalGame[];
-    @ManyToOne(() => GameFranchise, (gameFranchise) => gameFranchise.games, {
-        nullable: true,
-    })
-    franchise?: GameFranchise;
+
     @OneToMany(
         () => GameLocalization,
         (gameLocalization) => gameLocalization.game,
@@ -179,8 +178,26 @@ export class Game {
         nullable: true,
     })
     genres?: GameGenre[];
-    @OneToMany(() => GameKeyword, (gameKeyword) => gameKeyword.game, {
+    @ManyToMany(() => GameKeyword, (gameKeyword) => gameKeyword.game, {
         nullable: true,
     })
+    @JoinTable()
     keywords?: GameKeyword[];
+    @ManyToMany(() => GameFranchise, (gameFranchise) => gameFranchise.games, {
+        nullable: true,
+    })
+    @JoinTable()
+    franchises?: GameFranchise[];
+    @ManyToMany(() => GamePlatform, (gamePlatform) => gamePlatform.games, {
+        nullable: true,
+    })
+    platforms?: GamePlatform[];
+    @ManyToMany(
+        () => GameExternalGame,
+        (gameExternalGame) => gameExternalGame.games,
+        {
+            nullable: true,
+        },
+    )
+    externalGames?: GameExternalGame[];
 }

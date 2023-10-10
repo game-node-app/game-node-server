@@ -2,7 +2,6 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "../entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { FindOptionsRelations, In, Repository } from "typeorm";
-import { IgdbService } from "../../igdb/igdb.service";
 import { CollectionsService } from "../collections.service";
 import { CreateCollectionEntryDto } from "../dto/create-collectionEntry.dto";
 import { UpdateCollectionEntryDto } from "../dto/update-collectionEntry.dto";
@@ -17,7 +16,6 @@ export class CollectionsEntriesService {
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
         private collectionsService: CollectionsService,
-        private readonly igdbService: IgdbService,
     ) {}
 
     /**
@@ -65,13 +63,10 @@ export class CollectionsEntriesService {
         );
         const { igdbId } = createEntryDto;
 
-        const [games] = await this.igdbService.findByIdsOrFail({
-            igdbIds: [igdbId],
-        });
-
         const collectionEntryEntity = this.collectionEntriesRepository.create({
             igdbId: igdbId,
-            data: games[0],
+            // TODO: Reimplement with Games
+            // data: games[0],
             collection,
             dataSources: createEntryDto.dataSources,
         });

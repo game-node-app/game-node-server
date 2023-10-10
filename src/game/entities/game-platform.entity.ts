@@ -2,26 +2,37 @@ import {
     Column,
     CreateDateColumn,
     Entity,
-    JoinColumn,
-    OneToOne,
+    JoinTable,
+    ManyToMany,
     PrimaryColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { EGamePlatformCategory } from "../game.constants";
+import { Game } from "./game.entity";
 
 @Entity()
 export class GamePlatform {
     @PrimaryColumn("bigint")
     id: number;
-    @Column()
+    @Column({
+        nullable: true,
+    })
     abbreviation: string;
-    @Column()
+    @Column({
+        nullable: true,
+    })
     alternative_name: string;
-    @Column()
+    @Column({
+        default: EGamePlatformCategory.Console,
+    })
     category: EGamePlatformCategory;
-    @Column()
+    @Column({
+        nullable: true,
+    })
     checksum: string;
-    @Column()
+    @Column({
+        nullable: true,
+    })
     generation: number;
     @Column()
     name: string;
@@ -29,4 +40,10 @@ export class GamePlatform {
     createdAt: Date;
     @UpdateDateColumn()
     updatedAt: Date;
+    // Relationships
+    @ManyToMany(() => Game, (game) => game.platforms, {
+        nullable: true,
+    })
+    @JoinTable()
+    games: Game[];
 }

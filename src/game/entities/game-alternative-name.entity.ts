@@ -5,12 +5,18 @@ import { Game } from "./game.entity";
 export class GameAlternativeName {
     @PrimaryColumn("bigint")
     id: number;
-    @Column("text")
-    comment: string;
-    @Column("text")
-    name: string;
-    @Column("text")
-    checksum: string;
+    @Column("text", {
+        nullable: true,
+    })
+    comment?: string;
+    @Column("text", {
+        nullable: true,
+    })
+    name?: string;
+    @Column("text", {
+        nullable: true,
+    })
+    checksum?: string;
     @ManyToOne(() => Game, (game) => game.alternativeNames)
     game: Game;
 }

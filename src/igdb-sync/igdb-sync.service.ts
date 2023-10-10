@@ -1,101 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import igdb from "igdb-api-node";
-import { Interval } from "@nestjs/schedule";
 import * as process from "process";
-import {
-    IgdbSyncAuthService,
-    TOKEN_REFRESH_INTERVAL_SECONDS,
-} from "./igdb-sync-auth.service";
-import { DeepPartial } from "typeorm";
-import { Game } from "../game/entities/game.entity";
-import { PartialGame } from "../game/game.types";
-import { EGameCategory } from "../game/game.constants";
-import { GameService } from "../game/game.service";
-import isEmptyObject from "../utils/isEmptyObject";
-
-const snakeCaseToCamelCase = (str: string) => {
-    return str.replace(/([-_][a-z])/g, (group) =>
-        group.toUpperCase().replace("-", "").replace("_", ""),
-    );
-};
-
-const objectKeysToCamelCase = (obj: any) => {
-    // Only converts objects which are actual objects (not arrays, not null, not undefined, not numbers, etc)
-    if (obj == null || typeof obj !== "object") {
-        return obj;
-    } else if (Array.isArray(obj)) {
-        return obj;
-    }
-
-    const camelCaseObj: any = {};
-    // eslint-disable-next-line prefer-const
-    for (let [key, value] of Object.entries(obj)) {
-        if (typeof value === "object" && value != null) {
-            camelCaseObj[snakeCaseToCamelCase(key)] =
-                objectKeysToCamelCase(value);
-            continue;
-        }
-
-        camelCaseObj[snakeCaseToCamelCase(key)] = value;
-    }
-
-    return camelCaseObj;
-};
-
-/**
- * TODO: find a better name for this
- * Recursively validates a game object.
- * @param game
- */
-const validateResult = (game: PartialGame) => {
-    const validatedGame = game;
-
-    for (const [key, value] of Object.entries(validatedGame)) {
-        if (value == undefined) {
-            continue;
-        } else if (isEmptyObject(value)) {
-            validatedGame[key] = undefined;
-        } else if (typeof value === "object" && value.constructor === Object) {
-            validatedGame[key] = validateResult(value);
-        } else if (key === "createdAt" || key === "updatedAt") {
-            if (typeof value === "number") {
-                validatedGame[key] = new Date(value);
-            }
-        }
-    }
-
-    return validatedGame;
-};
-
-function normalizeResults(results: any[]) {
-    const normalizedResults: PartialGame[] = [];
-    for (const result of results) {
-        // Do basic parsing (converts fields to camelCase)
-        const normalizedResult: PartialGame = objectKeysToCamelCase(result);
-
-        // Do more advanced parsing (converts fields to their respective types)
-        if (
-            normalizedResult.firstReleaseDate &&
-            typeof normalizedResult.firstReleaseDate === "number"
-        ) {
-            normalizedResult.firstReleaseDate = new Date(
-                normalizedResult.firstReleaseDate,
-            );
-        }
-        if (normalizedResult.collection) {
-            normalizedResult.collection = {
-                ...normalizedResult.collection,
-                games: undefined,
-            };
-        }
-
-        const validatedResult = validateResult(normalizedResult);
-
-        normalizedResults.push(validatedResult);
-    }
-
-    return normalizedResults;
-}
+import { IgdbSyncAuthService } from "./igdb-sync-auth.service";
+import * as retry from "async-retry";
+import { IgdbSyncQueueService } from "./igdb-sync-queue/igdb-sync-queue.service";
+import sleep from "../utils/sleep";
 
 @Injectable()
 /**
@@ -104,90 +13,123 @@ function normalizeResults(results: any[]) {
  */
 export class IgdbSyncService {
     private logger = new Logger(IgdbSyncService.name);
-    private igdbClient: ReturnType<typeof igdb>;
     // IGDB API's limit
     private readonly itemsPerPage = 500;
+    // IGDB API's fields
     private readonly igdbSearchFields = [
         "id",
         "name",
+        "slug",
+        "checksum",
+        "aggregated_rating",
+        "aggregated_rating_count",
+        "status",
+        "summary",
+        "url",
         "screenshots.*",
         "game_modes.*",
+        "expanded_games.id",
+        "expanded_games.name",
+        "expanded_games.slug",
         "category",
         "genres.*",
         "platforms.*",
-        "dlcs.*",
-        "rating",
-        "expansions.*",
+        "dlcs.id",
+        "dlcs.name",
+        "dlcs.slug",
+        "expansions.id",
+        "expansions.name",
+        "expansions.slug",
         "similar_games.id",
+        "similar_games.name",
+        "similar_games.slug",
         "cover.*",
         "artworks.*",
         "collection.*",
+        "alternative_names.*",
+        "external_games.*",
+        "franchises.*",
+        "keywords.*",
+        "game_localizations.*",
         "language_supports.*",
         "first_release_date",
     ];
 
     constructor(
         private igdbAuthService: IgdbSyncAuthService,
-        private gameService: GameService,
+        private igdbSyncQueueService: IgdbSyncQueueService,
     ) {
         this.logger.log("Created IGDB sync service instance");
         this.start();
     }
 
-    // This basically calls setInterval on this function. Expect similar behaviour.
-    @Interval(TOKEN_REFRESH_INTERVAL_SECONDS * 1000)
     /**
-     * Builds a IGDB client (basically trying to refresh the IGDB token) every once in a while.
-     * This is possible because NestJS Injectables are singletons.
+     * Builds a IGDB client (trying to refresh the IGDB token if necessary).
      */
-    async buildIgdbClient(): Promise<void> {
+    async buildIgdbClient(): Promise<ReturnType<typeof igdb>> {
         const token = await this.igdbAuthService.refreshToken();
-        this.igdbClient = igdb(process.env.TWITCH_CLIENT_ID, token);
+        const igdbClient = igdb(process.env.TWITCH_CLIENT_ID, token);
         this.logger.log(
             "Built a fresh IGDB client at " + new Date().toISOString(),
         );
+
+        return igdbClient;
     }
 
+    /**
+     * Fetches entries from IGDB.
+     * Do not handle errors here, as this is called by start() which already handles errors.
+     * @param offset
+     */
+    private async fetch(offset: number) {
+        const igdbClient = await this.buildIgdbClient();
+        // Basic search parameters
+        const search = igdbClient
+            .fields(this.igdbSearchFields)
+            .limit(500)
+            .offset(offset);
+
+        const results = await search.request("/games");
+        return results;
+    }
+
+    /**
+     * Starts the IGDB sync process.
+     * Fetches entries (with fetch()), handles errors with async-retry and sends results with to queue.
+     */
     async start(): Promise<void> {
-        this.logger.log("Starting IGDB sync");
-        if (this.igdbClient == undefined) {
-            await this.buildIgdbClient();
-        }
+        this.logger.log("Starting IGDB sync at ", new Date().toISOString());
 
         let hasNextPage = true;
         let currentOffset = 0;
-
         while (hasNextPage) {
-            const search = this.igdbClient
-                .fields(this.igdbSearchFields)
-                .limit(500)
-                .offset(currentOffset);
-            try {
-                this.logger.log(
-                    "Fetching IGDB data with offset " + currentOffset,
-                );
-                const results = await search.request("/games");
-                this.logger.log(
-                    "Finished fetching IGDB results at " +
-                        new Date().toISOString(),
-                );
-                const normalizedResults = normalizeResults(results.data);
-                this.logger.log("Normalized IGDB results");
-                this.logger.log("Attempting to save normalized results");
-                for (const game of normalizedResults) {
-                    this.logger.log(
-                        "Attempting to save game with id: " + game.id,
-                    );
-                    this.logger.log(game);
-                    await this.gameService.createOrUpdate(game);
-                }
-            } catch (e: any) {
-                console.error(e);
-                break;
-            }
+            this.logger.log(`Fetching results from offset ${currentOffset}`);
+            await retry(
+                async () => {
+                    const results = await this.fetch(currentOffset);
+                    if (results.data.length === 0) {
+                        hasNextPage = false;
+                        return;
+                    }
+                    // Sends results to queue.
+                    await this.igdbSyncQueueService.handle(results.data);
+                    currentOffset += this.itemsPerPage;
+                    hasNextPage = results.data.length >= this.itemsPerPage;
 
-            this.logger.warn("IGDB sync is not implemented yet! Forcing break");
-            break;
+                    // Wait 2 seconds before fetching again.
+                    // We are fetching a lot of data, after all.
+                    await sleep(2000);
+                },
+                {
+                    retries: 3,
+                    onRetry: (err, attempt) => {
+                        this.logger.error(`Error while fetching IGDB results:`);
+                        this.logger.error(err);
+                        this.logger.error(`Retry attempts: ${attempt} of 3`);
+                    },
+                    minTimeout: 10000,
+                },
+            );
         }
     }
 }

@@ -5,7 +5,6 @@ import { AuthModule } from "./auth/auth.module";
 import { ConfigModule } from "@nestjs/config";
 import * as process from "process";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { IgdbModule } from "./igdb/igdb.module";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ScheduleModule } from "@nestjs/schedule";
 import { redisStore } from "cache-manager-redis-yet";
@@ -42,10 +41,12 @@ import { IgdbSyncModule } from "./igdb-sync/igdb-sync.module";
             password: process.env.DB_PASS,
             database: process.env.DB_DATABASE,
             autoLoadEntities: true,
+            // Never turn this on. Use migrations instead.
             synchronize: false,
-            debug: process.env.NODE_ENV === "development",
+            logging: false,
+            debug: false,
         }),
-        IgdbModule,
+
         CacheModule.registerAsync({
             isGlobal: true,
             useFactory: async () => ({

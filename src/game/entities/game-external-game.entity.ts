@@ -2,6 +2,8 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinTable,
+    ManyToMany,
     ManyToOne,
     PrimaryColumn,
     UpdateDateColumn,
@@ -27,18 +29,30 @@ export class GameExternalGame {
         length: 255,
     })
     uid: string;
-    @Column()
-    category: EGameExternalGameCategory;
-    @Column()
-    media: EGameExternalGameMedia;
-    @Column("text")
-    checksum: string;
-    @Column("text")
-    name: string;
-    @Column("text")
-    url: string;
-    @Column("int")
-    year: number;
+    @Column({
+        nullable: true,
+    })
+    category?: EGameExternalGameCategory;
+    @Column({
+        nullable: true,
+    })
+    media?: EGameExternalGameMedia;
+    @Column("text", {
+        nullable: true,
+    })
+    checksum?: string;
+    @Column("text", {
+        nullable: true,
+    })
+    name?: string;
+    @Column("text", {
+        nullable: true,
+    })
+    url?: string;
+    @Column("int", {
+        nullable: true,
+    })
+    year?: number;
 
     @CreateDateColumn()
     createdAt: Date;
@@ -46,10 +60,7 @@ export class GameExternalGame {
     updatedAt: Date;
 
     // Relationships
-    // TODO: add Platform relationship
-    @ManyToOne(() => Game, (game) => game.externalGames, {})
-    game: Game;
-
-    @ManyToOne(() => GamePlatform, {})
-    platform: GamePlatform;
+    @ManyToMany(() => Game, (game) => game.externalGames, {})
+    @JoinTable()
+    games: Game[];
 }

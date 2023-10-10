@@ -4,7 +4,6 @@ import { Collection } from "./entities/collection.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
-import { IgdbService } from "../igdb/igdb.service";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 
@@ -20,7 +19,6 @@ export class CollectionsService {
         private collectionsRepository: Repository<Collection>,
         @InjectRepository(CollectionEntry)
         private readonly librariesService: LibrariesService,
-        private readonly igdbService: IgdbService,
     ) {}
 
     async findOneById(id: string) {

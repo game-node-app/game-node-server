@@ -5,7 +5,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Collection } from "./entities/collection.entity";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { LibrariesModule } from "../libraries/libraries.module";
-import { IgdbModule } from "../igdb/igdb.module";
 import { CollectionsEntriesService } from "./collections-entries/collections-entries.service";
 import { CollectionsEntriesController } from "./collections-entries/collections-entries.controller";
 import { ActivitiesQueueModule } from "src/activities/activities-queue/activities-queue.module";
@@ -15,7 +14,6 @@ import { ReviewsModule } from "../reviews/reviews.module";
     imports: [
         TypeOrmModule.forFeature([Collection, CollectionEntry]),
         LibrariesModule,
-        IgdbModule,
         ActivitiesQueueModule,
         ReviewsModule,
     ],
