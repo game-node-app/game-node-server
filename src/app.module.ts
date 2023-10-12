@@ -12,7 +12,6 @@ import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { ActivitiesRepositoryModule } from "./activities/activities-repository/activities-repository.module";
 import { StatisticsModule } from "./statistics/statistics.module";
-import { IgdbSyncModule } from "./igdb-sync/igdb-sync.module";
 
 @Module({
     imports: [
@@ -29,8 +28,8 @@ import { IgdbSyncModule } from "./igdb-sync/igdb-sync.module";
                 appName: "GameNode",
                 apiDomain: process.env.DOMAIN_API as any,
                 websiteDomain: process.env.DOMAIN_WEBSITE as any,
-                apiBasePath: "/v1/auth",
-                websiteBasePath: "/auth",
+                apiBasePath: process.env.DOMAIN_API_BASE as any,
+                websiteBasePath: process.env.DOMAIN_WEBSITE_BASE as any,
             },
         }),
         TypeOrmModule.forRoot({
@@ -60,7 +59,6 @@ import { IgdbSyncModule } from "./igdb-sync/igdb-sync.module";
         }),
         ActivitiesRepositoryModule,
         StatisticsModule,
-        IgdbSyncModule,
     ],
     controllers: [AppController],
     providers: [AppService],

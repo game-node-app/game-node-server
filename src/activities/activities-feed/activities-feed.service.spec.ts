@@ -22,10 +22,7 @@ describe("ActivitiesFeedService", () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                ActivitiesFeedService,
-                { provide: getRepositoryToken(Activity) ,useValue:},
-            ],
+            providers: [ActivitiesFeedService],
         }).compile();
 
         service = module.get<ActivitiesFeedService>(ActivitiesFeedService);

@@ -3,6 +3,7 @@ import { AppService } from "./app.service";
 import { AuthGuard } from "./auth/auth.guard";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { Session } from "./auth/session.decorator";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 
 @Controller()
 export class AppController {
@@ -14,8 +15,8 @@ export class AppController {
     }
 
     @Get("test")
-    @UseGuards(new AuthGuard())
-    async getTest(@Session() session: SessionContainer): Promise<string> {
+    @UseGuards(new JwtAuthGuard())
+    async getTest(): Promise<string> {
         // TODO: magic
         return "magic";
     }

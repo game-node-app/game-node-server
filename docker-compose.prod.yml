@@ -29,7 +29,7 @@ services:
 
   supertokens:
     env_file: ./.env
-    image: registry.supertokens.io/supertokens/supertokens-mysql:6.0
+    image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
     depends_on:
       - db
     expose:
@@ -68,7 +68,6 @@ services:
       - app_network
 
   server:
-    image: game-node-server_server:latest
     build:
       context: .
       dockerfile: Dockerfile

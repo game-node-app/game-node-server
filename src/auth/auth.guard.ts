@@ -4,6 +4,10 @@ import { Error as STError } from "supertokens-node";
 import { verifySession } from "supertokens-node/recipe/session/framework/express";
 import { VerifySessionOptions } from "supertokens-node/recipe/session";
 
+/**
+ * Default AuthGuard that checks for a valid session.
+ * This guard should not be used for microservice communication, prefer JwtAuthGuard instead.
+ */
 @Injectable()
 export class AuthGuard implements CanActivate {
     constructor(private readonly verifyOptions?: VerifySessionOptions) {}

@@ -27,7 +27,7 @@ services:
       retries: 10
 
   supertokens:
-    image: registry.supertokens.io/supertokens/supertokens-mysql:6.0
+    image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
     depends_on:
       db:
         condition: service_healthy

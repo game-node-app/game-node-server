@@ -6,10 +6,14 @@ import {
 } from "@nestjs/common";
 
 import { AuthMiddleware } from "./auth.middleware";
-import { ConfigInjectionToken, AuthModuleConfig } from "./config.interface";
+import {
+    SupertokensConfigInjectionToken,
+    AuthModuleConfig,
+} from "./config.interface";
 import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
-import { UserInitModule } from "../user-init/user-init.module";
+import { UserInitModule } from "./user-init/user-init.module";
+import * as process from "process";
 
 @Module({
     imports: [UserInitModule],
@@ -19,7 +23,7 @@ import { UserInitModule } from "../user-init/user-init.module";
 })
 export class AuthModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {
-        consumer.apply(AuthMiddleware).forRoutes();
+        consumer.apply(AuthMiddleware).forRoutes("*");
     }
 
     static forRoot({
@@ -27,6 +31,13 @@ export class AuthModule implements NestModule {
         apiKey,
         appInfo,
     }: AuthModuleConfig): DynamicModule {
+        for (const value of Object.values(appInfo)) {
+            if (!value) {
+                throw new Error(
+                    "App info is missing. Please provide all required fields.",
+                );
+            }
+        }
         return {
             providers: [
                 {
@@ -35,7 +46,7 @@ export class AuthModule implements NestModule {
                         connectionURI,
                         apiKey,
                     },
-                    provide: ConfigInjectionToken,
+                    provide: SupertokensConfigInjectionToken,
                 },
                 AuthService,
             ],

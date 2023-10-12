@@ -1,10 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { CollectionsService } from "../collections/collections.service";
-import { LibrariesService } from "../libraries/libraries.service";
-import { ProfileService } from "../profile/profile.service";
-import UserRoles from "supertokens-node/recipe/userroles";
-import { EUserRoles } from "../utils/constants";
-import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
+import { CollectionsService } from "../../collections/collections.service";
+import { LibrariesService } from "../../libraries/libraries.service";
+import { ProfileService } from "../../profile/profile.service";
+// import UserRoles from "supertokens-node/recipe/userroles";
+// import { EUserRoles } from "../../utils/constants";
+import { DEFAULT_COLLECTIONS } from "../../collections/collections.constants";
 
 @Injectable()
 export class UserInitService {
@@ -32,7 +32,7 @@ export class UserInitService {
         );
 
         try {
-            await UserRoles.addRoleToUser(userId, EUserRoles.USER);
+            // await UserRoles.addRoleToUser(userId, EUserRoles.USER);
         } catch (e) {}
 
         try {
