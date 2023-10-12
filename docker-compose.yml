@@ -21,6 +21,7 @@ services:
     restart: no
     volumes:
       - db:/var/lib/mysql
+      - ./scripts/mysql_entrypoint.sh:/docker-entrypoint-initdb.d/init.sh
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s

@@ -7,27 +7,34 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- Finished mappings of IGDB API to Game entity">
-      <change afterPath="$PROJECT_DIR$/src/auth/jwt-auth.guard.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="feat(security): initial implementation of jwt-based auth for microservices">
+      <change afterPath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.service.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/dto/create-game.dto.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.prod.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.prod.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/game-node-server.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/activities/activities-feed/activities-feed.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-feed/activities-feed.service.spec.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/infra/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.prod.yml" beforeDir="false" afterPath="$PROJECT_DIR$/infra/docker-compose.prod.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/infra/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.controller.ts" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.guard.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/auth.controller.spec.ts" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/auth/auth.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.module.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/auth/auth.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/config.interface.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/config.interface.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/user.decorator.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/user.decorator.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/user-init/user-init.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/user-init/user-init.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/user-init/user-init.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/user-init/user-init.service.spec.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/user-init/user-init.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/user-init/user-init.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/yarn.lock" beforeDir="false" afterPath="$PROJECT_DIR$/yarn.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/jwt-auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.guard.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/jwt-auth.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-auth.service.spec.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-auth.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.constants.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.spec.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/infra/scripts/mysql_entrypoint.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.module.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.service.spec.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.types.ts" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -96,43 +103,43 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;feat-games&quot;,
-    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;16.3.0&quot;,
-    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;16.3.0&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/lamarck/Projects/Web/game-node-web&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs.jest.jest_package&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/jest&quot;,
-    &quot;nodejs_interpreter_path&quot;: &quot;/home/lamarck/.nvm/versions/node/v18.17.0/bin/node&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;yarn&quot;,
-    &quot;prettier.import.notification.dismissed&quot;: &quot;true&quot;,
-    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/prettier&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;remote.dev.show.docker.config.missing.jdk.notification&quot;: &quot;false&quot;,
-    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;settings.nodejs&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/typescript/lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "feat-games",
+    "javascript.nodejs.core.library.configured.version": "18.17.0",
+    "javascript.nodejs.core.library.typings.version": "18.17.0",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-sync",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs.jest.jest_package": "/home/lamarck/Projects/Web/game-node-server/node_modules/jest",
+    "nodejs_interpreter_path": "/home/lamarck/.nvm/versions/node/v18.17.0/bin/node",
+    "nodejs_package_manager_path": "yarn",
+    "prettier.import.notification.dismissed": "true",
+    "prettierjs.PrettierConfiguration.Package": "/home/lamarck/Projects/Web/game-node-server/node_modules/prettier",
+    "project.structure.last.edited": "Modules",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.2",
+    "remote.dev.show.docker.config.missing.jdk.notification": "false",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "settings.nodejs",
+    "ts.external.directory.path": "/home/lamarck/Projects/Web/game-node-server/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;DatabaseDriversLRU&quot;: [
-      &quot;mysql&quot;
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "mysql"
     ],
-    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
-      &quot;PLAIN_TEXT&quot;
+    "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
+      "PLAIN_TEXT"
     ]
   }
-}</component>
+}]]></component>
   <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
     <layout>
       <window_info id="Space Code Reviews" />
@@ -165,11 +172,11 @@
       <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/infra" />
+      <recent name="$PROJECT_DIR$/src/game/game-queue" />
+      <recent name="$PROJECT_DIR$/src/auth/jwt-auth" />
+      <recent name="$PROJECT_DIR$/src/game" />
       <recent name="$PROJECT_DIR$/src/auth" />
-      <recent name="$PROJECT_DIR$/src/igdb" />
-      <recent name="$PROJECT_DIR$/src/game/entities/base" />
-      <recent name="$PROJECT_DIR$/src/activities/activities-repository" />
-      <recent name="$PROJECT_DIR$/src/activities/activities-repository/" />
     </key>
     <key name="es6.move.members.recent.items">
       <recent name="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.constants.ts" />
@@ -182,15 +189,15 @@
       </deployment>
       <method v="2" />
     </configuration>
-    <configuration name="docker-compose.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+    <configuration name="infra: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
       <deployment type="docker-compose.yml">
         <settings>
-          <option name="sourceFilePath" value="docker-compose.yml" />
+          <option name="sourceFilePath" value="infra/docker-compose.yml" />
         </settings>
       </deployment>
       <method v="2" />
     </configuration>
-    <configuration name="docker-compose.yml.supertokens: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+    <configuration name="infra.supertokens: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
       <deployment type="docker-compose.yml">
         <settings>
           <option name="services">
@@ -198,7 +205,7 @@
               <option value="supertokens" />
             </list>
           </option>
-          <option name="sourceFilePath" value="docker-compose.yml" />
+          <option name="sourceFilePath" value="infra/docker-compose.yml" />
         </settings>
       </deployment>
       <method v="2" />
@@ -244,8 +251,8 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Docker.docker-compose.yml.supertokens: Compose Deployment" />
-      <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+      <item itemvalue="Docker.infra.supertokens: Compose Deployment" />
+      <item itemvalue="Docker.infra: Compose Deployment" />
       <item itemvalue="npm.start:dev:docker" />
       <item itemvalue="npm.start" />
       <item itemvalue="npm.typeorm:migration:run" />
@@ -253,10 +260,10 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Docker.docker-compose.yml.supertokens: Compose Deployment" />
+        <item itemvalue="Docker.infra.supertokens: Compose Deployment" />
         <item itemvalue="npm.typeorm:migration:run" />
         <item itemvalue="npm.typeorm:migration:generate" />
-        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+        <item itemvalue="Docker.infra: Compose Deployment" />
         <item itemvalue="npm.start" />
       </list>
     </recent_temporary>
@@ -362,7 +369,7 @@
       <workItem from="1696913877887" duration="3005000" />
       <workItem from="1697055251059" duration="38000" />
       <workItem from="1697055296412" duration="9263000" />
-      <workItem from="1697082711843" duration="1045000" />
+      <workItem from="1697082711843" duration="9579000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -428,7 +435,15 @@
       <option name="project" value="LOCAL" />
       <updated>1696880084679</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="feat(security): initial implementation of jwt-based auth for microservices">
+      <option name="closed" value="true" />
+      <created>1697083911352</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1697083911352</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -476,7 +491,8 @@
     <MESSAGE value="- Improved game module" />
     <MESSAGE value="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed" />
     <MESSAGE value="- Finished mappings of IGDB API to Game entity" />
-    <option name="LAST_COMMIT_MESSAGE" value="- Finished mappings of IGDB API to Game entity" />
+    <MESSAGE value="feat(security): initial implementation of jwt-based auth for microservices" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat(security): initial implementation of jwt-based auth for microservices" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">

@@ -25,7 +25,6 @@ export class AuthService {
         private config: AuthModuleConfig,
         private userInitService: UserInitService,
     ) {
-        console.log(this.config.appInfo);
         supertokens.init({
             appInfo: this.config.appInfo,
             supertokens: {

@@ -1,6 +1,4 @@
-import { MiddlewareConsumer, Module } from "@nestjs/common";
-import { AppController } from "./app.controller";
-import { AppService } from "./app.service";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { AuthModule } from "./auth/auth.module";
 import { ConfigModule } from "@nestjs/config";
 import * as process from "process";
@@ -12,26 +10,15 @@ import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { ActivitiesRepositoryModule } from "./activities/activities-repository/activities-repository.module";
 import { StatisticsModule } from "./statistics/statistics.module";
+import { GlobalModule } from "./global/global.module";
+import { GameModule } from "./game/game.module";
+import { GameQueueModule } from "./game/game-queue/game-queue.module";
 
 @Module({
     imports: [
         ScheduleModule.forRoot(),
-        ConfigModule.forRoot(),
-        AuthModule.forRoot({
-            // https://try.supertokens.com is for demo purposes.
-            // Replace this with the address of your core instance (sign up on supertokens.com),
-            // or self-host a core.
-            connectionURI: process.env.SUPERTOKENS_CORE_URI as string,
-            // apiKey: <API_KEY(if configured)>,
-            appInfo: {
-                // Learn more about this on https://supertokens.com/docs/thirdparty/appinfo
-                appName: "GameNode",
-                apiDomain: process.env.DOMAIN_API as any,
-                websiteDomain: process.env.DOMAIN_WEBSITE as any,
-                apiBasePath: process.env.DOMAIN_API_BASE as any,
-                websiteBasePath: process.env.DOMAIN_WEBSITE_BASE as any,
-            },
-        }),
+        GlobalModule,
+        AuthModule,
         TypeOrmModule.forRoot({
             type: "mysql",
             host: process.env.DB_HOST,
@@ -59,11 +46,11 @@ import { StatisticsModule } from "./statistics/statistics.module";
         }),
         ActivitiesRepositoryModule,
         StatisticsModule,
+        GameQueueModule,
     ],
-    controllers: [AppController],
-    providers: [AppService],
+    providers: [],
 })
-export class AppModule {
+export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
         consumer.apply(LoggerMiddleware).forRoutes("*");
     }

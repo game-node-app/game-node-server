@@ -1,11 +1,11 @@
 import { Process, Processor } from "@nestjs/bull";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { GameService } from "../../game/game.service";
+import { GameService } from "../game.service";
 import { Logger } from "@nestjs/common";
-import { PartialGame } from "../../game/game.types";
+import { PartialGame } from "../game.types";
 import isEmptyObject from "../../utils/isEmptyObject";
 import { Job } from "bull";
-import { IGDB_SYNC_QUEUE_NAME } from "./igdb-sync-queue.constants";
+import { GAME_QUEUE_NAME } from "./game-queue.constants";
 
 const snakeCaseToCamelCase = (str: string) => {
     return str.replace(/([-_][a-z])/g, (group) =>
@@ -93,9 +93,9 @@ function normalizeResults(results: any[]) {
     return normalizedResults;
 }
 
-@Processor(IGDB_SYNC_QUEUE_NAME)
-export class IgdbSyncQueueProcessor {
-    private logger = new Logger(IgdbSyncQueueProcessor.name);
+@Processor(GAME_QUEUE_NAME)
+export class GameQueueProcessor {
+    private logger = new Logger(GameQueueProcessor.name);
 
     constructor(private readonly gameService: GameService) {}
 

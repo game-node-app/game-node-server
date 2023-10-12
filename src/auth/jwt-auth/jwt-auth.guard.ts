@@ -10,21 +10,23 @@ import * as process from "process";
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+    private readonly JWKS_URI = `${process.env.DOMAIN_API}/v1/auth/jwt/jwks.json`;
     constructor() {}
 
     /**
      * @param jwtHeader - JWT header, from the decoded token
-     * @param callback
      * @private
      */
     async getSigningKey(jwtHeader: JwtHeader) {
-        const apiDomain = process.env.DOMAIN_API;
-        const apiDomainBase = process.env.DOMAIN_API_BASE;
         const client = jwksClient({
-            jwksUri: `{${apiDomain}${apiDomainBase}/jwt/jwks.json`,
+            jwksUri: this.JWKS_URI,
         });
-        const signingKey = await client.getSigningKey(jwtHeader.kid);
-        return signingKey.getPublicKey();
+        try {
+            const signingKey = await client.getSigningKey(jwtHeader.kid);
+            return signingKey.getPublicKey();
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     /**
@@ -46,14 +48,15 @@ export class JwtAuthGuard implements CanActivate {
         if (!decodedToken) {
             return false;
         }
-        const jwtHeader = decodedToken.header;
-        const signingKey = await this.getSigningKey(jwtHeader);
-
         try {
+            const jwtHeader = decodedToken.header;
+            const signingKey = await this.getSigningKey(jwtHeader);
+            // @ts-ignore
             JsonWebToken.verify(bearerToken, signingKey, {
                 algorithms: ["RS256"],
             });
         } catch (e) {
+            console.error(e);
             return false;
         }
 
