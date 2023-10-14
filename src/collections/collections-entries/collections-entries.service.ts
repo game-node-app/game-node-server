@@ -1,45 +1,50 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { CollectionEntry } from "../entities/collection-entry.entity";
+import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindOptionsRelations, In, Repository } from "typeorm";
+import { DeepPartial, FindOptionsRelations, In, Repository } from "typeorm";
 import { CollectionsService } from "../collections.service";
-import { CreateCollectionEntryDto } from "../dto/create-collectionEntry.dto";
-import { UpdateCollectionEntryDto } from "../dto/update-collectionEntry.dto";
+import { CreateCollectionEntryDto } from "./dto/create-collectionEntry.dto";
+import { UpdateCollectionEntryDto } from "./dto/update-collectionEntry.dto";
+import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
+import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
 
 @Injectable()
 export class CollectionsEntriesService {
     private readonly relations: FindOptionsRelations<CollectionEntry> = {
         collection: true,
         review: true,
+        game: true,
     };
     constructor(
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
         private collectionsService: CollectionsService,
+        private activitiesQueueService: ActivitiesQueueService,
     ) {}
 
     /**
      * This is mainly used to check if a given entry exists in a given user's library.
      * @param userId
-     * @param igdbId
+     * @param gameId
      */
-    async findOneByUserIdAndIgdbId(userId: string, igdbId: number) {
+    async findOneByUserIdAndGameId(userId: string, gameId: number) {
         return await this.collectionEntriesRepository.findOne({
-            // Where igdbId (entry id) === igdbId (param) and libraryId (which is the Supertokens userId) === userId
             where: {
-                igdbId,
                 collection: {
                     library: {
                         userId,
                     },
+                },
+                game: {
+                    id: gameId,
                 },
             },
             relations: this.relations,
         });
     }
 
-    async findOneByUserIdAndIgdbIdOrFail(userId: string, igdbId: number) {
-        const entry = await this.findOneByUserIdAndIgdbId(userId, igdbId);
+    async findOneByUserIdAndGameIdOrFail(userId: string, gameId: number) {
+        const entry = await this.findOneByUserIdAndGameId(userId, gameId);
         if (!entry) {
             throw new HttpException(
                 "Collection entry not found.",
@@ -61,21 +66,48 @@ export class CollectionsEntriesService {
         const collection = await this.collectionsService.findOneByIdOrFail(
             createEntryDto.collectionId,
         );
-        const { igdbId } = createEntryDto;
 
-        const collectionEntryEntity = this.collectionEntriesRepository.create({
-            igdbId: igdbId,
-            // TODO: Reimplement with Games
-            // data: games[0],
+        const { gameId, platformIds } = createEntryDto;
+
+        if (platformIds == undefined || platformIds.length === 0) {
+            throw new HttpException(
+                "At least one platform ID must be provided.",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        const entry = this.collectionEntriesRepository.create({
             collection,
-            dataSources: createEntryDto.dataSources,
+            // This pattern is only possible while using .save().
+            game: {
+                id: gameId,
+            },
+            ownedPlatforms: platformIds.map((platformId) => ({
+                id: platformId,
+            })),
         });
 
-        try {
-            await this.collectionEntriesRepository.save(collectionEntryEntity);
-        } catch (e) {
-            throw new HttpException(e, 500);
-        }
+        await this.collectionEntriesRepository.save(entry);
+    }
+
+    /**
+     * Should be called after the review has been created.
+     * Should only be called from the ReviewsService.
+     * @param userId
+     * @param gameId
+     * @param reviewId
+     */
+    async attachReview(userId: string, gameId: number, reviewId: string) {
+        const entry = await this.findOneByUserIdAndGameIdOrFail(userId, gameId);
+        const updatedEntry = this.collectionEntriesRepository.create({
+            ...entry,
+            review: {
+                id: reviewId,
+            },
+            reviewId,
+        });
+
+        await this.collectionEntriesRepository.save(updatedEntry);
     }
 
     async update(
@@ -83,11 +115,17 @@ export class CollectionsEntriesService {
         igdbId: number,
         updateEntryDto: UpdateCollectionEntryDto,
     ) {
-        const entry = await this.findOneByUserIdAndIgdbIdOrFail(userId, igdbId);
-        const updatedEntry = this.collectionEntriesRepository.merge(
-            entry,
-            updateEntryDto,
-        );
+        const entry = await this.findOneByUserIdAndGameIdOrFail(userId, igdbId);
+        let ownedPlatforms: DeepPartial<GamePlatform>[] = entry.ownedPlatforms;
+        if (updateEntryDto.platformIds) {
+            ownedPlatforms = updateEntryDto.platformIds.map((platformId) => ({
+                id: platformId,
+            }));
+        }
+        const updatedEntry = this.collectionEntriesRepository.create({
+            ...entry,
+            ownedPlatforms: ownedPlatforms,
+        });
 
         await this.collectionEntriesRepository.save(updatedEntry);
     }

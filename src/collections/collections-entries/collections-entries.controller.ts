@@ -8,13 +8,14 @@ import {
     Post,
 } from "@nestjs/common";
 import { CollectionsEntriesService } from "./collections-entries.service";
-import { ApiBadRequestResponse } from "@nestjs/swagger";
+import { ApiBadRequestResponse, ApiTags } from "@nestjs/swagger";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
-import { CreateCollectionEntryDto } from "../dto/create-collectionEntry.dto";
-import { UpdateCollectionEntryDto } from "../dto/update-collectionEntry.dto";
+import { CreateCollectionEntryDto } from "./dto/create-collectionEntry.dto";
+import { UpdateCollectionEntryDto } from "./dto/update-collectionEntry.dto";
 
 @Controller("collections/entries")
+@ApiTags("collections")
 export class CollectionsEntriesController {
     constructor(private collectionsEntriesService: CollectionsEntriesService) {}
 
@@ -63,7 +64,7 @@ export class CollectionsEntriesController {
             );
         }
         const userId = session.getUserId();
-        return this.collectionsEntriesService.findOneByUserIdAndIgdbIdOrFail(
+        return this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
             userId,
             igdbId,
         );

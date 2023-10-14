@@ -1,8 +1,8 @@
 import { Process, Processor } from "@nestjs/bull";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { GameService } from "../game.service";
+import { GameRepositoryService } from "../game-repository/game-repository.service";
 import { Logger } from "@nestjs/common";
-import { PartialGame } from "../game.types";
+import { PartialGame } from "../game-repository/game-repository.types";
 import isEmptyObject from "../../utils/isEmptyObject";
 import { Job } from "bull";
 import { GAME_QUEUE_NAME } from "./game-queue.constants";
@@ -97,19 +97,27 @@ function normalizeResults(results: any[]) {
 export class GameQueueProcessor {
     private logger = new Logger(GameQueueProcessor.name);
 
-    constructor(private readonly gameService: GameService) {}
+    constructor(private readonly gameService: GameRepositoryService) {}
 
     @Process()
     async process(job: Job<any[]>) {
         const results = job.data;
-        this.logger.log(`Processing ${results.length} results`);
+        // this.logger.log(`Processing ${results.length} results`);
 
         const normalizedResults = normalizeResults(results);
 
         for (const result of normalizedResults) {
-            this.logger.log(`Processing result ${result.id}`);
-            await this.gameService.createOrUpdate(result);
+            // this.logger.log(`Processing result ${result.id}`);
+            this.gameService
+                .createOrUpdate(result)
+                // .then(() => this.logger.log(`Processed result ${result.id}`))
+                .catch((e) => {
+                    this.logger.error(
+                        `Error while processing result ${result.id}`,
+                        e,
+                    );
+                });
         }
-        this.logger.log(`SUCCESS: Processed ${results.length} results`);
+        // this.logger.log(`SUCCESS: Processed ${results.length} results`);
     }
 }

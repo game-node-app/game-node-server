@@ -1,5 +1,5 @@
 import { Process, Processor } from "@nestjs/bull";
-import { Activity } from "../entities/activity.entity";
+import { Activity } from "../activities-repository/entities/activity.entity";
 import { Job } from "bull";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";

@@ -7,7 +7,8 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import supertokens from "supertokens-node";
 
 import { publicUploadDir } from "./utils/constants";
-import * as process from "process";
+import { json } from "express";
+import * as fs from "fs";
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -42,6 +43,7 @@ async function bootstrap() {
         .build();
 
     const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+    fs.writeFileSync("swagger.json", JSON.stringify(swaggerDocument));
 
     SwaggerModule.setup("v1/docs", app, swaggerDocument);
 
@@ -50,6 +52,8 @@ async function bootstrap() {
     app.useStaticAssets(publicUploadDir, {
         prefix: "/v1/public/uploads",
     });
+
+    app.use(json({ limit: "15mb" }));
 
     await app.listen(5000);
 }

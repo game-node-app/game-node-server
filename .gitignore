@@ -39,6 +39,8 @@ lerna-debug.log*
 .env.production
 .env.docker
 
+wrapper
+
 /src/migrations/*
 
 /public/uploads/*

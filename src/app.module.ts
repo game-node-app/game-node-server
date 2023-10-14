@@ -1,6 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { AuthModule } from "./auth/auth.module";
-import { ConfigModule } from "@nestjs/config";
 import * as process from "process";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CacheModule } from "@nestjs/cache-manager";
@@ -9,10 +8,11 @@ import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { ActivitiesRepositoryModule } from "./activities/activities-repository/activities-repository.module";
-import { StatisticsModule } from "./statistics/statistics.module";
+import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
 import { GlobalModule } from "./global/global.module";
-import { GameModule } from "./game/game.module";
 import { GameQueueModule } from "./game/game-queue/game-queue.module";
+import { CollectionsModule } from "./collections/collections.module";
+import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
 
 @Module({
     imports: [
@@ -45,8 +45,10 @@ import { GameQueueModule } from "./game/game-queue/game-queue.module";
             redis: process.env.REDIS_URL,
         }),
         ActivitiesRepositoryModule,
-        StatisticsModule,
+        StatisticsQueueModule,
         GameQueueModule,
+        CollectionsModule,
+        CollectionsEntriesModule,
     ],
     providers: [],
 })

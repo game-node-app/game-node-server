@@ -21,7 +21,7 @@ services:
     restart: no
     volumes:
       - db:/var/lib/mysql
-      - ./scripts/mysql_entrypoint.sh:/docker-entrypoint-initdb.d/init.sh
+
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s
@@ -67,6 +67,30 @@ services:
     networks:
       - app_network
 
+  manticore:
+    image: manticoresearch/manticore
+    environment:
+      - EXTRA=1
+    restart: always
+    ports:
+      - "9306:9306"
+      - "9308:9308"
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock:
+        soft: -1
+        hard: -1
+
+    volumes:
+      - manticore:/var/lib/manticore
+      # - ./manticore.conf:/etc/manticoresearch/manticore.conf # uncomment if you use a custom config
+
+    networks:
+      - app_network
+
 
 networks:
   app_network:
@@ -75,4 +99,5 @@ networks:
 volumes:
   redis:
   db:
+  manticore:
 

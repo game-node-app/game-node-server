@@ -3,14 +3,14 @@ import { CollectionsEntriesService } from "src/collections/collections-entries/c
 import { ReviewsService } from "src/reviews/reviews.service";
 import { ActivityType } from "../activities-queue/activities-queue.constants";
 import { ProfileService } from "src/profile/profile.service";
-import { Activity } from "../entities/activity.entity";
+import { Activity } from "../activities-repository/entities/activity.entity";
 import { BuildActivitiesDto } from "./dto/build-activities.dto";
 import { ActivitiesRepositoryService } from "../activities-repository/activities-repository.service";
 import { ActivitiesFeedEntryDto } from "./dto/activities-feed-entry.dto";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { Review } from "../../reviews/entities/review.entity";
-import { CollectionEntry } from "../../collections/entities/collection-entry.entity";
+import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
 
 @Injectable()
 export class ActivitiesFeedService {
@@ -18,12 +18,13 @@ export class ActivitiesFeedService {
 
     /**
      * Chances of a given activity being selected by the builder, in the form of a percentage.
+     * Make sure this amounts to 1 (100%).
      */
     private readonly activitiesFeedChances = {
-        [ActivityType.COLLECTION_ENTRY]: 0.5,
+        [ActivityType.COLLECTION_ENTRY]: 0.25,
         // This is not implemented yet.
         [ActivityType.FOLLOW]: 0.0,
-        [ActivityType.REVIEW]: 0.5,
+        [ActivityType.REVIEW]: 0.75,
     };
 
     constructor(
@@ -72,7 +73,7 @@ export class ActivitiesFeedService {
     /**
      * Resolves the sources of the activities.
      * This is probably very expensive. You are free to open an PR suggesting a better way to do this.
-     * Do keep in mind that fetching sources shouldn't ever be handled by the client (e.g. the frontend).
+     * Do keep in mind that fetchi-lng sources shouldn't ever be handled by the client (e.g. the frontend).
      * The logic here is that we make a single SELECT query per activity type, and then use native JS functions to populate the correct source.
      * @param activities
      */
@@ -102,6 +103,7 @@ export class ActivitiesFeedService {
         const reviewsMap = new Map<string, Review>(
             reviews.map((review) => [review.id, review]),
         );
+
         const collectionEntriesMap = new Map<string, CollectionEntry>(
             collectionEntries.map((collectionEntry) => [
                 collectionEntry.id,
@@ -109,7 +111,7 @@ export class ActivitiesFeedService {
             ]),
         );
 
-        activities.forEach((activity) => {
+        for (const activity of activities) {
             let source;
             switch (activity.type) {
                 case ActivityType.REVIEW:
@@ -123,7 +125,7 @@ export class ActivitiesFeedService {
             if (source) {
                 activitiesFeedEntries.push({ ...activity, source });
             }
-        });
+        }
 
         return activitiesFeedEntries;
     }
@@ -136,10 +138,10 @@ export class ActivitiesFeedService {
             await this.resolveActivitiesSources(latestActivities);
 
         const activitiesFeed: ActivitiesFeedEntryDto[] = [];
-        const exaustedActivitiesTypes: ActivityType[] = [];
+        const exhaustedActivitiesTypes: ActivityType[] = [];
         while (latestActivitiesFeedEntries.length !== 0) {
             const nextActivityType = this.getWeightedRandomActivityType();
-            if (exaustedActivitiesTypes.includes(nextActivityType)) {
+            if (exhaustedActivitiesTypes.includes(nextActivityType)) {
                 // If we already exausted this activity type, we skip it.
                 continue;
             }
@@ -149,7 +151,7 @@ export class ActivitiesFeedService {
             );
             if (nextActivityIndex === -1) {
                 // If there are no more activities of this type, we mark it as exausted and continue.
-                exaustedActivitiesTypes.push(nextActivityType);
+                exhaustedActivitiesTypes.push(nextActivityType);
                 continue;
             }
 

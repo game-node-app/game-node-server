@@ -4,8 +4,10 @@ import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { FindReviewDto } from "./dto/find-review.dto";
 import { ReviewsService } from "./reviews.service";
+import { ApiTags } from "@nestjs/swagger";
 
 @Controller("reviews")
+@ApiTags("reviews")
 export class ReviewsController {
     constructor(private readonly reviewsService: ReviewsService) {}
 
@@ -19,7 +21,7 @@ export class ReviewsController {
 
     @Get()
     async findAllByIgdbId(@Query() findQueryDto: FindReviewDto) {
-        return this.reviewsService.findAllByIgdbId(findQueryDto.igdbId);
+        return this.reviewsService.findAllByGameId(findQueryDto.igdbId);
     }
 
     @Get(":id")

@@ -4,7 +4,7 @@ import { CollectionsService } from "./collections.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
-import { CreateCollectionEntryDto } from "./dto/create-collectionEntry.dto";
+import { CreateCollectionEntryDto } from "./collections-entries/dto/create-collectionEntry.dto";
 import { HttpException, HttpStatus } from "@nestjs/common";
 import { CACHE_MANAGER, CacheModule } from "@nestjs/cache-manager";
 

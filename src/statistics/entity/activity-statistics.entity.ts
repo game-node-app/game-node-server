@@ -8,7 +8,7 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 import { UserView } from "./user-view.entity";
-import { Activity } from "../../activities/entities/activity.entity";
+import { Activity } from "../../activities/activities-repository/entities/activity.entity";
 import { UserLike } from "./user-like.entity";
 
 @Entity()

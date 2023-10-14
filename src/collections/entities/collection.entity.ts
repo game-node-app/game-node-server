@@ -8,8 +8,7 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 import { Library } from "../../libraries/entities/library.entity";
-import { IsNotEmpty } from "class-validator";
-import { CollectionEntry } from "./collection-entry.entity";
+import { CollectionEntry } from "../collections-entries/entities/collection-entry.entity";
 
 @Entity()
 export class Collection {
@@ -18,7 +17,9 @@ export class Collection {
 
     @Column({ nullable: false })
     name: string;
-    @Column()
+    @Column({
+        nullable: true,
+    })
     description: string;
     @Column({ nullable: false, default: false })
     isPublic: boolean;

@@ -2,39 +2,107 @@
 <project version="4">
   <component name="AnalysisUIOptions">
     <option name="ANALYZE_INJECTED_CODE" value="false" />
+    <option name="CUSTOM_SCOPE_NAME" value="Module 'game-node-server'" />
   </component>
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="feat(security): initial implementation of jwt-based auth for microservices">
-      <change afterPath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.service.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/game/dto/create-game.dto.ts" afterDir="false" />
+    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="chore(supertokens): upgraded version and fixed issues">
+      <change afterPath="$PROJECT_DIR$/src/auth/public.decorator.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.module.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-queue/dto/create-game.dto.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.constants.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/infra/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.prod.yml" beforeDir="false" afterPath="$PROJECT_DIR$/infra/docker-compose.prod.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/infra/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app.controller.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.prod.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.prod.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/mysql_entrypoint.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-feed/activities-feed.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-feed/activities-feed.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-feed/activities-feed.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-feed/activities-feed.service.spec.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-feed/activities-feed.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-feed/activities-feed.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-feed/dto/activities-feed-entry.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-feed/dto/activities-feed-entry.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-queue/activities-queue-processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-queue/activities-queue-processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-queue/activities-queue.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-queue/activities-queue.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-queue/activities-queue.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-queue/activities-queue.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-repository/activities-repository.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-repository/activities-repository.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/activities-repository/activities-repository.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-repository/activities-repository.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/activities/entities/activity.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/activities/activities-repository/entities/activity.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.constants.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.controller.spec.ts" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app.service.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/auth.controller.spec.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/auth.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/auth.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/jwt-auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.guard.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/jwt-auth.service.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-auth.service.spec.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-auth.service.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.constants.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.spec.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/infra/scripts/mysql_entrypoint.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.module.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.service.spec.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.service.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/igdb-sync/igdb-sync.types.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/auth.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.guard.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.guard.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.controller.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.controller.spec.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.service.spec.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/dto/create-collectionEntry.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/dto/create-collectionEntry.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/dto/update-collectionEntry.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/dto/update-collectionEntry.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/entities/collection-entry.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/entities/collection-entry.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/entities/collection.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/entities/collection.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/dto/create-game.dto.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/base/game-image.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/base/game-image.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/base/game-resource.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/base/game-resource.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-alternative-name.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-alternative-name.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-artwork.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-artwork.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-collection.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-collection.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-cover.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-cover.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-external-game.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-external-game.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-franchise.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-franchise.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-genre.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-genre.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-localization.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-localization.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-mode.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-mode.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-platform.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-platform.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game-screenshot.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-screenshot.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/entities/game.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-keyword.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-keyword.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game.constants.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game.service.spec.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game.types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.types.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/interceptor/pagination.interceptor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/interceptor/pagination.interceptor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/libraries/dto/create-library.dto.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/libraries/dto/update-library.dto.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/libraries/entities/library.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/libraries/entities/library.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/libraries/libraries.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/libraries/libraries.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/libraries/libraries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/libraries/libraries.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/profile/entities/profile.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/profile/entities/profile.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/profile/profile.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/profile/profile.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/profile/profile.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/profile/profile.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/entities/review.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/entities/review.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.controller.spec.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.service.spec.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/dto/find-popular.dto.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/entity/activity-statistics.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/entity/activity-statistics.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/entity/game-statistics.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/entity/game-statistics.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/manticore.conf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.game.controller.spec.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.game.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-queue/statistics-queue-game.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.game.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-queue/statistics-queue.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.processor.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-queue/statistics-queue.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.queue.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-queue/statistics-queue.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-queue/statistics-queue.types.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/base-find.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/base-find.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/buildBaseFindOptions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/buildBaseFindOptions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/buildPaginationResponse.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/pagination/buildPaginationResponse.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/yarn.lock" beforeDir="false" afterPath="$PROJECT_DIR$/yarn.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,7 +160,7 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+    <option name="selectedTabId" value="ProjectErrors" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
@@ -110,9 +178,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "feat-games",
-    "javascript.nodejs.core.library.configured.version": "18.17.0",
-    "javascript.nodejs.core.library.typings.version": "18.17.0",
-    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-sync",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/foto-ponto-server/src/auth/jwt-auth.guard.ts",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -127,7 +193,7 @@
     "project.structure.side.proportion": "0.2",
     "remote.dev.show.docker.config.missing.jdk.notification": "false",
     "run.code.analysis.last.selected.profile": "pProject Default",
-    "settings.editor.selected.configurable": "settings.nodejs",
+    "settings.editor.selected.configurable": "database.query.execution",
     "ts.external.directory.path": "/home/lamarck/Projects/Web/game-node-server/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   },
@@ -172,11 +238,11 @@
       <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/infra" />
-      <recent name="$PROJECT_DIR$/src/game/game-queue" />
-      <recent name="$PROJECT_DIR$/src/auth/jwt-auth" />
-      <recent name="$PROJECT_DIR$/src/game" />
-      <recent name="$PROJECT_DIR$/src/auth" />
+      <recent name="$PROJECT_DIR$/src/statistics/statistics-queue" />
+      <recent name="$PROJECT_DIR$/src/statistics/statistics-game" />
+      <recent name="$PROJECT_DIR$/src/collections/collections-entries/dto" />
+      <recent name="$PROJECT_DIR$/src/collections/collections-entries/entities" />
+      <recent name="$PROJECT_DIR$/src/activities/activities-repository" />
     </key>
     <key name="es6.move.members.recent.items">
       <recent name="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.constants.ts" />
@@ -189,35 +255,30 @@
       </deployment>
       <method v="2" />
     </configuration>
-    <configuration name="infra: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
-      <deployment type="docker-compose.yml">
-        <settings>
-          <option name="sourceFilePath" value="infra/docker-compose.yml" />
-        </settings>
-      </deployment>
-      <method v="2" />
-    </configuration>
-    <configuration name="infra.supertokens: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+    <configuration name="docker-compose.yml.manticore: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
       <deployment type="docker-compose.yml">
         <settings>
           <option name="services">
             <list>
-              <option value="supertokens" />
+              <option value="manticore" />
             </list>
           </option>
-          <option name="sourceFilePath" value="infra/docker-compose.yml" />
+          <option name="sourceFilePath" value="docker-compose.yml" />
         </settings>
       </deployment>
       <method v="2" />
     </configuration>
-    <configuration name="start" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
-      <package-json value="$PROJECT_DIR$/package.json" />
-      <command value="run" />
-      <scripts>
-        <script value="start" />
-      </scripts>
-      <node-interpreter value="project" />
-      <envs />
+    <configuration name="docker-compose.yml.redis: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="services">
+            <list>
+              <option value="redis" />
+            </list>
+          </option>
+          <option name="sourceFilePath" value="docker-compose.yml" />
+        </settings>
+      </deployment>
       <method v="2" />
     </configuration>
     <configuration name="start:dev:docker" type="js.build_tools.npm" nameIsGenerated="true">
@@ -250,21 +311,31 @@
       <envs />
       <method v="2" />
     </configuration>
+    <configuration name="wrapper:generate" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="wrapper:generate" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
     <list>
-      <item itemvalue="Docker.infra.supertokens: Compose Deployment" />
-      <item itemvalue="Docker.infra: Compose Deployment" />
+      <item itemvalue="Docker.docker-compose.yml.manticore: Compose Deployment" />
+      <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
       <item itemvalue="npm.start:dev:docker" />
-      <item itemvalue="npm.start" />
+      <item itemvalue="npm.wrapper:generate" />
       <item itemvalue="npm.typeorm:migration:run" />
       <item itemvalue="npm.typeorm:migration:generate" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Docker.infra.supertokens: Compose Deployment" />
+        <item itemvalue="npm.wrapper:generate" />
         <item itemvalue="npm.typeorm:migration:run" />
         <item itemvalue="npm.typeorm:migration:generate" />
-        <item itemvalue="Docker.infra: Compose Deployment" />
-        <item itemvalue="npm.start" />
+        <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
+        <item itemvalue="Docker.docker-compose.yml.manticore: Compose Deployment" />
       </list>
     </recent_temporary>
   </component>
@@ -369,7 +440,11 @@
       <workItem from="1696913877887" duration="3005000" />
       <workItem from="1697055251059" duration="38000" />
       <workItem from="1697055296412" duration="9263000" />
-      <workItem from="1697082711843" duration="9579000" />
+      <workItem from="1697082711843" duration="41079000" />
+      <workItem from="1697195976484" duration="1699000" />
+      <workItem from="1697197690286" duration="1957000" />
+      <workItem from="1697230890238" duration="65000" />
+      <workItem from="1697230974604" duration="22360000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -443,11 +518,22 @@
       <option name="project" value="LOCAL" />
       <updated>1697083911352</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="chore(supertokens): upgraded version and fixed issues">
+      <option name="closed" value="true" />
+      <created>1697092723526</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1697092723526</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.conf" />
   </component>
   <component name="Vcs.Log.History.Properties">
     <option name="COLUMN_ID_ORDER">
@@ -492,7 +578,8 @@
     <MESSAGE value="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed" />
     <MESSAGE value="- Finished mappings of IGDB API to Game entity" />
     <MESSAGE value="feat(security): initial implementation of jwt-based auth for microservices" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat(security): initial implementation of jwt-based auth for microservices" />
+    <MESSAGE value="chore(supertokens): upgraded version and fixed issues" />
+    <option name="LAST_COMMIT_MESSAGE" value="chore(supertokens): upgraded version and fixed issues" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">

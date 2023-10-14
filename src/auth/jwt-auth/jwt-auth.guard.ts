@@ -3,6 +3,7 @@ import * as JsonWebToken from "jsonwebtoken";
 import { JwtHeader } from "jsonwebtoken";
 import * as jwksClient from "jwks-rsa";
 import * as process from "process";
+import { Reflector } from "@nestjs/core";
 
 /**
  * Jwt based auth guard. Checks for valid JWT token which is signed by another service/microservice.
@@ -11,7 +12,8 @@ import * as process from "process";
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
     private readonly JWKS_URI = `${process.env.DOMAIN_API}/v1/auth/jwt/jwks.json`;
-    constructor() {}
+
+    constructor(private readonly reflector: Reflector) {}
 
     /**
      * @param jwtHeader - JWT header, from the decoded token
@@ -35,6 +37,16 @@ export class JwtAuthGuard implements CanActivate {
      */
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const ctx = context.switchToHttp();
+
+        const isPublic = this.reflector.get<boolean>(
+            "isPublic",
+            context.getHandler(),
+        );
+
+        if (isPublic) {
+            return true;
+        }
+
         const headers = ctx.getRequest().headers;
         const authorization = headers.authorization as string;
         const bearerToken = authorization?.split("Bearer ")[1];

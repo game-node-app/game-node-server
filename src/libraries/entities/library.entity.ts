@@ -1,14 +1,11 @@
 import {
-    Column,
     CreateDateColumn,
     Entity,
     OneToMany,
     PrimaryColumn,
-    PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { Collection } from "../../collections/entities/collection.entity";
-import { IsNotEmpty } from "class-validator";
 
 @Entity()
 export class Library {

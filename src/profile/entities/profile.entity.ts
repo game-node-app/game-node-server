@@ -23,8 +23,8 @@ export class Profile {
         type: "varchar",
     })
     userId: string;
-    @Column({ nullable: true })
-    username?: string;
+    @Column({ nullable: false, unique: true, length: 20 })
+    username: string;
 
     @OneToOne(() => ProfileAvatar, (avatar) => avatar.profile, {
         nullable: true,

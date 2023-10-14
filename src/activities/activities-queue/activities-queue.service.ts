@@ -1,7 +1,7 @@
 import { InjectQueue } from "@nestjs/bull";
 import { Injectable } from "@nestjs/common";
 import { Queue } from "bull";
-import { Activity } from "../entities/activity.entity";
+import { Activity } from "../activities-repository/entities/activity.entity";
 import { DeepPartial } from "typeorm";
 
 @Injectable()

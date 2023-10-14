@@ -1,12 +1,16 @@
 import {
     CreateDateColumn,
     Entity,
+    JoinColumn,
     OneToMany,
+    OneToOne,
     PrimaryColumn,
+    PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { UserLike } from "./user-like.entity";
 import { UserView } from "./user-view.entity";
+import { Game } from "../../game/game-repository/entities/game.entity";
 
 /**
  * Statistics for a single game
@@ -16,8 +20,13 @@ import { UserView } from "./user-view.entity";
  */
 @Entity()
 export class GameStatistics {
-    @PrimaryColumn()
-    igdbId: number;
+    @PrimaryGeneratedColumn()
+    id: number;
+    @OneToOne(() => Game, {
+        nullable: false,
+    })
+    @JoinColumn()
+    game: Game;
     @OneToMany(() => UserLike, (userLike) => userLike.gameStatistics)
     likes: UserLike[];
     @OneToMany(() => UserView, (userView) => userView.gameStatistics)

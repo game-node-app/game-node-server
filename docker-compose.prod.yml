@@ -13,7 +13,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASS}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASS}
-      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_DATABASE: gamenode
 
     expose:
       - 3306
@@ -22,6 +22,7 @@ services:
     restart: always
     volumes:
       - db:/var/lib/mysql
+      - ./scripts/mysql_entrypoint.sh:/docker-entrypoint-initdb.d/init.sh
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s
@@ -36,7 +37,7 @@ services:
       - 3567
 
     environment:
-      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/${DB_DATABASE}
+      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/supertokens
     networks:
       - app_network
     restart: always
@@ -77,12 +78,13 @@ services:
       - supertokens
       - redis
 
-    env_file: ../.env
+    env_file: .env
 
     # Most of the env vars are loaded directly from .env, we only need to override some to make sure
     # the docker resources are accessible.
     environment:
       DB_HOST: db
+      DB_DATABASE: gamenode
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
       REDIS_URL: redis://redis:6379
       SERVER_PORT: 5000

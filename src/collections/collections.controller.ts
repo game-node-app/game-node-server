@@ -14,12 +14,13 @@ import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
-import { CreateCollectionEntryDto } from "./dto/create-collectionEntry.dto";
-import { ApiBadRequestResponse } from "@nestjs/swagger";
+import { CreateCollectionEntryDto } from "./collections-entries/dto/create-collectionEntry.dto";
+import { ApiBadRequestResponse, ApiTags } from "@nestjs/swagger";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 
 @Controller("collections")
-@UseGuards(new AuthGuard())
+@ApiTags("collections")
+@UseGuards(AuthGuard)
 @UseInterceptors(CacheInterceptor)
 export class CollectionsController {
     constructor(private readonly collectionsService: CollectionsService) {}

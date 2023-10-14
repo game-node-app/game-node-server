@@ -2,7 +2,7 @@ import { BullModule } from "@nestjs/bull";
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ProfileModule } from "src/profile/profile.module";
-import { Activity } from "../entities/activity.entity";
+import { Activity } from "../activities-repository/entities/activity.entity";
 import { ActivitiesQueueProcessor } from "./activities-queue-processor";
 import { ActivitiesQueueService } from "./activities-queue.service";
 import { ActivitiesRepositoryModule } from "../activities-repository/activities-repository.module";

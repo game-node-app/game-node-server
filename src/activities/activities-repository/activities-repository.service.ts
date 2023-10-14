@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Activity } from "../entities/activity.entity";
+import { Activity } from "./entities/activity.entity";
 import { DeepPartial, Repository } from "typeorm";
 
 @Injectable()

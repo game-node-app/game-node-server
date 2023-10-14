@@ -14,18 +14,16 @@ export class GameQueueService {
 
     constructor(
         @InjectQueue(GAME_QUEUE_NAME)
-        private readonly igdbSyncQueue: Queue,
+        private readonly gameQueue: Queue,
     ) {}
 
     /**
      * @param games - assumed to be in the format of IGDB's API response (snake_case).
      */
     async handle(games: any[]) {
-        this.logger.log(
-            `Received request to process ${games.length} IGDB results`,
-        );
-        await this.igdbSyncQueue.add(games, {
-            delay: 5000,
-        });
+        // this.logger.log(
+        //     `Appending job to process ${games.length} IGDB results`,
+        // );
+        await this.gameQueue.add(games, {});
     }
 }

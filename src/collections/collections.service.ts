@@ -4,7 +4,7 @@ import { Collection } from "./entities/collection.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
-import { CollectionEntry } from "./entities/collection-entry.entity";
+import { CollectionEntry } from "./collections-entries/entities/collection-entry.entity";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 
 @Injectable()
@@ -17,7 +17,6 @@ export class CollectionsService {
     constructor(
         @InjectRepository(Collection)
         private collectionsRepository: Repository<Collection>,
-        @InjectRepository(CollectionEntry)
         private readonly librariesService: LibrariesService,
     ) {}
 
@@ -55,8 +54,6 @@ export class CollectionsService {
         }
         return collection;
     }
-
-    //TODO: UPDATE LIBRARY AND PROFILE ID TO USERID
 
     async findFavoritesCollection(userId: string) {
         const favoritesCollection = await this.collectionsRepository.findOne({
