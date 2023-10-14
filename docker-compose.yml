@@ -86,7 +86,7 @@ services:
 
     volumes:
       - manticore:/var/lib/manticore
-      # - ./manticore.conf:/etc/manticoresearch/manticore.conf # uncomment if you use a custom config
+      - ./manticore.conf:/etc/manticoresearch/manticore.conf
 
     networks:
       - app_network
