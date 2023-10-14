@@ -1,0 +1,1833 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/v1/libraries": {
+      "get": {
+        "operationId": "LibrariesController_findByUserId",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "libraries"
+        ]
+      }
+    },
+    "/v1/libraries/{id}": {
+      "get": {
+        "operationId": "LibrariesController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Library"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "libraries"
+        ]
+      }
+    },
+    "/v1/collections/favorites": {
+      "get": {
+        "operationId": "CollectionsController_findFavoritesCollection",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collection"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/v1/collections/{id}": {
+      "get": {
+        "operationId": "CollectionsController_findOneByIdWithPermissions",
+        "summary": "",
+        "description": "Returns a collection which the user has access to\n\n(Either its own collection or a public one)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collection"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/v1/collections": {
+      "post": {
+        "operationId": "CollectionsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCollectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/v1/reviews": {
+      "post": {
+        "operationId": "ReviewsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      },
+      "get": {
+        "operationId": "ReviewsController_findAllByIgdbId",
+        "parameters": [
+          {
+            "name": "igdbId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Review"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/v1/reviews/{id}": {
+      "get": {
+        "operationId": "ReviewsController_findOneById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/v1/profile": {
+      "patch": {
+        "operationId": "ProfileController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "profile"
+        ]
+      },
+      "get": {
+        "operationId": "ProfileController_findOwnById",
+        "summary": "",
+        "description": "Used to access own profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/v1/profile/{id}": {
+      "get": {
+        "operationId": "ProfileController_findOneById",
+        "summary": "",
+        "description": "Used to access other users' profiles",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/v1/statistics/game/{id}/view": {
+      "post": {
+        "operationId": "StatisticsQueueGameController_registerGameView",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
+    "/v1/statistics/game/{id}/like": {
+      "post": {
+        "operationId": "StatisticsQueueGameController_registerGameLikeIncrement",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "statistics"
+        ]
+      },
+      "delete": {
+        "operationId": "StatisticsQueueGameController_registerGameLikeDecrement",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
+    "/v1/statistics/game/{id}": {
+      "get": {
+        "operationId": "StatisticsQueueGameController_getGameStatistics",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
+    "/v1/game/queue": {
+      "post": {
+        "operationId": "GameQueueController_sync",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/v1/collections/entries": {
+      "post": {
+        "operationId": "CollectionsEntriesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCollectionEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/v1/collections/entries/{igdbId}": {
+      "patch": {
+        "operationId": "CollectionsEntriesController_update",
+        "parameters": [
+          {
+            "name": "igdbId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCollectionEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "collections"
+        ]
+      },
+      "get": {
+        "operationId": "CollectionsEntriesController_findEntryByIgdbIdOrId",
+        "summary": "",
+        "description": "Returns a specific collection entry based on IGDB ID",
+        "parameters": [
+          {
+            "name": "igdbId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query"
+          }
+        },
+        "tags": [
+          "collections"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "GameNode API",
+    "description": "API docs for the videogame catalog system GameNode. <br><br>Built with love by the GameNode team.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "Library": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "Also used to share the library with other users.\n\nSame as SuperTokens' userId."
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Collection"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "collections",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "GameCover": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "id": {
+            "type": "number"
+          },
+          "alphaChannel": {
+            "type": "boolean"
+          },
+          "animated": {
+            "type": "boolean"
+          },
+          "height": {
+            "type": "number"
+          },
+          "imageId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "checksum": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "game",
+          "id"
+        ]
+      },
+      "GameCollection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "createdAt",
+          "updatedAt",
+          "checksum",
+          "url",
+          "games"
+        ]
+      },
+      "GameAlternativeName": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          }
+        },
+        "required": [
+          "id",
+          "game"
+        ]
+      },
+      "GameArtwork": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "id": {
+            "type": "number"
+          },
+          "alphaChannel": {
+            "type": "boolean"
+          },
+          "animated": {
+            "type": "boolean"
+          },
+          "height": {
+            "type": "number"
+          },
+          "imageId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "checksum": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "game",
+          "id"
+        ]
+      },
+      "GameScreenshot": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "id": {
+            "type": "number"
+          },
+          "alphaChannel": {
+            "type": "boolean"
+          },
+          "animated": {
+            "type": "boolean"
+          },
+          "height": {
+            "type": "number"
+          },
+          "imageId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "checksum": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "game",
+          "id"
+        ]
+      },
+      "GameLocalization": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "id": {
+            "type": "number"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game",
+          "id",
+          "checksum",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "GameMode": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "id": {
+            "type": "number"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game",
+          "id",
+          "checksum",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "GameGenre": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "id": {
+            "type": "number"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game",
+          "id",
+          "checksum",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "GameKeyword": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "id": {
+            "type": "number"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game",
+          "id",
+          "checksum",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "GameFranchise": {
+        "type": "object",
+        "properties": {
+          "games": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          },
+          "id": {
+            "type": "number"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "games",
+          "id",
+          "checksum",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "GamePlatform": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "abbreviation": {
+            "type": "string"
+          },
+          "alternative_name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "number",
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ]
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "generation": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "abbreviation",
+          "alternative_name",
+          "category",
+          "checksum",
+          "generation",
+          "name",
+          "createdAt",
+          "updatedAt",
+          "games"
+        ]
+      },
+      "GameExternalGame": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "uid": {
+            "type": "string",
+            "description": "Corresponds to the game id on the target source (see GameExternalGameCategory).\nIt's called uid, not uuid."
+          },
+          "category": {
+            "type": "number",
+            "enum": [
+              0,
+              5,
+              10,
+              11,
+              13,
+              14,
+              15,
+              20,
+              22,
+              23,
+              26,
+              28,
+              29,
+              30,
+              31,
+              32,
+              36,
+              37,
+              54,
+              55
+            ]
+          },
+          "media": {
+            "type": "number",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "uid",
+          "createdAt",
+          "updatedAt",
+          "games"
+        ]
+      },
+      "Game": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Should be mapped to the IGDB ID of the game."
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "aggregatedRating": {
+            "type": "number"
+          },
+          "aggregatedRatingCount": {
+            "type": "number"
+          },
+          "category": {
+            "type": "number",
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              0,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "firstReleaseDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dlcs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          },
+          "dlcOf": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "expansions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          },
+          "expansionOf": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "expandedGames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          },
+          "expandedGameOf": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "similarGames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          },
+          "similarGameOf": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "cover": {
+            "$ref": "#/components/schemas/GameCover"
+          },
+          "collection": {
+            "$ref": "#/components/schemas/GameCollection"
+          },
+          "alternativeNames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameAlternativeName"
+            }
+          },
+          "artworks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameArtwork"
+            }
+          },
+          "screenshots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameScreenshot"
+            }
+          },
+          "localizations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameLocalization"
+            }
+          },
+          "gameModes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameMode"
+            }
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameGenre"
+            }
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameKeyword"
+            }
+          },
+          "franchises": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameFranchise"
+            }
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GamePlatform"
+            }
+          },
+          "externalGames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameExternalGame"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "category",
+          "status",
+          "summary",
+          "checksum",
+          "url",
+          "firstReleaseDate",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ProfileAvatar": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "mimetype": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Multer's File's destination + filename"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "mimetype",
+          "extension",
+          "size",
+          "filename",
+          "encoding",
+          "path",
+          "profile",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "Shareable string ID\n\nSame as SuperTokens' userId."
+          },
+          "username": {
+            "type": "string"
+          },
+          "avatar": {
+            "$ref": "#/components/schemas/ProfileAvatar"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "username",
+          "avatar",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Activity": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "REVIEW",
+              "FOLLOW",
+              "COLLECTION_ENTRY"
+            ]
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "profile": {
+            "description": "The associated profile with this Activity",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Profile"
+              }
+            ]
+          },
+          "statistics": {
+            "$ref": "#/components/schemas/ActivityStatistics"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "sourceId",
+          "profile",
+          "statistics",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ActivityStatistics": {
+        "type": "object",
+        "properties": {
+          "activityId": {
+            "type": "string"
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserView"
+            }
+          },
+          "likes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserLike"
+            }
+          },
+          "activity": {
+            "$ref": "#/components/schemas/Activity"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activityId",
+          "views",
+          "likes",
+          "activity",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UserView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "gameStatistics": {
+            "$ref": "#/components/schemas/GameStatistics"
+          },
+          "activityStatistics": {
+            "$ref": "#/components/schemas/ActivityStatistics"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameStatistics",
+          "activityStatistics",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "GameStatistics": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "likes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserLike"
+            }
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserView"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "game",
+          "likes",
+          "views",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UserLike": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "gameStatistics": {
+            "$ref": "#/components/schemas/GameStatistics"
+          },
+          "reviewStatistics": {
+            "$ref": "#/components/schemas/ReviewStatistics"
+          },
+          "activityStatistics": {
+            "$ref": "#/components/schemas/ActivityStatistics"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "gameStatistics",
+          "reviewStatistics",
+          "activityStatistics",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ReviewStatistics": {
+        "type": "object",
+        "properties": {
+          "reviewId": {
+            "type": "string"
+          },
+          "review": {
+            "$ref": "#/components/schemas/Review"
+          },
+          "likes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserLike"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewId",
+          "review",
+          "likes",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number"
+          },
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "reviewStatistics": {
+            "$ref": "#/components/schemas/ReviewStatistics"
+          },
+          "collectionEntry": {
+            "$ref": "#/components/schemas/CollectionEntry"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "content",
+          "rating",
+          "game",
+          "reviewStatistics",
+          "collectionEntry",
+          "profile",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CollectionEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "review": {
+            "$ref": "#/components/schemas/Review"
+          },
+          "reviewId": {
+            "type": "string"
+          },
+          "collection": {
+            "$ref": "#/components/schemas/Collection"
+          },
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "ownedPlatforms": {
+            "description": "The platforms on which the user owns the game.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GamePlatform"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "review",
+          "reviewId",
+          "collection",
+          "game",
+          "ownedPlatforms",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Collection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isPublic": {
+            "type": "boolean"
+          },
+          "library": {
+            "$ref": "#/components/schemas/Library"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollectionEntry"
+            }
+          },
+          "isFavoritesCollection": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "isPublic",
+          "library",
+          "entries",
+          "isFavoritesCollection",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateCollectionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isPublic": {
+            "type": "object",
+            "default": true
+          },
+          "isFavoritesCollection": {
+            "type": "object",
+            "default": false
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ]
+      },
+      "CreateReviewDto": {
+        "type": "object",
+        "properties": {
+          "igdbId": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3
+          },
+          "content": {
+            "type": "string",
+            "minLength": 3
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "igdbId",
+          "title",
+          "content",
+          "rating"
+        ]
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "avatar": {
+            "type": "string",
+            "format": "binary"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 20
+          }
+        }
+      },
+      "CreateGameDto": {
+        "type": "object",
+        "properties": {
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "games"
+        ]
+      },
+      "CreateCollectionEntryDto": {
+        "type": "object",
+        "properties": {
+          "collectionId": {
+            "type": "string"
+          },
+          "gameId": {
+            "type": "number"
+          },
+          "platformIds": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "enum": [
+                6,
+                7,
+                8,
+                9,
+                48,
+                167,
+                11,
+                12,
+                49,
+                169,
+                130,
+                170
+              ]
+            }
+          }
+        },
+        "required": [
+          "collectionId",
+          "gameId",
+          "platformIds"
+        ]
+      },
+      "UpdateCollectionEntryDto": {
+        "type": "object",
+        "properties": {
+          "collectionId": {
+            "type": "string"
+          },
+          "platformIds": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "enum": [
+                6,
+                7,
+                8,
+                9,
+                48,
+                167,
+                11,
+                12,
+                49,
+                169,
+                130,
+                170
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
