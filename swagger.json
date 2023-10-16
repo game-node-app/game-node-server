@@ -501,6 +501,37 @@
           "collections"
         ]
       }
+    },
+    "/v1/game/search": {
+      "post": {
+        "operationId": "GameSearchController_search",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameSearchRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "game"
+        ]
+      }
     }
   },
   "info": {
@@ -1827,6 +1858,66 @@
             }
           }
         }
+      },
+      "GameSearchRequestDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "default": "gamenode",
+            "description": "The index to search in",
+            "enum": [
+              "gamenode"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "description": "The query to search for"
+          },
+          "fulltextFilter": {
+            "type": "object"
+          },
+          "attrFilter": {
+            "type": "object"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "offset": {
+            "type": "number"
+          },
+          "maxMatches": {
+            "type": "number"
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aggs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "expressions": {
+            "type": "object"
+          },
+          "highlight": {
+            "type": "object"
+          },
+          "profile": {
+            "type": "boolean"
+          },
+          "trackScores": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "index",
+          "query"
+        ]
       }
     }
   }

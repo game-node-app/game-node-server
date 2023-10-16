@@ -8,11 +8,9 @@ COPY yarn.lock .
 RUN yarn install
 
 # Copy source code
-COPY .. .
+COPY . .
 
 RUN rm -f .env
 
 # Build app
 RUN yarn build
-
-CMD yarn start

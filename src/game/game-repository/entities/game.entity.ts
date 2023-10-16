@@ -88,11 +88,16 @@ export class Game {
     url: string;
     @Column({
         nullable: true,
+        type: "timestamp",
     })
     firstReleaseDate: Date;
-    @CreateDateColumn()
+    @CreateDateColumn({
+        type: "bigint",
+    })
     createdAt: Date;
-    @UpdateDateColumn()
+    @UpdateDateColumn({
+        type: "timestamp",
+    })
     updatedAt: Date;
 
     // **Self-referencing relationships**

@@ -37,7 +37,7 @@ services:
       - 3567
 
     environment:
-      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/supertokens
+      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/gamenode
     networks:
       - app_network
     restart: always
@@ -68,15 +68,46 @@ services:
     networks:
       - app_network
 
-  server:
+  manticore:
+    image: manticoresearch/manticore:6.2.12
+    environment:
+      - EXTRA=1
+      - CREATE_PLAIN_TABLES=gamenode:0 6,15 * * *
+    restart: always
+    expose:
+      # SQL port, use with care.
+      # - "9306:9306"
+      - "9308:9308"
+
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock:
+        soft: -1
+        hard: -1
+
+    volumes:
+      - manticore:/var/lib/manticore
+      - ./manticore.conf:/etc/manticoresearch/manticore.conf
+
+    depends_on:
+      - db
+
+    networks:
+      - app_network
+
+  app:
     build:
-      context: ..
+      context: .
       dockerfile: Dockerfile
 
     depends_on:
       - db
       - supertokens
       - redis
+      - manticore
 
     env_file: .env
 
@@ -87,46 +118,35 @@ services:
       DB_DATABASE: gamenode
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
       REDIS_URL: redis://redis:6379
+      MANTICORESEARCH_URL: http://manticore:9308
       SERVER_PORT: 5000
 
     restart: always
 
     command: ["yarn", "start"]
 
+    #    deploy:
+    #      replicas: 3
+
     networks:
       - app_network
     volumes:
       - gamenode:/usr/src/gamenode
 
-    deploy:
-      # Edit this to your liking.
-      replicas: 3
-      restart_policy:
-        condition: on-failure
-
     expose:
       - "5000"
 
-    labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.server.rule=Host(`${GAME_NODE_SERVER_HOSTNAME}`)'
-      - 'traefik.http.routers.server.entrypoints=websecure'
-      - 'traefik.http.services.server.loadbalancer.server.port=5000'
-
-  traefik:
-    image: traefik:v2.5
-    command:
-      - "--providers.docker=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-
-    # Point your domain to the server's hostname:8080.
-    # This avoids conflicts with the web-client's compose file.
+  webserver:
+    image: jc21/nginx-proxy-manager:latest
+    restart: unless-stopped
     ports:
-      - "8080:80"
-      - "8443:443"
+      - '80:80'
+      - '81:81'
+      - '443:443'
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - npm:/data
+      - npm:/etc/letsencrypt
+
     networks:
       - app_network
 
@@ -135,7 +155,10 @@ networks:
     driver: bridge
 
 volumes:
+  # Nginx Proxy Manager
+  npm:
   gamenode:
   redis:
   db:
+  manticore:
 
