@@ -15,7 +15,6 @@ import { GameMode } from "./entities/game-mode.entity";
 import { GameGenre } from "./entities/game-genre.entity";
 import { GameKeyword } from "./entities/game-keyword.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
-import { DataSource } from "typeorm/data-source/DataSource";
 
 @Injectable()
 export class GameRepositoryService {
@@ -226,15 +225,6 @@ export class GameRepositoryService {
             });
             await this.gameModeRepository.upsert(modes, ["id"]);
         }
-        if (game.genres) {
-            const genres = game.genres.map((genre) => {
-                return this.gameGenreRepository.create({
-                    ...genre,
-                    game: game as Game,
-                });
-            });
-            await this.gameGenreRepository.upsert(genres, ["id"]);
-        }
 
         /**
          * Many-To-Many relationships are not automatically updated, so we need to do it manually.
@@ -291,6 +281,19 @@ export class GameRepositoryService {
                         .relation(Game, "keywords")
                         .of(game)
                         .add(keyword);
+                } catch (e) {}
+            }
+        }
+
+        if (game.genres) {
+            for (const genre of game.genres) {
+                await this.gameGenreRepository.upsert(genre, ["id"]);
+                try {
+                    await this.gameGenreRepository
+                        .createQueryBuilder()
+                        .relation(Game, "genres")
+                        .of(game)
+                        .add(genre);
                 } catch (e) {}
             }
         }

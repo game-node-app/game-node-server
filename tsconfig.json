@@ -19,7 +19,7 @@
     "noFallthroughCasesInSwitch": true,
     "typeRoots": [
       "node_modules/@types",
-      "src/customTypes"
+      "src/@types"
     ]
   }
 }

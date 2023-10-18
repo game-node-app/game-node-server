@@ -5,7 +5,7 @@ import { JwtAuthGuard } from "../../auth/jwt-auth/jwt-auth.guard";
 import { ApiTags } from "@nestjs/swagger";
 
 @Controller("game/queue")
-@ApiTags("game")
+@ApiTags("game-queue")
 export class GameQueueController {
     constructor(private readonly gameQueueService: GameQueueService) {}
 

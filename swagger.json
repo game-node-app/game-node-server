@@ -408,7 +408,7 @@
           }
         },
         "tags": [
-          "game"
+          "game-queue"
         ]
       }
     },
@@ -529,7 +529,7 @@
           }
         },
         "tags": [
-          "game"
+          "game-search"
         ]
       }
     }
@@ -828,8 +828,11 @@
       "GameGenre": {
         "type": "object",
         "properties": {
-          "game": {
-            "$ref": "#/components/schemas/Game"
+          "games": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
           },
           "id": {
             "type": "number"
@@ -856,7 +859,7 @@
           }
         },
         "required": [
-          "game",
+          "games",
           "id",
           "checksum",
           "createdAt",
@@ -1902,7 +1905,10 @@
             }
           },
           "expressions": {
-            "type": "object"
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           },
           "highlight": {
             "type": "object"

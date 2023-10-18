@@ -1,11 +1,10 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty } from "class-validator";
-import { Aggregation, Highlight, SearchRequest } from "manticoresearch";
 
 /**
  * @nestjs/swagger only knows about properties of actual classes, so we need to redeclare the interface here.
  */
-export class GameSearchRequestDto implements SearchRequest {
+export class GameSearchRequestDto {
     @ApiProperty({
         description: "The index to search in",
         enum: ["gamenode"],
@@ -21,9 +20,9 @@ export class GameSearchRequestDto implements SearchRequest {
     offset?: number;
     maxMatches?: number;
     sort?: object[];
-    aggs?: Aggregation[];
-    expressions?: object;
-    highlight?: Highlight;
+    aggs?: any[];
+    expressions?: object[];
+    highlight?: any;
     source?: {
         [key: string]: object;
     };

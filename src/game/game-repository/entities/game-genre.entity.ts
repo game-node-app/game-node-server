@@ -1,11 +1,14 @@
-import { Entity, ManyToOne } from "typeorm";
+import { Entity, ManyToMany, ManyToOne } from "typeorm";
 import { GameResource } from "./base/game-resource.entity";
 import { Game } from "./game.entity";
 
+/**
+ * TODO: update to ManyToMany
+ */
 @Entity()
 export class GameGenre extends GameResource {
-    @ManyToOne(() => Game, (game) => game.genres, {
+    @ManyToMany(() => Game, (game) => game.genres, {
         nullable: false,
     })
-    game: Game;
+    games: Game[];
 }

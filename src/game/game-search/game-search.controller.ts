@@ -4,7 +4,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { GameSearchRequestDto } from "./dto/game-search-request.dto";
 
 @Controller("game/search")
-@ApiTags("game")
+@ApiTags("game-search")
 export class GameSearchController {
     constructor(private readonly gameSearchService: GameSearchService) {}
 

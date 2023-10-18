@@ -48,7 +48,7 @@
     "igdb-api-node": "^5.0.2",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.1.0",
-    "manticoresearch": "^3.3.1",
+    "manticoresearch-ts": "^3.3.1",
     "mysql2": "^3.3.3",
     "redis": "^4.6.7",
     "reflect-metadata": "^0.1.13",

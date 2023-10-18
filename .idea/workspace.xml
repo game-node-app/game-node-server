@@ -8,24 +8,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- Initial setup for game-search system.">
-      <change afterPath="$PROJECT_DIR$/src/customTypes/manticoresearch/index.d.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/game/game-search/dto/game-search-request.dto.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/game/game-search/game-search.types.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/game/utils/game-normalize.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/utils/case-convert.ts" afterDir="false" />
+    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="Update GameNode with Manticore support and refactor game search&#10;&#10;This commit integrates Manticore Search into GameNode. It includes a significant refactoring of the game search logic, switching from MongoDB to Manticore.&#10;&#10;&#10;GameMetadata DTO was removed as it's no longer needed. Game search now operates with search DTOs only. GameSearchController and GameSearchService were updated to handle game search requests from the client and forwarding them to Manticore.&#10;&#10;To transform Manticore search results back into camelCase before sending them to the client, two util functions were added: snakeCaseToCamelCase and objectKeysToCamelCase.&#10;&#10;Finally, the swagger configuration file was updated to include API documentation related to the game search endpoint.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.prod.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.prod.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/manticore.conf" beforeDir="false" afterPath="$PROJECT_DIR$/manticore.conf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/customTypes/manticoresearch/index.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/entities/game-genre.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-genre.entity.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-search/dto/game-search-request.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/dto/game-search-request.dto.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/nginx.conf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/utils/game-metadata.dto.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/utils/game-normalize.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/case-convert.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/case-convert.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/swagger.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/tsconfig.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/yarn.lock" beforeDir="false" afterPath="$PROJECT_DIR$/yarn.lock" afterDir="false" />
@@ -105,7 +103,7 @@
     "WebServerToolWindowFactoryState": "false",
     "database.data.extractors.current.export.id": "JSON-Groovy.json.groovy",
     "git-widget-placeholder": "feat-games",
-    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-server/src/utils/case-convert.ts",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-web",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -161,6 +159,8 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/node_modules/manticoresearch-ts" />
+      <recent name="$PROJECT_DIR$/node_modules/manticoresearch-ts/dist" />
       <recent name="$PROJECT_DIR$/src/auth" />
       <recent name="$PROJECT_DIR$" />
     </key>
@@ -172,12 +172,13 @@
       <recent name="$PROJECT_DIR$/src/collections/collections-entries/entities" />
     </key>
     <key name="es6.move.members.recent.items">
+      <recent name="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" />
       <recent name="$PROJECT_DIR$/src/utils/case-convert.ts" />
       <recent name="$PROJECT_DIR$/src/game/utils/game-normalize.ts" />
       <recent name="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.constants.ts" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.typeorm:migration:run">
+  <component name="RunManager" selected="npm.start:dev:docker">
     <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
       <deployment type="docker-compose.yml">
         <settings />
@@ -250,10 +251,10 @@
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
         <item itemvalue="npm.typeorm:migration:run" />
         <item itemvalue="npm.typeorm:migration:generate" />
         <item itemvalue="npm.wrapper:generate" />
-        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
         <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
       </list>
     </recent_temporary>
@@ -367,7 +368,9 @@
       <workItem from="1697299195221" duration="6917000" />
       <workItem from="1697327159783" duration="7243000" />
       <workItem from="1697389916795" duration="3612000" />
-      <workItem from="1697393543074" duration="11078000" />
+      <workItem from="1697393543074" duration="11188000" />
+      <workItem from="1697483365449" duration="11144000" />
+      <workItem from="1697572997046" duration="4891000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -481,7 +484,15 @@
       <option name="project" value="LOCAL" />
       <updated>1697318475371</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="Update GameNode with Manticore support and refactor game search&#10;&#10;This commit integrates Manticore Search into GameNode. It includes a significant refactoring of the game search logic, switching from MongoDB to Manticore.&#10;&#10;&#10;GameMetadata DTO was removed as it's no longer needed. Game search now operates with search DTOs only. GameSearchController and GameSearchService were updated to handle game search requests from the client and forwarding them to Manticore.&#10;&#10;To transform Manticore search results back into camelCase before sending them to the client, two util functions were added: snakeCaseToCamelCase and objectKeysToCamelCase.&#10;&#10;Finally, the swagger configuration file was updated to include API documentation related to the game search endpoint.">
+      <option name="closed" value="true" />
+      <created>1697417399285</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1697417399285</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -538,7 +549,8 @@
     <MESSAGE value="Added JWT Auth, Global modules, and game-queue implementation&#10;&#10;This commit adds a JWT Auth module for handling Json Web Token authentication. Additionally, a global module was added. This provides configuration and essential utility services that can be used across the application.&#10;&#10;The game-queue was also introduced in this commit, ensuring real time processing and optimized handling of game-related data. The game-queue has a controller that uses the JwtAuthGuard for user authentication, which was defined in the JWT Auth module.&#10;&#10;Additionally, a swagger.json file has been added for better documentation and testing of the APIs of the application. An extra file game-node-server.iml was added with some configuration details.." />
     <MESSAGE value="Update game search and configuration functionalities&#10;&#10;Updated docker-compose configuration to use custom Manticore config." />
     <MESSAGE value="- Initial setup for game-search system." />
-    <option name="LAST_COMMIT_MESSAGE" value="- Initial setup for game-search system." />
+    <MESSAGE value="Update GameNode with Manticore support and refactor game search&#10;&#10;This commit integrates Manticore Search into GameNode. It includes a significant refactoring of the game search logic, switching from MongoDB to Manticore.&#10;&#10;&#10;GameMetadata DTO was removed as it's no longer needed. Game search now operates with search DTOs only. GameSearchController and GameSearchService were updated to handle game search requests from the client and forwarding them to Manticore.&#10;&#10;To transform Manticore search results back into camelCase before sending them to the client, two util functions were added: snakeCaseToCamelCase and objectKeysToCamelCase.&#10;&#10;Finally, the swagger configuration file was updated to include API documentation related to the game search endpoint." />
+    <option name="LAST_COMMIT_MESSAGE" value="Update GameNode with Manticore support and refactor game search&#10;&#10;This commit integrates Manticore Search into GameNode. It includes a significant refactoring of the game search logic, switching from MongoDB to Manticore.&#10;&#10;&#10;GameMetadata DTO was removed as it's no longer needed. Game search now operates with search DTOs only. GameSearchController and GameSearchService were updated to handle game search requests from the client and forwarding them to Manticore.&#10;&#10;To transform Manticore search results back into camelCase before sending them to the client, two util functions were added: snakeCaseToCamelCase and objectKeysToCamelCase.&#10;&#10;Finally, the swagger configuration file was updated to include API documentation related to the game search endpoint." />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">

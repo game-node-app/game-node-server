@@ -1,4 +1,7 @@
 export const snakeCaseToCamelCase = (str: string) => {
+    if (str == null || str.startsWith("_")) {
+        return str;
+    }
     return str.replace(/([-_][a-z])/g, (group) =>
         group.toUpperCase().replace("-", "").replace("_", ""),
     );

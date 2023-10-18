@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinColumn,
     JoinTable,
     ManyToMany,
     ManyToOne,
@@ -88,15 +89,15 @@ export class Game {
     url: string;
     @Column({
         nullable: true,
-        type: "timestamp",
+        type: "datetime",
     })
     firstReleaseDate: Date;
     @CreateDateColumn({
-        type: "bigint",
+        type: "datetime",
     })
     createdAt: Date;
     @UpdateDateColumn({
-        type: "timestamp",
+        type: "datetime",
     })
     updatedAt: Date;
 
@@ -178,9 +179,10 @@ export class Game {
         nullable: true,
     })
     gameModes?: GameMode[];
-    @OneToMany(() => GameGenre, (gameGenre) => gameGenre.game, {
+    @ManyToMany(() => GameGenre, (gameGenre) => gameGenre.games, {
         nullable: true,
     })
+    @JoinTable()
     genres?: GameGenre[];
     @ManyToMany(() => GameKeyword, (gameKeyword) => gameKeyword.game, {
         nullable: true,

@@ -9,6 +9,7 @@ import supertokens from "supertokens-node";
 import { publicUploadDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
+import * as process from "process";
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -55,7 +56,7 @@ async function bootstrap() {
 
     app.use(json({ limit: "15mb" }));
 
-    await app.listen(5000);
+    await app.listen(process.env.SERVER_PORT || 5000);
 }
 
 bootstrap();
