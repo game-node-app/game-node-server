@@ -1,19 +1,7 @@
-import {
-    HttpException,
-    HttpStatus,
-    Injectable,
-    UseGuards,
-} from "@nestjs/common";
-import { CreateLibraryDto } from "./dto/create-library.dto";
-import { UpdateLibraryDto } from "./dto/update-library.dto";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
-import { AuthGuard } from "../auth/auth.guard";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Library } from "./entities/library.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
-import { Collection } from "../collections/entities/collection.entity";
-import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 
 @Injectable()
 export class LibrariesService {
@@ -31,7 +19,7 @@ export class LibrariesService {
     /**
      * The calling user is guaranteed to be the owner of the library by Supertokens Session at the controller level.
      *
-     * If fetching a user's own library, prefer this method over findOneByIdWithPermissions.
+     * This method should not be called from a controller. Use findOneByIdWithPermissions instead.
      * @param userId
      * @param handleUnitialized
      */
@@ -47,7 +35,7 @@ export class LibrariesService {
         });
 
         if (!library && handleUnitialized) {
-            await this.handleUnitializedLibrary(userId);
+            await this.handleUninitializedLibrary(userId);
             return await this.findOneById(userId);
         }
 
@@ -57,7 +45,7 @@ export class LibrariesService {
     /**
      * Returns a Library with content that is accessible to the user (excludes non-public / non-own collections).
      *
-     * If trying to get a user's own library, prefer the findOneById method.
+     * If trying to get a user's own library, internally, prefer the findOneById method.
      * @param userId
      * @param targetId
      */
@@ -68,7 +56,7 @@ export class LibrariesService {
             throw new HttpException("Library not found.", HttpStatus.NOT_FOUND);
         }
 
-        const acessibleCollections = library.collections.filter(
+        const accessibleCollections = library.collections.filter(
             (collection) => {
                 return (
                     collection.isPublic || collection.library.userId === userId
@@ -76,7 +64,7 @@ export class LibrariesService {
             },
         );
 
-        library.collections = acessibleCollections;
+        library.collections = accessibleCollections;
 
         return library;
     }
@@ -88,7 +76,7 @@ export class LibrariesService {
 
         if (possibleLibrary) {
             throw new HttpException(
-                "User already has a library defined.",
+                "User already has a library.",
                 HttpStatus.BAD_REQUEST,
             );
         }
@@ -103,7 +91,7 @@ export class LibrariesService {
         }
     }
 
-    async handleUnitializedLibrary(userId: string) {
+    async handleUninitializedLibrary(userId: string) {
         await this.create(userId);
     }
 }

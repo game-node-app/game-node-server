@@ -23,13 +23,20 @@ export class ProfileService {
 
     /**
      * Called at initial user registration
-     * on initUser() in auth.service.ts
      * @param userId
-     * @param createProfileDto
-     * @param avatarFile
      */
     async create(userId: string) {
-        const placeholderUsername = generateUsername("-", 4, 20);
+        let usernameInUse = true;
+        let placeholderUsername = "";
+        while (usernameInUse) {
+            placeholderUsername = generateUsername("-", 4, 20);
+            const possibleProfile =
+                await this.findOneByUserName(placeholderUsername);
+            if (!possibleProfile) {
+                usernameInUse = false;
+            }
+        }
+
         const profile = this.profileRepository.create({
             userId: userId,
             username: placeholderUsername,

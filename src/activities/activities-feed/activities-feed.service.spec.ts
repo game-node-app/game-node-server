@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ActivitiesFeedService } from "./activities-feed.service";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Activity } from "../entities/activity.entity";
+import { Activity } from "../activities-repository/entities/activity.entity";
 import { ActivityType } from "../activities-queue/activities-queue.constants";
 import { Profile } from "../../profile/entities/profile.entity";
 
@@ -22,10 +22,7 @@ describe("ActivitiesFeedService", () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                ActivitiesFeedService,
-                { provide: getRepositoryToken(Activity) ,useValue:},
-            ],
+            providers: [ActivitiesFeedService],
         }).compile();
 
         service = module.get<ActivitiesFeedService>(ActivitiesFeedService);

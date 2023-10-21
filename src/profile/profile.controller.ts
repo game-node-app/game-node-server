@@ -16,13 +16,14 @@ import { ProfileService } from "./profile.service";
 import { CreateProfileDto } from "./dto/create-profile.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { ApiConsumes } from "@nestjs/swagger";
+import { ApiConsumes, ApiTags } from "@nestjs/swagger";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
 
 @Controller("profile")
-@UseGuards(new AuthGuard())
+@ApiTags("profile")
+@UseGuards(AuthGuard)
 export class ProfileController {
     constructor(private readonly profileService: ProfileService) {}
 

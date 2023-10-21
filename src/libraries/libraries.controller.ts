@@ -15,7 +15,7 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { Session } from "../auth/session.decorator";
 
 @Controller("libraries")
-@UseGuards(new AuthGuard())
+@UseGuards(AuthGuard)
 @ApiTags("libraries")
 export class LibrariesController {
     constructor(private readonly librariesService: LibrariesService) {}

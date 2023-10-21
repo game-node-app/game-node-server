@@ -1,36 +1,25 @@
-import { MiddlewareConsumer, Module } from "@nestjs/common";
-import { AppController } from "./app.controller";
-import { AppService } from "./app.service";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { AuthModule } from "./auth/auth.module";
-import { ConfigModule } from "@nestjs/config";
 import * as process from "process";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { IgdbModule } from "./igdb/igdb.module";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ScheduleModule } from "@nestjs/schedule";
 import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
+import { ActivitiesRepositoryModule } from "./activities/activities-repository/activities-repository.module";
+import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
+import { GlobalModule } from "./global/global.module";
+import { GameQueueModule } from "./game/game-queue/game-queue.module";
+import { CollectionsModule } from "./collections/collections.module";
+import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
+import { GameSearchModule } from "./game/game-search/game-search.module";
 
 @Module({
     imports: [
         ScheduleModule.forRoot(),
-        ConfigModule.forRoot(),
-        AuthModule.forRoot({
-            // https://try.supertokens.com is for demo purposes.
-            // Replace this with the address of your core instance (sign up on supertokens.com),
-            // or self-host a core.
-            connectionURI: process.env.SUPERTOKENS_CORE_URI as string,
-            // apiKey: <API_KEY(if configured)>,
-            appInfo: {
-                // Learn more about this on https://supertokens.com/docs/thirdparty/appinfo
-                appName: "GameNode",
-                apiDomain: process.env.DOMAIN_API as any,
-                websiteDomain: process.env.DOMAIN_WEBSITE as any,
-                apiBasePath: "/v1/auth",
-                websiteBasePath: "/auth",
-            },
-        }),
+        GlobalModule,
+        AuthModule,
         TypeOrmModule.forRoot({
             type: "mysql",
             host: process.env.DB_HOST,
@@ -39,10 +28,12 @@ import { LoggerMiddleware } from "./app.logger.middlewhare";
             password: process.env.DB_PASS,
             database: process.env.DB_DATABASE,
             autoLoadEntities: true,
+            // Never turn this on. Use migrations instead.
             synchronize: false,
-            debug: process.env.NODE_ENV === "development",
+            logging: false,
+            debug: false,
         }),
-        IgdbModule,
+
         CacheModule.registerAsync({
             isGlobal: true,
             useFactory: async () => ({
@@ -54,11 +45,16 @@ import { LoggerMiddleware } from "./app.logger.middlewhare";
         BullModule.forRoot({
             redis: process.env.REDIS_URL,
         }),
+        ActivitiesRepositoryModule,
+        StatisticsQueueModule,
+        GameQueueModule,
+        CollectionsModule,
+        CollectionsEntriesModule,
+        GameSearchModule,
     ],
-    controllers: [AppController],
-    providers: [AppService],
+    providers: [],
 })
-export class AppModule {
+export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
         consumer.apply(LoggerMiddleware).forRoutes("*");
     }

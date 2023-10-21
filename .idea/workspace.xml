@@ -1,0 +1,566 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AnalysisUIOptions">
+    <option name="ANALYZE_INJECTED_CODE" value="false" />
+    <option name="CUSTOM_SCOPE_NAME" value="Module 'game-node-server'" />
+  </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="Latest">
+      <change afterPath="$PROJECT_DIR$/src/game/game-search/dto/game-search-response.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/manticore.conf" beforeDir="false" afterPath="$PROJECT_DIR$/manticore.conf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/case-convert.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/utils/game-conversor-utils.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/swagger.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="HARD" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Lamarcke&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">
+    <option name="selectedUrlAndAccountId">
+      <UrlAndAccount>
+        <option name="accountId" value="89e05d4b-03ac-41f5-af77-1b8986cf0609" />
+        <option name="url" value="git@github.com:game-node-app/game-node-server.git" />
+      </UrlAndAccount>
+    </option>
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="mock:///AIAssistantSnippet" root0="ESSENTIAL" />
+    <setting file="file://$PROJECT_DIR$/src/main.ts" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="JsbtTreeLayoutManager">
+    <layout place="tools.popupGrunt">
+      <scroll-view-position x="0" y="0" />
+    </layout>
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="ProjectErrors" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="2SQy7h7NItCRX7QL1o1DY2RxwHr" />
+  <component name="ProjectViewState">
+    <option name="autoscrollFromSource" value="true" />
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;database.data.extractors.current.export.id&quot;: &quot;JSON-Groovy.json.groovy&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feat-games&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/lamarck/Projects/Web/game-node-web&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs.jest.jest_package&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/jest&quot;,
+    &quot;nodejs_interpreter_path&quot;: &quot;/home/lamarck/.nvm/versions/node/v18.17.0/bin/node&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;yarn&quot;,
+    &quot;prettier.import.notification.dismissed&quot;: &quot;true&quot;,
+    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/prettier&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;remote.dev.show.docker.config.missing.jdk.notification&quot;: &quot;false&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/home/lamarck/Projects/Web/game-node-server/node_modules/typescript/lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;mysql&quot;
+    ],
+    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
+      &quot;PLAIN_TEXT&quot;
+    ]
+  }
+}</component>
+  <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
+    <layout>
+      <window_info id="Space Code Reviews" />
+      <window_info id="Bookmarks" side_tool="true" />
+      <window_info id="Commit_Guest" show_stripe_button="false" />
+      <window_info id="Pull Requests" />
+      <window_info id="Learn" />
+      <window_info content_ui="combo" id="Project" internal_type="SLIDING" order="0" type="SLIDING" weight="0.17265625" />
+      <window_info id="Commit" order="1" weight="0.25" />
+      <window_info id="Structure" order="2" weight="0.25" />
+      <window_info anchor="bottom" id="File Transfer" />
+      <window_info anchor="bottom" id="Database Changes" />
+      <window_info anchor="bottom" id="TypeScript" />
+      <window_info anchor="bottom" id="Profiler" />
+      <window_info anchor="bottom" id="Dependency Checker" />
+      <window_info anchor="bottom" id="Version Control" order="0" />
+      <window_info anchor="bottom" id="Problems View" order="2" />
+      <window_info anchor="bottom" id="Terminal" order="3" weight="0.3301887" />
+      <window_info anchor="bottom" id="Services" order="4" />
+      <window_info anchor="right" id="Endpoints" />
+      <window_info anchor="right" id="Meet New UI" show_stripe_button="false" side_tool="true" />
+      <window_info anchor="right" content_ui="combo" id="Notifications" order="0" weight="0.25" />
+      <window_info anchor="right" id="Database" order="1" weight="0.25" />
+      <window_info anchor="right" id="Gradle" order="2" weight="0.25" />
+    </layout>
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/node_modules/manticoresearch-ts" />
+      <recent name="$PROJECT_DIR$/node_modules/manticoresearch-ts/dist" />
+      <recent name="$PROJECT_DIR$/src/auth" />
+      <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/game/utils" />
+      <recent name="$PROJECT_DIR$/src" />
+      <recent name="$PROJECT_DIR$/src/statistics/statistics-queue" />
+      <recent name="$PROJECT_DIR$/src/statistics/statistics-game" />
+      <recent name="$PROJECT_DIR$/src/collections/collections-entries/dto" />
+    </key>
+    <key name="es6.move.members.recent.items">
+      <recent name="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" />
+      <recent name="$PROJECT_DIR$/src/utils/case-convert.ts" />
+      <recent name="$PROJECT_DIR$/src/game/utils/game-normalize.ts" />
+      <recent name="$PROJECT_DIR$/src/igdb-sync/igdb-sync-queue/igdb-sync-queue.constants.ts" />
+    </key>
+  </component>
+  <component name="RunManager" selected="npm.start:dev:docker">
+    <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
+      <deployment type="docker-compose.yml">
+        <settings />
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="docker-compose.prod.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="sourceFilePath" value="docker-compose.prod.yml" />
+        </settings>
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="docker-compose.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="sourceFilePath" value="docker-compose.yml" />
+        </settings>
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="start:dev:docker" type="js.build_tools.npm" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="start:dev:docker" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <configuration name="typeorm:migration:generate" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="typeorm:migration:generate" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <configuration name="typeorm:migration:run" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="typeorm:migration:run" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <configuration name="wrapper:generate" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="wrapper:generate" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
+      <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+      <item itemvalue="npm.start:dev:docker" />
+      <item itemvalue="npm.typeorm:migration:generate" />
+      <item itemvalue="npm.wrapper:generate" />
+      <item itemvalue="npm.typeorm:migration:run" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="npm.typeorm:migration:run" />
+        <item itemvalue="npm.typeorm:migration:generate" />
+        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+        <item itemvalue="npm.wrapper:generate" />
+        <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="SvnConfiguration">
+    <configuration>$USER_HOME$/.subversion</configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="" />
+      <created>1689092935321</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1689092935321</updated>
+      <workItem from="1689092936239" duration="1341000" />
+      <workItem from="1689127770366" duration="698000" />
+      <workItem from="1689128839353" duration="14000" />
+      <workItem from="1689128870472" duration="832000" />
+      <workItem from="1689130305736" duration="337000" />
+      <workItem from="1689222250795" duration="63000" />
+      <workItem from="1689290562466" duration="5241000" />
+      <workItem from="1689344851215" duration="857000" />
+      <workItem from="1689487883127" duration="1897000" />
+      <workItem from="1689490961626" duration="751000" />
+      <workItem from="1689544729057" duration="33000" />
+      <workItem from="1689544965701" duration="4607000" />
+      <workItem from="1689655091547" duration="3399000" />
+      <workItem from="1689711248651" duration="10769000" />
+      <workItem from="1689736426324" duration="3350000" />
+      <workItem from="1689744733885" duration="780000" />
+      <workItem from="1689783439220" duration="2995000" />
+      <workItem from="1689852596509" duration="122000" />
+      <workItem from="1689852730655" duration="330000" />
+      <workItem from="1689853332895" duration="625000" />
+      <workItem from="1689854976453" duration="3786000" />
+      <workItem from="1689893932018" duration="8723000" />
+      <workItem from="1689909142685" duration="1675000" />
+      <workItem from="1689968636569" duration="346000" />
+      <workItem from="1689969277585" duration="942000" />
+      <workItem from="1689989463281" duration="426000" />
+      <workItem from="1690054253985" duration="334000" />
+      <workItem from="1690054601632" duration="599000" />
+      <workItem from="1690055524721" duration="599000" />
+      <workItem from="1690056408092" duration="1810000" />
+      <workItem from="1690079011073" duration="1424000" />
+      <workItem from="1690082025112" duration="264000" />
+      <workItem from="1690082306132" duration="2028000" />
+      <workItem from="1690084841891" duration="9482000" />
+      <workItem from="1690136115781" duration="3548000" />
+      <workItem from="1690144144221" duration="4402000" />
+      <workItem from="1690206208159" duration="15584000" />
+      <workItem from="1690231522168" duration="599000" />
+      <workItem from="1690234887722" duration="507000" />
+      <workItem from="1690235404421" duration="15000" />
+      <workItem from="1690235572474" duration="2035000" />
+      <workItem from="1690465985810" duration="1030000" />
+      <workItem from="1690467029497" duration="738000" />
+      <workItem from="1690467783906" duration="12899000" />
+      <workItem from="1690489968143" duration="2171000" />
+      <workItem from="1690511261734" duration="4314000" />
+      <workItem from="1690567051420" duration="2944000" />
+      <workItem from="1690570010755" duration="501000" />
+      <workItem from="1690570525086" duration="145000" />
+      <workItem from="1690570683353" duration="2648000" />
+      <workItem from="1690653314095" duration="1030000" />
+      <workItem from="1690721569149" duration="92000" />
+      <workItem from="1690721675873" duration="5980000" />
+      <workItem from="1690759929361" duration="39000" />
+      <workItem from="1690833421014" duration="1362000" />
+      <workItem from="1690983370612" duration="443000" />
+      <workItem from="1691104015445" duration="3212000" />
+      <workItem from="1691155050684" duration="2086000" />
+      <workItem from="1691174869793" duration="2649000" />
+      <workItem from="1691205641664" duration="5000" />
+      <workItem from="1691206238314" duration="600000" />
+      <workItem from="1691430281476" duration="4352000" />
+      <workItem from="1691453017560" duration="20258000" />
+      <workItem from="1691582138807" duration="49000" />
+      <workItem from="1691582207635" duration="1303000" />
+      <workItem from="1691668731224" duration="1998000" />
+      <workItem from="1691687352141" duration="1380000" />
+      <workItem from="1691858364745" duration="704000" />
+      <workItem from="1691870718696" duration="620000" />
+      <workItem from="1692035942465" duration="5000" />
+      <workItem from="1692145270669" duration="622000" />
+      <workItem from="1692155572063" duration="3210000" />
+      <workItem from="1692312973373" duration="31000" />
+      <workItem from="1692387980004" duration="41000" />
+      <workItem from="1693750741726" duration="1336000" />
+      <workItem from="1693842830122" duration="33000" />
+      <workItem from="1696552712844" duration="165000" />
+      <workItem from="1696552894436" duration="56000" />
+      <workItem from="1696552956535" duration="2677000" />
+      <workItem from="1696611630190" duration="1200000" />
+      <workItem from="1696694801110" duration="3559000" />
+      <workItem from="1696707045179" duration="28762000" />
+      <workItem from="1696800178588" duration="9509000" />
+      <workItem from="1696879988401" duration="425000" />
+      <workItem from="1696880966686" duration="446000" />
+      <workItem from="1696902107086" duration="4806000" />
+      <workItem from="1696906930170" duration="6930000" />
+      <workItem from="1696913877887" duration="3005000" />
+      <workItem from="1697055251059" duration="38000" />
+      <workItem from="1697055296412" duration="9263000" />
+      <workItem from="1697082711843" duration="41079000" />
+      <workItem from="1697195976484" duration="1699000" />
+      <workItem from="1697197690286" duration="1957000" />
+      <workItem from="1697230890238" duration="65000" />
+      <workItem from="1697230974604" duration="24832000" />
+      <workItem from="1697299195221" duration="6917000" />
+      <workItem from="1697327159783" duration="7243000" />
+      <workItem from="1697389916795" duration="3612000" />
+      <workItem from="1697393543074" duration="11188000" />
+      <workItem from="1697483365449" duration="11144000" />
+      <workItem from="1697572997046" duration="4918000" />
+      <workItem from="1697668393671" duration="3913000" />
+      <workItem from="1697748848553" duration="243000" />
+      <workItem from="1697862353561" duration="2075000" />
+      <workItem from="1697871000739" duration="3268000" />
+      <workItem from="1697895430166" duration="370000" />
+    </task>
+    <task id="LOCAL-00001" summary="-">
+      <option name="closed" value="true" />
+      <created>1690091246886</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1690091246886</updated>
+    </task>
+    <task id="LOCAL-00002" summary="-">
+      <option name="closed" value="true" />
+      <created>1690222362155</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1690222362155</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Refactor auth and review modules to improve code maintainability&#10;&#10;Several changes were made throughout the project to improve code maintainability and compliance with best code practices. The diff includes multiple files and modules so here are the most notable changes:&#10;&#10;1. Removed unused modules and code from various files.&#10;2. Added new features in the `Reviews` functionality, such as `ReviewsController` and `ReviewsService`.&#10;3. Reorganized and cleaned up imports across multiple files for better readability.&#10;4. Refactored auth module by extracting user initialization logic into a separate `UserInitService`.&#10;5. Added a new `Activities` functionality.&#10;6. Code clean up and consistency improvements: changed how services are imported, moved functionality, broke down large functions, improved naming for consistency.&#10;&#10;The new auth implementation is more modular and each part of the process is easier to test and maintain. The reviews functionality has been expanded to include more use-cases giving the end user more options. Meanwhile, the new activities feature may help engage users better.">
+      <option name="closed" value="true" />
+      <created>1691525192588</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1691525192588</updated>
+    </task>
+    <task id="LOCAL-00004" summary="- New activities module">
+      <option name="closed" value="true" />
+      <created>1691525237021</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1691525237021</updated>
+    </task>
+    <task id="LOCAL-00005" summary="- Improved game module">
+      <option name="closed" value="true" />
+      <created>1696707109734</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1696707109734</updated>
+    </task>
+    <task id="LOCAL-00006" summary="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed">
+      <option name="closed" value="true" />
+      <created>1696747187274</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1696747187274</updated>
+    </task>
+    <task id="LOCAL-00007" summary="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed">
+      <option name="closed" value="true" />
+      <created>1696749004918</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1696749004918</updated>
+    </task>
+    <task id="LOCAL-00008" summary="- Finished mappings of IGDB API to Game entity">
+      <option name="closed" value="true" />
+      <created>1696880084679</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1696880084679</updated>
+    </task>
+    <task id="LOCAL-00009" summary="feat(security): initial implementation of jwt-based auth for microservices">
+      <option name="closed" value="true" />
+      <created>1697083911352</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1697083911352</updated>
+    </task>
+    <task id="LOCAL-00010" summary="chore(supertokens): upgraded version and fixed issues">
+      <option name="closed" value="true" />
+      <created>1697092723526</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1697092723526</updated>
+    </task>
+    <task id="LOCAL-00011" summary="[Update] Refactored collection entries, added GameStatistics module and updated DTOs&#10;&#10;This commit involves a significant refactor of the structure of the collection entries, separating the related functionalities into a different module and updating the related DTOs. Several files were also deleted due to codebase cleanup and restructuring. &#10;&#10;Additionally, the 'GameStatistics' module was added and the username generation logic was adjusted to avoid collisions. Improvements were made to the error handling in the 'create' function in the Profile service.&#10;&#10;In main.ts, JSON size limit set for request bodies and automatic creation of `swagger.json` file on start. In the Pagination utility, added runtime check to ensure paginable data function behaves as expected.&#10;&#10;These modifications were necessary to support new features, reduce clutter in the codebase, and improve overall functionality and performance.">
+      <option name="closed" value="true" />
+      <created>1697296981342</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1697296981342</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Added JWT Auth, Global modules, and game-queue implementation&#10;&#10;This commit adds a JWT Auth module for handling Json Web Token authentication. Additionally, a global module was added. This provides configuration and essential utility services that can be used across the application.&#10;&#10;The game-queue was also introduced in this commit, ensuring real time processing and optimized handling of game-related data. The game-queue has a controller that uses the JwtAuthGuard for user authentication, which was defined in the JWT Auth module.&#10;&#10;Additionally, a swagger.json file has been added for better documentation and testing of the APIs of the application. An extra file game-node-server.iml was added with some configuration details..">
+      <option name="closed" value="true" />
+      <created>1697297028564</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1697297028564</updated>
+    </task>
+    <task id="LOCAL-00013" summary="Update game search and configuration functionalities&#10;&#10;Updated docker-compose configuration to use custom Manticore config.">
+      <option name="closed" value="true" />
+      <created>1697318458026</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1697318458026</updated>
+    </task>
+    <task id="LOCAL-00014" summary="- Initial setup for game-search system.">
+      <option name="closed" value="true" />
+      <created>1697318475371</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1697318475371</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Update GameNode with Manticore support and refactor game search&#10;&#10;This commit integrates Manticore Search into GameNode. It includes a significant refactoring of the game search logic, switching from MongoDB to Manticore.&#10;&#10;&#10;GameMetadata DTO was removed as it's no longer needed. Game search now operates with search DTOs only. GameSearchController and GameSearchService were updated to handle game search requests from the client and forwarding them to Manticore.&#10;&#10;To transform Manticore search results back into camelCase before sending them to the client, two util functions were added: snakeCaseToCamelCase and objectKeysToCamelCase.&#10;&#10;Finally, the swagger configuration file was updated to include API documentation related to the game search endpoint.">
+      <option name="closed" value="true" />
+      <created>1697417399285</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1697417399285</updated>
+    </task>
+    <task id="LOCAL-00016" summary="Latest">
+      <option name="closed" value="true" />
+      <created>1697615934254</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1697615934254</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.conf" />
+  </component>
+  <component name="Vcs.Log.History.Properties">
+    <option name="COLUMN_ID_ORDER">
+      <list>
+        <option value="Default.Root" />
+        <option value="Default.Author" />
+        <option value="Default.Date" />
+        <option value="Default.Subject" />
+        <option value="Space.CommitStatus" />
+      </list>
+    </option>
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="feat-games" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
+    <MESSAGE value="-" />
+    <MESSAGE value="Refactor auth and review modules to improve code maintainability&#10;&#10;Several changes were made throughout the project to improve code maintainability and compliance with best code practices. The diff includes multiple files and modules so here are the most notable changes:&#10;&#10;1. Removed unused modules and code from various files.&#10;2. Added new features in the `Reviews` functionality, such as `ReviewsController` and `ReviewsService`.&#10;3. Reorganized and cleaned up imports across multiple files for better readability.&#10;4. Refactored auth module by extracting user initialization logic into a separate `UserInitService`.&#10;5. Added a new `Activities` functionality.&#10;6. Code clean up and consistency improvements: changed how services are imported, moved functionality, broke down large functions, improved naming for consistency.&#10;&#10;The new auth implementation is more modular and each part of the process is easier to test and maintain. The reviews functionality has been expanded to include more use-cases giving the end user more options. Meanwhile, the new activities feature may help engage users better." />
+    <MESSAGE value="- New activities module" />
+    <MESSAGE value="- Improved game module" />
+    <MESSAGE value="- Updated dependencies to latest version (except supertokens due to API changes)&#10;- Working MVP of the IGDB-sync &gt; Game database system&#10;- Lots of improvement needed" />
+    <MESSAGE value="- Finished mappings of IGDB API to Game entity" />
+    <MESSAGE value="feat(security): initial implementation of jwt-based auth for microservices" />
+    <MESSAGE value="chore(supertokens): upgraded version and fixed issues" />
+    <MESSAGE value="[Update] Refactored collection entries, added GameStatistics module and updated DTOs&#10;&#10;This commit involves a significant refactor of the structure of the collection entries, separating the related functionalities into a different module and updating the related DTOs. Several files were also deleted due to codebase cleanup and restructuring. &#10;&#10;Additionally, the 'GameStatistics' module was added and the username generation logic was adjusted to avoid collisions. Improvements were made to the error handling in the 'create' function in the Profile service.&#10;&#10;In main.ts, JSON size limit set for request bodies and automatic creation of `swagger.json` file on start. In the Pagination utility, added runtime check to ensure paginable data function behaves as expected.&#10;&#10;These modifications were necessary to support new features, reduce clutter in the codebase, and improve overall functionality and performance." />
+    <MESSAGE value="Added JWT Auth, Global modules, and game-queue implementation&#10;&#10;This commit adds a JWT Auth module for handling Json Web Token authentication. Additionally, a global module was added. This provides configuration and essential utility services that can be used across the application.&#10;&#10;The game-queue was also introduced in this commit, ensuring real time processing and optimized handling of game-related data. The game-queue has a controller that uses the JwtAuthGuard for user authentication, which was defined in the JWT Auth module.&#10;&#10;Additionally, a swagger.json file has been added for better documentation and testing of the APIs of the application. An extra file game-node-server.iml was added with some configuration details.." />
+    <MESSAGE value="Update game search and configuration functionalities&#10;&#10;Updated docker-compose configuration to use custom Manticore config." />
+    <MESSAGE value="- Initial setup for game-search system." />
+    <MESSAGE value="Update GameNode with Manticore support and refactor game search&#10;&#10;This commit integrates Manticore Search into GameNode. It includes a significant refactoring of the game search logic, switching from MongoDB to Manticore.&#10;&#10;&#10;GameMetadata DTO was removed as it's no longer needed. Game search now operates with search DTOs only. GameSearchController and GameSearchService were updated to handle game search requests from the client and forwarding them to Manticore.&#10;&#10;To transform Manticore search results back into camelCase before sending them to the client, two util functions were added: snakeCaseToCamelCase and objectKeysToCamelCase.&#10;&#10;Finally, the swagger configuration file was updated to include API documentation related to the game search endpoint." />
+    <MESSAGE value="Latest" />
+    <option name="LAST_COMMIT_MESSAGE" value="Latest" />
+    <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>

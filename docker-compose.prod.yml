@@ -7,13 +7,13 @@ version: '3'
 
 services:
   db:
-    env_file: ./.env
+    env_file: .env
     image: mysql:latest
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASS}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASS}
-      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_DATABASE: gamenode
 
     expose:
       - 3306
@@ -22,21 +22,22 @@ services:
     restart: always
     volumes:
       - db:/var/lib/mysql
+      - ./scripts/mysql_entrypoint.sh:/docker-entrypoint-initdb.d/init.sh
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s
       retries: 10
 
   supertokens:
-    env_file: ./.env
-    image: registry.supertokens.io/supertokens/supertokens-mysql:6.0
+    env_file: .env
+    image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
     depends_on:
       - db
     expose:
       - 3567
 
     environment:
-      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/${DB_DATABASE}
+      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/gamenode
     networks:
       - app_network
     restart: always
@@ -49,7 +50,7 @@ services:
       retries: 5
 
   redis:
-    env_file: ./.env
+    env_file: .env
     image: redis:latest
     expose:
       - 6379
@@ -67,8 +68,37 @@ services:
     networks:
       - app_network
 
-  server:
-    image: game-node-server_server:latest
+  manticore:
+    image: manticoresearch/manticore:6.2.12
+    environment:
+      - EXTRA=1
+      - CREATE_PLAIN_TABLES=gamenode:0 6,15 * * *
+    restart: always
+    expose:
+      # SQL port, use with care.
+      # - "9306:9306"
+      - "9308:9308"
+
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock:
+        soft: -1
+        hard: -1
+
+    volumes:
+      - manticore:/var/lib/manticore
+      - ./manticore.conf:/etc/manticoresearch/manticore.conf
+
+    depends_on:
+      - db
+
+    networks:
+      - app_network
+
+  app:
     build:
       context: .
       dockerfile: Dockerfile
@@ -77,55 +107,46 @@ services:
       - db
       - supertokens
       - redis
+      - manticore
 
-    env_file: ./.env
+    env_file: .env
 
     # Most of the env vars are loaded directly from .env, we only need to override some to make sure
     # the docker resources are accessible.
     environment:
       DB_HOST: db
+      DB_DATABASE: gamenode
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
       REDIS_URL: redis://redis:6379
+      MANTICORESEARCH_URL: http://manticore:9308
       SERVER_PORT: 5000
 
     restart: always
 
     command: ["yarn", "start"]
 
+    #    deploy:
+    #      replicas: 3
+
     networks:
       - app_network
     volumes:
       - gamenode:/usr/src/gamenode
 
-    deploy:
-      # Edit this to your liking.
-      replicas: 3
-      restart_policy:
-        condition: on-failure
-
     expose:
       - "5000"
 
-    labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.server.rule=Host(`${GAME_NODE_SERVER_HOSTNAME}`)'
-      - 'traefik.http.routers.server.entrypoints=websecure'
-      - 'traefik.http.services.server.loadbalancer.server.port=5000'
-
-  traefik:
-    image: traefik:v2.5
-    command:
-      - "--providers.docker=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-
-    # Point your domain to the server's hostname:8080.
-    # This avoids conflicts with the web-client's compose file.
+  webserver:
+    image: jc21/nginx-proxy-manager:latest
+    restart: unless-stopped
     ports:
-      - "8080:80"
-      - "8443:443"
+      - '80:80'
+      - '81:81'
+      - '443:443'
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - npm:/data
+      - npm:/etc/letsencrypt
+
     networks:
       - app_network
 
@@ -134,7 +155,10 @@ networks:
     driver: bridge
 
 volumes:
+  # Nginx Proxy Manager
+  npm:
   gamenode:
   redis:
   db:
+  manticore:
 

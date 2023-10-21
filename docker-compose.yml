@@ -21,13 +21,14 @@ services:
     restart: no
     volumes:
       - db:/var/lib/mysql
+
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s
       retries: 10
 
   supertokens:
-    image: registry.supertokens.io/supertokens/supertokens-mysql:6.0
+    image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
     depends_on:
       db:
         condition: service_healthy
@@ -66,6 +67,35 @@ services:
     networks:
       - app_network
 
+  manticore:
+    image: manticoresearch/manticore:6.2.12
+    environment:
+      - EXTRA=1
+      - CREATE_PLAIN_TABLES=gamenode:0 6,15 * * *
+    restart: no
+    ports:
+      # Note: ManticoreSearch as minimum built-in security,
+      # so it's not recommended to expose it to the host in production.
+
+      # SQL port, use it with care (not used by GameNode).
+      - "127.0.0.1:9306:9306"
+      - "127.0.0.1:9308:9308"
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock:
+        soft: -1
+        hard: -1
+
+    volumes:
+      - manticore:/var/lib/manticore
+      - ./manticore.conf:/etc/manticoresearch/manticore.conf
+
+    networks:
+      - app_network
+
 
 networks:
   app_network:
@@ -74,4 +104,5 @@ networks:
 volumes:
   redis:
   db:
+  manticore:
 

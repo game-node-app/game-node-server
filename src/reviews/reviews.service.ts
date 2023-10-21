@@ -30,10 +30,12 @@ export class ReviewsService {
         });
     }
 
-    async findOneByUserIdAndIgdbId(userId: string, igdbId: number) {
+    async findOneByUserIdAndGameId(userId: string, gameId: number) {
         return this.reviewsRepository.findOne({
             where: {
-                igdbId,
+                game: {
+                    id: gameId,
+                },
                 profile: {
                     userId,
                 },
@@ -53,10 +55,12 @@ export class ReviewsService {
         });
     }
 
-    async findAllByIgdbId(igdbId: number) {
+    async findAllByGameId(gameId: number) {
         return this.reviewsRepository.find({
             where: {
-                igdbId,
+                game: {
+                    id: gameId,
+                },
             },
             relations: this.relations,
         });
@@ -72,7 +76,7 @@ export class ReviewsService {
     }
 
     async create(userId: string, createReviewDto: CreateReviewDto) {
-        const possibleExistingReview = await this.findOneByUserIdAndIgdbId(
+        const possibleExistingReview = await this.findOneByUserIdAndGameId(
             userId,
             createReviewDto.igdbId,
         );

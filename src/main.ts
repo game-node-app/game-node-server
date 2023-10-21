@@ -4,8 +4,11 @@ import { SupertokensExceptionFilter } from "./auth/auth.filter";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import supertokens from "supertokens-node";
 
 import { publicUploadDir } from "./utils/constants";
+import { json } from "express";
+import * as fs from "fs";
 import * as process from "process";
 
 async function bootstrap() {
@@ -19,8 +22,10 @@ async function bootstrap() {
         credentials: true,
         origin: true,
         optionsSuccessStatus: 204,
+        allowedHeaders: ["content-type", ...supertokens.getAllCORSHeaders()],
         methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     });
+
     app.useGlobalPipes(
         new ValidationPipe({
             transform: true,
@@ -39,12 +44,17 @@ async function bootstrap() {
         .build();
 
     const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+    fs.writeFileSync("swagger.json", JSON.stringify(swaggerDocument));
 
     SwaggerModule.setup("v1/docs", app, swaggerDocument);
+
     app.useGlobalFilters(new SupertokensExceptionFilter());
+
     app.useStaticAssets(publicUploadDir, {
         prefix: "/v1/public/uploads",
     });
+
+    app.use(json({ limit: "15mb" }));
 
     await app.listen(process.env.SERVER_PORT || 5000);
 }

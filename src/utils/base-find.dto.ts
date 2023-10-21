@@ -6,11 +6,12 @@ import {
     ValidateIf,
 } from "class-validator";
 import { Transform } from "class-transformer";
+import { FindOptionsRelations } from "typeorm";
 
 /**
  * Base find options for all entities.
  */
-export class BaseFindDto {
+export class BaseFindDto<T> {
     @IsOptional()
     @IsString()
     @IsNotEmpty()
@@ -37,4 +38,6 @@ export class BaseFindDto {
     @IsString()
     @IsNotEmpty()
     orderDirection?: "ASC" | "DESC";
+
+    relations?: Record<keyof FindOptionsRelations<T>, boolean>;
 }

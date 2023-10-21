@@ -3,7 +3,7 @@ import { map, Observable } from "rxjs";
 import buildPaginationResponse, {
     TPaginationData,
     TPaginationResponse,
-} from "../utils/buildPaginationResponse";
+} from "../utils/pagination/buildPaginationResponse";
 import { BaseFindDto } from "../utils/base-find.dto";
 
 /**
@@ -18,11 +18,11 @@ export class PaginationInterceptor<T>
 {
     /**
      * Builds a simplified DTO for pagination data based on query params.
-     * The actual DTO received by the controller is not available here.
+     * The actual DTO received by the controller is not available in this context.
      * @param request
      * @private
      */
-    private buildSimplifiedDto(request: any): BaseFindDto {
+    private buildSimplifiedDto(request: any): BaseFindDto<T> {
         let { offset, limit } = request.query;
         if (offset == undefined || offset === "") {
             offset = 0;

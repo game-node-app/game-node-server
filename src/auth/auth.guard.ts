@@ -3,24 +3,38 @@ import { Error as STError } from "supertokens-node";
 
 import { verifySession } from "supertokens-node/recipe/session/framework/express";
 import { VerifySessionOptions } from "supertokens-node/recipe/session";
+import { Reflector } from "@nestjs/core";
 
+/**
+ * Default AuthGuard that checks for a valid session.
+ * This guard should not be used for microservice communication, prefer JwtAuthGuard instead.
+ */
 @Injectable()
 export class AuthGuard implements CanActivate {
-    constructor(private readonly verifyOptions?: VerifySessionOptions) {}
+    constructor(private readonly reflector: Reflector) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const ctx = context.switchToHttp();
 
         let err = undefined;
         const resp = ctx.getResponse();
-        // You can create an optional version of this by passing {sessionRequired: false} to verifySession
-        await verifySession(this.verifyOptions)(
-            ctx.getRequest(),
-            resp,
-            (res) => {
-                err = res;
-            },
+
+        const isPublic = this.reflector.get<boolean>(
+            "isPublic",
+            context.getHandler(),
         );
+
+        if (isPublic) {
+            return true;
+        }
+
+        // You can create an optional version of this by passing {sessionRequired: false} to verifySession
+        await verifySession({
+            sessionRequired: true,
+        })(ctx.getRequest(), resp, (res) => {
+            console.log("res", res);
+            err = res;
+        });
 
         if (resp.headersSent) {
             throw new STError({

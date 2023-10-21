@@ -7,7 +7,9 @@ import { FindManyOptions, FindOptionsOrder } from "typeorm";
  * @param dto
  * @returns an empty object {} if dto is undefined.
  */
-export function buildBaseFindOptions<T>(dto?: BaseFindDto): FindManyOptions<T> {
+export function buildBaseFindOptions<T>(
+    dto?: BaseFindDto<T>,
+): FindManyOptions<T> {
     const findOptions: FindManyOptions<T> = {};
 
     if (dto?.limit) {
@@ -16,6 +18,8 @@ export function buildBaseFindOptions<T>(dto?: BaseFindDto): FindManyOptions<T> {
     if (dto?.offset) {
         findOptions.skip = dto.offset;
     }
+
+    // TODO: Add multiple orderBy support
     if (dto?.orderBy) {
         findOptions.order = {
             [dto.orderBy]: dto.orderDirection || "DESC",
