@@ -7,7 +7,14 @@ import {
 } from "manticoresearch-ts/dist/src";
 
 import { GameSearchRequestDto } from "./dto/game-search-request.dto";
-import { objectKeysToCamelCase } from "../../utils/case-convert";
+import {
+    objectKeysToCamelCase,
+    parseGameDates,
+} from "../utils/game-conversor-utils";
+import {
+    GameSearchResponseDto,
+    GameSearchResponseHit,
+} from "./dto/game-search-response.dto";
 
 @Injectable()
 export class GameSearchService {
@@ -24,12 +31,28 @@ export class GameSearchService {
         this.searchClient = new SearchApi(this.config);
     }
 
-    async search(request: GameSearchRequestDto) {
+    async search(
+        request: GameSearchRequestDto,
+    ): Promise<GameSearchResponseDto> {
         const search = await this.searchClient.search(request);
         if (search == undefined) {
             throw new HttpException("No results found", 404);
         }
-        const normalizedSearch = objectKeysToCamelCase(search);
+        const normalizedSearch = objectKeysToCamelCase(
+            search,
+        ) as GameSearchResponseDto;
+
+        if (normalizedSearch.hits && normalizedSearch.hits.hits) {
+            normalizedSearch.hits.hits = normalizedSearch.hits.hits.map(
+                (game) => parseGameDates(game) as GameSearchResponseHit,
+            );
+        } else {
+            throw new HttpException(
+                "No results found for the provided query.",
+                404,
+            );
+        }
+
         return normalizedSearch;
     }
 }

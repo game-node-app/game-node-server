@@ -6,50 +6,33 @@ import { Job } from "bull";
 import { GAME_QUEUE_NAME } from "./game-queue.constants";
 import { PartialGame } from "../game-repository/game-repository.types";
 import isEmptyObject from "../../utils/isEmptyObject";
-import { objectKeysToCamelCase } from "../../utils/case-convert";
+import {
+    objectKeysToCamelCase,
+    parseGameDates,
+} from "../utils/game-conversor-utils";
 
 /**
  * Recursively converts types of a game object.
  * @param game
  */
 const convertIgdbResultTypes = (game: PartialGame) => {
-    const validatedGame = game;
-    // Keep in mind that these are UNIX timestamps, in seconds.
-    const dateFields = [
-        "createdAt",
-        "created_at",
-        "updatedAt",
-        "updated_at",
-        "firstReleaseDate",
-        "first_release_date",
-    ];
+    const gameWithParsedDates = parseGameDates(game);
 
-    for (const [key, value] of Object.entries(validatedGame)) {
+    for (const [key, value] of Object.entries(gameWithParsedDates)) {
         if (value == undefined) {
         } else if (isEmptyObject(value)) {
-            validatedGame[key] = undefined;
+            gameWithParsedDates[key] = undefined;
             // A lot of things are of type object, including dates and arrays, so we need to check for those first
         } else if (typeof value === "object" && value.constructor === Object) {
-            validatedGame[key] = convertIgdbResultTypes(value);
+            gameWithParsedDates[key] = convertIgdbResultTypes(value);
         } else if (Array.isArray(value) && value.length > 0) {
-            validatedGame[key] = value.map((item) =>
+            gameWithParsedDates[key] = value.map((item) =>
                 convertIgdbResultTypes(item),
             );
-        } else if (dateFields.includes(key) && typeof value === "number") {
-            let asDate: Date | undefined = new Date(value * 1000);
-
-            // Dates can't be invalid or in the future.
-            if (
-                asDate.toString() === "Invalid Date" ||
-                asDate.getTime() > Date.now()
-            ) {
-                asDate = undefined;
-            }
-            validatedGame[key] = asDate;
         }
     }
 
-    return validatedGame;
+    return gameWithParsedDates;
 };
 
 function normalizeIgdbResults(results: any[]) {

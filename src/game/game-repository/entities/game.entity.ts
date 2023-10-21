@@ -79,6 +79,10 @@ export class Game {
         nullable: true,
     })
     summary: string;
+    @Column("text", {
+        nullable: true,
+    })
+    storyline: string;
     @Column("varchar", {
         nullable: true,
     })
