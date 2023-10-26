@@ -1,10 +1,5 @@
 import { HttpException, Injectable } from "@nestjs/common";
-import {
-    Configuration,
-    IndexApi,
-    SearchApi,
-    ResponseError,
-} from "manticoresearch-ts/dist/src";
+import { Configuration, SearchApi } from "manticoresearch-ts/dist/src";
 
 import { GameSearchRequestDto } from "./dto/game-search-request.dto";
 import {
@@ -13,8 +8,9 @@ import {
 } from "../utils/game-conversor-utils";
 import {
     GameSearchResponseDto,
-    GameSearchResponseHit,
+    SearchGame,
 } from "./dto/game-search-response.dto";
+import { EGameStorageSource } from "../utils/game-stored-source";
 
 @Injectable()
 export class GameSearchService {
@@ -44,7 +40,15 @@ export class GameSearchService {
 
         if (normalizedSearch.hits && normalizedSearch.hits.hits) {
             normalizedSearch.hits.hits = normalizedSearch.hits.hits.map(
-                (game) => parseGameDates(game) as GameSearchResponseHit,
+                (hit) => ({
+                    ...hit,
+                    _id: parseInt(hit._id as unknown as string),
+                    _source: {
+                        ...(parseGameDates(hit._source) as SearchGame),
+                        id: parseInt(hit._id as unknown as string),
+                        source: EGameStorageSource.MANTICORE,
+                    },
+                }),
             );
         } else {
             throw new HttpException(

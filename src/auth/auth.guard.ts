@@ -32,7 +32,6 @@ export class AuthGuard implements CanActivate {
         await verifySession({
             sessionRequired: true,
         })(ctx.getRequest(), resp, (res) => {
-            console.log("res", res);
             err = res;
         });
 

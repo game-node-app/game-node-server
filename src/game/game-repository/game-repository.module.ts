@@ -15,6 +15,7 @@ import { GameMode } from "./entities/game-mode.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameKeyword } from "./entities/game-keyword.entity";
 import { JwtAuthModule } from "../../auth/jwt-auth/jwt-auth.module";
+import { GameRepositoryController } from "./game-repository.controller";
 
 @Module({
     imports: [
@@ -37,5 +38,6 @@ import { JwtAuthModule } from "../../auth/jwt-auth/jwt-auth.module";
     ],
     providers: [GameRepositoryService],
     exports: [GameRepositoryService],
+    controllers: [GameRepositoryController],
 })
 export class GameRepositoryModule {}

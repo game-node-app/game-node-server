@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
 import { In, Repository } from "typeorm";
@@ -15,9 +15,12 @@ import { GameMode } from "./entities/game-mode.entity";
 import { GameGenre } from "./entities/game-genre.entity";
 import { GameKeyword } from "./entities/game-keyword.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
+import { GameRepositoryRequestDto } from "./dto/game-repository-request.dto";
 
 @Injectable()
 export class GameRepositoryService {
+    private readonly logger = new Logger(GameRepositoryService.name);
+
     /**
      * TODO: Separate into multiple services (?).
      * @param gameRepository
@@ -63,6 +66,23 @@ export class GameRepositoryService {
         private readonly gamePlatformRepository: Repository<GamePlatform>,
     ) {}
 
+    async findOneByIdWithDto(
+        id: number,
+        dto?: GameRepositoryRequestDto,
+    ): Promise<Game> {
+        const result = await this.gameRepository.findOne({
+            where: {
+                id,
+            },
+            relations: dto?.relations,
+        });
+        if (result == undefined) {
+            throw new HttpException("Game not found", 404);
+        }
+
+        return result;
+    }
+
     async findOneById(id: number): Promise<Game | null> {
         return await this.gameRepository.findOneBy({
             id,
@@ -94,12 +114,10 @@ export class GameRepositoryService {
                 "Game name or alternative names must be specified.",
             );
         }
-
-        const possibleExistingGame = await this.findOneById(game.id);
-
-        await this.buildParentRelationships(game, possibleExistingGame != null);
+        await this.buildParentRelationships(game);
         await this.gameRepository.upsert(game, ["id"]);
         await this.buildChildRelationships(game);
+        this.logger.log(`Upserted game ${game.id}`);
     }
 
     /**
@@ -107,56 +125,14 @@ export class GameRepositoryService {
      *
      * e.g. Relationships where Game is on the ManyToOne side. Do not update ManyToMany entities here.
      * @param game
-     * @param currentGameExists - If it doesn't and we try to update a
-     * parent entity with it, it will try to point to a non-existent game id.
      */
-    async buildParentRelationships(
-        game: PartialGame,
-        currentGameExists: boolean,
-    ) {
-        const gameValueToUse = currentGameExists ? game : undefined;
+    async buildParentRelationships(game: PartialGame) {
         if (game.collection) {
             // collection.games changes are not cascaded.
             const collection = this.gameCollectionRepository.create(
                 game.collection,
             );
             await this.gameCollectionRepository.upsert(collection, ["id"]);
-        }
-        if (game.dlcs) {
-            const dlcs = game.dlcs.map((dlc) => {
-                return this.gameRepository.create({
-                    ...dlc,
-                    dlcOf: gameValueToUse,
-                });
-            });
-            await this.gameRepository.upsert(dlcs, ["id"]);
-        }
-        if (game.expansions) {
-            const expansions = game.expansions.map((expansion) => {
-                return this.gameRepository.create({
-                    ...expansion,
-                    expansionOf: gameValueToUse,
-                });
-            });
-            await this.gameRepository.upsert(expansions, ["id"]);
-        }
-        if (game.expandedGames) {
-            const expandedGames = game.expandedGames.map((expandedGame) => {
-                return this.gameRepository.create({
-                    ...expandedGame,
-                    expandedGameOf: gameValueToUse,
-                });
-            });
-            await this.gameRepository.upsert(expandedGames, ["id"]);
-        }
-        if (game.similarGames) {
-            const similarGames = game.similarGames.map((similarGame) => {
-                return this.gameRepository.create({
-                    ...similarGame,
-                    similarGameOf: gameValueToUse,
-                });
-            });
-            await this.gameRepository.upsert(similarGames, ["id"]);
         }
     }
 
@@ -294,6 +270,55 @@ export class GameRepositoryService {
                         .relation(Game, "genres")
                         .of(game)
                         .add(genre);
+                } catch (e) {}
+            }
+        }
+
+        if (game.dlcs) {
+            for (const dlc of game.dlcs) {
+                await this.gameRepository.upsert(dlc, ["id"]);
+                try {
+                    await this.gameRepository
+                        .createQueryBuilder()
+                        .relation(Game, "dlcs")
+                        .of(game)
+                        .add(dlc);
+                } catch (e) {}
+            }
+        }
+        if (game.expansions) {
+            for (const expansion of game.expansions) {
+                await this.gameRepository.upsert(expansion, ["id"]);
+                try {
+                    await this.gameRepository
+                        .createQueryBuilder()
+                        .relation(Game, "expansions")
+                        .of(game)
+                        .add(expansion);
+                } catch (e) {}
+            }
+        }
+        if (game.expandedGames) {
+            for (const expandedGame of game.expandedGames) {
+                await this.gameRepository.upsert(expandedGame, ["id"]);
+                try {
+                    await this.gameRepository
+                        .createQueryBuilder()
+                        .relation(Game, "expandedGames")
+                        .of(game)
+                        .add(expandedGame);
+                } catch (e) {}
+            }
+        }
+        if (game.similarGames) {
+            for (const similarGame of game.similarGames) {
+                await this.gameRepository.upsert(similarGame, ["id"]);
+                try {
+                    await this.gameRepository
+                        .createQueryBuilder()
+                        .relation(Game, "similarGames")
+                        .of(game)
+                        .add(similarGame);
                 } catch (e) {}
             }
         }

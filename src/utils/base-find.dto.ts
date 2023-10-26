@@ -39,5 +39,5 @@ export class BaseFindDto<T> {
     @IsNotEmpty()
     orderDirection?: "ASC" | "DESC";
 
-    relations?: Record<keyof FindOptionsRelations<T>, boolean>;
+    relations?: FindOptionsRelations<T>;
 }

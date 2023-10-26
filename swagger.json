@@ -412,6 +412,43 @@
         ]
       }
     },
+    "/v1/game/repository/{id}": {
+      "post": {
+        "operationId": "GameRepositoryController_findOneById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameRepositoryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Game"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/collections/entries": {
       "post": {
         "operationId": "CollectionsEntriesController_create",
@@ -1102,7 +1139,6 @@
             "type": "number"
           },
           "category": {
-            "type": "number",
             "enum": [
               0,
               1,
@@ -1119,10 +1155,10 @@
               12,
               13,
               14
-            ]
+            ],
+            "type": "number"
           },
           "status": {
-            "type": "number",
             "enum": [
               0,
               2,
@@ -1132,7 +1168,8 @@
               6,
               7,
               8
-            ]
+            ],
+            "type": "number"
           },
           "summary": {
             "type": "string"
@@ -1165,7 +1202,10 @@
             }
           },
           "dlcOf": {
-            "$ref": "#/components/schemas/Game"
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
           },
           "expansions": {
             "type": "array",
@@ -1174,7 +1214,10 @@
             }
           },
           "expansionOf": {
-            "$ref": "#/components/schemas/Game"
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
           },
           "expandedGames": {
             "type": "array",
@@ -1183,7 +1226,10 @@
             }
           },
           "expandedGameOf": {
-            "$ref": "#/components/schemas/Game"
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
           },
           "similarGames": {
             "type": "array",
@@ -1192,7 +1238,10 @@
             }
           },
           "similarGameOf": {
-            "$ref": "#/components/schemas/Game"
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
           },
           "cover": {
             "$ref": "#/components/schemas/GameCover"
@@ -1259,6 +1308,15 @@
             "items": {
               "$ref": "#/components/schemas/GameExternalGame"
             }
+          },
+          "source": {
+            "type": "string",
+            "description": "Oh dear maintainer, please forgive me for using transient fields.",
+            "default": "MYSQL",
+            "enum": [
+              "MYSQL",
+              "MANTICORE"
+            ]
           }
         },
         "required": [
@@ -1273,7 +1331,8 @@
           "url",
           "firstReleaseDate",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "source"
         ]
       },
       "ProfileAvatar": {
@@ -1802,6 +1861,31 @@
           "games"
         ]
       },
+      "GameRepositoryRequestDto": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "number",
+            "default": 0
+          },
+          "limit": {
+            "type": "number",
+            "default": 20
+          },
+          "orderBy": {
+            "type": "string"
+          },
+          "orderDirection": {
+            "type": "object"
+          },
+          "relations": {
+            "type": "object"
+          }
+        }
+      },
       "CreateCollectionEntryDto": {
         "type": "object",
         "properties": {
@@ -1929,9 +2013,12 @@
           "query"
         ]
       },
-      "GameSearchResponseHit": {
+      "SearchGame": {
         "type": "object",
         "properties": {
+          "coverUrl": {
+            "type": "string"
+          },
           "numViews": {
             "type": "number"
           },
@@ -1939,22 +2026,24 @@
             "type": "number"
           },
           "genresNames": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": "string"
           },
           "platformsNames": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": "string"
           },
           "platformsAbbreviations": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": "string"
+          },
+          "keywordsNames": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "default": "MANTICORE",
+            "enum": [
+              "MYSQL",
+              "MANTICORE"
+            ]
           },
           "id": {
             "type": "number",
@@ -2028,9 +2117,7 @@
           }
         },
         "required": [
-          "genresNames",
-          "platformsNames",
-          "platformsAbbreviations",
+          "source",
           "id",
           "name",
           "slug",
@@ -2042,6 +2129,26 @@
           "firstReleaseDate",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "GameSearchResponseHit": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "number",
+            "description": "This is returned as a string from Manticore, but is converted before return to the client."
+          },
+          "_score": {
+            "type": "number"
+          },
+          "_source": {
+            "$ref": "#/components/schemas/SearchGame"
+          }
+        },
+        "required": [
+          "_id",
+          "_score",
+          "_source"
         ]
       },
       "GameSearchResponseHits": {

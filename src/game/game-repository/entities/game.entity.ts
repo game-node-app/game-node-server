@@ -24,6 +24,7 @@ import { GameMode } from "./game-mode.entity";
 import { GameGenre } from "./game-genre.entity";
 import { GameKeyword } from "./game-keyword.entity";
 import { GamePlatform } from "./game-platform.entity";
+import { EGameStorageSource } from "../../utils/game-stored-source";
 
 /**
  * For future maintainers:
@@ -106,43 +107,49 @@ export class Game {
     updatedAt: Date;
 
     // **Self-referencing relationships**
-    // These are usually the most difficult to handle.
-    @OneToMany(() => Game, (game) => game.dlcOf, {
+    @ManyToMany(() => Game, (game) => game.dlcOf, {
         nullable: true,
     })
+    @JoinTable()
     dlcs?: Game[];
     // Equivalent to parent_game, for dlcs
-    @ManyToOne(() => Game, (game) => game.dlcs, {
+    @ManyToMany(() => Game, (game) => game.dlcs, {
         nullable: true,
     })
-    dlcOf?: Game;
-    @OneToMany(() => Game, (game) => game.expansionOf, {
+    dlcOf?: Game[];
+
+    @ManyToMany(() => Game, (game) => game.expansionOf, {
         nullable: true,
     })
+    @JoinColumn()
     expansions?: Game[];
     // Equivalent to parent_game, for expansions
-    @ManyToOne(() => Game, (game) => game.expansions, {
+    @ManyToMany(() => Game, (game) => game.expansions, {
         nullable: true,
     })
-    expansionOf?: Game;
-    @OneToMany(() => Game, (game) => game.expandedGameOf, {
+    expansionOf?: Game[];
+
+    @ManyToMany(() => Game, (game) => game.expandedGameOf, {
         nullable: true,
     })
+    @JoinTable()
     expandedGames?: Game[];
     // Equivalent to parent_game, for expanded games.
-    @ManyToOne(() => Game, (game) => game.expandedGames, {
+    @ManyToMany(() => Game, (game) => game.expandedGames, {
         nullable: true,
     })
-    expandedGameOf?: Game;
-    @OneToMany(() => Game, (game) => game.similarGameOf, {
+    expandedGameOf?: Game[];
+
+    @ManyToMany(() => Game, (game) => game.similarGameOf, {
         nullable: true,
     })
+    @JoinTable()
     similarGames?: Game[];
     // Equivalent to parent_game, for similar games.
-    @ManyToOne(() => Game, (game) => game.similarGames, {
+    @ManyToMany(() => Game, (game) => game.similarGames, {
         nullable: true,
     })
-    similarGameOf?: Game;
+    similarGameOf?: Game[];
 
     // **Relationships**
 
@@ -210,4 +217,8 @@ export class Game {
         },
     )
     externalGames?: GameExternalGame[];
+    /**
+     * Oh dear maintainer, please forgive me for using transient fields.
+     */
+    source = EGameStorageSource.MYSQL;
 }

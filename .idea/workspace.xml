@@ -9,15 +9,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="Latest">
-      <change afterPath="$PROJECT_DIR$/src/game/game-search/dto/game-search-response.dto.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-request.dto.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/utils/game-stored-source.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/manticore.conf" beforeDir="false" afterPath="$PROJECT_DIR$/manticore.conf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.guard.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-search/dto/game-search-response.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/dto/game-search-response.dto.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/utils/case-convert.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/utils/game-conversor-utils.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/base-find.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/base-find.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/buildBaseFindOptions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/buildBaseFindOptions.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/swagger.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -35,7 +40,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="feat-games" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -94,7 +99,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
     &quot;database.data.extractors.current.export.id&quot;: &quot;JSON-Groovy.json.groovy&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;feat-games&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;last_opened_file_path&quot;: &quot;/home/lamarck/Projects/Web/game-node-web&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -171,23 +176,45 @@
     </key>
   </component>
   <component name="RunManager" selected="npm.start:dev:docker">
+    <configuration name="AppController" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
+      <node-interpreter value="project" />
+      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
+      <working-dir value="$PROJECT_DIR$" />
+      <envs />
+      <scope-kind value="SUITE" />
+      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
+      <test-names>
+        <test-name value="AppController" />
+      </test-names>
+      <method v="2" />
+    </configuration>
+    <configuration name="AppController.root" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
+      <node-interpreter value="project" />
+      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
+      <working-dir value="$PROJECT_DIR$" />
+      <envs />
+      <scope-kind value="SUITE" />
+      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
+      <test-names>
+        <test-name value="AppController" />
+        <test-name value="root" />
+      </test-names>
+      <method v="2" />
+    </configuration>
     <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
       <deployment type="docker-compose.yml">
         <settings />
       </deployment>
       <method v="2" />
     </configuration>
-    <configuration name="docker-compose.prod.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+    <configuration name="docker-compose.yml.redis: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
       <deployment type="docker-compose.yml">
         <settings>
-          <option name="sourceFilePath" value="docker-compose.prod.yml" />
-        </settings>
-      </deployment>
-      <method v="2" />
-    </configuration>
-    <configuration name="docker-compose.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
-      <deployment type="docker-compose.yml">
-        <settings>
+          <option name="services">
+            <list>
+              <option value="redis" />
+            </list>
+          </option>
           <option name="sourceFilePath" value="docker-compose.yml" />
         </settings>
       </deployment>
@@ -223,31 +250,21 @@
       <envs />
       <method v="2" />
     </configuration>
-    <configuration name="wrapper:generate" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
-      <package-json value="$PROJECT_DIR$/package.json" />
-      <command value="run" />
-      <scripts>
-        <script value="wrapper:generate" />
-      </scripts>
-      <node-interpreter value="project" />
-      <envs />
-      <method v="2" />
-    </configuration>
     <list>
-      <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
-      <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+      <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
+      <item itemvalue="Jest.AppController" />
+      <item itemvalue="Jest.AppController.root" />
       <item itemvalue="npm.start:dev:docker" />
       <item itemvalue="npm.typeorm:migration:generate" />
-      <item itemvalue="npm.wrapper:generate" />
       <item itemvalue="npm.typeorm:migration:run" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
         <item itemvalue="npm.typeorm:migration:run" />
         <item itemvalue="npm.typeorm:migration:generate" />
-        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
-        <item itemvalue="npm.wrapper:generate" />
-        <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
+        <item itemvalue="Jest.AppController.root" />
+        <item itemvalue="Jest.AppController" />
       </list>
     </recent_temporary>
   </component>
@@ -368,6 +385,10 @@
       <workItem from="1697862353561" duration="2075000" />
       <workItem from="1697871000739" duration="3268000" />
       <workItem from="1697895430166" duration="370000" />
+      <workItem from="1697896529227" duration="6583000" />
+      <workItem from="1698087573850" duration="1932000" />
+      <workItem from="1698198137434" duration="8174000" />
+      <workItem from="1698263122505" duration="11040000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -497,7 +518,15 @@
       <option name="project" value="LOCAL" />
       <updated>1697615934254</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="Latest">
+      <option name="closed" value="true" />
+      <created>1697896584539</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1697896584539</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -528,7 +557,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="feat-games" />
+                        <option value="main" />
                       </list>
                     </value>
                   </entry>

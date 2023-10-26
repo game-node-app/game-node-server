@@ -10,12 +10,10 @@ import {
 } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
-import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
-import { CreateCollectionEntryDto } from "./collections-entries/dto/create-collectionEntry.dto";
-import { ApiBadRequestResponse, ApiTags } from "@nestjs/swagger";
+import { ApiTags } from "@nestjs/swagger";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 
 @Controller("collections")

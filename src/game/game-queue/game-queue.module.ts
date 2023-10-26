@@ -14,6 +14,10 @@ import { GameQueueController } from "./game-queue.controller";
                 max: 5,
                 duration: 1000,
             },
+            defaultJobOptions: {
+                removeOnComplete: true,
+                removeOnFail: true,
+            },
         }),
         GameRepositoryModule,
     ],

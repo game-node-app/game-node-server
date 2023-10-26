@@ -25,5 +25,10 @@ export function buildBaseFindOptions<T>(
             [dto.orderBy]: dto.orderDirection || "DESC",
         } as FindOptionsOrder<T>;
     }
+
+    if (dto?.relations) {
+        findOptions.relations = dto.relations;
+    }
+
     return findOptions;
 }

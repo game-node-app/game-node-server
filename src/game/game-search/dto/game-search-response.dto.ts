@@ -4,12 +4,13 @@ import {
 } from "manticoresearch-ts/dist/src";
 import { Game } from "../../game-repository/entities/game.entity";
 import { PickType } from "@nestjs/swagger";
+import { EGameStorageSource } from "../../utils/game-stored-source";
 
 /**
  * This reflects the slightly changed response from ManticoreSearch
  * Basically, a Game Entity with some shorthand fields to avoid querying for extra relationships.
  */
-export class GameSearchResponseHit extends PickType(Game, [
+export class SearchGame extends PickType(Game, [
     "id",
     "name",
     "slug",
@@ -24,11 +25,23 @@ export class GameSearchResponseHit extends PickType(Game, [
     "createdAt",
     "updatedAt",
 ]) {
+    coverUrl?: string;
     numViews?: number;
     numLikes?: number;
-    genresNames: string[];
-    platformsNames: string[];
-    platformsAbbreviations: string[];
+    genresNames?: string;
+    platformsNames?: string;
+    platformsAbbreviations?: string;
+    keywordsNames?: string;
+    source: EGameStorageSource = EGameStorageSource.MANTICORE;
+}
+
+export class GameSearchResponseHit {
+    /**
+     * This is returned as a string from Manticore, but is converted before return to the client.
+     */
+    _id: number;
+    _score: number;
+    _source: SearchGame;
 }
 
 export class GameSearchResponseHits implements SearchResponseHits {
@@ -55,7 +68,7 @@ export class GameSearchResponseHits implements SearchResponseHits {
      * @type {Array<object>}
      * @memberof SearchResponseHits
      */
-    hits?: Array<GameSearchResponseHit>;
+    hits?: GameSearchResponseHit[];
 }
 
 export class GameSearchResponseDto implements SearchResponse {
