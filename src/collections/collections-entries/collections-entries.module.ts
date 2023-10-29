@@ -5,10 +5,11 @@ import { ActivitiesQueueModule } from "../../activities/activities-queue/activit
 import { CollectionsEntriesController } from "./collections-entries.controller";
 import { CollectionsEntriesService } from "./collections-entries.service";
 import { CollectionsModule } from "../collections.module";
+import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([CollectionEntry]),
+        TypeOrmModule.forFeature([CollectionEntry, GamePlatform]),
         ActivitiesQueueModule,
         CollectionsModule,
     ],

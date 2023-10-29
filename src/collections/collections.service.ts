@@ -6,6 +6,7 @@ import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { CollectionEntry } from "./collections-entries/entities/collection-entry.entity";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
+import { GetCollectionEntryDto } from "./collections-entries/dto/get-collection-entry.dto";
 
 @Injectable()
 export class CollectionsService {
@@ -20,24 +21,25 @@ export class CollectionsService {
         private readonly librariesService: LibrariesService,
     ) {}
 
-    async findOneById(id: string) {
+    async findOneById(id: string, dto?: GetCollectionEntryDto) {
         return this.collectionsRepository.findOne({
             where: {
                 id,
             },
-            relations: this.relations,
+            relations: dto?.relations,
         });
     }
 
-    async findOneByIdWithPermissions(userId: string, targetUserId: string) {
+    async findOneByIdWithPermissions(
+        userId: string,
+        collectionId: string,
+        dto?: GetCollectionEntryDto,
+    ) {
         const collection = await this.collectionsRepository.findOne({
             where: {
-                id: targetUserId,
+                id: collectionId,
             },
-            relations: {
-                entries: true,
-                library: true,
-            },
+            relations: dto?.relations,
         });
         if (!collection) {
             throw new HttpException(
@@ -53,27 +55,6 @@ export class CollectionsService {
             );
         }
         return collection;
-    }
-
-    async findFavoritesCollection(userId: string) {
-        const favoritesCollection = await this.collectionsRepository.findOne({
-            where: {
-                library: {
-                    userId: userId,
-                },
-                isFavoritesCollection: true,
-            },
-            relations: this.relations,
-        });
-
-        if (!favoritesCollection) {
-            throw new HttpException(
-                "User has no favorites collection.",
-                HttpStatus.NOT_FOUND,
-            );
-        }
-
-        return favoritesCollection;
     }
 
     /**
@@ -107,31 +88,13 @@ export class CollectionsService {
                 HttpStatus.PRECONDITION_REQUIRED,
             );
         }
+
         const collectionEntity = this.collectionsRepository.create({
             name: createCollectionDto.name,
             description: createCollectionDto.description,
             library: userLibrary,
             isPublic: createCollectionDto.isPublic,
-            isFavoritesCollection: createCollectionDto.isFavoritesCollection,
         });
-
-        if (collectionEntity.isFavoritesCollection) {
-            const possibleFavoriteCollection =
-                await this.collectionsRepository.findOne({
-                    where: {
-                        library: {
-                            userId: userId,
-                        },
-                        isFavoritesCollection: true,
-                    },
-                });
-            if (possibleFavoriteCollection) {
-                throw new HttpException(
-                    "User already has a favourite collection.",
-                    HttpStatus.CONFLICT,
-                );
-            }
-        }
 
         try {
             return await this.collectionsRepository.save(collectionEntity);
@@ -142,34 +105,16 @@ export class CollectionsService {
 
     async update(id: string, updateCollectionDto: UpdateCollectionDto) {
         const collection = await this.findOneByIdOrFail(id);
-        const libraryId = collection.library.userId;
 
         const updatedCollection = this.collectionsRepository.create({
             ...collection,
             ...updateCollectionDto,
         });
 
-        if (updatedCollection.isFavoritesCollection) {
-            const possibleFavouriteCollection =
-                await this.collectionsRepository.findOne({
-                    where: {
-                        library: {
-                            userId: libraryId,
-                        },
-                        isFavoritesCollection: true,
-                    },
-                });
-            if (possibleFavouriteCollection) {
-                throw new HttpException(
-                    "User already has a favourite collection.",
-                    HttpStatus.CONFLICT,
-                );
-            }
-        }
-
         try {
             return await this.collectionsRepository.save(updatedCollection);
         } catch (e) {
+            console.error(e);
             throw new HttpException(e, 500);
         }
     }

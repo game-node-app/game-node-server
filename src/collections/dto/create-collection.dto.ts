@@ -11,7 +11,4 @@ export class CreateCollectionDto {
     @IsOptional()
     @IsBoolean()
     isPublic? = true;
-    @IsOptional()
-    @IsBoolean()
-    isFavoritesCollection? = false;
 }

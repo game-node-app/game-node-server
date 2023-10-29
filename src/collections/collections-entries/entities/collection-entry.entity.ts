@@ -20,6 +20,9 @@ import { GamePlatform } from "../../../game/game-repository/entities/game-platfo
  * @class CollectionEntry
  */
 @Entity()
+/**
+ * Games should be unique per collection, but duplicates are allowed across collections.
+ */
 @Unique(["collection", "game"])
 export class CollectionEntry {
     @PrimaryGeneratedColumn("uuid")
@@ -29,10 +32,12 @@ export class CollectionEntry {
         nullable: true,
     })
     @JoinColumn()
-    review: Review;
+    review?: Review | null;
 
-    @Column()
-    reviewId: string;
+    @Column({
+        nullable: true,
+    })
+    reviewId: string | null;
 
     @ManyToOne(() => Collection, (collection) => collection.entries, {
         nullable: false,
@@ -47,11 +52,15 @@ export class CollectionEntry {
     /**
      * The platforms on which the user owns the game.
      */
-    @ManyToMany(() => GamePlatform, {
+    @ManyToMany(() => GamePlatform, (platform) => platform.collectionEntries, {
         nullable: false,
     })
-    @JoinColumn()
     ownedPlatforms: GamePlatform[];
+
+    @Column({
+        default: false,
+    })
+    isFavorite: boolean;
 
     @CreateDateColumn()
     createdAt: Date;

@@ -2,15 +2,11 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Library } from "./entities/library.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
+import { GetCollectionEntryDto } from "../collections/collections-entries/dto/get-collection-entry.dto";
+import { GetLibraryDto } from "./dto/get-library.dto";
 
 @Injectable()
 export class LibrariesService {
-    private relations: FindOptionsRelations<Library> = {
-        collections: {
-            entries: true,
-            library: false,
-        },
-    };
     constructor(
         @InjectRepository(Library)
         private libraryRepository: Repository<Library>,
@@ -25,18 +21,19 @@ export class LibrariesService {
      */
     async findOneById(
         userId: string,
-        handleUnitialized = false,
+        handleUninitialized = false,
+        dto?: GetLibraryDto,
     ): Promise<Library | null> {
         const library = await this.libraryRepository.findOne({
             where: {
                 userId,
             },
-            relations: this.relations,
+            relations: dto?.relations,
         });
 
-        if (!library && handleUnitialized) {
+        if (!library && handleUninitialized) {
             await this.handleUninitializedLibrary(userId);
-            return await this.findOneById(userId);
+            return await this.findOneById(userId, false, dto);
         }
 
         return library;
@@ -47,24 +44,27 @@ export class LibrariesService {
      *
      * If trying to get a user's own library, internally, prefer the findOneById method.
      * @param userId
-     * @param targetId
+     * @param targetUserId
+     * @param dto
      */
-    async findOneByIdWithPermissions(userId: string, targetId: string) {
-        const library = await this.findOneById(targetId);
+    async findOneByIdWithPermissions(
+        userId: string,
+        targetUserId: string,
+        dto?: GetCollectionEntryDto,
+    ) {
+        const library = await this.findOneById(targetUserId, false, dto);
 
         if (!library) {
             throw new HttpException("Library not found.", HttpStatus.NOT_FOUND);
         }
 
-        const accessibleCollections = library.collections.filter(
-            (collection) => {
+        if (library.collections) {
+            library.collections = library.collections.filter((collection) => {
                 return (
                     collection.isPublic || collection.library.userId === userId
                 );
-            },
-        );
-
-        library.collections = accessibleCollections;
+            });
+        }
 
         return library;
     }

@@ -1,11 +1,9 @@
 import {
     Controller,
-    Get,
     Post,
     Body,
     Param,
     UseGuards,
-    HttpException,
     UseInterceptors,
 } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
@@ -23,13 +21,6 @@ import { CacheInterceptor } from "@nestjs/cache-manager";
 export class CollectionsController {
     constructor(private readonly collectionsService: CollectionsService) {}
 
-    @Get("favorites")
-    async findFavoritesCollection(@Session() session: SessionContainer) {
-        return this.collectionsService.findFavoritesCollection(
-            session.getUserId(),
-        );
-    }
-
     /**
      * Returns a collection which the user has access to
      *
@@ -37,7 +28,7 @@ export class CollectionsController {
      * @param session
      * @param collectionId
      */
-    @Get(":id")
+    @Post(":id")
     async findOneByIdWithPermissions(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,

@@ -16,10 +16,11 @@ import { ProfileService } from "./profile.service";
 import { CreateProfileDto } from "./dto/create-profile.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { ApiConsumes, ApiTags } from "@nestjs/swagger";
+import { ApiConsumes, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
+import { Profile } from "./entities/profile.entity";
 
 @Controller("profile")
 @ApiTags("profile")
@@ -61,8 +62,15 @@ export class ProfileController {
      * @param session
      */
     @Get()
-    async findOwnById(@Session() session: SessionContainer) {
-        return await this.profileService.findOneById(session.getUserId(), true);
+    @ApiResponse({
+        status: 200,
+        type: Profile,
+    })
+    async findOwn(@Session() session: SessionContainer) {
+        return await this.profileService.findOneByIdOrFail(
+            session.getUserId(),
+            true,
+        );
     }
 
     /**
@@ -75,6 +83,6 @@ export class ProfileController {
         @Session() session: SessionContainer,
         @Param("id") id: string,
     ) {
-        return await this.profileService.findOneById(id, false);
+        return await this.profileService.findOneByIdOrFail(id, false);
     }
 }

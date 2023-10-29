@@ -9,6 +9,7 @@ import {
 } from "typeorm";
 import { EGamePlatformCategory } from "../game-repository.constants";
 import { Game } from "./game.entity";
+import { CollectionEntry } from "../../../collections/collections-entries/entities/collection-entry.entity";
 
 @Entity()
 export class GamePlatform {
@@ -46,4 +47,13 @@ export class GamePlatform {
     })
     @JoinTable()
     games: Game[];
+    @ManyToMany(
+        () => CollectionEntry,
+        (collectionEntry) => collectionEntry.ownedPlatforms,
+        {
+            nullable: true,
+        },
+    )
+    @JoinTable()
+    collectionEntries: CollectionEntry[];
 }

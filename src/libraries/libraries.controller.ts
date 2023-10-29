@@ -7,12 +7,17 @@ import {
     Param,
     Delete,
     UseGuards,
+    HttpCode,
+    Query,
 } from "@nestjs/common";
 import { LibrariesService } from "./libraries.service";
 import { AuthGuard } from "../auth/auth.guard";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiProduces, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { Session } from "../auth/session.decorator";
+import { GetCollectionEntryDto } from "../collections/collections-entries/dto/get-collection-entry.dto";
+import { Library } from "./entities/library.entity";
+import { GetLibraryDto } from "./dto/get-library.dto";
 
 @Controller("libraries")
 @UseGuards(AuthGuard)
@@ -20,19 +25,35 @@ import { Session } from "../auth/session.decorator";
 export class LibrariesController {
     constructor(private readonly librariesService: LibrariesService) {}
 
-    @Get()
-    async findByUserId(@Session() session: SessionContainer) {
-        return this.librariesService.findOneById(session.getUserId(), true);
+    @Post()
+    @HttpCode(200)
+    @ApiProduces("application/json")
+    @ApiResponse({
+        type: Library,
+        status: 200,
+    })
+    async findOwn(
+        @Session() session: SessionContainer,
+        @Body() dto: GetLibraryDto,
+    ): Promise<Library> {
+        const library = await this.librariesService.findOneById(
+            session.getUserId(),
+            true,
+            dto,
+        );
+        return library!;
     }
 
-    @Get(":id")
-    async findById(
+    @Post(":id")
+    async findOneByIdWithPermissions(
         @Session() session: SessionContainer,
         @Param("id") id: string,
+        @Body() dto: GetLibraryDto,
     ) {
         return this.librariesService.findOneByIdWithPermissions(
             session.getUserId(),
             id,
+            dto,
         );
     }
 }

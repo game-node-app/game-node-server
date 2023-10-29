@@ -79,10 +79,21 @@ export class ProfileService {
             where: {
                 userId,
             },
+            relations: {
+                avatar: true,
+            },
         });
         if (!profile && handleUninitialized) {
             await this.handleUninitializedProfile(userId);
             return await this.findOneById(userId);
+        }
+        return profile;
+    }
+
+    async findOneByIdOrFail(userId: string, handleUnitialized = false) {
+        const profile = await this.findOneById(userId, handleUnitialized);
+        if (!profile) {
+            throw new HttpException("Profile not found", HttpStatus.NOT_FOUND);
         }
         return profile;
     }

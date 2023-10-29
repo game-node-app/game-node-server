@@ -14,6 +14,7 @@ import { GameQueueModule } from "./game/game-queue/game-queue.module";
 import { CollectionsModule } from "./collections/collections.module";
 import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
 import { GameSearchModule } from "./game/game-search/game-search.module";
+import { LibrariesModule } from "./libraries/libraries.module";
 
 @Module({
     imports: [
@@ -51,6 +52,8 @@ import { GameSearchModule } from "./game/game-search/game-search.module";
         CollectionsModule,
         CollectionsEntriesModule,
         GameSearchModule,
+        LibrariesModule,
+        CollectionsModule,
     ],
     providers: [],
 })

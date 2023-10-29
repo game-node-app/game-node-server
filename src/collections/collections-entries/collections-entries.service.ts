@@ -1,12 +1,18 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DeepPartial, FindOptionsRelations, In, Repository } from "typeorm";
+import {
+    DeepPartial,
+    FindOptionsRelations,
+    In,
+    Not,
+    Repository,
+} from "typeorm";
 import { CollectionsService } from "../collections.service";
-import { CreateCollectionEntryDto } from "./dto/create-collectionEntry.dto";
-import { UpdateCollectionEntryDto } from "./dto/update-collectionEntry.dto";
-import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
+import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
+import { GetCollectionEntryDto } from "./dto/get-collection-entry.dto";
+import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -22,13 +28,26 @@ export class CollectionsEntriesService {
         private activitiesQueueService: ActivitiesQueueService,
     ) {}
 
+    async findOneById(id: string) {
+        return await this.collectionEntriesRepository.findOne({
+            where: {
+                id,
+            },
+        });
+    }
+
     /**
      * This is mainly used to check if a given entry exists in a given user's library.
      * @param userId
      * @param gameId
+     * @param dto
      */
-    async findOneByUserIdAndGameId(userId: string, gameId: number) {
-        return await this.collectionEntriesRepository.findOne({
+    async findAllByUserIdAndGameId(
+        userId: string,
+        gameId: number,
+        dto?: GetCollectionEntryDto,
+    ) {
+        return await this.collectionEntriesRepository.find({
             where: {
                 collection: {
                     library: {
@@ -39,12 +58,16 @@ export class CollectionsEntriesService {
                     id: gameId,
                 },
             },
-            relations: this.relations,
+            relations: dto?.relations,
         });
     }
 
-    async findOneByUserIdAndGameIdOrFail(userId: string, gameId: number) {
-        const entry = await this.findOneByUserIdAndGameId(userId, gameId);
+    async findAllByUserIdAndGameIdOrFail(
+        userId: string,
+        gameId: number,
+        dto?: GetCollectionEntryDto,
+    ) {
+        const entry = await this.findAllByUserIdAndGameId(userId, gameId, dto);
         if (!entry) {
             throw new HttpException(
                 "Collection entry not found.",
@@ -54,40 +77,119 @@ export class CollectionsEntriesService {
         return entry;
     }
 
-    async findAllByIdIn(collectionEntryIds: string[]) {
+    async findAllByIdIn(
+        collectionEntryIds: string[],
+        dto?: GetCollectionEntryDto,
+    ) {
+        const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
         return await this.collectionEntriesRepository.find({
+            ...findOptions,
             where: {
                 id: In(collectionEntryIds),
             },
         });
     }
 
-    async create(createEntryDto: CreateCollectionEntryDto) {
-        const collection = await this.collectionsService.findOneByIdOrFail(
-            createEntryDto.collectionId,
-        );
+    /**
+     * Create or update a collection entry. If the game already exists for the given collection, it will be updated.
+     * @param userId
+     * @param createEntryDto
+     */
+    async createOrUpdate(
+        userId: string,
+        createEntryDto: CreateCollectionEntryDto,
+    ) {
+        const { collectionIds, gameId, platformIds, isFavorite } =
+            createEntryDto;
 
-        const { gameId, platformIds } = createEntryDto;
+        const queryBuilder =
+            this.collectionEntriesRepository.createQueryBuilder();
 
-        if (platformIds == undefined || platformIds.length === 0) {
-            throw new HttpException(
-                "At least one platform ID must be provided.",
-                HttpStatus.BAD_REQUEST,
-            );
+        const entriesInOtherCollections =
+            await this.collectionEntriesRepository.find({
+                where: {
+                    collection: {
+                        id: Not(In(collectionIds)),
+                        library: {
+                            userId: userId,
+                        },
+                    },
+                    game: {
+                        id: gameId,
+                    },
+                },
+                relations: {
+                    ownedPlatforms: true,
+                },
+            });
+
+        // Removes entry from other collections before proceeding
+        for (const entry of entriesInOtherCollections) {
+            await queryBuilder
+                .relation(CollectionEntry, "ownedPlatforms")
+                .of(entry)
+                .remove(entry.ownedPlatforms);
+            await this.collectionEntriesRepository.delete(entry.id);
         }
 
-        const entry = this.collectionEntriesRepository.create({
-            collection,
-            // This pattern is only possible while using .save().
-            game: {
-                id: gameId,
-            },
-            ownedPlatforms: platformIds.map((platformId) => ({
-                id: platformId,
-            })),
-        });
+        for (const collectionId of collectionIds) {
+            const entryInCollection =
+                await this.collectionEntriesRepository.findOne({
+                    where: {
+                        collection: {
+                            id: collectionId,
+                        },
+                        game: {
+                            id: gameId,
+                        },
+                    },
+                    relations: {
+                        ownedPlatforms: true,
+                    },
+                });
 
-        await this.collectionEntriesRepository.save(entry);
+            if (entryInCollection != undefined) {
+                const updatedEntry = this.collectionEntriesRepository.merge(
+                    entryInCollection,
+                    {
+                        game: {
+                            id: gameId,
+                        },
+                        collection: {
+                            id: collectionId,
+                        },
+                        isFavorite,
+                    },
+                );
+                await this.collectionEntriesRepository.upsert(updatedEntry, [
+                    "id",
+                ]);
+
+                // Removes previous platforms before adding the new ones
+                await queryBuilder
+                    .relation(CollectionEntry, "ownedPlatforms")
+                    .of(entryInCollection)
+                    .remove(entryInCollection.ownedPlatforms);
+                await queryBuilder
+                    .relation(CollectionEntry, "ownedPlatforms")
+                    .of(updatedEntry)
+                    .add(platformIds);
+
+                return;
+            }
+
+            await this.collectionEntriesRepository.save({
+                collection: {
+                    id: collectionId,
+                },
+                game: {
+                    id: gameId,
+                },
+                ownedPlatforms: platformIds.map((platformId) => ({
+                    id: platformId,
+                })),
+            });
+        }
     }
 
     /**
@@ -98,35 +200,59 @@ export class CollectionsEntriesService {
      * @param reviewId
      */
     async attachReview(userId: string, gameId: number, reviewId: string) {
-        const entry = await this.findOneByUserIdAndGameIdOrFail(userId, gameId);
-        const updatedEntry = this.collectionEntriesRepository.create({
-            ...entry,
-            review: {
-                id: reviewId,
-            },
-            reviewId,
-        });
-
-        await this.collectionEntriesRepository.save(updatedEntry);
+        const entries = await this.findAllByUserIdAndGameIdOrFail(
+            userId,
+            gameId,
+        );
+        for (const entry of entries) {
+            await this.collectionEntriesRepository
+                .createQueryBuilder()
+                .relation(CollectionEntry, "review")
+                .of(entry)
+                .set({
+                    id: reviewId,
+                });
+        }
     }
 
-    async update(
+    async changeFavoriteStatus(
         userId: string,
-        igdbId: number,
-        updateEntryDto: UpdateCollectionEntryDto,
+        gameId: number,
+        isFavorite: boolean = false,
     ) {
-        const entry = await this.findOneByUserIdAndGameIdOrFail(userId, igdbId);
-        let ownedPlatforms: DeepPartial<GamePlatform>[] = entry.ownedPlatforms;
-        if (updateEntryDto.platformIds) {
-            ownedPlatforms = updateEntryDto.platformIds.map((platformId) => ({
-                id: platformId,
-            }));
+        const entities = await this.findAllByUserIdAndGameIdOrFail(
+            userId,
+            gameId,
+        );
+        for (const entity of entities) {
+            await this.collectionEntriesRepository.update(
+                {
+                    id: entity.id,
+                },
+                {
+                    isFavorite,
+                },
+            );
         }
-        const updatedEntry = this.collectionEntriesRepository.create({
-            ...entry,
-            ownedPlatforms: ownedPlatforms,
-        });
+    }
 
-        await this.collectionEntriesRepository.save(updatedEntry);
+    async deleteByUserIdAndGameId(userId: string, gameId: number) {
+        const entities = await this.findAllByUserIdAndGameIdOrFail(
+            userId,
+            gameId,
+            {
+                relations: {
+                    ownedPlatforms: true,
+                },
+            },
+        );
+        for (const entity of entities) {
+            await this.collectionEntriesRepository
+                .createQueryBuilder()
+                .relation(CollectionEntry, "ownedPlatforms")
+                .of(entity)
+                .remove(entity.ownedPlatforms);
+            await this.collectionEntriesRepository.delete(entity.id);
+        }
     }
 }

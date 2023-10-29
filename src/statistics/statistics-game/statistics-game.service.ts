@@ -84,8 +84,10 @@ export class StatisticsGameService {
         if (action === "increment") {
             const userHasLiked = await this.userLikeRepository.count({
                 where: {
-                    userId,
-                    gameStatistics: gameStatistics,
+                    userId: userId,
+                    gameStatistics: {
+                        id: gameStatistics.id,
+                    },
                 },
             });
             if (userHasLiked) {
@@ -99,8 +101,10 @@ export class StatisticsGameService {
             });
         } else {
             await this.userLikeRepository.delete({
-                userId,
-                gameStatistics: gameStatistics,
+                userId: userId,
+                gameStatistics: {
+                    id: gameStatistics.id,
+                },
             });
         }
     }

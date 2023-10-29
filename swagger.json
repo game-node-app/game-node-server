@@ -2,39 +2,19 @@
   "openapi": "3.0.0",
   "paths": {
     "/v1/libraries": {
-      "get": {
-        "operationId": "LibrariesController_findByUserId",
+      "post": {
+        "operationId": "LibrariesController_findOwn",
         "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetLibraryDto"
               }
             }
           }
         },
-        "tags": [
-          "libraries"
-        ]
-      }
-    },
-    "/v1/libraries/{id}": {
-      "get": {
-        "operationId": "LibrariesController_findById",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "",
@@ -52,29 +32,48 @@
         ]
       }
     },
-    "/v1/collections/favorites": {
-      "get": {
-        "operationId": "CollectionsController_findFavoritesCollection",
-        "parameters": [],
+    "/v1/libraries/{id}": {
+      "post": {
+        "operationId": "LibrariesController_findOneByIdWithPermissions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetLibraryDto"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Collection"
+                  "$ref": "#/components/schemas/Library"
                 }
               }
             }
           }
         },
         "tags": [
-          "collections"
+          "libraries"
         ]
       }
     },
     "/v1/collections/{id}": {
-      "get": {
+      "post": {
         "operationId": "CollectionsController_findOneByIdWithPermissions",
         "summary": "",
         "description": "Returns a collection which the user has access to\n\n(Either its own collection or a public one)",
@@ -89,7 +88,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -238,7 +237,7 @@
         ]
       },
       "get": {
-        "operationId": "ProfileController_findOwnById",
+        "operationId": "ProfileController_findOwn",
         "summary": "",
         "description": "Used to access own profile",
         "parameters": [],
@@ -248,7 +247,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Profile"
                 }
               }
             }
@@ -280,7 +279,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Profile"
                 }
               }
             }
@@ -446,10 +445,13 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "game-repository"
+        ]
       }
     },
-    "/v1/collections/entries": {
+    "/v1/collections-entries": {
       "post": {
         "operationId": "CollectionsEntriesController_create",
         "parameters": [],
@@ -469,16 +471,18 @@
           }
         },
         "tags": [
-          "collections"
+          "collections-entries"
         ]
       }
     },
-    "/v1/collections/entries/{igdbId}": {
-      "patch": {
-        "operationId": "CollectionsEntriesController_update",
+    "/v1/collections-entries/game/{id}": {
+      "post": {
+        "operationId": "CollectionsEntriesController_findOwnEntryByGameId",
+        "summary": "",
+        "description": "Returns a specific collection entry based on game ID",
         "parameters": [
           {
-            "name": "igdbId",
+            "name": "id",
             "required": true,
             "in": "path",
             "schema": {
@@ -491,41 +495,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateCollectionEntryDto"
+                "$ref": "#/components/schemas/GetCollectionEntryDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "collections"
-        ]
-      },
-      "get": {
-        "operationId": "CollectionsEntriesController_findEntryByIgdbIdOrId",
-        "summary": "",
-        "description": "Returns a specific collection entry based on IGDB ID",
-        "parameters": [
-          {
-            "name": "igdbId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CollectionEntry"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CollectionEntry"
+                  }
                 }
               }
             }
@@ -535,7 +519,61 @@
           }
         },
         "tags": [
-          "collections"
+          "collections-entries"
+        ]
+      },
+      "delete": {
+        "operationId": "CollectionsEntriesController_deleteOwnEntryByGameId",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "collections-entries"
+        ]
+      }
+    },
+    "/v1/collections-entries/game/{id}/favorite": {
+      "post": {
+        "operationId": "CollectionsEntriesController_changeFavoriteStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FavoriteStatusCollectionEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "collections-entries"
         ]
       }
     },
@@ -581,6 +619,31 @@
   "servers": [],
   "components": {
     "schemas": {
+      "GetLibraryDto": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "number",
+            "default": 0
+          },
+          "limit": {
+            "type": "number",
+            "default": 20
+          },
+          "orderBy": {
+            "type": "string"
+          },
+          "orderDirection": {
+            "type": "object"
+          },
+          "relations": {
+            "type": "object"
+          }
+        }
+      },
       "Library": {
         "type": "object",
         "properties": {
@@ -1027,6 +1090,12 @@
             "items": {
               "$ref": "#/components/schemas/Game"
             }
+          },
+          "collectionEntries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollectionEntry"
+            }
           }
         },
         "required": [
@@ -1039,7 +1108,8 @@
           "name",
           "createdAt",
           "updatedAt",
-          "games"
+          "games",
+          "collectionEntries"
         ]
       },
       "GameExternalGame": {
@@ -1697,10 +1767,16 @@
             "type": "string"
           },
           "review": {
-            "$ref": "#/components/schemas/Review"
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Review"
+              }
+            ]
           },
           "reviewId": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "collection": {
             "$ref": "#/components/schemas/Collection"
@@ -1715,6 +1791,9 @@
               "$ref": "#/components/schemas/GamePlatform"
             }
           },
+          "isFavorite": {
+            "type": "boolean"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -1726,11 +1805,11 @@
         },
         "required": [
           "id",
-          "review",
           "reviewId",
           "collection",
           "game",
           "ownedPlatforms",
+          "isFavorite",
           "createdAt",
           "updatedAt"
         ]
@@ -1759,9 +1838,6 @@
               "$ref": "#/components/schemas/CollectionEntry"
             }
           },
-          "isFavoritesCollection": {
-            "type": "boolean"
-          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -1778,7 +1854,6 @@
           "isPublic",
           "library",
           "entries",
-          "isFavoritesCollection",
           "createdAt",
           "updatedAt"
         ]
@@ -1795,10 +1870,6 @@
           "isPublic": {
             "type": "object",
             "default": true
-          },
-          "isFavoritesCollection": {
-            "type": "object",
-            "default": false
           }
         },
         "required": [
@@ -1889,8 +1960,11 @@
       "CreateCollectionEntryDto": {
         "type": "object",
         "properties": {
-          "collectionId": {
-            "type": "string"
+          "collectionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "gameId": {
             "type": "number"
@@ -1914,41 +1988,55 @@
                 170
               ]
             }
+          },
+          "isFavorite": {
+            "type": "boolean",
+            "default": false
           }
         },
         "required": [
-          "collectionId",
+          "collectionIds",
           "gameId",
-          "platformIds"
+          "platformIds",
+          "isFavorite"
         ]
       },
-      "UpdateCollectionEntryDto": {
+      "GetCollectionEntryDto": {
         "type": "object",
         "properties": {
-          "collectionId": {
+          "search": {
             "type": "string"
           },
-          "platformIds": {
-            "type": "array",
-            "items": {
-              "type": "number",
-              "enum": [
-                6,
-                7,
-                8,
-                9,
-                48,
-                167,
-                11,
-                12,
-                49,
-                169,
-                130,
-                170
-              ]
-            }
+          "offset": {
+            "type": "number",
+            "default": 0
+          },
+          "limit": {
+            "type": "number",
+            "default": 20
+          },
+          "orderBy": {
+            "type": "string"
+          },
+          "orderDirection": {
+            "type": "object"
+          },
+          "relations": {
+            "type": "object"
           }
         }
+      },
+      "FavoriteStatusCollectionEntryDto": {
+        "type": "object",
+        "properties": {
+          "isFavorite": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "isFavorite"
+        ]
       },
       "GameSearchRequestDto": {
         "type": "object",
