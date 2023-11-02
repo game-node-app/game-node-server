@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Query } from "@nestjs/common";
+import { Body, Controller, HttpCode, Post } from "@nestjs/common";
 import { GameSearchService } from "./game-search.service";
 import { ApiTags } from "@nestjs/swagger";
 import { GameSearchRequestDto } from "./dto/game-search-request.dto";

@@ -8,6 +8,7 @@ import {
     Param,
     Post,
     UseGuards,
+    UseInterceptors,
 } from "@nestjs/common";
 import { CollectionsEntriesService } from "./collections-entries.service";
 import { ApiBadRequestResponse, ApiTags } from "@nestjs/swagger";
@@ -15,9 +16,15 @@ import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { AuthGuard } from "../../auth/auth.guard";
-import { GetCollectionEntryDto } from "./dto/get-collection-entry.dto";
+import { GetCollectionEntriesDto } from "./dto/get-collection-entries.dto";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { FavoriteStatusCollectionEntryDto } from "./dto/favorite-status-collection-entry.dto";
+import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
+
+import {
+    ApiOkResponsePaginated,
+    TPaginationData,
+} from "../../utils/pagination/pagination-response.dto";
 
 @Controller("collections-entries")
 @ApiTags("collections-entries")
@@ -49,7 +56,7 @@ export class CollectionsEntriesController {
     async findOwnEntryByGameId(
         @Session() session: SessionContainer,
         @Param("id") gameId: number,
-        @Body() dto?: GetCollectionEntryDto,
+        @Body() dto?: GetCollectionEntriesDto,
     ): Promise<CollectionEntry[]> {
         if (gameId == undefined) {
             throw new HttpException(
@@ -90,6 +97,19 @@ export class CollectionsEntriesController {
             userId,
             gameId,
             dto.isFavorite,
+        );
+    }
+
+    @Post("/collection/:id")
+    @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponsePaginated(CollectionEntry)
+    async findAllByCollectionId(
+        @Param("id") collectionId: string,
+        @Body() dto?: GetCollectionEntriesDto,
+    ): Promise<TPaginationData<CollectionEntry>> {
+        return await this.collectionsEntriesService.findAllByCollectionId(
+            collectionId,
+            dto,
         );
     }
 }

@@ -1,7 +1,21 @@
-import { Body, Controller, HttpCode, Param, Post } from "@nestjs/common";
+import {
+    Body,
+    Controller,
+    Get,
+    HttpCode,
+    Param,
+    Post,
+    UseInterceptors,
+} from "@nestjs/common";
 import { GameRepositoryRequestDto } from "./dto/game-repository-request.dto";
 import { GameRepositoryService } from "./game-repository.service";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiResponse, ApiTags } from "@nestjs/swagger";
+import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
+import {
+    ApiOkResponsePaginated,
+    PaginationResponseDto,
+} from "../../utils/pagination/pagination-response.dto";
+import { Game } from "./entities/game.entity";
 
 @Controller("game/repository")
 @ApiTags("game-repository")
@@ -17,5 +31,13 @@ export class GameRepositoryController {
         @Body() dto?: GameRepositoryRequestDto,
     ) {
         return this.gameRepositoryService.findOneByIdWithDto(id, dto);
+    }
+
+    @Get()
+    @UseInterceptors(PaginationInterceptor)
+    @HttpCode(200)
+    @ApiOkResponsePaginated(Game)
+    async findAll() {
+        return this.gameRepositoryService.findAll();
     }
 }

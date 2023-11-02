@@ -1,22 +1,8 @@
 import { BaseFindDto } from "../base-find.dto";
-
-/**
- * Type alias for paginable data.
- * Basically, a tuple of an array of data and the total number of data (preferably the total count of items without query parameters applied). <br>
- * TypeOrm has a handy function (findAndCount) that returns this type of data.
- */
-export type TPaginationData<T> = [T[], number];
-
-export type TPaginationInfo = {
-    total: number;
-    totalPages: number;
-    hasNextPage: boolean;
-};
-
-export type TPaginationResponse<T> = {
-    data: T[];
-    pagination: TPaginationInfo;
-};
+import {
+    PaginationResponseDto,
+    TPaginationData,
+} from "./pagination-response.dto";
 
 /**
  * Builds pagination data from a 'paginable' data array and a DTO.
@@ -26,7 +12,7 @@ export type TPaginationResponse<T> = {
 export default function buildPaginationResponse<T>(
     data: TPaginationData<T>,
     dto?: BaseFindDto<T>,
-): TPaginationResponse<T> {
+): PaginationResponseDto<T> {
     // Best-effort runtime check to ensure that data is an array with two elements.
     if (Array.isArray(data) && data.length === 2) {
         const [results, total] = data;

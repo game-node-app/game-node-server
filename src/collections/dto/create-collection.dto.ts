@@ -4,11 +4,13 @@ export class CreateCollectionDto {
     @IsString()
     @IsNotEmpty()
     name: string;
-    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    description: string;
+    @IsOptional()
+    description?: string;
     @IsOptional()
     @IsBoolean()
-    isPublic? = true;
+    isPublic: boolean = true;
+    @IsOptional()
+    @IsBoolean()
+    isFeatured: boolean = false;
 }

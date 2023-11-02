@@ -97,6 +97,10 @@ export class GameRepositoryService {
         });
     }
 
+    async findAll(): Promise<[Game[], number]> {
+        return this.gameRepository.findAndCount();
+    }
+
     /**
      * ManyToMany entities can't be easily upserted, since the junction table is not inserted/updated automatically.
      * To both fix this and circumvent the .save() bug, use the QueryBuilder with the .relation() method.
@@ -322,9 +326,5 @@ export class GameRepositoryService {
                 } catch (e) {}
             }
         }
-    }
-
-    async findAll(): Promise<Game[]> {
-        return this.gameRepository.find();
     }
 }

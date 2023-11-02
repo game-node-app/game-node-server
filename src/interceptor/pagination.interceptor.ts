@@ -1,10 +1,11 @@
 import { CallHandler, ExecutionContext, NestInterceptor } from "@nestjs/common";
 import { map, Observable } from "rxjs";
-import buildPaginationResponse, {
-    TPaginationData,
-    TPaginationResponse,
-} from "../utils/pagination/buildPaginationResponse";
+import buildPaginationResponse from "../utils/pagination/buildPaginationResponse";
 import { BaseFindDto } from "../utils/base-find.dto";
+import {
+    PaginationResponseDto,
+    TPaginationData,
+} from "../utils/pagination/pagination-response.dto";
 
 /**
  * Interceptor that automatically builds pagination data based on results.<br>
@@ -14,7 +15,7 @@ import { BaseFindDto } from "../utils/base-find.dto";
  * so Typescript won't know if it's being used on the wrong data type.
  */
 export class PaginationInterceptor<T>
-    implements NestInterceptor<TPaginationData<T>, TPaginationResponse<T>>
+    implements NestInterceptor<TPaginationData<T>, PaginationResponseDto<T>>
 {
     /**
      * Builds a simplified DTO for pagination data based on query params.
@@ -44,8 +45,8 @@ export class PaginationInterceptor<T>
         context: ExecutionContext,
         next: CallHandler<TPaginationData<T>>,
     ):
-        | Observable<TPaginationResponse<T>>
-        | Promise<Observable<TPaginationResponse<T>>> {
+        | Observable<PaginationResponseDto<T>>
+        | Promise<Observable<PaginationResponseDto<T>>> {
         const request = context.switchToHttp().getRequest();
         const simplifiedDto = this.buildSimplifiedDto(request);
         return next.handle().pipe(

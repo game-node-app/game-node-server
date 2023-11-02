@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Library } from "./entities/library.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
-import { GetCollectionEntryDto } from "../collections/collections-entries/dto/get-collection-entry.dto";
+import { GetCollectionEntriesDto } from "../collections/collections-entries/dto/get-collection-entries.dto";
 import { GetLibraryDto } from "./dto/get-library.dto";
 
 @Injectable()
@@ -50,7 +50,7 @@ export class LibrariesService {
     async findOneByIdWithPermissions(
         userId: string,
         targetUserId: string,
-        dto?: GetCollectionEntryDto,
+        dto?: GetCollectionEntriesDto,
     ) {
         const library = await this.findOneById(targetUserId, false, dto);
 

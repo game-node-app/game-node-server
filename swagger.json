@@ -451,6 +451,41 @@
         ]
       }
     },
+    "/v1/game/repository": {
+      "get": {
+        "operationId": "GameRepositoryController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginationResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Game"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "game-repository"
+        ]
+      }
+    },
     "/v1/collections-entries": {
       "post": {
         "operationId": "CollectionsEntriesController_create",
@@ -495,7 +530,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GetCollectionEntryDto"
+                "$ref": "#/components/schemas/GetCollectionEntriesDto"
               }
             }
           }
@@ -570,6 +605,70 @@
         "responses": {
           "204": {
             "description": ""
+          }
+        },
+        "tags": [
+          "collections-entries"
+        ]
+      }
+    },
+    "/v1/collections-entries/collection/{id}": {
+      "post": {
+        "operationId": "CollectionsEntriesController_findAllByCollectionId",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetCollectionEntriesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginationResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CollectionEntry"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1838,6 +1937,9 @@
               "$ref": "#/components/schemas/CollectionEntry"
             }
           },
+          "isFeatured": {
+            "type": "boolean"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -1854,6 +1956,7 @@
           "isPublic",
           "library",
           "entries",
+          "isFeatured",
           "createdAt",
           "updatedAt"
         ]
@@ -1868,13 +1971,18 @@
             "type": "string"
           },
           "isPublic": {
-            "type": "object",
+            "type": "boolean",
             "default": true
+          },
+          "isFeatured": {
+            "type": "boolean",
+            "default": false
           }
         },
         "required": [
           "name",
-          "description"
+          "isPublic",
+          "isFeatured"
         ]
       },
       "CreateReviewDto": {
@@ -1907,14 +2015,13 @@
       "UpdateProfileDto": {
         "type": "object",
         "properties": {
-          "avatar": {
-            "type": "string",
-            "format": "binary"
-          },
           "username": {
             "type": "string",
             "minLength": 4,
             "maxLength": 20
+          },
+          "avatar": {
+            "type": "object"
           }
         }
       },
@@ -1956,6 +2063,41 @@
             "type": "object"
           }
         }
+      },
+      "PaginationInfoDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "total",
+          "totalPages",
+          "hasNextPage"
+        ]
+      },
+      "PaginationResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {}
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationInfoDto"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
       },
       "CreateCollectionEntryDto": {
         "type": "object",
@@ -2001,7 +2143,7 @@
           "isFavorite"
         ]
       },
-      "GetCollectionEntryDto": {
+      "GetCollectionEntriesDto": {
         "type": "object",
         "properties": {
           "search": {

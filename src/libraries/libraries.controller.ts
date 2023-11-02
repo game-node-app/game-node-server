@@ -15,9 +15,9 @@ import { AuthGuard } from "../auth/auth.guard";
 import { ApiProduces, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { Session } from "../auth/session.decorator";
-import { GetCollectionEntryDto } from "../collections/collections-entries/dto/get-collection-entry.dto";
 import { Library } from "./entities/library.entity";
 import { GetLibraryDto } from "./dto/get-library.dto";
+import { Public } from "../auth/public.decorator";
 
 @Controller("libraries")
 @UseGuards(AuthGuard)
@@ -45,6 +45,7 @@ export class LibrariesController {
     }
 
     @Post(":id")
+    @Public()
     async findOneByIdWithPermissions(
         @Session() session: SessionContainer,
         @Param("id") id: string,

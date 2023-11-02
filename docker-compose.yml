@@ -1,9 +1,5 @@
 version: '3'
 
-# The only exposed service here is the actual app.
-# It's your call if you want to expose the other services to the host. However, make sure to use actual
-# env variables here if you choose to map the port to the host!!
-
 
 services:
   db:
@@ -17,7 +13,7 @@ services:
     ports:
       - "3306:3306"
     networks:
-      - app_network
+      - game_node_app
     restart: no
     volumes:
       - db:/var/lib/mysql
@@ -39,7 +35,7 @@ services:
       MYSQL_CONNECTION_URI: mysql://gamenode:gamenode@db:3306/gamenode
       # SUPERTOKENS_HOST: db
     networks:
-      - app_network
+      - game_node_app
     restart: no
 
     healthcheck:
@@ -65,7 +61,7 @@ services:
       - redis:/data
 
     networks:
-      - app_network
+      - game_node_app
 
   manticore:
     image: manticoresearch/manticore:6.2.12
@@ -94,12 +90,12 @@ services:
       - ./manticore.conf:/etc/manticoresearch/manticore.conf
 
     networks:
-      - app_network
+      - game_node_app
 
 
 networks:
-  app_network:
-    driver: bridge
+  game_node_app:
+    external: true
 
 volumes:
   redis:

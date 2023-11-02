@@ -4,9 +4,8 @@ import { Collection } from "./entities/collection.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
-import { CollectionEntry } from "./collections-entries/entities/collection-entry.entity";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
-import { GetCollectionEntryDto } from "./collections-entries/dto/get-collection-entry.dto";
+import { GetCollectionEntriesDto } from "./collections-entries/dto/get-collection-entries.dto";
 
 @Injectable()
 export class CollectionsService {
@@ -21,7 +20,7 @@ export class CollectionsService {
         private readonly librariesService: LibrariesService,
     ) {}
 
-    async findOneById(id: string, dto?: GetCollectionEntryDto) {
+    async findOneById(id: string, dto?: GetCollectionEntriesDto) {
         return this.collectionsRepository.findOne({
             where: {
                 id,
@@ -33,7 +32,7 @@ export class CollectionsService {
     async findOneByIdWithPermissions(
         userId: string,
         collectionId: string,
-        dto?: GetCollectionEntryDto,
+        dto?: GetCollectionEntriesDto,
     ) {
         const collection = await this.collectionsRepository.findOne({
             where: {
@@ -89,11 +88,19 @@ export class CollectionsService {
             );
         }
 
+        if (createCollectionDto.isFeatured && !createCollectionDto.isPublic) {
+            throw new HttpException(
+                "Featured collections must be public",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
         const collectionEntity = this.collectionsRepository.create({
             name: createCollectionDto.name,
             description: createCollectionDto.description,
             library: userLibrary,
             isPublic: createCollectionDto.isPublic,
+            isFeatured: createCollectionDto.isFeatured,
         });
 
         try {

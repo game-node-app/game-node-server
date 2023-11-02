@@ -1,9 +1,5 @@
 version: '3'
 
-# The only exposed service here is the actual app.
-# It's your call if you want to expose the other services to the host. However, make sure to use actual
-# env variables here if you choose to map the port to the host!!
-
 
 services:
   db:
@@ -18,11 +14,10 @@ services:
     expose:
       - 3306
     networks:
-      - app_network
+      - game_node_app
     restart: always
     volumes:
       - db:/var/lib/mysql
-      - ./scripts/mysql_entrypoint.sh:/docker-entrypoint-initdb.d/init.sh
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s
@@ -39,7 +34,7 @@ services:
     environment:
       MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/gamenode
     networks:
-      - app_network
+      - game_node_app
     restart: always
 
     healthcheck:
@@ -66,7 +61,7 @@ services:
       - redis:/var/lib/redis
 
     networks:
-      - app_network
+      - game_node_app
 
   manticore:
     image: manticoresearch/manticore:6.2.12
@@ -96,7 +91,7 @@ services:
       - db
 
     networks:
-      - app_network
+      - game_node_app
 
   app:
     build:
@@ -129,14 +124,14 @@ services:
     #      replicas: 3
 
     networks:
-      - app_network
+      - game_node_app
     volumes:
       - gamenode:/usr/src/gamenode
 
     expose:
       - "5000"
 
-  webserver:
+  npm:
     image: jc21/nginx-proxy-manager:latest
     restart: unless-stopped
     ports:
@@ -148,11 +143,11 @@ services:
       - npm:/etc/letsencrypt
 
     networks:
-      - app_network
+      - game_node_app
 
 networks:
-  app_network:
-    driver: bridge
+  game_node_app:
+    external: true
 
 volumes:
   # Nginx Proxy Manager

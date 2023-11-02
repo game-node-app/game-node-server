@@ -8,11 +8,12 @@ import {
     Not,
     Repository,
 } from "typeorm";
-import { CollectionsService } from "../collections.service";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
-import { GetCollectionEntryDto } from "./dto/get-collection-entry.dto";
+import { GetCollectionEntriesDto } from "./dto/get-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { Activity } from "../../activities/activities-repository/entities/activity.entity";
+import { ActivityType } from "../../activities/activities-queue/activities-queue.constants";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -24,7 +25,6 @@ export class CollectionsEntriesService {
     constructor(
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
-        private collectionsService: CollectionsService,
         private activitiesQueueService: ActivitiesQueueService,
     ) {}
 
@@ -45,7 +45,7 @@ export class CollectionsEntriesService {
     async findAllByUserIdAndGameId(
         userId: string,
         gameId: number,
-        dto?: GetCollectionEntryDto,
+        dto?: GetCollectionEntriesDto,
     ) {
         return await this.collectionEntriesRepository.find({
             where: {
@@ -65,7 +65,7 @@ export class CollectionsEntriesService {
     async findAllByUserIdAndGameIdOrFail(
         userId: string,
         gameId: number,
-        dto?: GetCollectionEntryDto,
+        dto?: GetCollectionEntriesDto,
     ) {
         const entry = await this.findAllByUserIdAndGameId(userId, gameId, dto);
         if (!entry) {
@@ -79,13 +79,28 @@ export class CollectionsEntriesService {
 
     async findAllByIdIn(
         collectionEntryIds: string[],
-        dto?: GetCollectionEntryDto,
+        dto?: GetCollectionEntriesDto,
     ) {
         const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
         return await this.collectionEntriesRepository.find({
             ...findOptions,
             where: {
                 id: In(collectionEntryIds),
+            },
+        });
+    }
+
+    async findAllByCollectionId(
+        collectionId: string,
+        dto?: GetCollectionEntriesDto,
+    ) {
+        const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
+        return await this.collectionEntriesRepository.findAndCount({
+            ...findOptions,
+            where: {
+                collection: {
+                    id: collectionId,
+                },
             },
         });
     }
@@ -178,7 +193,7 @@ export class CollectionsEntriesService {
                 return;
             }
 
-            await this.collectionEntriesRepository.save({
+            const persistedEntry = await this.collectionEntriesRepository.save({
                 collection: {
                     id: collectionId,
                 },
@@ -189,6 +204,16 @@ export class CollectionsEntriesService {
                     id: platformId,
                 })),
             });
+
+            const activity: DeepPartial<Activity> = {
+                profile: {
+                    userId,
+                },
+                sourceId: persistedEntry.id,
+                type: ActivityType.COLLECTION_ENTRY,
+            };
+
+            this.activitiesQueueService.addToQueue(activity).then().catch();
         }
     }
 

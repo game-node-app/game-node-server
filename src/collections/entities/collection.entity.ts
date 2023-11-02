@@ -34,6 +34,12 @@ export class Collection {
     )
     entries: CollectionEntry[];
 
+    @Column({
+        nullable: false,
+        default: false,
+    })
+    isFeatured: boolean;
+
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

@@ -24,16 +24,16 @@ export class AuthGuard implements CanActivate {
             context.getHandler(),
         );
 
-        if (isPublic) {
-            return true;
-        }
-
         // You can create an optional version of this by passing {sessionRequired: false} to verifySession
         await verifySession({
-            sessionRequired: true,
+            sessionRequired: !isPublic,
         })(ctx.getRequest(), resp, (res) => {
             err = res;
         });
+
+        if (isPublic) {
+            return true;
+        }
 
         if (resp.headersSent) {
             throw new STError({
