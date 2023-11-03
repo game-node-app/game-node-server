@@ -104,10 +104,13 @@ export class CollectionsEntriesController {
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponsePaginated(CollectionEntry)
     async findAllByCollectionId(
+        @Session() session: SessionContainer,
         @Param("id") collectionId: string,
         @Body() dto?: GetCollectionEntriesDto,
     ): Promise<TPaginationData<CollectionEntry>> {
+        console.log(session.getUserId());
         return await this.collectionsEntriesService.findAllByCollectionId(
+            session.getUserId(),
             collectionId,
             dto,
         );

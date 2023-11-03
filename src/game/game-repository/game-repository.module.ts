@@ -17,6 +17,10 @@ import { GameKeyword } from "./entities/game-keyword.entity";
 import { JwtAuthModule } from "../../auth/jwt-auth/jwt-auth.module";
 import { GameRepositoryController } from "./game-repository.controller";
 
+/**
+ * This is a pretty big module, with lots of dependencies.
+ * TODO: Add tests
+ */
 @Module({
     imports: [
         TypeOrmModule.forFeature([

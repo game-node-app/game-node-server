@@ -21,6 +21,7 @@ export class GameQueueService {
      * @param games - assumed to be in the format of IGDB's API response (snake_case).
      */
     async handle(games: any[]) {
+        console.log("handle");
         // this.logger.log(
         //     `Appending job to process ${games.length} IGDB results`,
         // );

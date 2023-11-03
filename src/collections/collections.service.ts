@@ -35,22 +35,24 @@ export class CollectionsService {
         dto?: GetCollectionEntriesDto,
     ) {
         const collection = await this.collectionsRepository.findOne({
-            where: {
-                id: collectionId,
-            },
+            where: [
+                {
+                    id: collectionId,
+                    isPublic: true,
+                },
+                {
+                    id: collectionId,
+                    library: {
+                        userId,
+                    },
+                },
+            ],
             relations: dto?.relations,
         });
         if (!collection) {
             throw new HttpException(
                 "Collection not found.",
                 HttpStatus.NOT_FOUND,
-            );
-        }
-
-        if (collection.library.userId !== userId && !collection.isPublic) {
-            throw new HttpException(
-                "Collection is not accessible.",
-                HttpStatus.FORBIDDEN,
             );
         }
         return collection;

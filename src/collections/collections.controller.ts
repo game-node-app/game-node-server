@@ -13,6 +13,7 @@ import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { ApiTags } from "@nestjs/swagger";
 import { CacheInterceptor } from "@nestjs/cache-manager";
+import { Public } from "../auth/public.decorator";
 
 @Controller("collections")
 @ApiTags("collections")
@@ -29,10 +30,13 @@ export class CollectionsController {
      * @param collectionId
      */
     @Post(":id")
+    @Public()
     async findOneByIdWithPermissions(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
     ) {
+        console.log("findOneByIdWithPermissions");
+        console.log(session.getUserId());
         return this.collectionsService.findOneByIdWithPermissions(
             session.getUserId(),
             collectionId,

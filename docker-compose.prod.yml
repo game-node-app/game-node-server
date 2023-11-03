@@ -45,7 +45,6 @@ services:
       retries: 5
 
   redis:
-    env_file: .env
     image: redis:latest
     expose:
       - 6379
@@ -93,7 +92,7 @@ services:
     networks:
       - game_node_app
 
-  app:
+  server:
     build:
       context: .
       dockerfile: Dockerfile
@@ -128,8 +127,8 @@ services:
     volumes:
       - gamenode:/usr/src/gamenode
 
-    expose:
-      - "5000"
+    ports:
+      - "5000:5000"
 
   npm:
     image: jc21/nginx-proxy-manager:latest

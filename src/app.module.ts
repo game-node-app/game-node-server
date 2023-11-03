@@ -15,6 +15,7 @@ import { CollectionsModule } from "./collections/collections.module";
 import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
 import { GameSearchModule } from "./game/game-search/game-search.module";
 import { LibrariesModule } from "./libraries/libraries.module";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 
 @Module({
     imports: [
@@ -43,8 +44,23 @@ import { LibrariesModule } from "./libraries/libraries.module";
                 }),
             }),
         }),
-        BullModule.forRoot({
-            redis: process.env.REDIS_URL,
+        BullModule.forRootAsync({
+            useFactory: async () => {
+                /**
+                 * While the "redis" property below accepts a script, and it works fine on local,
+                 * it fails on Docker, so use host and port instead.
+                 */
+                const redisUrl = process.env.REDIS_URL;
+                const redisHost = new URL(redisUrl!).hostname;
+                const redisPort = new URL(redisUrl!).port;
+
+                return {
+                    redis: {
+                        host: redisHost,
+                        port: parseInt(redisPort as string) as any,
+                    },
+                };
+            },
         }),
         ActivitiesRepositoryModule,
         StatisticsQueueModule,

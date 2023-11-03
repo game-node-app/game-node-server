@@ -9,27 +9,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- updated lots of stuff">
-      <change afterPath="$PROJECT_DIR$/src/utils/pagination/pagination-response.dto.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.spec.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docker-compose.prod.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.prod.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.guard.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.guard.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/dto/get-collection-entry.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/dto/get-collection-entries.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/dto/update-collectionEntry.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/dto/update-collectionEntry.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/collections/collections.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.constants.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/collections/dto/create-collection.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/dto/create-collection.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/collections/entities/collection.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/entities/collection.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/interceptor/pagination.interceptor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/interceptor/pagination.interceptor.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/libraries/libraries.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/libraries/libraries.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/libraries/libraries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/libraries/libraries.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/profile/dto/create-profile.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/profile/dto/create-profile.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/utils/pagination/buildPaginationResponse.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/pagination/buildPaginationResponse.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.controller.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.controller.spec.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.service.spec.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/swagger.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -116,7 +111,7 @@
     "database.data.extractors.current.export.id": "JSON-Groovy.json.groovy",
     "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
-    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-sync",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-web",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -199,30 +194,6 @@
       </deployment>
       <method v="2" />
     </configuration>
-    <configuration name="AppController" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
-      <node-interpreter value="project" />
-      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
-      <working-dir value="$PROJECT_DIR$" />
-      <envs />
-      <scope-kind value="SUITE" />
-      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
-      <test-names>
-        <test-name value="AppController" />
-      </test-names>
-      <method v="2" />
-    </configuration>
-    <configuration name="AppController" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
-      <node-interpreter value="project" />
-      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
-      <working-dir value="$PROJECT_DIR$" />
-      <envs />
-      <scope-kind value="SUITE" />
-      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
-      <test-names>
-        <test-name value="AppController" />
-      </test-names>
-      <method v="2" />
-    </configuration>
     <configuration name="AppController.root" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
       <node-interpreter value="project" />
       <jest-package value="$PROJECT_DIR$/node_modules/jest" />
@@ -236,16 +207,16 @@
       </test-names>
       <method v="2" />
     </configuration>
-    <configuration name="AppController.root" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
+    <configuration name="GameSearchController.should return a list of searched games" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
       <node-interpreter value="project" />
       <jest-package value="$PROJECT_DIR$/node_modules/jest" />
       <working-dir value="$PROJECT_DIR$" />
       <envs />
-      <scope-kind value="SUITE" />
-      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
+      <scope-kind value="TEST" />
+      <test-file value="$PROJECT_DIR$/src/game/game-search/game-search.controller.spec.ts" />
       <test-names>
-        <test-name value="AppController" />
-        <test-name value="root" />
+        <test-name value="GameSearchController" />
+        <test-name value="should return a list of searched games" />
       </test-names>
       <method v="2" />
     </configuration>
@@ -255,6 +226,24 @@
       </deployment>
       <method v="2" />
     </configuration>
+    <configuration name="docker-compose.prod.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="envFilePath" value="" />
+          <option name="commandLineOptions" value="--build" />
+          <option name="sourceFilePath" value="docker-compose.prod.yml" />
+        </settings>
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="docker-compose.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="sourceFilePath" value="docker-compose.yml" />
+        </settings>
+      </deployment>
+      <method v="2" />
+    </configuration>
     <configuration name="docker-compose.yml.redis: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
       <deployment type="docker-compose.yml">
         <settings>
@@ -296,16 +285,6 @@
       <command value="run" />
       <scripts>
         <script value="start:dev:docker" />
-      </scripts>
-      <node-interpreter value="project" />
-      <envs />
-      <method v="2" />
-    </configuration>
-    <configuration name="typeorm:migration:generate" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
-      <package-json value="$PROJECT_DIR$/package.json" />
-      <command value="run" />
-      <scripts>
-        <script value="typeorm:migration:generate" />
       </scripts>
       <node-interpreter value="project" />
       <envs />
@@ -342,20 +321,20 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
+      <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
       <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
-      <item itemvalue="Jest.AppController" />
-      <item itemvalue="Jest.AppController.root" />
+      <item itemvalue="Jest.GameSearchController.should return a list of searched games" />
       <item itemvalue="npm.start:dev:docker" />
-      <item itemvalue="npm.typeorm:migration:generate" />
       <item itemvalue="npm.typeorm:migration:run" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="npm.typeorm:migration:run" />
-        <item itemvalue="npm.typeorm:migration:generate" />
+        <item itemvalue="Jest.GameSearchController.should return a list of searched games" />
+        <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
+        <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
         <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
-        <item itemvalue="Jest.AppController.root" />
-        <item itemvalue="Jest.AppController" />
+        <item itemvalue="npm.typeorm:migration:run" />
       </list>
     </recent_temporary>
   </component>
@@ -492,7 +471,8 @@
       <workItem from="1698808053286" duration="4390000" />
       <workItem from="1698882576941" duration="57000" />
       <workItem from="1698882649646" duration="231000" />
-      <workItem from="1698893888195" duration="2863000" />
+      <workItem from="1698893888195" duration="7378000" />
+      <workItem from="1698931010135" duration="16366000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -654,7 +634,15 @@
       <option name="project" value="LOCAL" />
       <updated>1698616519152</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="- updated lots of stuff">
+      <option name="closed" value="true" />
+      <created>1698899864722</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1698899864722</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

@@ -59,25 +59,20 @@ export class GameQueueProcessor {
 
     constructor(private readonly gameService: GameRepositoryService) {}
 
-    @Process()
+    @Process({
+        concurrency: 1,
+    })
     async process(job: Job<any[]>) {
         const results = job.data;
-        // this.logger.log(`Processing ${results.length} results`);
 
         const normalizedResults = normalizeIgdbResults(results);
 
+        const tasks: Promise<any>[] = [];
+
         for (const result of normalizedResults) {
-            // this.logger.log(`Processing result ${result.id}`);
-            this.gameService
-                .createOrUpdate(result)
-                // .then(() => this.logger.log(`Processed result ${result.id}`))
-                .catch((e) => {
-                    this.logger.error(
-                        `Error while processing result ${result.id}`,
-                        e,
-                    );
-                });
+            tasks.push(this.gameService.createOrUpdate(result));
         }
-        // this.logger.log(`SUCCESS: Processed ${results.length} results`);
+
+        await Promise.all(tasks);
     }
 }

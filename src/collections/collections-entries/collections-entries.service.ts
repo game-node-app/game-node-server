@@ -91,16 +91,27 @@ export class CollectionsEntriesService {
     }
 
     async findAllByCollectionId(
+        userId: string,
         collectionId: string,
         dto?: GetCollectionEntriesDto,
     ) {
         const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
+
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
-                collection: {
-                    id: collectionId,
-                },
+                collection: [
+                    {
+                        id: collectionId,
+                        isPublic: true,
+                    },
+                    {
+                        id: collectionId,
+                        library: {
+                            userId,
+                        },
+                    },
+                ],
             },
         });
     }

@@ -20,6 +20,7 @@ export class JwtAuthGuard implements CanActivate {
      * @private
      */
     async getSigningKey(jwtHeader: JwtHeader) {
+        console.log("getSigningKey");
         const client = jwksClient({
             jwksUri: this.JWKS_URI,
         });
