@@ -62,36 +62,6 @@ services:
     networks:
       - game_node_app
 
-  manticore:
-    image: manticoresearch/manticore:6.2.12
-    environment:
-      - EXTRA=1
-      - CREATE_PLAIN_TABLES=gamenode:0 6,15 * * *
-    restart: always
-    expose:
-      # SQL port, use with care.
-      # - "9306:9306"
-      - "9308:9308"
-
-    ulimits:
-      nproc: 65535
-      nofile:
-        soft: 65535
-        hard: 65535
-      memlock:
-        soft: -1
-        hard: -1
-
-    volumes:
-      - manticore:/var/lib/manticore
-      - ./manticore.conf:/etc/manticoresearch/manticore.conf
-
-    depends_on:
-      - db
-
-    networks:
-      - game_node_app
-
   server:
     build:
       context: .
