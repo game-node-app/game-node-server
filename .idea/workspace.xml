@@ -9,23 +9,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- updated lots of stuff">
-      <change afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.spec.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.prod.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.prod.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/jwt-auth/jwt-auth.guard.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.controller.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.controller.spec.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-search/game-search.service.spec.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-search/game-search.service.spec.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/swagger.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/base-find.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/base-find.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/swagger.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -111,7 +103,7 @@
     "database.data.extractors.current.export.id": "JSON-Groovy.json.groovy",
     "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
-    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-web",
+    "last_opened_file_path": "/home/lamarck/Projects/Go/game-node-search/schema/schema.go",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -187,24 +179,11 @@
       <recent name="$PROJECT_DIR$/src/game/utils/game-normalize.ts" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.start:dev:docker">
+  <component name="RunManager" selected="Docker.game-node-search/docker-compose.prod.yml: Compose Deployment">
     <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
       <deployment type="docker-compose.yml">
         <settings />
       </deployment>
-      <method v="2" />
-    </configuration>
-    <configuration name="AppController.root" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
-      <node-interpreter value="project" />
-      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
-      <working-dir value="$PROJECT_DIR$" />
-      <envs />
-      <scope-kind value="SUITE" />
-      <test-file value="$PROJECT_DIR$/src/app.controller.spec.ts" />
-      <test-names>
-        <test-name value="AppController" />
-        <test-name value="root" />
-      </test-names>
       <method v="2" />
     </configuration>
     <configuration name="GameSearchController.should return a list of searched games" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
@@ -270,14 +249,14 @@
       </deployment>
       <method v="2" />
     </configuration>
-    <configuration name="start:dev:docker" type="js.build_tools.npm" nameIsGenerated="true">
-      <package-json value="$PROJECT_DIR$/package.json" />
-      <command value="run" />
-      <scripts>
-        <script value="start:dev:docker" />
-      </scripts>
-      <node-interpreter value="project" />
-      <envs />
+    <configuration name="game-node-search/docker-compose.prod.yml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="envFilePath" value="" />
+          <option name="commandLineOptions" value="--build" />
+          <option name="sourceFilePath" value="../../Go/game-node-search/docker-compose.prod.yml" />
+        </settings>
+      </deployment>
       <method v="2" />
     </configuration>
     <configuration name="start:dev:docker" type="js.build_tools.npm" nameIsGenerated="true">
@@ -290,21 +269,11 @@
       <envs />
       <method v="2" />
     </configuration>
-    <configuration name="typeorm:migration:generate" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+    <configuration name="start:dev:docker" type="js.build_tools.npm" nameIsGenerated="true">
       <package-json value="$PROJECT_DIR$/package.json" />
       <command value="run" />
       <scripts>
-        <script value="typeorm:migration:generate" />
-      </scripts>
-      <node-interpreter value="project" />
-      <envs />
-      <method v="2" />
-    </configuration>
-    <configuration name="typeorm:migration:run" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
-      <package-json value="$PROJECT_DIR$/package.json" />
-      <command value="run" />
-      <scripts>
-        <script value="typeorm:migration:run" />
+        <script value="start:dev:docker" />
       </scripts>
       <node-interpreter value="project" />
       <envs />
@@ -321,20 +290,20 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="Docker.game-node-search/docker-compose.prod.yml: Compose Deployment" />
       <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
       <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
       <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
       <item itemvalue="Jest.GameSearchController.should return a list of searched games" />
       <item itemvalue="npm.start:dev:docker" />
-      <item itemvalue="npm.typeorm:migration:run" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Docker.game-node-search/docker-compose.prod.yml: Compose Deployment" />
         <item itemvalue="Jest.GameSearchController.should return a list of searched games" />
         <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
         <item itemvalue="Docker.docker-compose.yml: Compose Deployment" />
         <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
-        <item itemvalue="npm.typeorm:migration:run" />
       </list>
     </recent_temporary>
   </component>
@@ -472,7 +441,11 @@
       <workItem from="1698882576941" duration="57000" />
       <workItem from="1698882649646" duration="231000" />
       <workItem from="1698893888195" duration="7378000" />
-      <workItem from="1698931010135" duration="16366000" />
+      <workItem from="1698931010135" duration="16440000" />
+      <workItem from="1699035809926" duration="793000" />
+      <workItem from="1699036617532" duration="7657000" />
+      <workItem from="1699118916841" duration="19000" />
+      <workItem from="1699643748622" duration="454000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -642,7 +615,15 @@
       <option name="project" value="LOCAL" />
       <updated>1698899864722</updated>
     </task>
-    <option name="localTasksCounter" value="22" />
+    <task id="LOCAL-00022" summary="- updated lots of stuff">
+      <option name="closed" value="true" />
+      <created>1698979445987</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1698979445987</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -708,6 +689,17 @@
   <component name="VgoProject">
     <integration-enabled>false</integration-enabled>
     <settings-migrated>true</settings-migrated>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts</url>
+          <line>209</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

@@ -5,6 +5,7 @@ import {
     Param,
     UseGuards,
     UseInterceptors,
+    Patch,
 } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
@@ -14,6 +15,7 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { ApiTags } from "@nestjs/swagger";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { Public } from "../auth/public.decorator";
+import { UpdateCollectionDto } from "./dto/update-collection.dto";
 
 @Controller("collections")
 @ApiTags("collections")
@@ -35,8 +37,6 @@ export class CollectionsController {
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
     ) {
-        console.log("findOneByIdWithPermissions");
-        console.log(session.getUserId());
         return this.collectionsService.findOneByIdWithPermissions(
             session.getUserId(),
             collectionId,
@@ -51,6 +51,19 @@ export class CollectionsController {
         await this.collectionsService.create(
             session.getUserId(),
             createCollectionDto,
+        );
+    }
+
+    @Patch(":id")
+    async update(
+        @Session() session: SessionContainer,
+        @Param("id") collectionId: string,
+        @Body() updateCollectionDto: UpdateCollectionDto,
+    ) {
+        return await this.collectionsService.update(
+            session.getUserId(),
+            collectionId,
+            updateCollectionDto,
         );
     }
 }

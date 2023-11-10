@@ -6,6 +6,7 @@ import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { GetCollectionEntriesDto } from "./collections-entries/dto/get-collection-entries.dto";
+import { GetCollectionDto } from "./dto/get-collection-dto";
 
 @Injectable()
 export class CollectionsService {
@@ -61,13 +62,14 @@ export class CollectionsService {
     /**
      * Shorthand method that fails with a HttpException.
      * @param id {string}
+     * @param dto
      */
-    async findOneByIdOrFail(id: string) {
+    async findOneByIdOrFail(id: string, dto?: GetCollectionDto) {
         const collection = await this.collectionsRepository.findOne({
             where: {
-                id,
+                id: id,
             },
-            relations: this.relations,
+            relations: dto?.relations,
         });
         if (!collection) {
             throw new HttpException(
@@ -112,16 +114,23 @@ export class CollectionsService {
         }
     }
 
-    async update(id: string, updateCollectionDto: UpdateCollectionDto) {
-        const collection = await this.findOneByIdOrFail(id);
+    async update(
+        userId: string,
+        collectionId: string,
+        updateCollectionDto: UpdateCollectionDto,
+    ) {
+        const collection = await this.findOneByIdOrFail(collectionId);
 
-        const updatedCollection = this.collectionsRepository.create({
-            ...collection,
-            ...updateCollectionDto,
-        });
+        const updatedCollection = this.collectionsRepository.merge(
+            collection,
+            updateCollectionDto,
+        );
 
         try {
-            return await this.collectionsRepository.save(updatedCollection);
+            return await this.collectionsRepository.save({
+                ...updatedCollection,
+                id: collection.id,
+            });
         } catch (e) {
             console.error(e);
             throw new HttpException(e, 500);

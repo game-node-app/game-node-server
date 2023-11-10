@@ -13,9 +13,7 @@ import { GlobalModule } from "./global/global.module";
 import { GameQueueModule } from "./game/game-queue/game-queue.module";
 import { CollectionsModule } from "./collections/collections.module";
 import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
-import { GameSearchModule } from "./game/game-search/game-search.module";
 import { LibrariesModule } from "./libraries/libraries.module";
-import { ConfigModule, ConfigService } from "@nestjs/config";
 
 @Module({
     imports: [
@@ -32,7 +30,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
             autoLoadEntities: true,
             // Never turn this on. Use migrations instead.
             synchronize: false,
-            logging: false,
+            logging: process.env.NODE_ENV === "development",
             debug: false,
         }),
 
@@ -67,7 +65,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
         GameQueueModule,
         CollectionsModule,
         CollectionsEntriesModule,
-        GameSearchModule,
         LibrariesModule,
         CollectionsModule,
     ],

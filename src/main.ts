@@ -44,7 +44,7 @@ async function bootstrap() {
         .build();
 
     const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-    fs.writeFileSync("swagger.json", JSON.stringify(swaggerDocument));
+    fs.writeFileSync("server_swagger.json", JSON.stringify(swaggerDocument));
 
     SwaggerModule.setup("v1/docs", app, swaggerDocument);
 

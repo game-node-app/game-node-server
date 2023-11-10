@@ -6,7 +6,7 @@ import {
     ValidateIf,
 } from "class-validator";
 import { Transform } from "class-transformer";
-import { FindOptionsRelations } from "typeorm";
+import { FindOptionsRelations, FindOptionsSelect } from "typeorm";
 
 /**
  * Base find options for all entities.
@@ -38,6 +38,6 @@ export class BaseFindDto<T> {
     @IsString()
     @IsNotEmpty()
     orderDirection?: "ASC" | "DESC";
-
+    select?: FindOptionsSelect<T>;
     relations?: FindOptionsRelations<T>;
 }

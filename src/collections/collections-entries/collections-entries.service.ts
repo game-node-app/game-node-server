@@ -128,6 +128,9 @@ export class CollectionsEntriesService {
         const { collectionIds, gameId, platformIds, isFavorite } =
             createEntryDto;
 
+        const uniqueCollectionIds = Array.from(new Set(collectionIds));
+        const uniquePlatformIds = Array.from(new Set(platformIds));
+
         const queryBuilder =
             this.collectionEntriesRepository.createQueryBuilder();
 
@@ -135,7 +138,7 @@ export class CollectionsEntriesService {
             await this.collectionEntriesRepository.find({
                 where: {
                     collection: {
-                        id: Not(In(collectionIds)),
+                        id: Not(In(uniqueCollectionIds)),
                         library: {
                             userId: userId,
                         },
@@ -158,7 +161,7 @@ export class CollectionsEntriesService {
             await this.collectionEntriesRepository.delete(entry.id);
         }
 
-        for (const collectionId of collectionIds) {
+        for (const collectionId of uniqueCollectionIds) {
             const entryInCollection =
                 await this.collectionEntriesRepository.findOne({
                     where: {
@@ -199,9 +202,9 @@ export class CollectionsEntriesService {
                 await queryBuilder
                     .relation(CollectionEntry, "ownedPlatforms")
                     .of(updatedEntry)
-                    .add(platformIds);
+                    .add(uniquePlatformIds);
 
-                return;
+                continue;
             }
 
             const persistedEntry = await this.collectionEntriesRepository.save({
