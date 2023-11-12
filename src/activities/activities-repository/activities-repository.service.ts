@@ -23,8 +23,11 @@ export class ActivitiesRepositoryService {
     async create(activityLike: DeepPartial<Activity>) {
         if (this.isValidActivity(activityLike)) {
             await this.activitiesRepository.save(activityLike);
+            return;
         }
-        this.logger.warn("Invalid activity: " + JSON.stringify(activityLike));
+        this.logger.warn(
+            "Invalid activity: " + JSON.stringify(activityLike) + "Aborting.",
+        );
     }
 
     async findLatest(limit?: number) {

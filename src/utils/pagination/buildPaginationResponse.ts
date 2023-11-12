@@ -27,7 +27,7 @@ export default function buildPaginationResponse<T>(
         return {
             data: results,
             pagination: {
-                total,
+                totalItems: total,
                 totalPages,
                 hasNextPage,
             },

@@ -10,10 +10,7 @@ import {
 export class CreateReviewDto {
     @IsNumber()
     @IsNotEmpty()
-    igdbId: number;
-    @IsString()
-    @MinLength(3)
-    title: string;
+    gameId: number;
     @IsString()
     @MinLength(3)
     content: string;

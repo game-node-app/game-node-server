@@ -6,7 +6,7 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
-import { GameStatistics } from "./game-statistics.entity";
+import { GameStatistics } from "../statistics-game/entity/game-statistics.entity";
 import { ActivityStatistics } from "./activity-statistics.entity";
 
 /**

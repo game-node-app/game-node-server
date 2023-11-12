@@ -21,10 +21,7 @@ import { CollectionEntry } from "./entities/collection-entry.entity";
 import { FavoriteStatusCollectionEntryDto } from "./dto/favorite-status-collection-entry.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 
-import {
-    ApiOkResponsePaginated,
-    TPaginationData,
-} from "../../utils/pagination/pagination-response.dto";
+import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-paginated-response.dto";
 
 @Controller("collections-entries")
 @ApiTags("collections-entries")
@@ -101,18 +98,17 @@ export class CollectionsEntriesController {
     }
 
     @Post("/collection/:id")
+    @HttpCode(HttpStatus.OK)
     @UseInterceptors(PaginationInterceptor)
-    @ApiOkResponsePaginated(CollectionEntry)
     async findAllByCollectionId(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
         @Body() dto?: GetCollectionEntriesDto,
-    ): Promise<TPaginationData<CollectionEntry>> {
-        console.log(session.getUserId());
-        return await this.collectionsEntriesService.findAllByCollectionId(
+    ): Promise<CollectionEntriesPaginatedResponseDto> {
+        return (await this.collectionsEntriesService.findAllByCollectionId(
             session.getUserId(),
             collectionId,
             dto,
-        );
+        )) as unknown as CollectionEntriesPaginatedResponseDto;
     }
 }

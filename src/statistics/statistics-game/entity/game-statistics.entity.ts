@@ -8,9 +8,9 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
-import { UserLike } from "./user-like.entity";
-import { UserView } from "./user-view.entity";
-import { Game } from "../../game/game-repository/entities/game.entity";
+import { UserLike } from "../../entity/user-like.entity";
+import { UserView } from "../../entity/user-view.entity";
+import { Game } from "../../../game/game-repository/entities/game.entity";
 
 /**
  * Statistics for a single game

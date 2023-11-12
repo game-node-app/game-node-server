@@ -9,8 +9,7 @@ import {
 } from "@nestjs/common";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
-import { StatisticsQueueService } from "./statistics-queue.service";
-import { StatisticsGameService } from "../statistics-game/statistics-game.service";
+import { StatisticsGameQueueService } from "./statistics-game-queue.service";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "../../auth/auth.guard";
@@ -20,20 +19,17 @@ import { Public } from "../../auth/public.decorator";
 @UseGuards(AuthGuard)
 @ApiTags("statistics")
 @UseInterceptors(CacheInterceptor)
-export class StatisticsQueueGameController {
-    constructor(
-        private statisticsQueueService: StatisticsQueueService,
-        private statisticsGameService: StatisticsGameService,
-    ) {}
+export class StatisticsGameQueueController {
+    constructor(private statisticsQueueService: StatisticsGameQueueService) {}
 
     @Post(":id/view")
     @Public()
     async registerGameView(
         @Session() session: SessionContainer,
-        @Param("id") igdbId: number,
+        @Param("id") gameId: number,
     ) {
         const userId = session ? session.getUserId() : undefined;
-        await this.statisticsQueueService.registerGameView(igdbId, userId);
+        await this.statisticsQueueService.registerGameView(gameId, userId);
     }
 
     @Post(":id/like")
@@ -58,10 +54,5 @@ export class StatisticsQueueGameController {
             session.getUserId(),
             "decrement",
         );
-    }
-
-    @Get(":id")
-    async getGameStatistics(@Param("id") igdbId: number) {
-        return await this.statisticsGameService.findOneByGameId(igdbId);
     }
 }

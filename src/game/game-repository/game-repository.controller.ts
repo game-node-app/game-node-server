@@ -9,13 +9,10 @@ import {
 } from "@nestjs/common";
 import { GameRepositoryRequestDto } from "./dto/game-repository-request.dto";
 import { GameRepositoryService } from "./game-repository.service";
-import { ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiTags } from "@nestjs/swagger";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
-import {
-    ApiOkResponsePaginated,
-    PaginationResponseDto,
-} from "../../utils/pagination/pagination-response.dto";
-import { Game } from "./entities/game.entity";
+import { GameRepositoryPaginatedResponseDto } from "./dto/game-repository-paginated-response.dto";
+import { GamePlatform } from "./entities/game-platform.entity";
 
 @Controller("game/repository")
 @ApiTags("game-repository")
@@ -36,8 +33,16 @@ export class GameRepositoryController {
     @Get()
     @UseInterceptors(PaginationInterceptor)
     @HttpCode(200)
-    @ApiOkResponsePaginated(Game)
-    async findAll() {
-        return this.gameRepositoryService.findAll();
+    async findAll(): Promise<GameRepositoryPaginatedResponseDto> {
+        return (await this.gameRepositoryService.findAll()) as unknown as GameRepositoryPaginatedResponseDto;
+    }
+
+    /**
+     * Tip: do not use this without ":id", otherwise findOneById will be triggered instead.
+     */
+    @Get(":id/platforms/default")
+    @HttpCode(200)
+    async getDefaultPlatforms(): Promise<GamePlatform[]> {
+        return this.gameRepositoryService.getDefaultPlatforms();
     }
 }

@@ -13,8 +13,8 @@ import { applyDecorators, Type } from "@nestjs/common";
  */
 export type TPaginationData<T> = [T[], number];
 
-class PaginationInfoDto {
-    total: number;
+export class PaginationInfo {
+    totalItems: number;
     totalPages: number;
     hasNextPage: boolean;
 }
@@ -24,33 +24,5 @@ export class PaginationResponseDto<T> {
         type: {},
     })
     data: T[];
-    pagination: PaginationInfoDto;
+    pagination: PaginationInfo;
 }
-
-/**
- * This decorator is used to document paginated responses.
- * It's necessary because @nestjs/swagger doesn't generate documentation for generics in DTOs.
- * @param dataDto
- * @constructor
- */
-export const ApiOkResponsePaginated = <DataDto extends Type<unknown>>(
-    dataDto: DataDto,
-) =>
-    applyDecorators(
-        ApiExtraModels(PaginationResponseDto, dataDto),
-        ApiOkResponse({
-            schema: {
-                allOf: [
-                    { $ref: getSchemaPath(PaginationResponseDto) },
-                    {
-                        properties: {
-                            data: {
-                                type: "array",
-                                items: { $ref: getSchemaPath(dataDto) },
-                            },
-                        },
-                    },
-                ],
-            },
-        }),
-    );

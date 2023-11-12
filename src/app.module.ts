@@ -8,12 +8,13 @@ import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { ActivitiesRepositoryModule } from "./activities/activities-repository/activities-repository.module";
-import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
 import { GlobalModule } from "./global/global.module";
 import { GameQueueModule } from "./game/game-queue/game-queue.module";
 import { CollectionsModule } from "./collections/collections.module";
 import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
 import { LibrariesModule } from "./libraries/libraries.module";
+import { StatisticsGameModule } from "./statistics/statistics-game/statistics-game.module";
+import { StatisticsReviewModule } from "./statistics/statistics-review/statistics-review.module";
 
 @Module({
     imports: [
@@ -61,12 +62,13 @@ import { LibrariesModule } from "./libraries/libraries.module";
             },
         }),
         ActivitiesRepositoryModule,
-        StatisticsQueueModule,
+        StatisticsGameModule,
         GameQueueModule,
         CollectionsModule,
         CollectionsEntriesModule,
         LibrariesModule,
         CollectionsModule,
+        StatisticsReviewModule,
     ],
     providers: [],
 })

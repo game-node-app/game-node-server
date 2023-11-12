@@ -1,9 +1,9 @@
 import { Processor, Process } from "@nestjs/bull";
 import { Job } from "bull";
-import { StatisticsGameService } from "../statistics-game/statistics-game.service";
+import { StatisticsGameService } from "./statistics-game.service";
 
 @Processor("statistics")
-export class StatisticsQueueProcessor {
+export class StatisticsGameQueueProcessor {
     constructor(private statisticsGameService: StatisticsGameService) {}
 
     @Process("registerGameView")

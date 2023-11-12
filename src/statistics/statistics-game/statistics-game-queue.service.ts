@@ -1,10 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bull";
 import { Queue } from "bull";
-import { TStatisticsCounterAction } from "./statistics-queue.types";
+import { TStatisticsCounterAction } from "./statistics-game.types";
 
 @Injectable()
-export class StatisticsQueueService {
+export class StatisticsGameQueueService {
     constructor(@InjectQueue("statistics") private statisticsQueue: Queue) {}
 
     async registerGameView(gameId: number, userId?: string) {

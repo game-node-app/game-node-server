@@ -1,7 +1,4 @@
-import { IsNotEmpty, IsNumber } from "class-validator";
+import { BaseFindDto } from "../../utils/base-find.dto";
+import { Review } from "../entities/review.entity";
 
-export class FindReviewDto {
-    @IsNumber()
-    @IsNotEmpty()
-    igdbId: number;
-}
+export class FindReviewDto extends BaseFindDto<Review> {}

@@ -1,10 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { GameStatistics } from "../entity/game-statistics.entity";
+import { GameStatistics } from "./entity/game-statistics.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
 import { UserLike } from "../entity/user-like.entity";
 import { UserView } from "../entity/user-view.entity";
-import { TStatisticsCounterAction } from "../statistics-queue/statistics-queue.types";
+import { TStatisticsCounterAction } from "./statistics-game.types";
 
 @Injectable()
 export class StatisticsGameService {

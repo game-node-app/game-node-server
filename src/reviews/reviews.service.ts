@@ -7,6 +7,7 @@ import { FindOptionsRelations, In, Repository } from "typeorm";
 import { ProfileService } from "../profile/profile.service";
 import { ActivitiesQueueService } from "src/activities/activities-queue/activities-queue.service";
 import { ActivityType } from "src/activities/activities-queue/activities-queue.constants";
+import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
 
 export class ReviewsService {
     private relations: FindOptionsRelations<Review> = {
@@ -19,10 +20,11 @@ export class ReviewsService {
         @InjectRepository(Review) private reviewsRepository: Repository<Review>,
         private profileService: ProfileService,
         private activitiesQueue: ActivitiesQueueService,
+        private collectionEntriesService: CollectionsEntriesService,
     ) {}
 
     async findOneById(id: string) {
-        return this.reviewsRepository.findOne({
+        return await this.reviewsRepository.findOne({
             where: {
                 id,
             },
@@ -31,7 +33,7 @@ export class ReviewsService {
     }
 
     async findOneByUserIdAndGameId(userId: string, gameId: number) {
-        return this.reviewsRepository.findOne({
+        const review = await this.reviewsRepository.findOne({
             where: {
                 game: {
                     id: gameId,
@@ -42,10 +44,11 @@ export class ReviewsService {
             },
             relations: this.relations,
         });
+        return review;
     }
 
     async findAllByUserId(userId: string) {
-        return this.reviewsRepository.find({
+        return await this.reviewsRepository.find({
             where: {
                 profile: {
                     userId,
@@ -56,7 +59,7 @@ export class ReviewsService {
     }
 
     async findAllByGameId(gameId: number) {
-        return this.reviewsRepository.find({
+        return await this.reviewsRepository.findAndCount({
             where: {
                 game: {
                     id: gameId,
@@ -67,7 +70,7 @@ export class ReviewsService {
     }
 
     async findAllByIdIn(ids: string[]) {
-        return this.reviewsRepository.find({
+        return await this.reviewsRepository.find({
             where: {
                 id: In(ids),
             },
@@ -75,25 +78,36 @@ export class ReviewsService {
         });
     }
 
-    async create(userId: string, createReviewDto: CreateReviewDto) {
-        const possibleExistingReview = await this.findOneByUserIdAndGameId(
-            userId,
-            createReviewDto.igdbId,
-        );
-        if (possibleExistingReview) {
-            throw new HttpException(
-                "User has already reviewed this game.",
-                409,
-            );
-        }
-
+    async createOrUpdate(userId: string, createReviewDto: CreateReviewDto) {
         const profile = await this.profileService.findOneById(userId);
         if (!profile) {
             throw new HttpException("Profile not found.", 404);
         }
 
+        await this.collectionEntriesService.findAllByUserIdAndGameIdOrFail(
+            userId,
+            createReviewDto.gameId,
+        );
+
+        const possibleExistingReview = await this.findOneByUserIdAndGameId(
+            userId,
+            createReviewDto.gameId,
+        );
+
+        if (possibleExistingReview) {
+            const updatedEntry = this.reviewsRepository.merge(
+                possibleExistingReview,
+                createReviewDto,
+            );
+            await this.reviewsRepository.update(updatedEntry.id, updatedEntry);
+            return;
+        }
+
         const reviewEntity = this.reviewsRepository.create({
             ...createReviewDto,
+            game: {
+                id: createReviewDto.gameId,
+            },
             profile,
         });
 

@@ -17,8 +17,6 @@ import { Game } from "../../game/game-repository/entities/game.entity";
 export class Review {
     @PrimaryGeneratedColumn("uuid")
     id: string;
-    @Column({ nullable: false })
-    title: string;
     @Column({ nullable: false, type: "longtext" })
     content: string;
     @Column({ nullable: false })

@@ -19,6 +19,6 @@ export class ActivitiesQueueService {
         ) {
             throw new Error("Activity must have a valid sourceId.");
         }
-        return await this.activitiesQueue.add("addActivity", activity);
+        await this.activitiesQueue.add("addActivity", activity);
     }
 }
