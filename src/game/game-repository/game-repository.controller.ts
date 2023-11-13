@@ -21,6 +21,11 @@ export class GameRepositoryController {
         private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
+    @Get("platforms")
+    async findAllPlatforms() {
+        return await this.gameRepositoryService.findAllGamePlatforms();
+    }
+
     @Post(":id")
     @HttpCode(200)
     async findOneById(
@@ -35,14 +40,5 @@ export class GameRepositoryController {
     @HttpCode(200)
     async findAll(): Promise<GameRepositoryPaginatedResponseDto> {
         return (await this.gameRepositoryService.findAll()) as unknown as GameRepositoryPaginatedResponseDto;
-    }
-
-    /**
-     * Tip: do not use this without ":id", otherwise findOneById will be triggered instead.
-     */
-    @Get(":id/platforms/default")
-    @HttpCode(200)
-    async getDefaultPlatforms(): Promise<GamePlatform[]> {
-        return this.gameRepositoryService.getDefaultPlatforms();
     }
 }

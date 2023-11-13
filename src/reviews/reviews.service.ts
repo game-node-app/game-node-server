@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from "@nestjs/common";
+import { forwardRef, HttpException, HttpStatus, Inject } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { UpdateReviewDto } from "./dto/update-review.dto";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -20,6 +20,7 @@ export class ReviewsService {
         @InjectRepository(Review) private reviewsRepository: Repository<Review>,
         private profileService: ProfileService,
         private activitiesQueue: ActivitiesQueueService,
+        @Inject(forwardRef(() => CollectionsEntriesService))
         private collectionEntriesService: CollectionsEntriesService,
     ) {}
 
@@ -119,32 +120,20 @@ export class ReviewsService {
             sourceId: insertedEntry.id,
             profile: profile,
         });
+
+        this.collectionEntriesService.attachReview(
+            userId,
+            createReviewDto.gameId,
+            insertedEntry.id,
+        );
     }
 
-    async update(
-        userId: string,
-        reviewId: string,
-        updateReviewDto: UpdateReviewDto,
-    ) {
-        const review = await this.findOneById(reviewId);
-
-        if (!review) {
-            throw new HttpException("Review not found.", 404);
-        }
-
-        if (review.profile.userId !== userId) {
-            throw new HttpException(
-                "Review is not accessible.",
-                HttpStatus.FORBIDDEN,
-            );
-        }
-
-        const updatedReviewEntity = this.reviewsRepository.merge(
-            review,
-            updateReviewDto,
-        );
-
-        await this.reviewsRepository.save(updatedReviewEntity);
-        // No reason to update the associated activity, as the review id is not changed
+    async delete(userId: string, reviewId: string) {
+        await this.reviewsRepository.delete({
+            id: reviewId,
+            profile: {
+                userId,
+            },
+        });
     }
 }

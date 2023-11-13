@@ -16,7 +16,6 @@ import { GameGenre } from "./entities/game-genre.entity";
 import { GameKeyword } from "./entities/game-keyword.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameRepositoryRequestDto } from "./dto/game-repository-request.dto";
-import { DEFAULT_PLATFORMS_IDS } from "./game-repository.constants";
 
 @Injectable()
 export class GameRepositoryService {
@@ -102,10 +101,8 @@ export class GameRepositoryService {
         return this.gameRepository.findAndCount();
     }
 
-    async getDefaultPlatforms(): Promise<GamePlatform[]> {
-        return this.gamePlatformRepository.findBy({
-            id: In(DEFAULT_PLATFORMS_IDS),
-        });
+    async findAllGamePlatforms(): Promise<GamePlatform[]> {
+        return await this.gamePlatformRepository.find();
     }
 
     /**

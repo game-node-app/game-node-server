@@ -88,12 +88,6 @@ enum EGamePlatformIds {
     Stadia = 170,
 }
 
-/**
- * A workaround for when a game has no platforms registered,
- * so that the user is still able to add it to theirs collection.
- */
-const DEFAULT_PLATFORMS_IDS = [6, 7, 8, 9, 48, 167, 11, 12, 49, 169, 130, 170];
-
 export {
     EGameCategory,
     EGameStatus,
@@ -101,5 +95,4 @@ export {
     EGameExternalGameCategory,
     EGamePlatformCategory,
     EGamePlatformIds,
-    DEFAULT_PLATFORMS_IDS,
 };

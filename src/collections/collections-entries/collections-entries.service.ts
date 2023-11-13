@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import {
+    forwardRef,
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+} from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -14,18 +20,17 @@ import { GetCollectionEntriesDto } from "./dto/get-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { Activity } from "../../activities/activities-repository/entities/activity.entity";
 import { ActivityType } from "../../activities/activities-queue/activities-queue.constants";
+import { ReviewsService } from "../../reviews/reviews.service";
+import { Review } from "../../reviews/entities/review.entity";
 
 @Injectable()
 export class CollectionsEntriesService {
-    private readonly relations: FindOptionsRelations<CollectionEntry> = {
-        collection: true,
-        review: true,
-        game: true,
-    };
     constructor(
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
         private activitiesQueueService: ActivitiesQueueService,
+        @Inject(forwardRef(() => ReviewsService))
+        private reviewsService: ReviewsService,
     ) {}
 
     async findOneById(id: string) {
@@ -286,12 +291,21 @@ export class CollectionsEntriesService {
             },
         );
         for (const entity of entities) {
-            await this.collectionEntriesRepository
-                .createQueryBuilder()
+            const queryBuilder =
+                this.collectionEntriesRepository.createQueryBuilder();
+            await queryBuilder
                 .relation(CollectionEntry, "ownedPlatforms")
                 .of(entity)
                 .remove(entity.ownedPlatforms);
+            await queryBuilder
+                .relation(CollectionEntry, "review")
+                .of(entity)
+                .set(null);
+
             await this.collectionEntriesRepository.delete(entity.id);
+            if (entity.reviewId) {
+                this.reviewsService.delete(userId, entity.reviewId);
+            }
         }
     }
 }
