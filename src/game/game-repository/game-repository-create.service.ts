@@ -340,12 +340,6 @@ export class GameRepositoryCreateService {
             for (const gameEngine of game.gameEngines) {
                 await this.handleCompanies(gameEngine.companies);
                 if (gameEngine.logo) {
-                    if (typeof gameEngine.logo === "number") {
-                        gameEngine.logo = {
-                            id: gameEngine.logo,
-                            engine: gameEngine,
-                        };
-                    }
                     await this.gameEngineLogoRepository.upsert(
                         gameEngine.logo,
                         ["id"],
@@ -358,6 +352,11 @@ export class GameRepositoryCreateService {
                         .relation(Game, "gameEngines")
                         .of(game)
                         .add(gameEngine);
+                    await this.gameEngineRepository
+                        .createQueryBuilder()
+                        .relation(GameEngine, "platforms")
+                        .of(gameEngine)
+                        .add(gameEngine.platforms);
                 } catch (e) {}
             }
         }
@@ -371,15 +370,13 @@ export class GameRepositoryCreateService {
             if (company == undefined) continue;
 
             if (company.logo) {
-                if (typeof company.logo === "number") {
-                    company.logo = {
-                        id: company.logo,
-                        company: company,
-                    };
+                try {
+                    await this.gameCompanyLogoRepository.upsert(company.logo, [
+                        "id",
+                    ]);
+                } catch (e) {
+                    console.error(e);
                 }
-                await this.gameCompanyLogoRepository.upsert(company.logo, [
-                    "id",
-                ]);
             }
             await this.gameCompanyRepository.upsert(company, ["id"]);
         }
