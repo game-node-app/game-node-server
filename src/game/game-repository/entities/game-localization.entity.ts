@@ -4,7 +4,7 @@ import { Game } from "./game.entity";
 
 @Entity()
 export class GameLocalization extends GameResource {
-    @ManyToOne(() => Game, (game) => game.localizations, {
+    @ManyToOne(() => Game, (game) => game.gameLocalizations, {
         nullable: false,
     })
     game: Game;

@@ -9,6 +9,7 @@ import { ReviewStatistics } from "../entity/review-statistics.entity";
 import { StatisticsGameQueueController } from "./statistics-game-queue.controller";
 import { StatisticsGameQueueService } from "./statistics-game-queue.service";
 import { StatisticsGameQueueProcessor } from "./statistics-game-queue.processor";
+import { StatisticsGameController } from "./statistics-game.controller";
 
 @Module({
     imports: [
@@ -20,7 +21,7 @@ import { StatisticsGameQueueProcessor } from "./statistics-game-queue.processor"
             GameStatistics,
         ]),
     ],
-    controllers: [StatisticsGameQueueController],
+    controllers: [StatisticsGameQueueController, StatisticsGameController],
     providers: [
         StatisticsGameQueueService,
         StatisticsGameQueueProcessor,

@@ -16,6 +16,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { CacheInterceptor } from "@nestjs/cache-manager";
 import { Public } from "../auth/public.decorator";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
+import { GetCollectionDto } from "./dto/get-collection-dto";
 
 @Controller("collections")
 @ApiTags("collections")
@@ -30,16 +31,19 @@ export class CollectionsController {
      * (Either its own collection or a public one)
      * @param session
      * @param collectionId
+     * @param dto
      */
     @Post(":id")
     @Public()
     async findOneByIdWithPermissions(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
+        @Body() dto?: GetCollectionDto,
     ) {
         return this.collectionsService.findOneByIdWithPermissions(
             session.getUserId(),
             collectionId,
+            dto,
         );
     }
 

@@ -17,6 +17,8 @@ import { AuthGuard } from "../auth/auth.guard";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { FindReviewPaginatedDto } from "./dto/find-review-paginated.dto";
 import { Review } from "./entities/review.entity";
+import { FindReviewDto } from "./dto/find-review.dto";
+import { Public } from "../auth/public.decorator";
 
 @Controller("reviews")
 @ApiTags("reviews")
@@ -35,19 +37,18 @@ export class ReviewsController {
         );
     }
 
-    @Get("game/:id")
+    @Post("game/:id")
     @UseInterceptors(PaginationInterceptor)
+    @Public()
     @ApiOkResponse({
         type: FindReviewPaginatedDto,
         status: 200,
     })
-    async findAllByGameId(@Param("id") gameId: number) {
-        return this.reviewsService.findAllByGameId(gameId);
-    }
-
-    @Get(":id")
-    async findOneById(@Param("id") id: string) {
-        return this.reviewsService.findOneById(id);
+    async findAllByGameId(
+        @Param("id") gameId: number,
+        @Body() dto?: FindReviewDto,
+    ) {
+        return this.reviewsService.findAllByGameId(gameId, dto);
     }
 
     @Get("profile/:id")
@@ -63,5 +64,10 @@ export class ReviewsController {
             userId,
             gameId,
         );
+    }
+
+    @Get(":id")
+    async findOneById(@Param("id") id: string) {
+        return this.reviewsService.findOneById(id);
     }
 }

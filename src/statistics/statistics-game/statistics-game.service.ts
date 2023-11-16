@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GameStatistics } from "./entity/game-statistics.entity";
-import { FindOptionsRelations, Repository } from "typeorm";
+import { Between, FindOptionsRelations, Repository } from "typeorm";
 import { UserLike } from "../entity/user-like.entity";
 import { UserView } from "../entity/user-view.entity";
 import { TStatisticsCounterAction } from "./statistics-game.types";
@@ -33,6 +33,30 @@ export class StatisticsGameService {
         });
     }
 
+    async findTrending() {
+        const today = new Date();
+        const lastWeek = new Date();
+        lastWeek.setDate(lastWeek.getDate() - 7);
+        return await this.gameStatisticsRepository.findAndCount({
+            where: [
+                {
+                    views: {
+                        createdAt: Between(lastWeek, today),
+                    },
+                },
+                {
+                    likes: {
+                        createdAt: Between(lastWeek, today),
+                    },
+                },
+            ],
+            order: {
+                viewsCount: "DESC",
+                likesCount: "DESC",
+            },
+        });
+    }
+
     async handleGameStatisticsViews(igdbId: number, userId?: string) {
         let gameStatistics = await this.gameStatisticsRepository.findOne({
             where: {
@@ -51,12 +75,17 @@ export class StatisticsGameService {
             });
         }
 
-        // gameStatisticsId is stored on the UserView side:
-        // This single insert will make it available on the GameStatistics side
         await this.userViewRepository.insert({
             userId: userId || undefined,
             gameStatistics: gameStatistics,
         });
+        await this.gameStatisticsRepository.increment(
+            {
+                id: gameStatistics.id,
+            },
+            "viewsCount",
+            1,
+        );
     }
 
     async handleGameStatisticsLikes(
@@ -99,6 +128,13 @@ export class StatisticsGameService {
                 userId,
                 gameStatistics: gameStatistics,
             });
+            await this.gameStatisticsRepository.increment(
+                {
+                    id: gameStatistics.id,
+                },
+                "likesCount",
+                1,
+            );
         } else {
             await this.userLikeRepository.delete({
                 userId: userId,
@@ -106,6 +142,13 @@ export class StatisticsGameService {
                     id: gameStatistics.id,
                 },
             });
+            await this.gameStatisticsRepository.decrement(
+                {
+                    id: gameStatistics.id,
+                },
+                "likesCount",
+                1,
+            );
         }
     }
 }

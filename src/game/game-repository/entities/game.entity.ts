@@ -25,6 +25,10 @@ import { GameGenre } from "./game-genre.entity";
 import { GameKeyword } from "./game-keyword.entity";
 import { GamePlatform } from "./game-platform.entity";
 import { EGameStorageSource } from "../../utils/game-stored-source";
+import { GameInvolvedCompany } from "./game-involved-company.entity";
+import { GameTheme } from "./game-theme.entity";
+import { GamePlayerPerspective } from "./game-player-perspective.entity";
+import { GameEngine } from "./game-engine.entity";
 
 /**
  * For future maintainers:
@@ -106,13 +110,15 @@ export class Game {
     })
     updatedAt: Date;
 
+    //
     // **Self-referencing relationships**
+    //
+
     @ManyToMany(() => Game, (game) => game.dlcOf, {
         nullable: true,
     })
     @JoinTable()
     dlcs?: Game[];
-    // Equivalent to parent_game, for dlcs
     @ManyToMany(() => Game, (game) => game.dlcs, {
         nullable: true,
     })
@@ -123,7 +129,6 @@ export class Game {
     })
     @JoinColumn()
     expansions?: Game[];
-    // Equivalent to parent_game, for expansions
     @ManyToMany(() => Game, (game) => game.expansions, {
         nullable: true,
     })
@@ -134,7 +139,6 @@ export class Game {
     })
     @JoinTable()
     expandedGames?: Game[];
-    // Equivalent to parent_game, for expanded games.
     @ManyToMany(() => Game, (game) => game.expandedGames, {
         nullable: true,
     })
@@ -145,13 +149,24 @@ export class Game {
     })
     @JoinTable()
     similarGames?: Game[];
-    // Equivalent to parent_game, for similar games.
     @ManyToMany(() => Game, (game) => game.similarGames, {
         nullable: true,
     })
     similarGameOf?: Game[];
+    @ManyToMany(() => Game, (game) => game.remakes)
+    @JoinTable()
+    remakes?: Game[];
+    @ManyToMany(() => Game, (game) => game.remakes)
+    remakeOf?: Game[];
+    @ManyToMany(() => Game, (game) => game.remasterOf)
+    @JoinTable()
+    remasters?: Game[];
+    @ManyToMany(() => Game, (game) => game.remasters)
+    remasterOf?: Game[];
 
+    //
     // **Relationships**
+    //
 
     @OneToOne(() => GameCover, (cover) => cover.game, {
         nullable: true,
@@ -185,16 +200,28 @@ export class Game {
             nullable: true,
         },
     )
-    localizations?: GameLocalization[];
-    @OneToMany(() => GameMode, (gameMode) => gameMode.game, {
+    gameLocalizations?: GameLocalization[];
+    @ManyToMany(() => GameMode, (gameMode) => gameMode.game, {
         nullable: true,
     })
+    @JoinTable()
     gameModes?: GameMode[];
     @ManyToMany(() => GameGenre, (gameGenre) => gameGenre.games, {
         nullable: true,
     })
     @JoinTable()
     genres?: GameGenre[];
+    @ManyToMany(() => GameTheme, (gameTheme) => gameTheme.games)
+    @JoinTable()
+    themes?: GameTheme[];
+
+    @ManyToMany(() => GamePlayerPerspective, (perspective) => perspective.games)
+    @JoinTable()
+    playerPerspectives?: GamePlayerPerspective[];
+    @ManyToMany(() => GameEngine, (engine) => engine.games)
+    @JoinTable()
+    gameEngines?: GameEngine[];
+
     @ManyToMany(() => GameKeyword, (gameKeyword) => gameKeyword.game, {
         nullable: true,
     })
@@ -217,6 +244,12 @@ export class Game {
         },
     )
     externalGames?: GameExternalGame[];
+    @ManyToMany(
+        () => GameInvolvedCompany,
+        (involvedCompany) => involvedCompany.games,
+    )
+    @JoinTable()
+    involvedCompanies: GameInvolvedCompany[];
     /**
      * Oh dear maintainer, please forgive me for using transient fields.
      */

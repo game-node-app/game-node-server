@@ -22,6 +22,9 @@ import { StatisticsReviewModule } from "./statistics/statistics-review/statistic
         GlobalModule,
         AuthModule,
         TypeOrmModule.forRoot({
+            // Fixes Bigint values being returned as string
+            // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
+            bigNumberStrings: false,
             type: "mysql",
             host: process.env.DB_HOST,
             port: parseInt(process.env.DB_PORT as string) as any,

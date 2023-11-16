@@ -9,14 +9,35 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- latest">
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-company-logo.entity.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-company-website.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-company.entity.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-engine-logo.entity.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-engine.entity.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-involved-company.entity.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-player-perspective.entity.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-theme.entity.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.constants.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.processor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-queue/game-queue.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/entities/game-localization.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-localization.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/entities/game-mode.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game-mode.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/entities/game.entity.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.module.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/utils/game-conversor-utils.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/utils/game-conversor-utils.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/reviews/reviews.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/entity/user-like.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/entity/user-like.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/entity/user-view.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/entity/user-view.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics-game/entity/game-statistics.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-game/entity/game-statistics.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -102,7 +123,7 @@
     &quot;database.data.extractors.current.export.id&quot;: &quot;JSON-Groovy.json.groovy&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/lamarck/Projects/Web/game-node-web&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/lamarck/Projects/Web/game-node-sync&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -185,17 +206,7 @@
       </deployment>
       <method v="2" />
     </configuration>
-    <configuration name="GameSearchController.should return a list of searched games" type="JavaScriptTestRunnerJest" temporary="true" nameIsGenerated="true">
-      <node-interpreter value="project" />
-      <jest-package value="$PROJECT_DIR$/node_modules/jest" />
-      <working-dir value="$PROJECT_DIR$" />
-      <envs />
-      <scope-kind value="TEST" />
-      <test-file value="$PROJECT_DIR$/src/game/game-search/game-search.controller.spec.ts" />
-      <test-names>
-        <test-name value="GameSearchController" />
-        <test-name value="should return a list of searched games" />
-      </test-names>
+    <configuration name="generated-requests | #1" type="HttpClient.HttpRequestRunConfigurationType" factoryName="HTTP Request" temporary="true" nameIsGenerated="true" path="$APPLICATION_CONFIG_DIR$/scratches/generated-requests.http" requestIdentifier="#1" runType="Run single request">
       <method v="2" />
     </configuration>
     <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
@@ -210,19 +221,6 @@
           <option name="envFilePath" value="" />
           <option name="commandLineOptions" value="--build" />
           <option name="sourceFilePath" value="docker-compose.prod.yml" />
-        </settings>
-      </deployment>
-      <method v="2" />
-    </configuration>
-    <configuration name="docker-compose.yml.redis: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
-      <deployment type="docker-compose.yml">
-        <settings>
-          <option name="services">
-            <list>
-              <option value="redis" />
-            </list>
-          </option>
-          <option name="sourceFilePath" value="docker-compose.yml" />
         </settings>
       </deployment>
       <method v="2" />
@@ -278,10 +276,9 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Docker.docker-compose.yml.redis: Compose Deployment" />
       <item itemvalue="Docker.game-node-search/docker-compose.prod.yml: Compose Deployment" />
       <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
-      <item itemvalue="Jest.GameSearchController.should return a list of searched games" />
+      <item itemvalue="HTTP Request.generated-requests | #1" />
       <item itemvalue="npm.start:dev:docker" />
       <item itemvalue="npm.typeorm:migration:generate" />
       <item itemvalue="npm.typeorm:migration:run" />
@@ -290,8 +287,8 @@
       <list>
         <item itemvalue="npm.typeorm:migration:run" />
         <item itemvalue="npm.typeorm:migration:generate" />
+        <item itemvalue="HTTP Request.generated-requests | #1" />
         <item itemvalue="Docker.game-node-search/docker-compose.prod.yml: Compose Deployment" />
-        <item itemvalue="Jest.GameSearchController.should return a list of searched games" />
         <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
       </list>
     </recent_temporary>
@@ -439,6 +436,12 @@
       <workItem from="1699697127193" duration="2536000" />
       <workItem from="1699721543347" duration="11490000" />
       <workItem from="1699801340336" duration="7277000" />
+      <workItem from="1699902563418" duration="4640000" />
+      <workItem from="1700013278649" duration="7005000" />
+      <workItem from="1700062124444" duration="13631000" />
+      <workItem from="1700094853535" duration="80000" />
+      <workItem from="1700095437520" duration="3499000" />
+      <workItem from="1700103097996" duration="2163000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -640,7 +643,15 @@
       <option name="project" value="LOCAL" />
       <updated>1699758178393</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="- latest">
+      <option name="closed" value="true" />
+      <created>1699902831878</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1699902831878</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -708,6 +719,24 @@
   <component name="VgoProject">
     <integration-enabled>false</integration-enabled>
     <settings-migrated>true</settings-migrated>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts</url>
+          <line>311</line>
+          <properties lambdaOrdinal="-1" />
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts</url>
+          <line>319</line>
+          <properties lambdaOrdinal="-1" />
+          <option name="timeStamp" value="8" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

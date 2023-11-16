@@ -1,4 +1,5 @@
 import {
+    Column,
     CreateDateColumn,
     Entity,
     JoinColumn,
@@ -27,8 +28,18 @@ export class GameStatistics {
     })
     @JoinColumn()
     game: Game;
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    likesCount: number;
     @OneToMany(() => UserLike, (userLike) => userLike.gameStatistics)
     likes: UserLike[];
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    viewsCount: number;
     @OneToMany(() => UserView, (userView) => userView.gameStatistics)
     views: UserView[];
     @CreateDateColumn()

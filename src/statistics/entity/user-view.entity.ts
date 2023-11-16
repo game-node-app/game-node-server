@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     ManyToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
@@ -18,6 +19,7 @@ export class UserView {
     id: number;
 
     @Column({ nullable: true })
+    @Index()
     userId?: string;
 
     @ManyToOne(() => GameStatistics, (gameStatistics) => gameStatistics.views)

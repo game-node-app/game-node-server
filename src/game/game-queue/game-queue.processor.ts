@@ -10,6 +10,7 @@ import {
     objectKeysToCamelCase,
     parseGameDates,
 } from "../utils/game-conversor-utils";
+import { GameRepositoryCreateService } from "../game-repository/game-repository-create.service";
 
 /**
  * Recursively converts types of a game object.
@@ -57,7 +58,9 @@ function normalizeIgdbResults(results: any[]) {
 export class GameQueueProcessor {
     private logger = new Logger(GameQueueProcessor.name);
 
-    constructor(private readonly gameService: GameRepositoryService) {}
+    constructor(
+        private readonly gameRepositoryCreateService: GameRepositoryCreateService,
+    ) {}
 
     @Process({
         concurrency: 1,
@@ -70,7 +73,7 @@ export class GameQueueProcessor {
         const tasks: Promise<any>[] = [];
 
         for (const result of normalizedResults) {
-            tasks.push(this.gameService.createOrUpdate(result));
+            tasks.push(this.gameRepositoryCreateService.createOrUpdate(result));
         }
 
         await Promise.all(tasks);

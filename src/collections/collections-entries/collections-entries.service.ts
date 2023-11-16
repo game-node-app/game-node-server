@@ -102,7 +102,7 @@ export class CollectionsEntriesService {
     ) {
         const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
 
-        return await this.collectionEntriesRepository.findAndCount({
+        const results = await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 collection: [
@@ -119,6 +119,7 @@ export class CollectionsEntriesService {
                 ],
             },
         });
+        return results;
     }
 
     /**
@@ -253,9 +254,7 @@ export class CollectionsEntriesService {
                 .createQueryBuilder()
                 .relation(CollectionEntry, "review")
                 .of(entry)
-                .set({
-                    id: reviewId,
-                });
+                .set(reviewId);
         }
     }
 

@@ -6,6 +6,9 @@ import {
     Unique,
     CreateDateColumn,
     UpdateDateColumn,
+    Index,
+    JoinColumn,
+    JoinTable,
 } from "typeorm";
 import { GameStatistics } from "../statistics-game/entity/game-statistics.entity";
 import { ReviewStatistics } from "./review-statistics.entity";
@@ -18,6 +21,8 @@ import { ActivityStatistics } from "./activity-statistics.entity";
 export class UserLike {
     @PrimaryGeneratedColumn()
     id: number;
+
+    @Index()
     @Column()
     userId: string;
     @ManyToOne(() => GameStatistics, (gameStatistics) => gameStatistics.likes)

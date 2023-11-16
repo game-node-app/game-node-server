@@ -8,6 +8,8 @@ import { ProfileService } from "../profile/profile.service";
 import { ActivitiesQueueService } from "src/activities/activities-queue/activities-queue.service";
 import { ActivityType } from "src/activities/activities-queue/activities-queue.constants";
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
+import { FindReviewDto } from "./dto/find-review.dto";
+import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 
 export class ReviewsService {
     private relations: FindOptionsRelations<Review> = {
@@ -59,14 +61,16 @@ export class ReviewsService {
         });
     }
 
-    async findAllByGameId(gameId: number) {
+    async findAllByGameId(gameId: number, dto?: FindReviewDto) {
+        const findOptions = buildBaseFindOptions(dto);
         return await this.reviewsRepository.findAndCount({
+            ...findOptions,
             where: {
                 game: {
                     id: gameId,
                 },
             },
-            relations: this.relations,
+            relations: dto?.relations,
         });
     }
 
@@ -121,7 +125,7 @@ export class ReviewsService {
             profile: profile,
         });
 
-        this.collectionEntriesService.attachReview(
+        await this.collectionEntriesService.attachReview(
             userId,
             createReviewDto.gameId,
             insertedEntry.id,

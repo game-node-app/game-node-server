@@ -12,7 +12,6 @@ import { GameRepositoryService } from "./game-repository.service";
 import { ApiTags } from "@nestjs/swagger";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import { GameRepositoryPaginatedResponseDto } from "./dto/game-repository-paginated-response.dto";
-import { GamePlatform } from "./entities/game-platform.entity";
 
 @Controller("game/repository")
 @ApiTags("game-repository")

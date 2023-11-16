@@ -45,6 +45,10 @@ export const parseGameDates = (game: PartialGame) => {
         "updated_at",
         "firstReleaseDate",
         "first_release_date",
+        "change_date",
+        "changeDate",
+        "start_date",
+        "startDate",
     ];
     for (const [key, value] of Object.entries(parsedGame)) {
         if (dateFields.includes(key) && typeof value === "number") {

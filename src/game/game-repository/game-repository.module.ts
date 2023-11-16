@@ -16,10 +16,17 @@ import { GamePlatform } from "./entities/game-platform.entity";
 import { GameKeyword } from "./entities/game-keyword.entity";
 import { JwtAuthModule } from "../../auth/jwt-auth/jwt-auth.module";
 import { GameRepositoryController } from "./game-repository.controller";
+import { GameInvolvedCompany } from "./entities/game-involved-company.entity";
+import { GameCompany } from "./entities/game-company.entity";
+import { GameTheme } from "./entities/game-theme.entity";
+import { GameEngine } from "./entities/game-engine.entity";
+import { GameEngineLogo } from "./entities/game-engine-logo.entity";
+import { GameCompanyLogo } from "./entities/game-company-logo.entity";
+import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
+import { GameRepositoryCreateService } from "./game-repository-create.service";
 
 /**
  * This is a pretty big module, with lots of dependencies.
- * TODO: Add tests
  */
 @Module({
     imports: [
@@ -37,11 +44,17 @@ import { GameRepositoryController } from "./game-repository.controller";
             GameMode,
             GamePlatform,
             GameKeyword,
+            GameInvolvedCompany,
+            GameCompany,
+            GameCompanyLogo,
+            GameTheme,
+            GameEngine,
+            GameEngineLogo,
+            GamePlayerPerspective,
         ]),
-        JwtAuthModule,
     ],
-    providers: [GameRepositoryService],
-    exports: [GameRepositoryService],
+    providers: [GameRepositoryService, GameRepositoryCreateService],
+    exports: [GameRepositoryService, GameRepositoryCreateService],
     controllers: [GameRepositoryController],
 })
 export class GameRepositoryModule {}
