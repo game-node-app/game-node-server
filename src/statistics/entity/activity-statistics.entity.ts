@@ -1,4 +1,5 @@
 import {
+    Column,
     CreateDateColumn,
     Entity,
     OneToMany,
@@ -13,8 +14,18 @@ import { UserLike } from "./user-like.entity";
 
 @Entity()
 export class ActivityStatistics {
-    @PrimaryColumn()
-    activityId: string;
+    @PrimaryGeneratedColumn()
+    id: number;
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    viewsCount: number;
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    likesCount: number;
     @OneToMany(() => UserView, (userView) => userView.activityStatistics)
     views: UserView[];
     @OneToMany(() => UserLike, (userLike) => userLike.activityStatistics)

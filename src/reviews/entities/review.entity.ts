@@ -8,7 +8,7 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
-import { ReviewStatistics } from "../../statistics/entity/review-statistics.entity";
+import { ReviewStatistics } from "../../statistics/statistics-review/entity/review-statistics.entity";
 import { Profile } from "../../profile/entities/profile.entity";
 import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";

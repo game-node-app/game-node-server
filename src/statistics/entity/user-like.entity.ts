@@ -11,7 +11,7 @@ import {
     JoinTable,
 } from "typeorm";
 import { GameStatistics } from "../statistics-game/entity/game-statistics.entity";
-import { ReviewStatistics } from "./review-statistics.entity";
+import { ReviewStatistics } from "../statistics-review/entity/review-statistics.entity";
 import { ActivityStatistics } from "./activity-statistics.entity";
 
 @Entity()

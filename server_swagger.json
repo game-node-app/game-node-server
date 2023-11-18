@@ -622,12 +622,32 @@
       }
     },
     "/v1/statistics/game/trending": {
-      "get": {
+      "post": {
         "operationId": "StatisticsGameController_trending",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindTrendingStatisticsDto"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
-            "description": ""
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameStatistics"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -683,6 +703,54 @@
         ]
       }
     },
+    "/v1/game/repository/genres": {
+      "get": {
+        "operationId": "GameRepositoryController_findAllGenres",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameGenre"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "game-repository"
+        ]
+      }
+    },
+    "/v1/game/repository/themes": {
+      "get": {
+        "operationId": "GameRepositoryController_findAllThemes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameTheme"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "game-repository"
+        ]
+      }
+    },
     "/v1/game/repository/{id}": {
       "post": {
         "operationId": "GameRepositoryController_findOneById",
@@ -713,27 +781,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Game"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "game-repository"
-        ]
-      }
-    },
-    "/v1/game/repository": {
-      "get": {
-        "operationId": "GameRepositoryController_findAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GameRepositoryPaginatedResponseDto"
                 }
               }
             }
@@ -2639,6 +2686,18 @@
           "pagination"
         ]
       },
+      "FindTrendingStatisticsDto": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "default": 20
+          },
+          "relations": {
+            "type": "object"
+          }
+        }
+      },
       "CreateGameDto": {
         "type": "object",
         "properties": {
@@ -2680,24 +2739,6 @@
             "type": "object"
           }
         }
-      },
-      "GameRepositoryPaginatedResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Game"
-            }
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/PaginationInfo"
-          }
-        },
-        "required": [
-          "data",
-          "pagination"
-        ]
       }
     }
   }

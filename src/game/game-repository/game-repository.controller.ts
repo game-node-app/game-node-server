@@ -22,7 +22,17 @@ export class GameRepositoryController {
 
     @Get("platforms")
     async findAllPlatforms() {
-        return await this.gameRepositoryService.findAllGamePlatforms();
+        return await this.gameRepositoryService.getAllGamePlatforms();
+    }
+
+    @Get("genres")
+    async findAllGenres() {
+        return await this.gameRepositoryService.getAllGenres();
+    }
+
+    @Get("themes")
+    async findAllThemes() {
+        return await this.gameRepositoryService.getAllThemes();
     }
 
     @Post(":id")
@@ -32,12 +42,5 @@ export class GameRepositoryController {
         @Body() dto?: GameRepositoryRequestDto,
     ) {
         return this.gameRepositoryService.findOneByIdWithDto(id, dto);
-    }
-
-    @Get()
-    @UseInterceptors(PaginationInterceptor)
-    @HttpCode(200)
-    async findAll(): Promise<GameRepositoryPaginatedResponseDto> {
-        return (await this.gameRepositoryService.findAll()) as unknown as GameRepositoryPaginatedResponseDto;
     }
 }

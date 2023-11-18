@@ -121,7 +121,15 @@ export class GameRepositoryService {
         return this.gameRepository.findAndCount();
     }
 
-    async findAllGamePlatforms(): Promise<GamePlatform[]> {
+    async getAllGamePlatforms(): Promise<GamePlatform[]> {
         return await this.gamePlatformRepository.find();
+    }
+
+    async getAllGenres(): Promise<GameGenre[]> {
+        return await this.gameGenreRepository.find();
+    }
+
+    async getAllThemes() {
+        return await this.gameThemeRepository.find();
     }
 }

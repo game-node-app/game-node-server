@@ -5,6 +5,7 @@ import { Between, FindOptionsRelations, Repository } from "typeorm";
 import { UserLike } from "../entity/user-like.entity";
 import { UserView } from "../entity/user-view.entity";
 import { TStatisticsCounterAction } from "./statistics-game.types";
+import { FindTrendingStatisticsDto } from "./dto/find-trending-statistics-dto";
 
 @Injectable()
 export class StatisticsGameService {
@@ -33,11 +34,12 @@ export class StatisticsGameService {
         });
     }
 
-    async findTrending() {
+    async findTrending(dto?: FindTrendingStatisticsDto | undefined) {
         const today = new Date();
         const lastWeek = new Date();
         lastWeek.setDate(lastWeek.getDate() - 7);
-        return await this.gameStatisticsRepository.findAndCount({
+
+        return await this.gameStatisticsRepository.find({
             where: [
                 {
                     views: {
@@ -54,6 +56,8 @@ export class StatisticsGameService {
                 viewsCount: "DESC",
                 likesCount: "DESC",
             },
+            relations: dto?.relations,
+            take: dto && dto.limit ? dto.limit : 5,
         });
     }
 

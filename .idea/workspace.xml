@@ -9,9 +9,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- update game related entities to reflect IGDB data">
+      <change afterPath="$PROJECT_DIR$/src/statistics/statistics-game/dto/find-trending-statistics-dto.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/statistics/statistics-review/statistics-review-queue.processor.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/statistics/statistics.constants.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server_swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/server_swagger.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/entities/review.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/entities/review.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/entity/activity-statistics.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/entity/activity-statistics.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/entity/review-statistics.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-review/entity/review-statistics.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/entity/user-like.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/entity/user-like.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-game/statistics-game.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics-review/statistics-review.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics-review/statistics-review.module.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,7 +110,7 @@
     "database.data.extractors.current.export.id": "JSON-Groovy.json.groovy",
     "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
-    "last_opened_file_path": "/home/lamarck/Projects/Go/game-node-search",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-server",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -159,11 +172,11 @@
       <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/statistics/statistics-review" />
+      <recent name="$PROJECT_DIR$/src/statistics/statistics-review/entity" />
       <recent name="$PROJECT_DIR$/src/statistics/statistics-game/entity" />
       <recent name="$PROJECT_DIR$/src/statistics/statistics-game" />
       <recent name="$PROJECT_DIR$/src/game/utils" />
-      <recent name="$PROJECT_DIR$/src" />
-      <recent name="$PROJECT_DIR$/src/statistics/statistics-queue" />
     </key>
     <key name="es6.move.members.recent.items">
       <recent name="$PROJECT_DIR$/src/utils/pagination/pagination-response.dto.ts" />
@@ -173,7 +186,7 @@
       <recent name="$PROJECT_DIR$/src/game/utils/game-normalize.ts" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.start:dev:docker">
+  <component name="RunManager" selected="npm.typeorm:migration:run">
     <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
       <deployment type="docker-compose.yml">
         <settings />
@@ -415,7 +428,8 @@
       <workItem from="1700062124444" duration="13631000" />
       <workItem from="1700094853535" duration="80000" />
       <workItem from="1700095437520" duration="3499000" />
-      <workItem from="1700103097996" duration="3845000" />
+      <workItem from="1700103097996" duration="4038000" />
+      <workItem from="1700249168818" duration="12017000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -633,7 +647,15 @@
       <option name="project" value="LOCAL" />
       <updated>1700105310663</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="- update game related entities to reflect IGDB data">
+      <option name="closed" value="true" />
+      <created>1700107140268</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1700107140268</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -702,30 +724,6 @@
   <component name="VgoProject">
     <integration-enabled>false</integration-enabled>
     <settings-migrated>true</settings-migrated>
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="javascript">
-          <url>file://$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts</url>
-          <line>340</line>
-          <properties lambdaOrdinal="-1" />
-          <option name="timeStamp" value="9" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="javascript">
-          <url>file://$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts</url>
-          <line>342</line>
-          <properties lambdaOrdinal="-1" />
-          <option name="timeStamp" value="10" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="javascript">
-          <url>file://$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts</url>
-          <line>354</line>
-          <properties lambdaOrdinal="-1" />
-          <option name="timeStamp" value="11" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

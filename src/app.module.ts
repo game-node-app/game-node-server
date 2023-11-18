@@ -34,7 +34,7 @@ import { StatisticsReviewModule } from "./statistics/statistics-review/statistic
             autoLoadEntities: true,
             // Never turn this on. Use migrations instead.
             synchronize: false,
-            logging: process.env.NODE_ENV === "development",
+            logging: false,
             debug: false,
         }),
 
@@ -73,7 +73,6 @@ import { StatisticsReviewModule } from "./statistics/statistics-review/statistic
         CollectionsModule,
         StatisticsReviewModule,
     ],
-    providers: [],
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
