@@ -3,34 +3,36 @@ import {
     CreateDateColumn,
     Entity,
     Index,
+    JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
-import { GameStatistics } from "../statistics-game/entity/game-statistics.entity";
-import { ActivityStatistics } from "./activity-statistics.entity";
+import { Profile } from "../../profile/entities/profile.entity";
+import { Statistics } from "./statistics.entity";
 
 /**
- * While it's called UserView, it also contains anonymous views (userId is set to null).
+ * While it's called UserView, it also contains anonymous views (profile is set to null).
  */
 @Entity()
 export class UserView {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ nullable: true })
-    @Index()
-    userId?: string;
-
-    @ManyToOne(() => GameStatistics, (gameStatistics) => gameStatistics.views)
-    gameStatistics: GameStatistics;
-    @ManyToOne(
-        () => ActivityStatistics,
-        (activityStatistics) => activityStatistics.views,
-    )
-    activityStatistics: ActivityStatistics;
-    @CreateDateColumn()
+    @ManyToOne(() => Profile, {
+        nullable: true,
+    })
+    profile?: Profile;
+    @ManyToOne(() => Statistics, (s) => s.views, {
+        nullable: false,
+    })
+    statistics: Statistics;
+    @CreateDateColumn({
+        type: "timestamp",
+    })
     createdAt: Date;
-    @UpdateDateColumn()
+    @UpdateDateColumn({
+        type: "timestamp",
+    })
     updatedAt: Date;
 }

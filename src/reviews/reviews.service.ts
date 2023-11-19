@@ -10,14 +10,15 @@ import { ActivityType } from "src/activities/activities-queue/activities-queue.c
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
 import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Filter = require("bad-words");
 
 export class ReviewsService {
+    private readonly badWordsFilter = new Filter();
     private relations: FindOptionsRelations<Review> = {
         profile: true,
-        reviewStatistics: true,
     };
 
-    // TODO: Implement activities service integration
     constructor(
         @InjectRepository(Review) private reviewsRepository: Repository<Review>,
         private profileService: ProfileService,
@@ -99,6 +100,12 @@ export class ReviewsService {
             createReviewDto.gameId,
         );
 
+        // Censors bad words from content
+        // TODO: Check if this is enough
+        createReviewDto.content = this.badWordsFilter.clean(
+            createReviewDto.content,
+        );
+
         if (possibleExistingReview) {
             const updatedEntry = this.reviewsRepository.merge(
                 possibleExistingReview,
@@ -132,11 +139,15 @@ export class ReviewsService {
         );
     }
 
-    async delete(userId: string, reviewId: string) {
+    async delete(userId: string, gameId: number, reviewId: string) {
+        await this.collectionEntriesService.detachReview(userId, gameId);
         await this.reviewsRepository.delete({
             id: reviewId,
             profile: {
                 userId,
+            },
+            game: {
+                id: gameId,
             },
         });
     }

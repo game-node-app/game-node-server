@@ -554,107 +554,6 @@
         ]
       }
     },
-    "/v1/statistics/game/{id}/view": {
-      "post": {
-        "operationId": "StatisticsGameQueueController_registerGameView",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "statistics"
-        ]
-      }
-    },
-    "/v1/statistics/game/{id}/like": {
-      "post": {
-        "operationId": "StatisticsGameQueueController_registerGameLikeIncrement",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "statistics"
-        ]
-      },
-      "delete": {
-        "operationId": "StatisticsGameQueueController_registerGameLikeDecrement",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "statistics"
-        ]
-      }
-    },
-    "/v1/statistics/game/trending": {
-      "post": {
-        "operationId": "StatisticsGameController_trending",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FindTrendingStatisticsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GameStatistics"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "statistics-game"
-        ]
-      }
-    },
     "/v1/game/queue": {
       "post": {
         "operationId": "GameQueueController_sync",
@@ -790,6 +689,133 @@
           "game-repository"
         ]
       }
+    },
+    "/v1/statistics/trending": {
+      "get": {
+        "operationId": "StatisticsController_findTrending",
+        "summary": "",
+        "description": "Trending refers to \"popular in the last week/month",
+        "parameters": [
+          {
+            "name": "sourceType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "game",
+                "review",
+                "activity",
+                "collection"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "orderBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
+    "/v1/statistics/queue/like": {
+      "post": {
+        "operationId": "StatisticsQueueController_addLike",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatisticsActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "statistics-queue"
+        ]
+      },
+      "delete": {
+        "operationId": "StatisticsQueueController_removeLike",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatisticsActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "statistics-queue"
+        ]
+      }
+    },
+    "/v1/statistics/queue/view": {
+      "post": {
+        "operationId": "StatisticsQueueController_addView",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatisticsActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "statistics-queue"
+        ]
+      }
     }
   },
   "info": {
@@ -820,9 +846,6 @@
             "type": "string"
           },
           "orderDirection": {
-            "type": "object"
-          },
-          "select": {
             "type": "object"
           },
           "relations": {
@@ -2047,240 +2070,6 @@
           "updatedAt"
         ]
       },
-      "Activity": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "REVIEW",
-              "FOLLOW",
-              "COLLECTION_ENTRY"
-            ]
-          },
-          "sourceId": {
-            "type": "string"
-          },
-          "profile": {
-            "description": "The associated profile with this Activity",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Profile"
-              }
-            ]
-          },
-          "statistics": {
-            "$ref": "#/components/schemas/ActivityStatistics"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "type",
-          "sourceId",
-          "profile",
-          "statistics",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "ActivityStatistics": {
-        "type": "object",
-        "properties": {
-          "activityId": {
-            "type": "string"
-          },
-          "views": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserView"
-            }
-          },
-          "likes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserLike"
-            }
-          },
-          "activity": {
-            "$ref": "#/components/schemas/Activity"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "activityId",
-          "views",
-          "likes",
-          "activity",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "UserView": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "number"
-          },
-          "userId": {
-            "type": "string"
-          },
-          "gameStatistics": {
-            "$ref": "#/components/schemas/GameStatistics"
-          },
-          "activityStatistics": {
-            "$ref": "#/components/schemas/ActivityStatistics"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "gameStatistics",
-          "activityStatistics",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "GameStatistics": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "number"
-          },
-          "game": {
-            "$ref": "#/components/schemas/Game"
-          },
-          "likesCount": {
-            "type": "number"
-          },
-          "likes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserLike"
-            }
-          },
-          "viewsCount": {
-            "type": "number"
-          },
-          "views": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserView"
-            }
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "game",
-          "likesCount",
-          "likes",
-          "viewsCount",
-          "views",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "UserLike": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "number"
-          },
-          "userId": {
-            "type": "string"
-          },
-          "gameStatistics": {
-            "$ref": "#/components/schemas/GameStatistics"
-          },
-          "reviewStatistics": {
-            "$ref": "#/components/schemas/ReviewStatistics"
-          },
-          "activityStatistics": {
-            "$ref": "#/components/schemas/ActivityStatistics"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "userId",
-          "gameStatistics",
-          "reviewStatistics",
-          "activityStatistics",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "ReviewStatistics": {
-        "type": "object",
-        "properties": {
-          "reviewId": {
-            "type": "string"
-          },
-          "review": {
-            "$ref": "#/components/schemas/Review"
-          },
-          "likes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserLike"
-            }
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reviewId",
-          "review",
-          "likes",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
       "Review": {
         "type": "object",
         "properties": {
@@ -2295,9 +2084,6 @@
           },
           "game": {
             "$ref": "#/components/schemas/Game"
-          },
-          "reviewStatistics": {
-            "$ref": "#/components/schemas/ReviewStatistics"
           },
           "collectionEntry": {
             "$ref": "#/components/schemas/CollectionEntry"
@@ -2319,7 +2105,6 @@
           "content",
           "rating",
           "game",
-          "reviewStatistics",
           "collectionEntry",
           "profile",
           "createdAt",
@@ -2448,9 +2233,6 @@
           "orderDirection": {
             "type": "object"
           },
-          "select": {
-            "type": "object"
-          },
           "relations": {
             "type": "object"
           }
@@ -2524,9 +2306,6 @@
             "type": "string"
           },
           "orderDirection": {
-            "type": "object"
-          },
-          "select": {
             "type": "object"
           },
           "relations": {
@@ -2648,9 +2427,6 @@
           "orderDirection": {
             "type": "object"
           },
-          "select": {
-            "type": "object"
-          },
           "relations": {
             "type": "object"
           }
@@ -2686,18 +2462,6 @@
           "pagination"
         ]
       },
-      "FindTrendingStatisticsDto": {
-        "type": "object",
-        "properties": {
-          "limit": {
-            "type": "number",
-            "default": 20
-          },
-          "relations": {
-            "type": "object"
-          }
-        }
-      },
       "CreateGameDto": {
         "type": "object",
         "properties": {
@@ -2732,13 +2496,31 @@
           "orderDirection": {
             "type": "object"
           },
-          "select": {
-            "type": "object"
-          },
           "relations": {
             "type": "object"
           }
         }
+      },
+      "StatisticsActionDto": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "enum": [
+              "game",
+              "review",
+              "activity",
+              "collection"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "sourceType"
+        ]
       }
     }
   }

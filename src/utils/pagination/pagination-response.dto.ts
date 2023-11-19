@@ -1,10 +1,4 @@
-import {
-    ApiExtraModels,
-    ApiOkResponse,
-    ApiProperty,
-    getSchemaPath,
-} from "@nestjs/swagger";
-import { applyDecorators, Type } from "@nestjs/common";
+import { ApiProperty } from "@nestjs/swagger";
 
 /**
  * Type alias for paginable data.

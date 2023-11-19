@@ -3,7 +3,7 @@ import { FindManyOptions, FindOptionsOrder } from "typeorm";
 
 /**
  * Shorthand function to build find many options based on the base find options dto.
- *
+ * PS: This is mostly used for pagination, and doesn't return a 'where' clause.
  * @param dto
  * @returns an empty object {} if dto is undefined.
  */
@@ -12,12 +12,8 @@ export function buildBaseFindOptions<T>(
 ): FindManyOptions<T> {
     const findOptions: FindManyOptions<T> = {};
 
-    if (dto?.limit) {
-        findOptions.take = dto.limit;
-    }
-    if (dto?.offset) {
-        findOptions.skip = dto.offset;
-    }
+    findOptions.take = dto?.limit || 20;
+    findOptions.skip = dto?.offset || 0;
 
     // TODO: Add multiple orderBy support
     if (dto?.orderBy) {

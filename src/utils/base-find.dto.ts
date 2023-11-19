@@ -1,4 +1,5 @@
 import {
+    IsArray,
     IsNotEmpty,
     IsNumber,
     IsOptional,
@@ -34,10 +35,11 @@ export class BaseFindDto<T> {
     @IsString()
     @IsNotEmpty()
     orderBy?: string;
-    @ValidateIf((o) => o.orderBy != null)
+    @IsOptional()
     @IsString()
     @IsNotEmpty()
     orderDirection?: "ASC" | "DESC";
-    select?: FindOptionsSelect<T>;
+
+    @IsOptional()
     relations?: FindOptionsRelations<T>;
 }

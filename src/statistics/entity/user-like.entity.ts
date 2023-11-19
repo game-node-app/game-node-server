@@ -6,39 +6,29 @@ import {
     Unique,
     CreateDateColumn,
     UpdateDateColumn,
-    Index,
-    JoinColumn,
-    JoinTable,
 } from "typeorm";
-import { GameStatistics } from "../statistics-game/entity/game-statistics.entity";
-import { ReviewStatistics } from "../statistics-review/entity/review-statistics.entity";
-import { ActivityStatistics } from "./activity-statistics.entity";
+import { Statistics } from "./statistics.entity";
+import { Profile } from "../../profile/entities/profile.entity";
 
 @Entity()
-@Unique(["userId", "gameStatistics"])
-@Unique(["userId", "reviewStatistics"])
-@Unique(["userId", "activityStatistics"])
+@Unique(["profile", "statistics"])
 export class UserLike {
     @PrimaryGeneratedColumn()
     id: number;
-
-    @Index()
-    @Column()
-    userId: string;
-    @ManyToOne(() => GameStatistics, (gameStatistics) => gameStatistics.likes)
-    gameStatistics: GameStatistics;
-    @ManyToOne(
-        () => ReviewStatistics,
-        (reviewStatistics) => reviewStatistics.likes,
-    )
-    reviewStatistics: ReviewStatistics;
-    @ManyToOne(
-        () => ActivityStatistics,
-        (activityStatistics) => activityStatistics.likes,
-    )
-    activityStatistics: ActivityStatistics;
-    @CreateDateColumn()
+    @ManyToOne(() => Profile, {
+        nullable: false,
+    })
+    profile: Profile;
+    @ManyToOne(() => Statistics, (s) => s.likes, {
+        nullable: false,
+    })
+    statistics: Statistics;
+    @CreateDateColumn({
+        type: "timestamp",
+    })
     createdAt: Date;
-    @UpdateDateColumn()
+    @UpdateDateColumn({
+        type: "timestamp",
+    })
     updatedAt: Date;
 }

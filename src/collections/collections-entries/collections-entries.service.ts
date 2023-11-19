@@ -258,6 +258,26 @@ export class CollectionsEntriesService {
         }
     }
 
+    /**
+     * Should be called when a review is to be removed.
+     * @param userId
+     * @param gameId
+     * @param reviewId
+     */
+    async detachReview(userId: string, gameId: number) {
+        const entries = await this.findAllByUserIdAndGameId(userId, gameId);
+        if (entries == undefined || entries.length === 0) {
+            return;
+        }
+        for (const entry of entries) {
+            await this.collectionEntriesRepository
+                .createQueryBuilder()
+                .relation(CollectionEntry, "review")
+                .of(entry)
+                .set(null);
+        }
+    }
+
     async changeFavoriteStatus(
         userId: string,
         gameId: number,
@@ -290,21 +310,19 @@ export class CollectionsEntriesService {
             },
         );
         for (const entity of entities) {
+            if (entity.reviewId) {
+                /**
+                 * This automatically calls detachReview()!
+                 */
+                this.reviewsService.delete(userId, gameId, entity.reviewId);
+            }
             const queryBuilder =
                 this.collectionEntriesRepository.createQueryBuilder();
             await queryBuilder
                 .relation(CollectionEntry, "ownedPlatforms")
                 .of(entity)
                 .remove(entity.ownedPlatforms);
-            await queryBuilder
-                .relation(CollectionEntry, "review")
-                .of(entity)
-                .set(null);
-
             await this.collectionEntriesRepository.delete(entity.id);
-            if (entity.reviewId) {
-                this.reviewsService.delete(userId, entity.reviewId);
-            }
         }
     }
 }

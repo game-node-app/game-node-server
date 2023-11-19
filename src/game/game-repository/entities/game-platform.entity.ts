@@ -54,6 +54,5 @@ export class GamePlatform {
             nullable: true,
         },
     )
-    @JoinTable()
     collectionEntries: CollectionEntry[];
 }

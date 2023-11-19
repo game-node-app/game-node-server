@@ -3,6 +3,7 @@ import {
     CreateDateColumn,
     Entity,
     JoinColumn,
+    JoinTable,
     ManyToMany,
     ManyToOne,
     OneToOne,
@@ -15,23 +16,20 @@ import { Review } from "../../../reviews/entities/review.entity";
 import { Game } from "../../../game/game-repository/entities/game.entity";
 import { GamePlatform } from "../../../game/game-repository/entities/game-platform.entity";
 
+@Entity()
+// Games should be unique per collection, but duplicates are allowed across the user's library.
+@Unique(["collection", "game"])
 /**
  * Represents an entry in a collection.
  * @class CollectionEntry
  */
-@Entity()
-/**
- * Games should be unique per collection, but duplicates are allowed across collections.
- */
-@Unique(["collection", "game"])
 export class CollectionEntry {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @OneToOne(() => Review, {
+    @ManyToOne(() => Review, {
         nullable: true,
     })
-    @JoinColumn()
     review?: Review | null;
 
     @Column({
@@ -55,6 +53,7 @@ export class CollectionEntry {
     @ManyToMany(() => GamePlatform, (platform) => platform.collectionEntries, {
         nullable: false,
     })
+    @JoinTable()
     ownedPlatforms: GamePlatform[];
 
     @Column({

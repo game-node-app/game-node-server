@@ -1,6 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ActivitiesFeedService } from "./activities-feed.service";
-import { getRepositoryToken } from "@nestjs/typeorm";
 import { Activity } from "../activities-repository/entities/activity.entity";
 import { ActivityType } from "../activities-queue/activities-queue.constants";
 import { Profile } from "../../profile/entities/profile.entity";
@@ -11,7 +10,6 @@ export const mockActivities: Activity[] = [
         type: ActivityType.REVIEW,
         sourceId: "test",
         profile: {} as Profile,
-        statistics: {} as any,
         createdAt: new Date(),
         updatedAt: new Date(),
     },

@@ -13,8 +13,8 @@ import { GameQueueModule } from "./game/game-queue/game-queue.module";
 import { CollectionsModule } from "./collections/collections.module";
 import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
 import { LibrariesModule } from "./libraries/libraries.module";
-import { StatisticsGameModule } from "./statistics/statistics-game/statistics-game.module";
-import { StatisticsReviewModule } from "./statistics/statistics-review/statistics-review.module";
+import { StatisticsModule } from "./statistics/statistics.module";
+import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
 
 @Module({
     imports: [
@@ -34,7 +34,7 @@ import { StatisticsReviewModule } from "./statistics/statistics-review/statistic
             autoLoadEntities: true,
             // Never turn this on. Use migrations instead.
             synchronize: false,
-            logging: false,
+            logging: process.env.NODE_ENV === "development",
             debug: false,
         }),
 
@@ -65,13 +65,13 @@ import { StatisticsReviewModule } from "./statistics/statistics-review/statistic
             },
         }),
         ActivitiesRepositoryModule,
-        StatisticsGameModule,
         GameQueueModule,
         CollectionsModule,
         CollectionsEntriesModule,
         LibrariesModule,
         CollectionsModule,
-        StatisticsReviewModule,
+        StatisticsModule,
+        StatisticsQueueModule,
     ],
 })
 export class AppModule implements NestModule {

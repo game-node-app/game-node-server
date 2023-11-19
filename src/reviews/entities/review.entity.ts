@@ -4,11 +4,11 @@ import {
     Entity,
     JoinColumn,
     ManyToOne,
+    OneToMany,
     OneToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
-import { ReviewStatistics } from "../../statistics/statistics-review/entity/review-statistics.entity";
 import { Profile } from "../../profile/entities/profile.entity";
 import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
@@ -22,20 +22,12 @@ export class Review {
     @Column({ nullable: false })
     rating: number;
 
-    @OneToOne(() => Game, {
+    @ManyToOne(() => Game, {
         nullable: false,
     })
-    @JoinColumn()
     game: Game;
 
-    @OneToOne(
-        () => ReviewStatistics,
-        (reviewStatistics) => reviewStatistics.review,
-    )
-    @JoinColumn()
-    reviewStatistics: ReviewStatistics;
-
-    @OneToOne(
+    @OneToMany(
         () => CollectionEntry,
         (collectionEntry) => collectionEntry.review,
     )
