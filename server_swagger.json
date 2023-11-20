@@ -668,7 +668,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GameRepositoryRequestDto"
+                "$ref": "#/components/schemas/GameRepositoryFindOneDto"
               }
             }
           }
@@ -680,6 +680,37 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Game"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "game-repository"
+        ]
+      }
+    },
+    "/v1/game/repository": {
+      "post": {
+        "operationId": "GameRepositoryController_findAllByIds",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameRepositoryFindAllDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameRepositoryPaginatedResponseDto"
                 }
               }
             }
@@ -727,19 +758,18 @@
               "default": 20,
               "type": "number"
             }
-          },
-          {
-            "name": "orderBy",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsPaginatedResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -843,9 +873,6 @@
             "default": 20
           },
           "orderBy": {
-            "type": "string"
-          },
-          "orderDirection": {
             "type": "object"
           },
           "relations": {
@@ -2228,9 +2255,6 @@
             "default": 20
           },
           "orderBy": {
-            "type": "string"
-          },
-          "orderDirection": {
             "type": "object"
           },
           "relations": {
@@ -2303,9 +2327,6 @@
             "default": 20
           },
           "orderBy": {
-            "type": "string"
-          },
-          "orderDirection": {
             "type": "object"
           },
           "relations": {
@@ -2317,13 +2338,16 @@
         "type": "object",
         "properties": {
           "totalItems": {
-            "type": "number"
+            "type": "number",
+            "description": "Total number of items available for the current query"
           },
           "totalPages": {
-            "type": "number"
+            "type": "number",
+            "description": "Total number of pages available for the current query"
           },
           "hasNextPage": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "If this query allows for a next page"
           }
         },
         "required": [
@@ -2422,9 +2446,6 @@
             "default": 20
           },
           "orderBy": {
-            "type": "string"
-          },
-          "orderDirection": {
             "type": "object"
           },
           "relations": {
@@ -2476,7 +2497,7 @@
           "games"
         ]
       },
-      "GameRepositoryRequestDto": {
+      "GameRepositoryFindOneDto": {
         "type": "object",
         "properties": {
           "search": {
@@ -2491,15 +2512,176 @@
             "default": 20
           },
           "orderBy": {
-            "type": "string"
-          },
-          "orderDirection": {
             "type": "object"
           },
           "relations": {
             "type": "object"
           }
         }
+      },
+      "GameRepositoryFindAllDto": {
+        "type": "object",
+        "properties": {
+          "gameIds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "search": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "number",
+            "default": 0
+          },
+          "limit": {
+            "type": "number",
+            "default": 20
+          },
+          "orderBy": {
+            "type": "object"
+          },
+          "relations": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "gameIds"
+        ]
+      },
+      "GameRepositoryPaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "UserView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "statistics": {
+            "$ref": "#/components/schemas/Statistics"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "statistics",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UserLike": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "statistics": {
+            "$ref": "#/components/schemas/Statistics"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "profile",
+          "statistics",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Statistics": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "Always stored as string. May sometimes refer to a number ID."
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "game",
+              "review",
+              "activity",
+              "collection"
+            ]
+          },
+          "viewsCount": {
+            "type": "number"
+          },
+          "likesCount": {
+            "type": "number"
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserView"
+            }
+          },
+          "likes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserLike"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "sourceId",
+          "sourceType",
+          "viewsCount",
+          "likesCount",
+          "views",
+          "likes"
+        ]
+      },
+      "StatisticsPaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statistics"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "StatisticsActionDto": {
         "type": "object",

@@ -10,21 +10,10 @@ import { FindManyOptions, FindOptionsOrder } from "typeorm";
 export function buildBaseFindOptions<T>(
     dto?: BaseFindDto<T>,
 ): FindManyOptions<T> {
-    const findOptions: FindManyOptions<T> = {};
-
-    findOptions.take = dto?.limit || 20;
-    findOptions.skip = dto?.offset || 0;
-
-    // TODO: Add multiple orderBy support
-    if (dto?.orderBy) {
-        findOptions.order = {
-            [dto.orderBy]: dto.orderDirection || "DESC",
-        } as FindOptionsOrder<T>;
-    }
-
-    if (dto?.relations) {
-        findOptions.relations = dto.relations;
-    }
-
-    return findOptions;
+    return {
+        take: dto?.limit || 20,
+        skip: dto?.offset || 0,
+        order: dto?.orderBy,
+        relations: dto?.relations,
+    };
 }

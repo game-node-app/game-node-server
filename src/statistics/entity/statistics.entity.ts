@@ -14,14 +14,14 @@ import { Activity } from "../../activities/activities-repository/entities/activi
 import { UserView } from "./user-view.entity";
 
 @Entity()
-export class Statistics<T = any> {
+export class Statistics {
     @PrimaryGeneratedColumn()
     id: number;
     /**
      * Always stored as string. May sometimes refer to a number ID.
      */
     @Column("varchar", { nullable: false, unique: true })
-    sourceId: string | number;
+    sourceId: string;
     @Column({
         nullable: false,
         type: "varchar",

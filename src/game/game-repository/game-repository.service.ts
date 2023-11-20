@@ -15,12 +15,15 @@ import { GameMode } from "./entities/game-mode.entity";
 import { GameGenre } from "./entities/game-genre.entity";
 import { GameKeyword } from "./entities/game-keyword.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
-import { GameRepositoryRequestDto } from "./dto/game-repository-request.dto";
+import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 import { GameInvolvedCompany } from "./entities/game-involved-company.entity";
 import { GameTheme } from "./entities/game-theme.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameEngine } from "./entities/game-engine.entity";
 import { GameCompany } from "./entities/game-company.entity";
+import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
+import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 
 @Injectable()
 export class GameRepositoryService {
@@ -88,7 +91,7 @@ export class GameRepositoryService {
 
     async findOneByIdWithDto(
         id: number,
-        dto?: GameRepositoryRequestDto,
+        dto?: GameRepositoryFindOneDto,
     ): Promise<Game> {
         const result = await this.gameRepository.findOne({
             where: {
@@ -109,8 +112,13 @@ export class GameRepositoryService {
         });
     }
 
-    async findAllByIds(ids: number[]): Promise<Game[]> {
-        return this.gameRepository.find({
+    async findAllByIds(
+        ids: number[],
+        dto?: GameRepositoryFindAllDto,
+    ): Promise<TPaginationData<Game>> {
+        const findOptions = buildBaseFindOptions<Game>(dto);
+        return this.gameRepository.findAndCount({
+            ...findOptions,
             where: {
                 id: In(ids),
             },

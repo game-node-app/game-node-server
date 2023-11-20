@@ -17,7 +17,8 @@ export class LibrariesService {
      *
      * This method should not be called from a controller. Use findOneByIdWithPermissions instead.
      * @param userId
-     * @param handleUnitialized
+     * @param handleUninitialized
+     * @param dto
      */
     async findOneById(
         userId: string,
@@ -47,12 +48,14 @@ export class LibrariesService {
      * @param targetUserId
      * @param dto
      */
-    async findOneByIdWithPermissions(
-        userId: string,
-        targetUserId: string,
-        dto?: GetCollectionEntriesDto,
-    ) {
-        const library = await this.findOneById(targetUserId, false, dto);
+    async findOneByIdWithPermissions(userId: string, targetUserId: string) {
+        const library = await this.findOneById(targetUserId, false, {
+            relations: {
+                collections: {
+                    library: true,
+                },
+            },
+        });
 
         if (!library) {
             throw new HttpException("Library not found.", HttpStatus.NOT_FOUND);

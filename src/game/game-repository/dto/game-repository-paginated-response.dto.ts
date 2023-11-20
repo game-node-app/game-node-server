@@ -1,7 +1,6 @@
 import { Game } from "../entities/game.entity";
-import { PaginationInfo } from "../../../utils/pagination/pagination-response.dto";
+import { withPaginationResponse } from "../../../utils/pagination/buildPaginationResponse";
 
-export class GameRepositoryPaginatedResponseDto {
-    data: Game[];
-    pagination: PaginationInfo;
-}
+export class GameRepositoryPaginatedResponseDto extends withPaginationResponse(
+    Game,
+) {}

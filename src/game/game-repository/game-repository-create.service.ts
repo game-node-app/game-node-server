@@ -321,6 +321,20 @@ export class GameRepositoryCreateService {
                 }
             }
         }
+        if (game.gameModes) {
+            for (const mode of game.gameModes) {
+                await this.gameModeRepository.upsert(mode, ["id"]);
+                try {
+                    await this.gameThemeRepository
+                        .createQueryBuilder()
+                        .relation(Game, "gameModes")
+                        .of(game)
+                        .add(mode);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
         if (game.playerPerspectives) {
             for (const playerPerspective of game.playerPerspectives) {
                 await this.gamePlayerPerspectiveRepository.upsert(
