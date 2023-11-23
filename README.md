@@ -41,9 +41,9 @@ Migrations are dangerous and should be run manually, after checking each generat
 
 You can attach to any running gamenode container and run the migrations manually:
 ```bash
-$ docker exec -it gamenode_gamenode_1 bash # Replace gamenode_gamenode_1 with your container name
+$ docker exec -it gamenode_server_1 bash # Replace gamenode_server_1 with your container name
 $ yarn typeorm:migration:generate
-# ... manually check the generated migration file
+# ...manually check the generated migration file (use Vim/Nano or docker cp to host)
 $ yarn typeorm:migration:run
 # No need to restart the container, changes are made directly to MySQL.
 ```
@@ -89,19 +89,8 @@ We use TypeORM to handle everything related to database. You only need to run mi
 #### Important
 ALWAYS check your migrations before running them. Typeorm may sometimes drop important tables and columns.
 
-## IGDB
-IGDB is used to fetch game data.  
-It's mandatory to have a Twitch Developer account to use its services.  
-You can create one here: https://dev.twitch.tv/console/apps/create  
-
-Use the client id and secret to fill the IGDB parameters in your `.env` file.
-```dotenv
-TWITCH_CLIENT_ID=your_twitch_client_id
-TWITCH_CLIENT_SECRET=your_twitch_client_secret
-```
-
-The `IGDBAuthService` on the `igdb` module will fetch a new access token (which is a Bearer token) periodically, and store it in your Redis instance.  
-Make sure it's secure.
+### IGDB
+GameNode's games are powered by IGDB metadata. To use it, you need to set up [game-node-sync](https://github.com/game-node-app/game-node-sync).
 
 
 ## Running the app
