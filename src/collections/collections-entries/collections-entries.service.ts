@@ -16,15 +16,20 @@ import {
 } from "typeorm";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
-import { GetCollectionEntriesDto } from "./dto/get-collection-entries.dto";
+import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { Activity } from "../../activities/activities-repository/entities/activity.entity";
 import { ActivityType } from "../../activities/activities-queue/activities-queue.constants";
 import { ReviewsService } from "../../reviews/reviews.service";
-import { Review } from "../../reviews/entities/review.entity";
 
 @Injectable()
 export class CollectionsEntriesService {
+    private readonly relations: FindOptionsRelations<CollectionEntry> = {
+        collection: true,
+        review: true,
+        game: true,
+        ownedPlatforms: true,
+    };
     constructor(
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
@@ -47,11 +52,7 @@ export class CollectionsEntriesService {
      * @param gameId
      * @param dto
      */
-    async findAllByUserIdAndGameId(
-        userId: string,
-        gameId: number,
-        dto?: GetCollectionEntriesDto,
-    ) {
+    async findAllByUserIdAndGameId(userId: string, gameId: number) {
         return await this.collectionEntriesRepository.find({
             where: {
                 collection: {
@@ -63,16 +64,12 @@ export class CollectionsEntriesService {
                     id: gameId,
                 },
             },
-            relations: dto?.relations,
+            relations: this.relations,
         });
     }
 
-    async findAllByUserIdAndGameIdOrFail(
-        userId: string,
-        gameId: number,
-        dto?: GetCollectionEntriesDto,
-    ) {
-        const entry = await this.findAllByUserIdAndGameId(userId, gameId, dto);
+    async findAllByUserIdAndGameIdOrFail(userId: string, gameId: number) {
+        const entry = await this.findAllByUserIdAndGameId(userId, gameId);
         if (!entry) {
             throw new HttpException(
                 "Collection entry not found.",
@@ -84,7 +81,7 @@ export class CollectionsEntriesService {
 
     async findAllByIdIn(
         collectionEntryIds: string[],
-        dto?: GetCollectionEntriesDto,
+        dto?: FindCollectionEntriesDto,
     ) {
         const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
         return await this.collectionEntriesRepository.find({
@@ -98,7 +95,7 @@ export class CollectionsEntriesService {
     async findAllByCollectionId(
         userId: string,
         collectionId: string,
-        dto?: GetCollectionEntriesDto,
+        dto?: FindCollectionEntriesDto,
     ) {
         const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
 
@@ -118,6 +115,7 @@ export class CollectionsEntriesService {
                     },
                 ],
             },
+            relations: this.relations,
         });
         return results;
     }
@@ -223,6 +221,7 @@ export class CollectionsEntriesService {
                 ownedPlatforms: platformIds.map((platformId) => ({
                     id: platformId,
                 })),
+                isFavorite,
             });
 
             const activity: DeepPartial<Activity> = {
@@ -261,11 +260,19 @@ export class CollectionsEntriesService {
     /**
      * Should be called when a review is to be removed.
      * @param userId
-     * @param gameId
      * @param reviewId
      */
-    async detachReview(userId: string, gameId: number) {
-        const entries = await this.findAllByUserIdAndGameId(userId, gameId);
+    async detachReview(userId: string, reviewId: string) {
+        const entries = await this.collectionEntriesRepository.find({
+            where: {
+                collection: {
+                    library: {
+                        userId,
+                    },
+                },
+                reviewId: reviewId,
+            },
+        });
         if (entries == undefined || entries.length === 0) {
             return;
         }
@@ -303,26 +310,47 @@ export class CollectionsEntriesService {
         const entities = await this.findAllByUserIdAndGameIdOrFail(
             userId,
             gameId,
-            {
-                relations: {
-                    ownedPlatforms: true,
-                },
-            },
         );
         for (const entity of entities) {
-            if (entity.reviewId) {
-                /**
-                 * This automatically calls detachReview()!
-                 */
-                this.reviewsService.delete(userId, gameId, entity.reviewId);
-            }
-            const queryBuilder =
-                this.collectionEntriesRepository.createQueryBuilder();
-            await queryBuilder
-                .relation(CollectionEntry, "ownedPlatforms")
-                .of(entity)
-                .remove(entity.ownedPlatforms);
-            await this.collectionEntriesRepository.delete(entity.id);
+            await this.delete(userId, entity.id);
         }
+    }
+
+    /**
+     * This method should not be exposed directly in a controller.
+     * @param userId
+     * @param entryId
+     */
+    async delete(userId: string, entryId: string) {
+        const entry = await this.collectionEntriesRepository.findOne({
+            where: {
+                id: entryId,
+                collection: {
+                    library: {
+                        userId,
+                    },
+                },
+            },
+            relations: {
+                review: true,
+                ownedPlatforms: true,
+            },
+        });
+        if (!entry) {
+            throw new HttpException("Entry not found.", HttpStatus.NOT_FOUND);
+        }
+
+        if (entry.review) {
+            this.reviewsService.delete(userId, entry.review.id);
+        }
+
+        const queryBuilder =
+            this.collectionEntriesRepository.createQueryBuilder();
+        await queryBuilder
+            .relation(CollectionEntry, "ownedPlatforms")
+            .of(entry)
+            .remove(entry.ownedPlatforms);
+
+        return await this.collectionEntriesRepository.delete(entry.id);
     }
 }

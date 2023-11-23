@@ -37,6 +37,4 @@ export class BaseFindDto<T> {
     limit?: number = 20;
     @IsOptional()
     orderBy?: FindOptionsOrder<T>;
-    @IsOptional()
-    relations?: FindOptionsRelations<T>;
 }

@@ -1,5 +1,5 @@
 import { BaseFindDto } from "./base-find.dto";
-import { FindManyOptions, FindOptionsOrder } from "typeorm";
+import { FindManyOptions } from "typeorm";
 
 /**
  * Shorthand function to build find many options based on the base find options dto.
@@ -14,6 +14,5 @@ export function buildBaseFindOptions<T>(
         take: dto?.limit || 20,
         skip: dto?.offset || 0,
         order: dto?.orderBy,
-        relations: dto?.relations,
     };
 }

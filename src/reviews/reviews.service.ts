@@ -1,6 +1,5 @@
 import { forwardRef, HttpException, HttpStatus, Inject } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
-import { UpdateReviewDto } from "./dto/update-review.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Review } from "./entities/review.entity";
 import { FindOptionsRelations, In, Repository } from "typeorm";
@@ -17,6 +16,7 @@ export class ReviewsService {
     private readonly badWordsFilter = new Filter();
     private relations: FindOptionsRelations<Review> = {
         profile: true,
+        collectionEntry: true,
     };
 
     constructor(
@@ -71,7 +71,7 @@ export class ReviewsService {
                     id: gameId,
                 },
             },
-            relations: dto?.relations,
+            relations: this.relations,
         });
     }
 
@@ -111,7 +111,11 @@ export class ReviewsService {
                 possibleExistingReview,
                 createReviewDto,
             );
-            await this.reviewsRepository.update(updatedEntry.id, updatedEntry);
+            await this.reviewsRepository.update(updatedEntry.id, {
+                id: updatedEntry.id,
+                content: updatedEntry.content,
+                rating: updatedEntry.rating,
+            });
             return;
         }
 
@@ -139,15 +143,29 @@ export class ReviewsService {
         );
     }
 
-    async delete(userId: string, gameId: number, reviewId: string) {
-        await this.collectionEntriesService.detachReview(userId, gameId);
+    async delete(userId: string, reviewId: string) {
+        const review = await this.reviewsRepository.findOne({
+            where: {
+                id: reviewId,
+                profile: {
+                    userId,
+                },
+            },
+            relations: {
+                collectionEntry: true,
+            },
+        });
+        if (review == undefined) {
+            throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
+        }
+        if (review.collectionEntry && review.collectionEntry.length > 0) {
+            await this.collectionEntriesService.detachReview(userId, reviewId);
+        }
+
         await this.reviewsRepository.delete({
             id: reviewId,
             profile: {
                 userId,
-            },
-            game: {
-                id: gameId,
             },
         });
     }

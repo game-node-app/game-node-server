@@ -7,12 +7,12 @@ import {
     Post,
     UseInterceptors,
 } from "@nestjs/common";
-import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 import { GameRepositoryService } from "./game-repository.service";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
 import { GameRepositoryPaginatedResponseDto } from "./dto/game-repository-paginated-response.dto";
+import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 
 @Controller("game/repository")
 @ApiTags("game-repository")
@@ -42,7 +42,7 @@ export class GameRepositoryController {
         @Param("id") id: number,
         @Body() dto?: GameRepositoryFindOneDto,
     ) {
-        return this.gameRepositoryService.findOneByIdWithDto(id, dto);
+        return this.gameRepositoryService.findOneById(id, dto);
     }
 
     @Post()
@@ -52,6 +52,6 @@ export class GameRepositoryController {
     })
     @HttpCode(200)
     async findAllByIds(@Body() dto: GameRepositoryFindAllDto) {
-        return await this.gameRepositoryService.findAllByIds(dto.gameIds, dto);
+        return await this.gameRepositoryService.findAllByIds(dto);
     }
 }

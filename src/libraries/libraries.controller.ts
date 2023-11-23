@@ -1,14 +1,11 @@
 import {
     Controller,
-    Get,
     Post,
     Body,
-    Patch,
     Param,
-    Delete,
     UseGuards,
     HttpCode,
-    Query,
+    Get,
 } from "@nestjs/common";
 import { LibrariesService } from "./libraries.service";
 import { AuthGuard } from "../auth/auth.guard";
@@ -25,36 +22,33 @@ import { Public } from "../auth/public.decorator";
 export class LibrariesController {
     constructor(private readonly librariesService: LibrariesService) {}
 
-    @Post()
+    @Get()
     @HttpCode(200)
     @ApiProduces("application/json")
     @ApiResponse({
         type: Library,
         status: 200,
     })
-    async findOwn(
-        @Session() session: SessionContainer,
-        @Body() dto: GetLibraryDto,
-    ): Promise<Library> {
+    async findOwn(@Session() session: SessionContainer): Promise<Library> {
         const library = await this.librariesService.findOneById(
             session.getUserId(),
             true,
-            dto,
+            {
+                collections: true,
+            },
         );
         return library!;
     }
 
-    @Post(":id")
+    @Get(":id")
     @Public()
     async findOneByIdWithPermissions(
         @Session() session: SessionContainer,
         @Param("id") id: string,
-        @Body() dto: GetLibraryDto,
     ) {
         return this.librariesService.findOneByIdWithPermissions(
             session.getUserId(),
             id,
-            dto,
         );
     }
 }

@@ -8,23 +8,35 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- migrated to a single statistics entity model">
-      <change afterPath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-find-all.dto.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/statistics/dto/statistics-paginated-response.dto.ts" afterDir="false" />
+    <list default="true" id="cb007555-e4ab-46b9-9166-5391d40f3501" name="Changes" comment="- latest">
+      <change afterPath="$PROJECT_DIR$/src/collections/collections-entries/dto/find-collection-entries.dto.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/statistics/dto/StatisticsEntity.dto.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server_swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/server_swagger.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-paginated-response.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-paginated-response.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-request.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-find-one.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository-create.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/auth/auth.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/dto/collection-entries-paginated-response.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/dto/collection-entries-paginated-response.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/dto/get-collection-entries.dto.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/entities/collection-entry.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/entities/collection-entry.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-find-all.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-find-all.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-find-one.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/dto/game-repository-find-one.dto.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/game/game-repository/game-repository.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/libraries/libraries.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/libraries/libraries.controller.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/libraries/libraries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/libraries/libraries.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/statistics/dto/find-statistics-response.dto.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/statistics/entity/statistics.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/entity/statistics.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/dto/find-review.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/dto/find-review.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/entities/review.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/entities/review.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/dto/find-statistics.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/dto/find-statistics.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/statistics/statistics.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/statistics/statistics.service.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/utils/base-find.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/base-find.dto.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/utils/buildBaseFindOptions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/buildBaseFindOptions.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/utils/pagination/buildPaginationResponse.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/pagination/buildPaginationResponse.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/utils/pagination/pagination-response.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/pagination/pagination-response.dto.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,6 +46,7 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
+        <option value="TypeScript JSX File" />
         <option value="TypeScript File" />
       </list>
     </option>
@@ -88,7 +101,7 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+    <option name="selectedTabId" value="ProjectErrors" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
@@ -102,6 +115,8 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ASKED_ADD_EXTERNAL_FILES": "true",
+    "Notification.DisplayName-DoNotAsk-JavaScript: Code Vision Performance": "JavaScript: code vision performance watcher",
+    "Notification.DoNotAsk-JavaScript: Code Vision Performance": "true",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
@@ -111,7 +126,7 @@
     "database.data.extractors.current.id": "JSON-Groovy.json.groovy",
     "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
-    "last_opened_file_path": "/home/lamarck/Projects/Go/game-node-search/manticore.conf",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-web",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -273,10 +288,10 @@
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Docker.game-node-search/docker-compose.prod.yml: Compose Deployment" />
         <item itemvalue="npm.typeorm:migration:run" />
         <item itemvalue="npm.typeorm:migration:generate" />
         <item itemvalue="HTTP Request.generated-requests | #1" />
-        <item itemvalue="Docker.game-node-search/docker-compose.prod.yml: Compose Deployment" />
         <item itemvalue="Docker.docker-compose.prod.yml: Compose Deployment" />
       </list>
     </recent_temporary>
@@ -433,7 +448,11 @@
       <workItem from="1700249168818" duration="12059000" />
       <workItem from="1700327245010" duration="17188000" />
       <workItem from="1700365541251" duration="5254000" />
-      <workItem from="1700400320569" duration="13973000" />
+      <workItem from="1700400320569" duration="14020000" />
+      <workItem from="1700520187799" duration="1655000" />
+      <workItem from="1700591132528" duration="24000" />
+      <workItem from="1700597467134" duration="7344000" />
+      <workItem from="1700675873369" duration="17791000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -675,7 +694,15 @@
       <option name="project" value="LOCAL" />
       <updated>1700370532802</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="- latest">
+      <option name="closed" value="true" />
+      <created>1700454484635</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1700454484635</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -766,16 +793,28 @@
     <MESSAGE value="Latest" />
     <MESSAGE value="- updated lots of stuff" />
     <MESSAGE value="- game/game-search moved to it's own service" />
-    <MESSAGE value="- latest" />
     <MESSAGE value="- update game related entities to reflect IGDB data" />
     <MESSAGE value="- initial work on reviews-statistics module" />
     <MESSAGE value="- migrated to a single statistics entity model" />
-    <option name="LAST_COMMIT_MESSAGE" value="- migrated to a single statistics entity model" />
+    <MESSAGE value="- latest" />
+    <option name="LAST_COMMIT_MESSAGE" value="- latest" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="VgoProject">
     <integration-enabled>false</integration-enabled>
     <settings-migrated>true</settings-migrated>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/src/utils/pagination/buildPaginationResponse.ts</url>
+          <line>46</line>
+          <properties lambdaOrdinal="-1" />
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

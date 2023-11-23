@@ -2,19 +2,9 @@
   "openapi": "3.0.0",
   "paths": {
     "/v1/libraries": {
-      "post": {
+      "get": {
         "operationId": "LibrariesController_findOwn",
         "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetLibraryDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "",
@@ -33,7 +23,7 @@
       }
     },
     "/v1/libraries/{id}": {
-      "post": {
+      "get": {
         "operationId": "LibrariesController_findOneByIdWithPermissions",
         "parameters": [
           {
@@ -45,18 +35,8 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetLibraryDto"
-              }
-            }
-          }
-        },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -73,7 +53,7 @@
       }
     },
     "/v1/collections/{id}": {
-      "post": {
+      "get": {
         "operationId": "CollectionsController_findOneByIdWithPermissions",
         "summary": "",
         "description": "Returns a collection which the user has access to\n\n(Either its own collection or a public one)",
@@ -87,18 +67,8 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetCollectionDto"
-              }
-            }
-          }
-        },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -198,59 +168,14 @@
         "tags": [
           "reviews"
         ]
-      }
-    },
-    "/v1/reviews/game/{id}": {
-      "post": {
-        "operationId": "ReviewsController_findAllByGameId",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FindReviewDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FindReviewPaginatedDto"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "reviews"
-        ]
-      }
-    },
-    "/v1/reviews/profile/{id}": {
+      },
       "get": {
         "operationId": "ReviewsController_findOneByUserIdAndGameId",
         "parameters": [
           {
             "name": "id",
             "required": true,
-            "in": "path",
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -271,6 +196,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/v1/reviews/game/{id}": {
+      "get": {
+        "operationId": "ReviewsController_findAllByGameId",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindReviewPaginatedDto"
                 }
               }
             }
@@ -304,6 +277,27 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewsController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
           }
         },
         "tags": [
@@ -413,7 +407,7 @@
       }
     },
     "/v1/collections-entries/game/{id}": {
-      "post": {
+      "get": {
         "operationId": "CollectionsEntriesController_findOwnEntryByGameId",
         "summary": "",
         "description": "Returns a specific collection entry based on game ID",
@@ -427,16 +421,6 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetCollectionEntriesDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "",
@@ -515,7 +499,7 @@
       }
     },
     "/v1/collections-entries/collection/{id}": {
-      "post": {
+      "get": {
         "operationId": "CollectionsEntriesController_findAllByCollectionId",
         "parameters": [
           {
@@ -525,18 +509,26 @@
             "schema": {
               "type": "string"
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetCollectionEntriesDto"
-              }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
             }
           }
-        },
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -777,6 +769,50 @@
         ]
       }
     },
+    "/v1/statistics": {
+      "get": {
+        "operationId": "StatisticsController_findOne",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "game",
+                "review",
+                "activity",
+                "collection"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsEntityDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
     "/v1/statistics/queue/like": {
       "post": {
         "operationId": "StatisticsQueueController_addLike",
@@ -858,28 +894,6 @@
   "servers": [],
   "components": {
     "schemas": {
-      "GetLibraryDto": {
-        "type": "object",
-        "properties": {
-          "search": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "number",
-            "default": 0
-          },
-          "limit": {
-            "type": "number",
-            "default": 20
-          },
-          "orderBy": {
-            "type": "object"
-          },
-          "relations": {
-            "type": "object"
-          }
-        }
-      },
       "Library": {
         "type": "object",
         "properties": {
@@ -2113,7 +2127,10 @@
             "$ref": "#/components/schemas/Game"
           },
           "collectionEntry": {
-            "$ref": "#/components/schemas/CollectionEntry"
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollectionEntry"
+            }
           },
           "profile": {
             "$ref": "#/components/schemas/Profile"
@@ -2162,6 +2179,9 @@
           "game": {
             "$ref": "#/components/schemas/Game"
           },
+          "gameId": {
+            "type": "number"
+          },
           "ownedPlatforms": {
             "description": "The platforms on which the user owns the game.",
             "type": "array",
@@ -2186,6 +2206,7 @@
           "reviewId",
           "collection",
           "game",
+          "gameId",
           "ownedPlatforms",
           "isFavorite",
           "createdAt",
@@ -2240,28 +2261,6 @@
           "updatedAt"
         ]
       },
-      "GetCollectionDto": {
-        "type": "object",
-        "properties": {
-          "search": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "number",
-            "default": 0
-          },
-          "limit": {
-            "type": "number",
-            "default": 20
-          },
-          "orderBy": {
-            "type": "object"
-          },
-          "relations": {
-            "type": "object"
-          }
-        }
-      },
       "CreateCollectionDto": {
         "type": "object",
         "properties": {
@@ -2311,28 +2310,6 @@
           "content",
           "rating"
         ]
-      },
-      "FindReviewDto": {
-        "type": "object",
-        "properties": {
-          "search": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "number",
-            "default": 0
-          },
-          "limit": {
-            "type": "number",
-            "default": 20
-          },
-          "orderBy": {
-            "type": "object"
-          },
-          "relations": {
-            "type": "object"
-          }
-        }
       },
       "PaginationInfo": {
         "type": "object",
@@ -2431,28 +2408,6 @@
           "isFavorite"
         ]
       },
-      "GetCollectionEntriesDto": {
-        "type": "object",
-        "properties": {
-          "search": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "number",
-            "default": 0
-          },
-          "limit": {
-            "type": "number",
-            "default": 20
-          },
-          "orderBy": {
-            "type": "object"
-          },
-          "relations": {
-            "type": "object"
-          }
-        }
-      },
       "FavoriteStatusCollectionEntryDto": {
         "type": "object",
         "properties": {
@@ -2500,20 +2455,6 @@
       "GameRepositoryFindOneDto": {
         "type": "object",
         "properties": {
-          "search": {
-            "type": "string"
-          },
-          "offset": {
-            "type": "number",
-            "default": 0
-          },
-          "limit": {
-            "type": "number",
-            "default": 20
-          },
-          "orderBy": {
-            "type": "object"
-          },
           "relations": {
             "type": "object"
           }
@@ -2528,6 +2469,9 @@
               "type": "number"
             }
           },
+          "relations": {
+            "type": "object"
+          },
           "search": {
             "type": "string"
           },
@@ -2540,9 +2484,6 @@
             "default": 20
           },
           "orderBy": {
-            "type": "object"
-          },
-          "relations": {
             "type": "object"
           }
         },
@@ -2681,6 +2622,48 @@
         },
         "required": [
           "data"
+        ]
+      },
+      "StatisticsEntityDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "Always stored as string. May sometimes refer to a number ID."
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "game",
+              "review",
+              "activity",
+              "collection"
+            ]
+          },
+          "viewsCount": {
+            "type": "number"
+          },
+          "likesCount": {
+            "type": "number"
+          },
+          "isLiked": {
+            "type": "boolean"
+          },
+          "isViewed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "sourceId",
+          "sourceType",
+          "viewsCount",
+          "likesCount",
+          "isLiked",
+          "isViewed"
         ]
       },
       "StatisticsActionDto": {

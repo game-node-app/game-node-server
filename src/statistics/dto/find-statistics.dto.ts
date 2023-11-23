@@ -4,7 +4,6 @@ import { StatisticsSourceType } from "../statistics.constants";
 import { OmitType } from "@nestjs/swagger";
 
 export class FindStatisticsDto extends OmitType(BaseFindDto<Statistics>, [
-    "relations",
     "search",
 ]) {
     sourceType: StatisticsSourceType;

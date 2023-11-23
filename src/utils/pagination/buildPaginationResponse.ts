@@ -24,8 +24,8 @@ export default function buildPaginationResponse<T>(
         typeof data[1] === "number"
     ) {
         const [results, total] = data;
-        const limit = dto?.offset || 20;
-        const offset = dto?.limit || 0;
+        const limit = dto?.limit || 20;
+        const offset = dto?.offset || 0;
 
         let totalPages = 1;
         if (total > 0) {

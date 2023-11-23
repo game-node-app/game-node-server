@@ -7,6 +7,7 @@ import {
     Query,
     UseGuards,
     UseInterceptors,
+    Delete,
 } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { Session } from "../auth/session.decorator";
@@ -37,7 +38,7 @@ export class ReviewsController {
         );
     }
 
-    @Post("game/:id")
+    @Get("game/:id")
     @UseInterceptors(PaginationInterceptor)
     @Public()
     @ApiOkResponse({
@@ -46,18 +47,18 @@ export class ReviewsController {
     })
     async findAllByGameId(
         @Param("id") gameId: number,
-        @Body() dto?: FindReviewDto,
+        @Query() dto?: FindReviewDto,
     ) {
         return this.reviewsService.findAllByGameId(gameId, dto);
     }
 
-    @Get("profile/:id")
+    @Get()
     @ApiOkResponse({
         type: Review,
         status: 200,
     })
     async findOneByUserIdAndGameId(
-        @Param("id") userId: string,
+        @Query("id") userId: string,
         @Query("gameId") gameId: number,
     ) {
         return await this.reviewsService.findOneByUserIdAndGameId(
@@ -69,5 +70,13 @@ export class ReviewsController {
     @Get(":id")
     async findOneById(@Param("id") id: string) {
         return this.reviewsService.findOneById(id);
+    }
+
+    @Delete(":id")
+    async delete(
+        @Session() session: SessionContainer,
+        @Param("id") reviewId: string,
+    ) {
+        return await this.reviewsService.delete(session.getUserId(), reviewId);
     }
 }

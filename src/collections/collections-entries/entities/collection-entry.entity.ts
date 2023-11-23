@@ -47,6 +47,9 @@ export class CollectionEntry {
     })
     game: Game;
 
+    @Column({ nullable: false })
+    gameId: number;
+
     /**
      * The platforms on which the user owns the game.
      */

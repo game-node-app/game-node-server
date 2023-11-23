@@ -34,7 +34,7 @@ export class AuthService {
             recipeList: [
                 jwt.init(),
                 ThirdPartyPasswordless.init({
-                    flowType: "MAGIC_LINK",
+                    flowType: "USER_INPUT_CODE",
                     contactMethod: "EMAIL",
                 }),
                 UserRoles.init(),

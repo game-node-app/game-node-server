@@ -15,6 +15,11 @@ import {
 import { FindStatisticsDto } from "./dto/find-statistics.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
+import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dto";
+import {
+    StatisticsEntityDto,
+    StatisticsStatus,
+} from "./dto/StatisticsEntity.dto";
 
 @Injectable()
 export class StatisticsService {
@@ -26,6 +31,15 @@ export class StatisticsService {
         @InjectRepository(UserView)
         private readonly userViewRepository: Repository<UserView>,
     ) {}
+
+    async initialize(data: StatisticsActionDto) {
+        return await this.statisticsRepository.save({
+            sourceId: data.sourceId,
+            sourceType: data.sourceType,
+            viewsCount: 0,
+            likesCount: 0,
+        });
+    }
 
     async handleLike(data: StatisticsLikeAction) {
         const { sourceId, sourceType, userId, action } = data;
@@ -56,11 +70,7 @@ export class StatisticsService {
                     HttpStatus.NOT_ACCEPTABLE,
                 );
             }
-            statisticsEntity = await this.statisticsRepository.save({
-                sourceId,
-                sourceType,
-                likesCount: 0,
-            });
+            statisticsEntity = await this.initialize(data);
         }
 
         if (action === StatisticsActionType.INCREMENT) {
@@ -105,11 +115,7 @@ export class StatisticsService {
             sourceId,
         });
         if (!statisticsEntity) {
-            statisticsEntity = await this.statisticsRepository.save({
-                sourceId,
-                sourceType,
-                viewsCount: 0,
-            });
+            statisticsEntity = await this.initialize(data);
         }
         await this.statisticsRepository.increment(
             {
@@ -191,5 +197,61 @@ export class StatisticsService {
                 },
             });
         return [lastMonthStatistics, lastMonthCount];
+    }
+
+    async findStatus(
+        statisticsId: number,
+        userId?: string,
+    ): Promise<StatisticsStatus> {
+        if (userId) {
+            return {
+                isLiked: await this.userLikeRepository.exist({
+                    where: {
+                        statistics: {
+                            id: statisticsId,
+                        },
+                        profile: {
+                            userId,
+                        },
+                    },
+                }),
+                isViewed: await this.userViewRepository.exist({
+                    where: {
+                        statistics: {
+                            id: statisticsId,
+                        },
+                        profile: {
+                            userId,
+                        },
+                    },
+                }),
+            };
+        }
+
+        return {
+            isLiked: false,
+            isViewed: false,
+        };
+    }
+
+    async findOne(
+        dto: StatisticsActionDto,
+        userId?: string,
+    ): Promise<StatisticsEntityDto> {
+        const statistics = await this.statisticsRepository.findOne({
+            where: {
+                sourceType: dto.sourceType,
+                sourceId: dto.sourceId,
+            },
+        });
+        if (!statistics) {
+            throw new HttpException("No entry found.", HttpStatus.NOT_FOUND);
+        }
+        const statisticsStatus = await this.findStatus(statistics.id, userId);
+
+        return {
+            ...statistics,
+            ...statisticsStatus,
+        };
     }
 }

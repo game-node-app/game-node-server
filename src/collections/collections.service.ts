@@ -5,13 +5,13 @@ import { FindOptionsRelations, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
-import { GetCollectionEntriesDto } from "./collections-entries/dto/get-collection-entries.dto";
+import { FindCollectionEntriesDto } from "./collections-entries/dto/find-collection-entries.dto";
 import { GetCollectionDto } from "./dto/get-collection-dto";
 
 @Injectable()
 export class CollectionsService {
     private relations: FindOptionsRelations<Collection> = {
-        entries: true,
+        entries: false,
         library: true,
     };
 
@@ -21,20 +21,16 @@ export class CollectionsService {
         private readonly librariesService: LibrariesService,
     ) {}
 
-    async findOneById(id: string, dto?: GetCollectionEntriesDto) {
+    async findOneById(id: string) {
         return this.collectionsRepository.findOne({
             where: {
                 id,
             },
-            relations: dto?.relations,
+            relations: this.relations,
         });
     }
 
-    async findOneByIdWithPermissions(
-        userId: string,
-        collectionId: string,
-        dto?: GetCollectionEntriesDto,
-    ) {
+    async findOneByIdWithPermissions(userId: string, collectionId: string) {
         const collection = await this.collectionsRepository.findOne({
             where: [
                 {
@@ -48,7 +44,7 @@ export class CollectionsService {
                     },
                 },
             ],
-            relations: dto?.relations,
+            relations: this.relations,
         });
         if (!collection) {
             throw new HttpException(
@@ -64,12 +60,15 @@ export class CollectionsService {
      * @param id {string}
      * @param dto
      */
-    async findOneByIdOrFail(id: string, dto?: GetCollectionDto) {
+    async findOneByIdOrFail(
+        id: string,
+        relations?: FindOptionsRelations<Collection>,
+    ) {
         const collection = await this.collectionsRepository.findOne({
             where: {
                 id: id,
             },
-            relations: dto?.relations,
+            relations: relations ? relations : this.relations,
         });
         if (!collection) {
             throw new HttpException(
@@ -119,7 +118,16 @@ export class CollectionsService {
         collectionId: string,
         updateCollectionDto: UpdateCollectionDto,
     ) {
-        const collection = await this.findOneByIdOrFail(collectionId);
+        const collection = await this.findOneByIdOrFail(collectionId, {
+            library: true,
+        });
+
+        if (collection.library.userId !== userId) {
+            throw new HttpException(
+                "User is not the owner of the library.",
+                HttpStatus.NOT_ACCEPTABLE,
+            );
+        }
 
         const updatedCollection = this.collectionsRepository.merge(
             collection,

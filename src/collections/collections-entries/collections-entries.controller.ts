@@ -2,11 +2,13 @@ import {
     Body,
     Controller,
     Delete,
+    Get,
     HttpCode,
     HttpException,
     HttpStatus,
     Param,
     Post,
+    Query,
     UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
@@ -16,7 +18,7 @@ import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { AuthGuard } from "../../auth/auth.guard";
-import { GetCollectionEntriesDto } from "./dto/get-collection-entries.dto";
+import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { FavoriteStatusCollectionEntryDto } from "./dto/favorite-status-collection-entry.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
@@ -47,13 +49,12 @@ export class CollectionsEntriesController {
      * @param gameId
      * @param dto
      */
-    @Post("/game/:id")
+    @Get("/game/:id")
     @HttpCode(200)
     @ApiBadRequestResponse({ description: "Invalid query" })
     async findOwnEntryByGameId(
         @Session() session: SessionContainer,
         @Param("id") gameId: number,
-        @Body() dto?: GetCollectionEntriesDto,
     ): Promise<CollectionEntry[]> {
         if (gameId == undefined) {
             throw new HttpException(
@@ -65,7 +66,6 @@ export class CollectionsEntriesController {
         return this.collectionsEntriesService.findAllByUserIdAndGameIdOrFail(
             userId,
             gameId,
-            dto,
         );
     }
 
@@ -97,13 +97,13 @@ export class CollectionsEntriesController {
         );
     }
 
-    @Post("/collection/:id")
+    @Get("/collection/:id")
     @HttpCode(HttpStatus.OK)
     @UseInterceptors(PaginationInterceptor)
     async findAllByCollectionId(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
-        @Body() dto?: GetCollectionEntriesDto,
+        @Query() dto?: FindCollectionEntriesDto,
     ): Promise<CollectionEntriesPaginatedResponseDto> {
         return (await this.collectionsEntriesService.findAllByCollectionId(
             session.getUserId(),

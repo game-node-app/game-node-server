@@ -6,6 +6,7 @@ import {
     UseGuards,
     UseInterceptors,
     Patch,
+    Get,
 } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
@@ -33,17 +34,15 @@ export class CollectionsController {
      * @param collectionId
      * @param dto
      */
-    @Post(":id")
+    @Get(":id")
     @Public()
     async findOneByIdWithPermissions(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
-        @Body() dto?: GetCollectionDto,
     ) {
         return this.collectionsService.findOneByIdWithPermissions(
-            session.getUserId(),
+            session?.getUserId(),
             collectionId,
-            dto,
         );
     }
 

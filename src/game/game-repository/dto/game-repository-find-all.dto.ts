@@ -1,6 +1,7 @@
 import { BaseFindDto } from "../../../utils/base-find.dto";
 import { Game } from "../entities/game.entity";
-import { IsNotEmpty, IsNumber } from "class-validator";
+import { IsNotEmpty, IsNumber, IsObject, IsOptional } from "class-validator";
+import { FindOptionsRelations } from "typeorm";
 
 export class GameRepositoryFindAllDto extends BaseFindDto<Game> {
     @IsNotEmpty()
@@ -14,4 +15,7 @@ export class GameRepositoryFindAllDto extends BaseFindDto<Game> {
         },
     )
     gameIds: number[];
+    @IsOptional()
+    @IsObject()
+    relations?: FindOptionsRelations<Game>;
 }

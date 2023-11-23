@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Library } from "./entities/library.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
-import { GetCollectionEntriesDto } from "../collections/collections-entries/dto/get-collection-entries.dto";
+import { FindCollectionEntriesDto } from "../collections/collections-entries/dto/find-collection-entries.dto";
 import { GetLibraryDto } from "./dto/get-library.dto";
 
 @Injectable()
@@ -18,25 +18,39 @@ export class LibrariesService {
      * This method should not be called from a controller. Use findOneByIdWithPermissions instead.
      * @param userId
      * @param handleUninitialized
-     * @param dto
+     * @param relations
      */
     async findOneById(
         userId: string,
         handleUninitialized = false,
-        dto?: GetLibraryDto,
+        relations?: FindOptionsRelations<Library>,
     ): Promise<Library | null> {
         const library = await this.libraryRepository.findOne({
             where: {
                 userId,
             },
-            relations: dto?.relations,
+            relations: relations,
         });
 
         if (!library && handleUninitialized) {
             await this.handleUninitializedLibrary(userId);
-            return await this.findOneById(userId, false, dto);
+            return await this.findOneById(userId, false, relations);
         }
 
+        return library;
+    }
+
+    async findOneByIdOrFail(
+        userId: string,
+        relations?: FindOptionsRelations<Library>,
+    ) {
+        const library = await this.findOneById(userId, false, relations);
+        if (!library) {
+            throw new HttpException(
+                "No library found for the given ID.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
         return library;
     }
 
@@ -50,10 +64,8 @@ export class LibrariesService {
      */
     async findOneByIdWithPermissions(userId: string, targetUserId: string) {
         const library = await this.findOneById(targetUserId, false, {
-            relations: {
-                collections: {
-                    library: true,
-                },
+            collections: {
+                library: true,
             },
         });
 
