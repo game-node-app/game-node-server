@@ -7,6 +7,7 @@ import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { FindCollectionEntriesDto } from "./collections-entries/dto/find-collection-entries.dto";
 import { GetCollectionDto } from "./dto/get-collection-dto";
+import { CollectionsEntriesService } from "./collections-entries/collections-entries.service";
 
 @Injectable()
 export class CollectionsService {
@@ -19,6 +20,7 @@ export class CollectionsService {
         @InjectRepository(Collection)
         private collectionsRepository: Repository<Collection>,
         private readonly librariesService: LibrariesService,
+        private readonly collectionEntriesService: CollectionsEntriesService,
     ) {}
 
     async findOneById(id: string) {
@@ -143,5 +145,40 @@ export class CollectionsService {
             console.error(e);
             throw new HttpException(e, 500);
         }
+    }
+
+    /**
+     * Removes a collection and it's entities.
+     * @param userId
+     * @param collectionId
+     */
+    async delete(userId: string, collectionId: string) {
+        const collection = await this.collectionsRepository.findOne({
+            where: {
+                library: {
+                    userId,
+                },
+                id: collectionId,
+            },
+            relations: {
+                entries: true,
+            },
+        });
+        if (!collection) {
+            throw new HttpException(
+                "No collection found.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        if (collection.entries && collection.entries.length > 0) {
+            for (const entry of collection.entries) {
+                await this.collectionEntriesService.delete(userId, entry.id);
+            }
+        }
+
+        return await this.collectionsRepository.delete({
+            id: collection.id,
+        });
     }
 }

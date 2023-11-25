@@ -16,7 +16,7 @@ export class ReviewsService {
     private readonly badWordsFilter = new Filter();
     private relations: FindOptionsRelations<Review> = {
         profile: true,
-        collectionEntry: true,
+        collectionEntries: true,
     };
 
     constructor(
@@ -85,11 +85,6 @@ export class ReviewsService {
     }
 
     async createOrUpdate(userId: string, createReviewDto: CreateReviewDto) {
-        const profile = await this.profileService.findOneById(userId);
-        if (!profile) {
-            throw new HttpException("Profile not found.", 404);
-        }
-
         await this.collectionEntriesService.findAllByUserIdAndGameIdOrFail(
             userId,
             createReviewDto.gameId,
@@ -124,16 +119,20 @@ export class ReviewsService {
             game: {
                 id: createReviewDto.gameId,
             },
-            profile,
+            profile: {
+                userId,
+            },
         });
 
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
 
         // Do not await this, as it will block the request
-        this.activitiesQueue.addToQueue({
+        this.activitiesQueue.addActivity({
             type: ActivityType.REVIEW,
             sourceId: insertedEntry.id,
-            profile: profile,
+            profile: {
+                userId,
+            },
         });
 
         await this.collectionEntriesService.attachReview(
@@ -152,14 +151,21 @@ export class ReviewsService {
                 },
             },
             relations: {
-                collectionEntry: true,
+                collectionEntries: true,
             },
         });
         if (review == undefined) {
             throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
         }
-        if (review.collectionEntry && review.collectionEntry.length > 0) {
-            await this.collectionEntriesService.detachReview(userId, reviewId);
+        // Removes review relation from related collection entries before proceeding
+        if (review.collectionEntries && review.collectionEntries.length > 0) {
+            for (const entry of review.collectionEntries) {
+                await this.collectionEntriesService.detachReview(
+                    userId,
+                    entry.id,
+                    reviewId,
+                );
+            }
         }
 
         await this.reviewsRepository.delete({
@@ -168,5 +174,6 @@ export class ReviewsService {
                 userId,
             },
         });
+        this.activitiesQueue.deleteActivity(review.id);
     }
 }

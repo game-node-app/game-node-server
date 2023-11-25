@@ -211,6 +211,12 @@ export class CollectionsEntriesService {
                 continue;
             }
 
+            const relatedReview =
+                await this.reviewsService.findOneByUserIdAndGameId(
+                    userId,
+                    gameId,
+                );
+
             const persistedEntry = await this.collectionEntriesRepository.save({
                 collection: {
                     id: collectionId,
@@ -221,6 +227,8 @@ export class CollectionsEntriesService {
                 ownedPlatforms: platformIds.map((platformId) => ({
                     id: platformId,
                 })),
+                reviewId: relatedReview?.id,
+                review: relatedReview,
                 isFavorite,
             });
 
@@ -232,7 +240,7 @@ export class CollectionsEntriesService {
                 type: ActivityType.COLLECTION_ENTRY,
             };
 
-            this.activitiesQueueService.addToQueue(activity).then().catch();
+            this.activitiesQueueService.addActivity(activity).then().catch();
         }
     }
 
@@ -262,7 +270,7 @@ export class CollectionsEntriesService {
      * @param userId
      * @param reviewId
      */
-    async detachReview(userId: string, reviewId: string) {
+    async detachReview(userId: string, entryId: string, reviewId: string) {
         const entries = await this.collectionEntriesRepository.find({
             where: {
                 collection: {
@@ -270,6 +278,7 @@ export class CollectionsEntriesService {
                         userId,
                     },
                 },
+                id: entryId,
                 reviewId: reviewId,
             },
         });
@@ -341,7 +350,7 @@ export class CollectionsEntriesService {
         }
 
         if (entry.review) {
-            this.reviewsService.delete(userId, entry.review.id);
+            await this.detachReview(userId, entry.id, entry.review.id);
         }
 
         const queryBuilder =
@@ -351,6 +360,8 @@ export class CollectionsEntriesService {
             .of(entry)
             .remove(entry.ownedPlatforms);
 
-        return await this.collectionEntriesRepository.delete(entry.id);
+        await this.collectionEntriesRepository.delete(entry.id);
+
+        this.activitiesQueueService.deleteActivity(entry.id);
     }
 }

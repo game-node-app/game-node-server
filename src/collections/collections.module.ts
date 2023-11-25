@@ -5,12 +5,14 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Collection } from "./entities/collection.entity";
 import { LibrariesModule } from "../libraries/libraries.module";
 import { ReviewsModule } from "../reviews/reviews.module";
+import { CollectionsEntriesModule } from "./collections-entries/collections-entries.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Collection]),
         LibrariesModule,
         ReviewsModule,
+        CollectionsEntriesModule,
     ],
     controllers: [CollectionsController],
     providers: [CollectionsService],

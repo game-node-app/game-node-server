@@ -10,7 +10,7 @@ export class ActivitiesQueueService {
         @InjectQueue("activities") private readonly activitiesQueue: Queue,
     ) {}
 
-    async addToQueue(activity: DeepPartial<Activity>) {
+    async addActivity(activity: DeepPartial<Activity>) {
         if (typeof activity.profile == undefined) {
             throw new Error("An activity must have an associated profile.");
         } else if (
@@ -20,5 +20,13 @@ export class ActivitiesQueueService {
             throw new Error("Activity must have a valid sourceId.");
         }
         await this.activitiesQueue.add("addActivity", activity);
+    }
+
+    async deleteActivity(sourceId: string) {
+        try {
+            await this.activitiesQueue.add("deleteActivity", sourceId);
+        } catch (e) {
+            console.error(e);
+        }
     }
 }

@@ -120,6 +120,27 @@
         "tags": [
           "collections"
         ]
+      },
+      "delete": {
+        "operationId": "CollectionsController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "collections"
+        ]
       }
     },
     "/v1/collections": {
@@ -2126,7 +2147,7 @@
           "game": {
             "$ref": "#/components/schemas/Game"
           },
-          "collectionEntry": {
+          "collectionEntries": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CollectionEntry"
@@ -2149,7 +2170,7 @@
           "content",
           "rating",
           "game",
-          "collectionEntry",
+          "collectionEntries",
           "profile",
           "createdAt",
           "updatedAt"

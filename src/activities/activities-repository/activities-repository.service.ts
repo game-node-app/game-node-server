@@ -30,6 +30,12 @@ export class ActivitiesRepositoryService {
         );
     }
 
+    async deleteBySourceId(sourceId: string) {
+        return await this.activitiesRepository.delete({
+            sourceId,
+        });
+    }
+
     async findLatest(limit?: number) {
         return await this.activitiesRepository.find({
             order: {

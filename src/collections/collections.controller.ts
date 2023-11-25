@@ -7,6 +7,7 @@ import {
     UseInterceptors,
     Patch,
     Get,
+    Delete,
 } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
@@ -67,6 +68,17 @@ export class CollectionsController {
             session.getUserId(),
             collectionId,
             updateCollectionDto,
+        );
+    }
+
+    @Delete(":id")
+    async delete(
+        @Session() session: SessionContainer,
+        @Param("id") collectionId: string,
+    ) {
+        return await this.collectionsService.delete(
+            session.getUserId(),
+            collectionId,
         );
     }
 }

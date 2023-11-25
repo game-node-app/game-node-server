@@ -31,7 +31,7 @@ export class Review {
         () => CollectionEntry,
         (collectionEntry) => collectionEntry.review,
     )
-    collectionEntry: CollectionEntry[];
+    collectionEntries: CollectionEntry[];
 
     @ManyToOne(() => Profile)
     profile: Profile;

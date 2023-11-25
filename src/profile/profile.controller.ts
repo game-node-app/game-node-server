@@ -29,7 +29,7 @@ export class ProfileController {
     constructor(private readonly profileService: ProfileService) {}
 
     // No POST /profile endpoint
-    // Profiles are automatically created when a user registers (at the auth.service.ts initUser() method)
+    // Profiles are automatically created when a user registers (in the user-init module)
     // If this fails, the findOneById() method has an uninitialized profile handler.
 
     @Patch()

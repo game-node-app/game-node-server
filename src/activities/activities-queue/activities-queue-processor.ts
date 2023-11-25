@@ -24,4 +24,15 @@ export class ActivitiesQueueProcessor {
             this.logger.log("This error happened for data: ", job.data);
         }
     }
+
+    @Process("deleteActivity")
+    async removeActivity(job: Job<string>) {
+        try {
+            const sourceId = job.data;
+            await this.activitiesRepositoryService.deleteBySourceId(sourceId);
+        } catch (e) {
+            this.logger.error("Error while deleting activity: ", e);
+            this.logger.log("This error happened for data: ", job.data);
+        }
+    }
 }
