@@ -120,6 +120,35 @@ export class CollectionsEntriesService {
         return results;
     }
 
+    async findAllByUserId(userId: string, dto: FindCollectionEntriesDto) {
+        const findOptions = buildBaseFindOptions(dto);
+        return await this.collectionEntriesRepository.find({
+            ...findOptions,
+            where: {
+                collection: {
+                    library: {
+                        userId,
+                    },
+                },
+            },
+        });
+    }
+
+    async getFavoritesByUserId(userId: string, dto: FindCollectionEntriesDto) {
+        const findOptions = buildBaseFindOptions(dto);
+        return await this.collectionEntriesRepository.find({
+            ...findOptions,
+            where: {
+                collection: {
+                    isPublic: true,
+                    library: {
+                        userId: userId,
+                    },
+                },
+            },
+        });
+    }
+
     /**
      * Create or update a collection entry. If the game already exists for the given collection, it will be updated.
      * @param userId
@@ -350,7 +379,10 @@ export class CollectionsEntriesService {
         }
 
         if (entry.review) {
-            await this.detachReview(userId, entry.id, entry.review.id);
+            try {
+                await this.detachReview(userId, entry.id, entry.review.id);
+                await this.reviewsService.delete(userId, entry.review.id);
+            } catch (e) {}
         }
 
         const queryBuilder =
@@ -362,6 +394,6 @@ export class CollectionsEntriesService {
 
         await this.collectionEntriesRepository.delete(entry.id);
 
-        this.activitiesQueueService.deleteActivity(entry.id);
+        this.activitiesQueueService.deleteActivity(entry.id).then().catch();
     }
 }

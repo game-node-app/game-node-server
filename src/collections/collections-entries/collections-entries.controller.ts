@@ -31,6 +31,28 @@ import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-
 export class CollectionsEntriesController {
     constructor(private collectionsEntriesService: CollectionsEntriesService) {}
 
+    @Get("collection/library/:userId")
+    async getAll(
+        @Param("userId") userId: string,
+        dto: FindCollectionEntriesDto,
+    ) {
+        return await this.collectionsEntriesService.findAllByUserId(
+            userId,
+            dto,
+        );
+    }
+
+    @Get("favorites/collection/library/:userId")
+    async getFavorites(
+        @Param("userId") userId: string,
+        @Query() dto: FindCollectionEntriesDto,
+    ) {
+        return await this.collectionsEntriesService.getFavoritesByUserId(
+            userId,
+            dto,
+        );
+    }
+
     @Post()
     @HttpCode(201)
     async create(
