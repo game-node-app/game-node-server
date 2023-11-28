@@ -10,10 +10,11 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
-import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
+import { Unique } from "typeorm/browser";
 
 @Entity()
+@Unique(["game", "profile"])
 export class Review {
     @PrimaryGeneratedColumn("uuid")
     id: string;
@@ -26,12 +27,6 @@ export class Review {
         nullable: false,
     })
     game: Game;
-
-    @OneToMany(
-        () => CollectionEntry,
-        (collectionEntry) => collectionEntry.review,
-    )
-    collectionEntries: CollectionEntry[];
 
     @ManyToOne(() => Profile)
     profile: Profile;

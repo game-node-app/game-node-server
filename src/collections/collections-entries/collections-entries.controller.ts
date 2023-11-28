@@ -13,14 +13,14 @@ import {
     UseInterceptors,
 } from "@nestjs/common";
 import { CollectionsEntriesService } from "./collections-entries.service";
-import { ApiBadRequestResponse, ApiTags } from "@nestjs/swagger";
+import { ApiBadRequestResponse, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { AuthGuard } from "../../auth/auth.guard";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { CollectionEntry } from "./entities/collection-entry.entity";
-import { FavoriteStatusCollectionEntryDto } from "./dto/favorite-status-collection-entry.dto";
+import { CreateFavoriteStatusCollectionEntryDto } from "./dto/create-favorite-status-collection-entry.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 
 import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-paginated-response.dto";
@@ -30,28 +30,6 @@ import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-
 @UseGuards(AuthGuard)
 export class CollectionsEntriesController {
     constructor(private collectionsEntriesService: CollectionsEntriesService) {}
-
-    @Get("collection/library/:userId")
-    async getAll(
-        @Param("userId") userId: string,
-        dto: FindCollectionEntriesDto,
-    ) {
-        return await this.collectionsEntriesService.findAllByUserId(
-            userId,
-            dto,
-        );
-    }
-
-    @Get("favorites/collection/library/:userId")
-    async getFavorites(
-        @Param("userId") userId: string,
-        @Query() dto: FindCollectionEntriesDto,
-    ) {
-        return await this.collectionsEntriesService.getFavoritesByUserId(
-            userId,
-            dto,
-        );
-    }
 
     @Post()
     @HttpCode(201)
@@ -109,7 +87,7 @@ export class CollectionsEntriesController {
     async changeFavoriteStatus(
         @Session() session: SessionContainer,
         @Param("id") gameId: number,
-        @Body() dto: FavoriteStatusCollectionEntryDto,
+        @Body() dto: CreateFavoriteStatusCollectionEntryDto,
     ) {
         const userId = session.getUserId();
         return await this.collectionsEntriesService.changeFavoriteStatus(
@@ -122,13 +100,16 @@ export class CollectionsEntriesController {
     @Get("/collection/:id")
     @HttpCode(HttpStatus.OK)
     @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponse({
+        type: CollectionEntriesPaginatedResponseDto,
+    })
     async findAllByCollectionId(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
         @Query() dto?: FindCollectionEntriesDto,
     ): Promise<CollectionEntriesPaginatedResponseDto> {
         return (await this.collectionsEntriesService.findAllByCollectionId(
-            session.getUserId(),
+            session?.getUserId(),
             collectionId,
             dto,
         )) as unknown as CollectionEntriesPaginatedResponseDto;

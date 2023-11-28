@@ -5,14 +5,12 @@ import { FindOptionsRelations, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
-import { FindCollectionEntriesDto } from "./collections-entries/dto/find-collection-entries.dto";
-import { GetCollectionDto } from "./dto/get-collection-dto";
 import { CollectionsEntriesService } from "./collections-entries/collections-entries.service";
 
 @Injectable()
 export class CollectionsService {
     private relations: FindOptionsRelations<Collection> = {
-        entries: false,
+        entries: true,
         library: true,
     };
 
@@ -55,6 +53,32 @@ export class CollectionsService {
             );
         }
         return collection;
+    }
+
+    async findAllByUserIdWithPermissions(
+        currentUserId: string | undefined,
+        targetUserId: string,
+    ) {
+        const targetUserCollections = await this.collectionsRepository.find({
+            where: {
+                library: {
+                    userId: targetUserId,
+                },
+            },
+            relations: this.relations,
+        });
+        if (!targetUserCollections) {
+            throw new HttpException(
+                "No collection found.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+        return targetUserCollections.filter((collection) => {
+            return (
+                collection.isPublic ||
+                collection.library.userId === currentUserId
+            );
+        });
     }
 
     /**

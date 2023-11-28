@@ -1,10 +1,4 @@
-import {
-    forwardRef,
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-} from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -20,13 +14,11 @@ import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { Activity } from "../../activities/activities-repository/entities/activity.entity";
 import { ActivityType } from "../../activities/activities-queue/activities-queue.constants";
-import { ReviewsService } from "../../reviews/reviews.service";
 
 @Injectable()
 export class CollectionsEntriesService {
     private readonly relations: FindOptionsRelations<CollectionEntry> = {
         collection: true,
-        review: true,
         game: true,
         ownedPlatforms: true,
     };
@@ -34,8 +26,6 @@ export class CollectionsEntriesService {
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
         private activitiesQueueService: ActivitiesQueueService,
-        @Inject(forwardRef(() => ReviewsService))
-        private reviewsService: ReviewsService,
     ) {}
 
     async findOneById(id: string) {
@@ -50,7 +40,6 @@ export class CollectionsEntriesService {
      * This is mainly used to check if a given entry exists in a given user's library.
      * @param userId
      * @param gameId
-     * @param dto
      */
     async findAllByUserIdAndGameId(userId: string, gameId: number) {
         return await this.collectionEntriesRepository.find({
@@ -93,7 +82,7 @@ export class CollectionsEntriesService {
     }
 
     async findAllByCollectionId(
-        userId: string,
+        userId: string | undefined,
         collectionId: string,
         dto?: FindCollectionEntriesDto,
     ) {
@@ -122,7 +111,7 @@ export class CollectionsEntriesService {
 
     async findAllByUserId(userId: string, dto: FindCollectionEntriesDto) {
         const findOptions = buildBaseFindOptions(dto);
-        return await this.collectionEntriesRepository.find({
+        return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 collection: {
@@ -240,12 +229,6 @@ export class CollectionsEntriesService {
                 continue;
             }
 
-            const relatedReview =
-                await this.reviewsService.findOneByUserIdAndGameId(
-                    userId,
-                    gameId,
-                );
-
             const persistedEntry = await this.collectionEntriesRepository.save({
                 collection: {
                     id: collectionId,
@@ -256,8 +239,6 @@ export class CollectionsEntriesService {
                 ownedPlatforms: platformIds.map((platformId) => ({
                     id: platformId,
                 })),
-                reviewId: relatedReview?.id,
-                review: relatedReview,
                 isFavorite,
             });
 
@@ -270,56 +251,6 @@ export class CollectionsEntriesService {
             };
 
             this.activitiesQueueService.addActivity(activity).then().catch();
-        }
-    }
-
-    /**
-     * Should be called after the review has been created.
-     * Should only be called from the ReviewsService.
-     * @param userId
-     * @param gameId
-     * @param reviewId
-     */
-    async attachReview(userId: string, gameId: number, reviewId: string) {
-        const entries = await this.findAllByUserIdAndGameIdOrFail(
-            userId,
-            gameId,
-        );
-        for (const entry of entries) {
-            await this.collectionEntriesRepository
-                .createQueryBuilder()
-                .relation(CollectionEntry, "review")
-                .of(entry)
-                .set(reviewId);
-        }
-    }
-
-    /**
-     * Should be called when a review is to be removed.
-     * @param userId
-     * @param reviewId
-     */
-    async detachReview(userId: string, entryId: string, reviewId: string) {
-        const entries = await this.collectionEntriesRepository.find({
-            where: {
-                collection: {
-                    library: {
-                        userId,
-                    },
-                },
-                id: entryId,
-                reviewId: reviewId,
-            },
-        });
-        if (entries == undefined || entries.length === 0) {
-            return;
-        }
-        for (const entry of entries) {
-            await this.collectionEntriesRepository
-                .createQueryBuilder()
-                .relation(CollectionEntry, "review")
-                .of(entry)
-                .set(null);
         }
     }
 
@@ -370,19 +301,11 @@ export class CollectionsEntriesService {
                 },
             },
             relations: {
-                review: true,
                 ownedPlatforms: true,
             },
         });
         if (!entry) {
             throw new HttpException("Entry not found.", HttpStatus.NOT_FOUND);
-        }
-
-        if (entry.review) {
-            try {
-                await this.detachReview(userId, entry.id, entry.review.id);
-                await this.reviewsService.delete(userId, entry.review.id);
-            } catch (e) {}
         }
 
         const queryBuilder =

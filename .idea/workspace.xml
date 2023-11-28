@@ -12,7 +12,16 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server_swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/server_swagger.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.module.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/collections-entries.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/dto/favorite-status-collection-entry.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/dto/create-favorite-status-collection-entry.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections-entries/entities/collection-entry.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections-entries/entities/collection-entry.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/collections/collections.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/collections/collections.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/entities/review.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/entities/review.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/reviews/reviews.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/reviews/reviews.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -109,7 +118,7 @@
     "database.data.extractors.current.id": "JSON-Groovy.json.groovy",
     "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
-    "last_opened_file_path": "/home/lamarck/Projects/Web/foto-ponto-web",
+    "last_opened_file_path": "/home/lamarck/Projects/Web/game-node-web",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -441,7 +450,10 @@
       <workItem from="1700852377670" duration="607000" />
       <workItem from="1700905556200" duration="2263000" />
       <workItem from="1700934795959" duration="2309000" />
-      <workItem from="1700964690494" duration="3970000" />
+      <workItem from="1700964690494" duration="4092000" />
+      <workItem from="1701034798605" duration="6842000" />
+      <workItem from="1701109583586" duration="3000" />
+      <workItem from="1701133632684" duration="5355000" />
     </task>
     <task id="LOCAL-00001" summary="-">
       <option name="closed" value="true" />
@@ -707,7 +719,15 @@
       <option name="project" value="LOCAL" />
       <updated>1700906831752</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="- latest">
+      <option name="closed" value="true" />
+      <created>1700975456366</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1700975456366</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

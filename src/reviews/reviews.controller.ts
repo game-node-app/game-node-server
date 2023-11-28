@@ -38,6 +38,20 @@ export class ReviewsController {
         );
     }
 
+    @Get("profile/:userId")
+    @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponse({
+        type: FindReviewPaginatedDto,
+        status: 200,
+    })
+    @Public()
+    async findAllByUserId(
+        @Param("userId") userId: string,
+        @Query() dto?: FindReviewDto,
+    ) {
+        return await this.reviewsService.findAllByUserId(userId, dto);
+    }
+
     @Get("game/:id")
     @UseInterceptors(PaginationInterceptor)
     @Public()

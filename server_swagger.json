@@ -143,6 +143,39 @@
         ]
       }
     },
+    "/v1/collections/library/{userId}": {
+      "get": {
+        "operationId": "CollectionsController_findAllByUserIdWithPermissions",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Collection"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "collections"
+        ]
+      }
+    },
     "/v1/collections": {
       "post": {
         "operationId": "CollectionsController_create",
@@ -217,6 +250,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/v1/reviews/profile/{userId}": {
+      "get": {
+        "operationId": "ReviewsController_findAllByUserId",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindReviewPaginatedDto"
                 }
               }
             }
@@ -403,90 +484,6 @@
         ]
       }
     },
-    "/v1/collections-entries/collection/library/{userId}": {
-      "get": {
-        "operationId": "CollectionsEntriesController_getAll",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CollectionEntry"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "collections-entries"
-        ]
-      }
-    },
-    "/v1/collections-entries/favorites/collection/library/{userId}": {
-      "get": {
-        "operationId": "CollectionsEntriesController_getFavorites",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "offset",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "default": 0,
-              "type": "number"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "default": 20,
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CollectionEntry"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "collections-entries"
-        ]
-      }
-    },
     "/v1/collections-entries": {
       "post": {
         "operationId": "CollectionsEntriesController_create",
@@ -588,7 +585,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FavoriteStatusCollectionEntryDto"
+                "$ref": "#/components/schemas/CreateFavoriteStatusCollectionEntryDto"
               }
             }
           }
@@ -2513,7 +2510,7 @@
           "isFavorite"
         ]
       },
-      "FavoriteStatusCollectionEntryDto": {
+      "CreateFavoriteStatusCollectionEntryDto": {
         "type": "object",
         "properties": {
           "isFavorite": {

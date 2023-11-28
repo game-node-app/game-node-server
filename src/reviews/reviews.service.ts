@@ -1,12 +1,10 @@
-import { forwardRef, HttpException, HttpStatus, Inject } from "@nestjs/common";
+import { HttpException, HttpStatus } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Review } from "./entities/review.entity";
 import { FindOptionsRelations, In, Repository } from "typeorm";
-import { ProfileService } from "../profile/profile.service";
 import { ActivitiesQueueService } from "src/activities/activities-queue/activities-queue.service";
 import { ActivityType } from "src/activities/activities-queue/activities-queue.constants";
-import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
 import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -16,15 +14,11 @@ export class ReviewsService {
     private readonly badWordsFilter = new Filter();
     private relations: FindOptionsRelations<Review> = {
         profile: true,
-        collectionEntries: true,
     };
 
     constructor(
         @InjectRepository(Review) private reviewsRepository: Repository<Review>,
-        private profileService: ProfileService,
         private activitiesQueue: ActivitiesQueueService,
-        @Inject(forwardRef(() => CollectionsEntriesService))
-        private collectionEntriesService: CollectionsEntriesService,
     ) {}
 
     async findOneById(id: string) {
@@ -51,8 +45,10 @@ export class ReviewsService {
         return review;
     }
 
-    async findAllByUserId(userId: string) {
-        return await this.reviewsRepository.find({
+    async findAllByUserId(userId: string, dto: FindReviewDto | undefined) {
+        const findOptions = buildBaseFindOptions(dto);
+        return await this.reviewsRepository.findAndCount({
+            ...findOptions,
             where: {
                 profile: {
                     userId,
@@ -85,11 +81,6 @@ export class ReviewsService {
     }
 
     async createOrUpdate(userId: string, createReviewDto: CreateReviewDto) {
-        await this.collectionEntriesService.findAllByUserIdAndGameIdOrFail(
-            userId,
-            createReviewDto.gameId,
-        );
-
         const possibleExistingReview = await this.findOneByUserIdAndGameId(
             userId,
             createReviewDto.gameId,
@@ -134,12 +125,6 @@ export class ReviewsService {
                 userId,
             },
         });
-
-        await this.collectionEntriesService.attachReview(
-            userId,
-            createReviewDto.gameId,
-            insertedEntry.id,
-        );
     }
 
     async delete(userId: string, reviewId: string) {
@@ -150,22 +135,9 @@ export class ReviewsService {
                     userId,
                 },
             },
-            relations: {
-                collectionEntries: true,
-            },
         });
         if (review == undefined) {
             throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
-        }
-        // Removes review relation from related collection entries before proceeding
-        if (review.collectionEntries && review.collectionEntries.length > 0) {
-            for (const entry of review.collectionEntries) {
-                await this.collectionEntriesService.detachReview(
-                    userId,
-                    entry.id,
-                    reviewId,
-                );
-            }
         }
 
         await this.reviewsRepository.delete({
@@ -174,6 +146,7 @@ export class ReviewsService {
                 userId,
             },
         });
+
         this.activitiesQueue.deleteActivity(review.id);
     }
 }

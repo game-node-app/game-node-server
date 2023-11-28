@@ -2,17 +2,14 @@ import {
     Column,
     CreateDateColumn,
     Entity,
-    JoinColumn,
     JoinTable,
     ManyToMany,
     ManyToOne,
-    OneToOne,
     PrimaryGeneratedColumn,
     Unique,
     UpdateDateColumn,
 } from "typeorm";
 import { Collection } from "../../entities/collection.entity";
-import { Review } from "../../../reviews/entities/review.entity";
 import { Game } from "../../../game/game-repository/entities/game.entity";
 import { GamePlatform } from "../../../game/game-repository/entities/game-platform.entity";
 
@@ -26,16 +23,6 @@ import { GamePlatform } from "../../../game/game-repository/entities/game-platfo
 export class CollectionEntry {
     @PrimaryGeneratedColumn("uuid")
     id: string;
-
-    @ManyToOne(() => Review, {
-        nullable: true,
-    })
-    review?: Review | null;
-
-    @Column({
-        nullable: true,
-    })
-    reviewId: string | null;
 
     @ManyToOne(() => Collection, (collection) => collection.entries, {
         nullable: false,
