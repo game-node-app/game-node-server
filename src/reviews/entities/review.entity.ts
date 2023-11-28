@@ -11,7 +11,7 @@ import {
 } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
-import { Unique } from "typeorm/browser";
+import { Unique } from "typeorm";
 
 @Entity()
 @Unique(["game", "profile"])

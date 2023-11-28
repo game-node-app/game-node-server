@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import * as JsonWebToken from "jsonwebtoken";
 import { JwtHeader } from "jsonwebtoken";
-import * as jwksClient from "jwks-rsa";
+import jwksClient from "jwks-rsa";
 import * as process from "process";
 import { Reflector } from "@nestjs/core";
 

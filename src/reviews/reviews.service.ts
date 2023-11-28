@@ -7,8 +7,7 @@ import { ActivitiesQueueService } from "src/activities/activities-queue/activiti
 import { ActivityType } from "src/activities/activities-queue/activities-queue.constants";
 import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const Filter = require("bad-words");
+import Filter from "bad-words";
 
 export class ReviewsService {
     private readonly badWordsFilter = new Filter();
