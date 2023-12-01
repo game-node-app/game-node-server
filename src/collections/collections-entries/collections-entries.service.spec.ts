@@ -60,7 +60,6 @@ describe("CollectionsEntriesService", () => {
             collectionIds: ["111111"],
             platformIds: [
                 EGamePlatformIds.PC.valueOf(),
-                EGamePlatformIds.PS4.valueOf(),
             ],
         };
         jest.spyOn(
@@ -77,12 +76,15 @@ describe("CollectionsEntriesService", () => {
         await service.createOrUpdate(userId, dto);
         expect(createSpy).toBeCalled();
         expect(repositorySaveSpy).toBeCalledWith({
+            ...dto,
+            collections: [{id: "111111"}],
             game: {
                 id: dto.gameId,
             },
             ownedPlatforms: [
-                EGamePlatformIds.PC.valueOf(),
-                EGamePlatformIds.PS4.valueOf(),
+                {
+                    id: EGamePlatformIds.PC.valueOf(),
+                }
             ],
             review: {
                 id: undefined,

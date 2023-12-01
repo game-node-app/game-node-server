@@ -210,11 +210,15 @@ export class CollectionsService {
                 (entry) => entry.collections && entry.collections.length <= 1,
             );
             for (const collectionEntry of entriesToRemove) {
-                await this.collectionEntriesService.delete(
-                    userId,
-                    collectionEntry.id,
-                    true,
-                );
+                try {
+                    await this.collectionEntriesService.delete(
+                        userId,
+                        collectionEntry.id,
+                        true,
+                    );
+                } catch (e) {
+                    console.error(e)
+                }
             }
         }
 
