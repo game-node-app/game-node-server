@@ -12,9 +12,9 @@ import {
 import { Profile } from "../../profile/entities/profile.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
 import { Unique } from "typeorm";
+import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
 
 @Entity()
-@Unique(["game", "profile"])
 export class Review {
     @PrimaryGeneratedColumn("uuid")
     id: string;
@@ -28,8 +28,15 @@ export class Review {
     })
     game: Game;
 
-    @ManyToOne(() => Profile)
+    @ManyToOne(() => Profile, {
+        nullable: false,
+    })
     profile: Profile;
+
+    @OneToOne(() => CollectionEntry, (entry) => entry.review, {
+        nullable: false,
+    })
+    collectionEntry: CollectionEntry;
 
     @CreateDateColumn()
     createdAt: Date;

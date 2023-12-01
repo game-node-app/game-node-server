@@ -134,7 +134,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "description": ""
           }
         },
@@ -529,10 +529,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CollectionEntry"
-                  }
+                  "$ref": "#/components/schemas/CollectionEntry"
                 }
               }
             }
@@ -544,16 +541,18 @@
         "tags": [
           "collections-entries"
         ]
-      },
+      }
+    },
+    "/v1/collections-entries/{id}": {
       "delete": {
-        "operationId": "CollectionsEntriesController_deleteOwnEntryByGameId",
+        "operationId": "CollectionsEntriesController_deleteOwnEntry",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
             "schema": {
-              "type": "number"
+              "type": "string"
             }
           }
         ],
@@ -2133,14 +2132,138 @@
           "source"
         ]
       },
+      "ProfileAvatar": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "mimetype": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Multer's File's destination + filename"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "mimetype",
+          "extension",
+          "size",
+          "filename",
+          "encoding",
+          "path",
+          "profile",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "Shareable string ID\n\nSame as SuperTokens' userId."
+          },
+          "username": {
+            "type": "string"
+          },
+          "avatar": {
+            "$ref": "#/components/schemas/ProfileAvatar"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "username",
+          "avatar",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number"
+          },
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "collectionEntry": {
+            "$ref": "#/components/schemas/CollectionEntry"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "rating",
+          "game",
+          "profile",
+          "collectionEntry",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "CollectionEntry": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
           },
-          "collection": {
-            "$ref": "#/components/schemas/Collection"
+          "collections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Collection"
+            }
           },
           "game": {
             "$ref": "#/components/schemas/Game"
@@ -2154,6 +2277,18 @@
             "items": {
               "$ref": "#/components/schemas/GamePlatform"
             }
+          },
+          "review": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Review"
+              }
+            ]
+          },
+          "reviewId": {
+            "type": "string",
+            "nullable": true
           },
           "isFavorite": {
             "type": "boolean"
@@ -2169,10 +2304,12 @@
         },
         "required": [
           "id",
-          "collection",
+          "collections",
           "game",
           "gameId",
           "ownedPlatforms",
+          "review",
+          "reviewId",
           "isFavorite",
           "createdAt",
           "updatedAt"
@@ -2274,123 +2411,6 @@
           "gameId",
           "content",
           "rating"
-        ]
-      },
-      "ProfileAvatar": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "number"
-          },
-          "mimetype": {
-            "type": "string"
-          },
-          "extension": {
-            "type": "string"
-          },
-          "size": {
-            "type": "number"
-          },
-          "filename": {
-            "type": "string"
-          },
-          "encoding": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string",
-            "description": "Multer's File's destination + filename"
-          },
-          "profile": {
-            "$ref": "#/components/schemas/Profile"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "mimetype",
-          "extension",
-          "size",
-          "filename",
-          "encoding",
-          "path",
-          "profile",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "Profile": {
-        "type": "object",
-        "properties": {
-          "userId": {
-            "type": "string",
-            "description": "Shareable string ID\n\nSame as SuperTokens' userId."
-          },
-          "username": {
-            "type": "string"
-          },
-          "avatar": {
-            "$ref": "#/components/schemas/ProfileAvatar"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "userId",
-          "username",
-          "avatar",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "Review": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          },
-          "rating": {
-            "type": "number"
-          },
-          "game": {
-            "$ref": "#/components/schemas/Game"
-          },
-          "profile": {
-            "$ref": "#/components/schemas/Profile"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "content",
-          "rating",
-          "game",
-          "profile",
-          "createdAt",
-          "updatedAt"
         ]
       },
       "PaginationInfo": {

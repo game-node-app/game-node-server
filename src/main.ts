@@ -46,7 +46,9 @@ async function bootstrap() {
     const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
     fs.writeFileSync("server_swagger.json", JSON.stringify(swaggerDocument));
 
-    SwaggerModule.setup("v1/docs", app, swaggerDocument);
+    if (process.env.NODE_ENV !== "production") {
+        SwaggerModule.setup("v1/docs", app, swaggerDocument);
+    }
 
     app.useGlobalFilters(new SupertokensExceptionFilter());
 

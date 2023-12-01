@@ -185,7 +185,9 @@ export class CollectionsService {
                 id: collectionId,
             },
             relations: {
-                entries: true,
+                entries: {
+                    collections: true,
+                },
             },
         });
         if (!collection) {
@@ -195,13 +197,28 @@ export class CollectionsService {
             );
         }
 
-        if (collection.entries && collection.entries.length > 0) {
-            for (const entry of collection.entries) {
-                await this.collectionEntriesService.delete(userId, entry.id);
+        const queryBuilder = this.collectionsRepository.createQueryBuilder();
+        // Detaches entries from this collection
+        await queryBuilder
+            .relation(Collection, "entries")
+            .of(collection)
+            .remove(collection.entries);
+
+        if (collection.entries.length > 0) {
+            // Only delete entries that are only in this collection
+            const entriesToRemove = collection.entries.filter(
+                (entry) => entry.collections && entry.collections.length <= 1,
+            );
+            for (const collectionEntry of entriesToRemove) {
+                await this.collectionEntriesService.delete(
+                    userId,
+                    collectionEntry.id,
+                    true,
+                );
             }
         }
 
-        return await this.collectionsRepository.delete({
+        await this.collectionsRepository.delete({
             id: collection.id,
         });
     }

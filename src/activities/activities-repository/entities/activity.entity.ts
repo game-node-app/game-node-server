@@ -2,9 +2,8 @@ import {
     Column,
     CreateDateColumn,
     Entity,
-    JoinColumn,
+    Index,
     ManyToOne,
-    OneToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
@@ -15,10 +14,20 @@ import { Profile } from "../../../profile/entities/profile.entity";
 export class Activity {
     @PrimaryGeneratedColumn("uuid")
     id: string;
-    @Column()
+    @Column({
+        nullable: false,
+    })
     type: ActivityType;
-    @Column()
+    @Index()
+    @Column({
+        nullable: false,
+    })
     sourceId: string;
+    @Column({
+        type: "simple-json",
+        nullable: true,
+    })
+    metadata: object | null;
     /**
      * The associated profile with this Activity
      */

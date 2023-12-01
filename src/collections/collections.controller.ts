@@ -8,6 +8,8 @@ import {
     Patch,
     Get,
     Delete,
+    HttpStatus,
+    HttpCode,
 } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
@@ -84,6 +86,7 @@ export class CollectionsController {
     }
 
     @Delete(":id")
+    @HttpCode(HttpStatus.NO_CONTENT)
     async delete(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,

@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    ManyToMany,
     ManyToOne,
     OneToMany,
     PrimaryGeneratedColumn,
@@ -28,9 +29,9 @@ export class Collection {
     })
     library: Library;
 
-    @OneToMany(
+    @ManyToMany(
         () => CollectionEntry,
-        (collectionEntry) => collectionEntry.collection,
+        (collectionEntry) => collectionEntry.collections,
     )
     entries: CollectionEntry[];
 

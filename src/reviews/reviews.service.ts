@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from "@nestjs/common";
+import { forwardRef, HttpException, HttpStatus, Inject } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Review } from "./entities/review.entity";
@@ -8,6 +8,7 @@ import { ActivityType } from "src/activities/activities-queue/activities-queue.c
 import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import Filter from "bad-words";
+import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
 
 export class ReviewsService {
     private readonly badWordsFilter = new Filter();
@@ -18,6 +19,8 @@ export class ReviewsService {
     constructor(
         @InjectRepository(Review) private reviewsRepository: Repository<Review>,
         private activitiesQueue: ActivitiesQueueService,
+        @Inject(forwardRef(() => CollectionsEntriesService))
+        private collectionsEntriesService: CollectionsEntriesService,
     ) {}
 
     async findOneById(id: string) {
@@ -80,6 +83,11 @@ export class ReviewsService {
     }
 
     async createOrUpdate(userId: string, createReviewDto: CreateReviewDto) {
+        await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
+            userId,
+            createReviewDto.gameId,
+        );
+
         const possibleExistingReview = await this.findOneByUserIdAndGameId(
             userId,
             createReviewDto.gameId,
@@ -92,15 +100,11 @@ export class ReviewsService {
         );
 
         if (possibleExistingReview) {
-            const updatedEntry = this.reviewsRepository.merge(
+            const mergedEntry = this.reviewsRepository.merge(
                 possibleExistingReview,
                 createReviewDto,
             );
-            await this.reviewsRepository.update(updatedEntry.id, {
-                id: updatedEntry.id,
-                content: updatedEntry.content,
-                rating: updatedEntry.rating,
-            });
+            await this.reviewsRepository.update(mergedEntry.id, mergedEntry);
             return;
         }
 
@@ -116,17 +120,30 @@ export class ReviewsService {
 
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
 
+        await this.collectionsEntriesService.attachReview(
+            userId,
+            createReviewDto.gameId,
+            insertedEntry.id,
+        );
+
         // Do not await this, as it will block the request
-        this.activitiesQueue.addActivity({
-            type: ActivityType.REVIEW,
-            sourceId: insertedEntry.id,
-            profile: {
-                userId,
-            },
-        });
+        this.activitiesQueue
+            .addActivity({
+                type: ActivityType.REVIEW,
+                sourceId: insertedEntry.id,
+                profile: {
+                    userId,
+                },
+            })
+            .then()
+            .catch();
     }
 
-    async delete(userId: string, reviewId: string) {
+    async delete(
+        userId: string,
+        reviewId: string,
+        detachCollectionEntry = true,
+    ) {
         const review = await this.reviewsRepository.findOne({
             where: {
                 id: reviewId,
@@ -134,9 +151,18 @@ export class ReviewsService {
                     userId,
                 },
             },
+            relations: {
+                collectionEntry: true,
+            },
         });
         if (review == undefined) {
             throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
+        }
+
+        if (review.collectionEntry && detachCollectionEntry) {
+            await this.collectionsEntriesService.detachReview(
+                review.collectionEntry.id,
+            );
         }
 
         await this.reviewsRepository.delete({
@@ -146,6 +172,6 @@ export class ReviewsService {
             },
         });
 
-        this.activitiesQueue.deleteActivity(review.id);
+        this.activitiesQueue.deleteActivity(review.id).then().catch();
     }
 }

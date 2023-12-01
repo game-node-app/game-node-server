@@ -55,7 +55,7 @@ export class CollectionsEntriesController {
     async findOwnEntryByGameId(
         @Session() session: SessionContainer,
         @Param("id") gameId: number,
-    ): Promise<CollectionEntry[]> {
+    ): Promise<CollectionEntry> {
         if (gameId == undefined) {
             throw new HttpException(
                 "Invalid query. igdbId must be provided.",
@@ -63,23 +63,20 @@ export class CollectionsEntriesController {
             );
         }
         const userId = session.getUserId();
-        return this.collectionsEntriesService.findAllByUserIdAndGameIdOrFail(
+        return this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
             userId,
             gameId,
         );
     }
 
-    @Delete("/game/:id")
+    @Delete(":id")
     @HttpCode(HttpStatus.NO_CONTENT)
-    async deleteOwnEntryByGameId(
+    async deleteOwnEntry(
         @Session() session: SessionContainer,
-        @Param("id") gameId: number,
+        @Param("id") entryId: string,
     ) {
         const userId = session.getUserId();
-        return await this.collectionsEntriesService.deleteByUserIdAndGameId(
-            userId,
-            gameId,
-        );
+        return await this.collectionsEntriesService.delete(userId, entryId);
     }
 
     @Post("/game/:id/favorite")

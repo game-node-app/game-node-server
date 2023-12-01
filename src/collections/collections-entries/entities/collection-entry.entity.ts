@@ -2,20 +2,20 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinColumn,
     JoinTable,
     ManyToMany,
     ManyToOne,
+    OneToOne,
     PrimaryGeneratedColumn,
-    Unique,
     UpdateDateColumn,
 } from "typeorm";
 import { Collection } from "../../entities/collection.entity";
 import { Game } from "../../../game/game-repository/entities/game.entity";
 import { GamePlatform } from "../../../game/game-repository/entities/game-platform.entity";
+import { Review } from "../../../reviews/entities/review.entity";
 
 @Entity()
-// Games should be unique per collection, but duplicates are allowed across the user's library.
-@Unique(["collection", "game"])
 /**
  * Represents an entry in a collection.
  * @class CollectionEntry
@@ -24,10 +24,11 @@ export class CollectionEntry {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @ManyToOne(() => Collection, (collection) => collection.entries, {
+    @ManyToMany(() => Collection, (collection) => collection.entries, {
         nullable: false,
     })
-    collection: Collection;
+    @JoinTable()
+    collections: Collection[];
 
     @ManyToOne(() => Game, {
         nullable: false,
@@ -45,6 +46,13 @@ export class CollectionEntry {
     })
     @JoinTable()
     ownedPlatforms: GamePlatform[];
+
+    @OneToOne(() => Review, (review) => review.collectionEntry)
+    @JoinColumn()
+    review: Review | null;
+
+    @Column()
+    reviewId: string | null;
 
     @Column({
         default: false,
