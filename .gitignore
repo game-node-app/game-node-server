@@ -43,8 +43,9 @@ wrapper
 
 /src/migrations/*
 
-/public/uploads/
+/public/uploads/*
 !/public
+!/public/uploads
 
 game-node-server.iml
 build
