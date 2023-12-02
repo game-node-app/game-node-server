@@ -37,7 +37,7 @@ export class CollectionsEntriesController {
         @Session() session: SessionContainer,
         @Body() createCollectionEntryDto: CreateCollectionEntryDto,
     ) {
-        return await this.collectionsEntriesService.createOrUpdate(
+        return await this.collectionsEntriesService.replace(
             session.getUserId(),
             createCollectionEntryDto,
         );

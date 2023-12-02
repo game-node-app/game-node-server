@@ -8,21 +8,20 @@ import { Repository } from "typeorm";
 import { Review } from "../../reviews/entities/review.entity";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { EGamePlatformIds } from "../../game/game-repository/game-repository.constants";
+import { mockRepository } from "../../../test/mocks/repositoryMocks";
+import Mocked = jest.Mocked;
 
 describe("CollectionsEntriesService", () => {
-    let service: CollectionsEntriesService;
-    let repository: Repository<CollectionEntry>;
-    let reviewService: ReviewsService;
+    let service: jest.Mocked<CollectionsEntriesService>;
+    let repository: jest.Mocked<Repository<CollectionEntry>>;
+    let reviewService: jest.Mocked<ReviewsService>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 {
                     provide: getRepositoryToken(CollectionEntry),
-                    useValue: {
-                        findOne: jest.fn(),
-                        save: jest.fn(),
-                    },
+                    useValue: mockRepository,
                 },
                 CollectionsEntriesService,
                 {
@@ -36,16 +35,19 @@ describe("CollectionsEntriesService", () => {
                     provide: ReviewsService,
                     useValue: {
                         findOneByUserIdAndGameId: jest.fn(),
+                        delete: jest.fn(),
                     },
                 },
             ],
         }).compile();
 
-        service = module.get<CollectionsEntriesService>(
+        service = module.get<Mocked<CollectionsEntriesService>>(
             CollectionsEntriesService,
         );
-        reviewService = module.get(ReviewsService);
-        repository = module.get(getRepositoryToken(CollectionEntry));
+        reviewService = module.get<Mocked<ReviewsService>>(ReviewsService);
+        repository = module.get<Mocked<Repository<CollectionEntry>>>(
+            getRepositoryToken(CollectionEntry),
+        );
     });
 
     it("should be defined", () => {
@@ -69,9 +71,9 @@ describe("CollectionsEntriesService", () => {
         jest.spyOn(repository, "save").mockImplementationOnce(async () => {
             return { id: "12345" } as CollectionEntry;
         });
-        const createSpy = jest.spyOn(service, "createOrUpdate");
+        const createSpy = jest.spyOn(service, "replace");
         const repositorySaveSpy = jest.spyOn(repository, "save");
-        await service.createOrUpdate(userId, dto);
+        await service.replace(userId, dto);
         expect(createSpy).toHaveReturned();
         expect(repositorySaveSpy).toBeCalledWith(
             expect.objectContaining({
@@ -99,9 +101,9 @@ describe("CollectionsEntriesService", () => {
             return { id: "12345" } as CollectionEntry;
         });
 
-        const createSpy = jest.spyOn(service, "createOrUpdate");
+        const createSpy = jest.spyOn(service, "replace");
         const repositorySaveSpy = jest.spyOn(repository, "save");
-        await service.createOrUpdate(userId, dto);
+        await service.replace(userId, dto);
         expect(reviewFindSpy).toBeCalled();
         expect(createSpy).toHaveReturned();
         expect(repositorySaveSpy).toBeCalledWith(

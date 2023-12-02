@@ -142,14 +142,12 @@ export class CollectionsEntriesService {
     }
 
     /**
-     * Create or update a collection entry. If the game already exists for the given collection, it will be updated.
+     * Creates a new collection entry by removing the previous one (if it exists),
+     * and re-creating it with new collection and platforms data.
      * @param userId
      * @param createEntryDto
      */
-    async createOrUpdate(
-        userId: string,
-        createEntryDto: CreateCollectionEntryDto,
-    ) {
+    async replace(userId: string, createEntryDto: CreateCollectionEntryDto) {
         const { collectionIds, gameId, platformIds, isFavorite } =
             createEntryDto;
 
@@ -234,9 +232,10 @@ export class CollectionsEntriesService {
     }
 
     /**
+     * Removes a collection entry, and detaches it's dependencies (like collections, platforms and review).
      * @param userId
      * @param entryId
-     * @param deleteReview
+     * @param deleteReview - If the detached review should also be removed
      */
     async delete(userId: string, entryId: string, deleteReview = true) {
         const entry = await this.collectionEntriesRepository.findOne({
