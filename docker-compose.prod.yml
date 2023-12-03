@@ -71,7 +71,6 @@ services:
       - db
       - supertokens
       - redis
-      - manticore
 
     env_file: .env
 
@@ -82,7 +81,6 @@ services:
       DB_DATABASE: gamenode
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
       REDIS_URL: redis://redis:6379
-      MANTICORESEARCH_URL: http://manticore:9308
       SERVER_PORT: 5000
 
     restart: always
@@ -107,5 +105,4 @@ volumes:
   gamenode:
   redis:
   db:
-  manticore:
 
