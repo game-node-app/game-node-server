@@ -1,7 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Activity } from "./entities/activity.entity";
-import { DeepPartial, Repository } from "typeorm";
+import {
+    DeepPartial,
+    FindManyOptions,
+    FindOneOptions,
+    Repository,
+} from "typeorm";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -36,12 +41,18 @@ export class ActivitiesRepositoryService {
         });
     }
 
-    async findLatest(limit?: number) {
-        return await this.activitiesRepository.find({
+    async findLatestBy(by: FindManyOptions<Activity>) {
+        return await this.activitiesRepository.findAndCount({
+            ...by,
             order: {
                 createdAt: "DESC",
             },
-            take: limit || 20,
+        });
+    }
+
+    async findOneBy(by: FindOneOptions<Activity>) {
+        return await this.activitiesRepository.findOne({
+            ...by,
         });
     }
 }

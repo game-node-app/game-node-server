@@ -11,7 +11,7 @@ import { FindStatisticsDto } from "./dto/find-statistics.dto";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { StatisticsInterceptor } from "./statistics.interceptor";
 import { StatisticsPaginatedResponseDto } from "./dto/statistics-paginated-response.dto";
-import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
+import { CacheTTL } from "@nestjs/cache-manager";
 import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";

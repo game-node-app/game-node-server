@@ -1,16 +1,20 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { CollectionsEntriesService } from "src/collections/collections-entries/collections-entries.service";
 import { ReviewsService } from "src/reviews/reviews.service";
 import { ActivityType } from "../activities-queue/activities-queue.constants";
 import { ProfileService } from "src/profile/profile.service";
 import { Activity } from "../activities-repository/entities/activity.entity";
-import { BuildActivitiesDto } from "./dto/build-activities.dto";
+import {
+    ActivitiesFeedRequestDto,
+    ActivityFeedCriteria,
+} from "./dto/activities-feed-request.dto";
 import { ActivitiesRepositoryService } from "../activities-repository/activities-repository.service";
 import { ActivitiesFeedEntryDto } from "./dto/activities-feed-entry.dto";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { Review } from "../../reviews/entities/review.entity";
 import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
+import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 
 @Injectable()
 export class ActivitiesFeedService {
@@ -21,10 +25,10 @@ export class ActivitiesFeedService {
      * Make sure this amounts to 1 (100%).
      */
     private readonly activitiesFeedChances = {
-        [ActivityType.COLLECTION_ENTRY]: 0.25,
+        [ActivityType.COLLECTION_ENTRY]: 0.3,
         // This is not implemented yet.
         [ActivityType.FOLLOW]: 0.0,
-        [ActivityType.REVIEW]: 0.75,
+        [ActivityType.REVIEW]: 0.7,
     };
 
     constructor(
@@ -73,11 +77,11 @@ export class ActivitiesFeedService {
     /**
      * Resolves the sources of the activities.
      * This is probably very expensive. You are free to open an PR suggesting a better way to do this.
-     * Do keep in mind that fetchi-lng sources shouldn't ever be handled by the client (e.g. the frontend).
+     * Do keep in mind that fetching sources shouldn't ever be handled by the client (e.g. the frontend).
      * The logic here is that we make a single SELECT query per activity type, and then use native JS functions to populate the correct source.
      * @param activities
      */
-    async resolveActivitiesSources(
+    private async resolveActivitiesSources(
         activities: Activity[],
     ): Promise<ActivitiesFeedEntryDto[]> {
         const activitiesFeedEntries: ActivitiesFeedEntryDto[] = [];
@@ -130,44 +134,53 @@ export class ActivitiesFeedService {
         return activitiesFeedEntries;
     }
 
-    async buildLatestActivitiesFeed() {
-        const latestActivities =
-            await this.activitiesRepositoryService.findLatest(120);
+    // TODO: Implement this
+    private async buildTrendingActivitiesFeed() {}
 
-        const latestActivitiesFeedEntries =
-            await this.resolveActivitiesSources(latestActivities);
+    private async buildLatestActivitiesFeed(
+        offset: number,
+        limit: number,
+    ): Promise<TPaginationData<ActivitiesFeedEntryDto>> {
+        const [latestActivities, latestActivitiesTotal] =
+            await this.activitiesRepositoryService.findLatestBy({
+                take: limit,
+                skip: offset,
+            });
+        const sortedLatestActivities = structuredClone(latestActivities).sort(
+            (a, b) => {
+                const availableTypes = [a.type, b.type] as const;
+                let currentActivityType: ActivityType =
+                    this.getWeightedRandomActivityType();
+                while (!availableTypes.includes(currentActivityType)) {
+                    currentActivityType = this.getWeightedRandomActivityType();
+                }
+                if (a.type === currentActivityType) {
+                    return -1;
+                }
+                return 1;
+            },
+        );
+        const activitiesFeed = await this.resolveActivitiesSources(
+            sortedLatestActivities,
+        );
 
-        const activitiesFeed: ActivitiesFeedEntryDto[] = [];
-        const exhaustedActivitiesTypes: ActivityType[] = [];
-        while (latestActivitiesFeedEntries.length !== 0) {
-            const nextActivityType = this.getWeightedRandomActivityType();
-            if (exhaustedActivitiesTypes.includes(nextActivityType)) {
-                // If we already exausted this activity type, we skip it.
-                continue;
-            }
-
-            const nextActivityIndex = latestActivitiesFeedEntries.findIndex(
-                (activity) => activity.type === nextActivityType,
-            );
-            if (nextActivityIndex === -1) {
-                // If there are no more activities of this type, we mark it as exausted and continue.
-                exhaustedActivitiesTypes.push(nextActivityType);
-                continue;
-            }
-
-            activitiesFeed.push(latestActivitiesFeedEntries[nextActivityIndex]);
-            // Removes the activity from the array so it doesn't get selected again.
-            latestActivitiesFeedEntries.splice(nextActivityIndex, 1);
-        }
-
-        return activitiesFeed;
+        return [activitiesFeed, latestActivitiesTotal];
     }
 
     async buildActivitiesFeed(
-        userId: string,
-        buildActivitiesDto: BuildActivitiesDto,
-    ) {
-        switch (buildActivitiesDto.criteria) {
+        userId: string | undefined,
+        dto: ActivitiesFeedRequestDto,
+    ): Promise<TPaginationData<ActivitiesFeedEntryDto>> {
+        const offset = dto.offset || 20;
+        const limit = dto.limit || 20;
+        switch (dto.criteria) {
+            case ActivityFeedCriteria.RECENT:
+                return this.buildLatestActivitiesFeed(offset, limit);
+            default:
+                throw new HttpException(
+                    "Activity Feed criteria not supported.",
+                    HttpStatus.BAD_REQUEST,
+                );
         }
     }
 }
