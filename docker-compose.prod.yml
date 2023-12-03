@@ -97,23 +97,6 @@ services:
     volumes:
       - gamenode:/usr/src/gamenode
 
-    ports:
-      - "5000:5000"
-
-  npm:
-    image: jc21/nginx-proxy-manager:latest
-    restart: unless-stopped
-    ports:
-      - '80:80'
-      - '81:81'
-      - '443:443'
-    volumes:
-      - npm:/data
-      - npm:/etc/letsencrypt
-
-    networks:
-      - game_node_app
-
 networks:
   game_node_app:
     external: true
