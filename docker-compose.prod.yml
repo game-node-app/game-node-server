@@ -3,8 +3,6 @@ version: '3'
 
 services:
   db:
-    env_file:
-      - stack.env
     image: mysql:latest
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASS}
@@ -23,8 +21,6 @@ services:
       retries: 10
 
   supertokens:
-    env_file:
-      - stack.env
     image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
     depends_on:
       - db
@@ -43,8 +39,6 @@ services:
       retries: 5
 
   redis:
-    env_file:
-      - stack.env
     image: redis:latest
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
@@ -61,8 +55,6 @@ services:
       - game_node_app
 
   server:
-    env_file:
-      - stack.env
     image: lamarcke/game-node-server:latest
     depends_on:
       - db
