@@ -10,8 +10,6 @@ services:
       MYSQL_PASSWORD: ${DB_PASS}
       MYSQL_DATABASE: gamenode
 
-    expose:
-      - 3306
     networks:
       - game_node_app
     restart: always
@@ -26,8 +24,6 @@ services:
     image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
     depends_on:
       - db
-    expose:
-      - 3567
 
     environment:
       MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/gamenode
@@ -44,8 +40,6 @@ services:
 
   redis:
     image: redis:latest
-    expose:
-      - 6379
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
 
@@ -61,9 +55,7 @@ services:
       - game_node_app
 
   server:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: lamarcke/game-node-server:latest
 
     depends_on:
       - db
@@ -83,21 +75,17 @@ services:
 
     command: ["yarn", "start"]
 
-    #    deploy:
-    #      replicas: 3
-
     networks:
       - game_node_app
+
     volumes:
-      - gamenode:/usr/src/gamenode
+      - gamenode:/app
 
 networks:
   game_node_app:
     external: true
 
 volumes:
-  # Nginx Proxy Manager
-  npm:
   gamenode:
   redis:
   db:
