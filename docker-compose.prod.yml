@@ -3,7 +3,6 @@ version: '3'
 
 services:
   db:
-    env_file: .env
     image: mysql:latest
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASS}
@@ -24,7 +23,6 @@ services:
       retries: 10
 
   supertokens:
-    env_file: .env
     image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
     depends_on:
       - db
@@ -71,8 +69,6 @@ services:
       - db
       - supertokens
       - redis
-
-    env_file: .env
 
     # Most of the env vars are loaded directly from .env, we only need to override some to make sure
     # the docker resources are accessible.
