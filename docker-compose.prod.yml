@@ -66,9 +66,14 @@ services:
     environment:
       DB_HOST: db
       DB_DATABASE: gamenode
+      DB_PASS: ${DB_PASS}
+      DB_USER: ${DB_USER}
+      DB_PORT: 3306
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
       REDIS_URL: redis://redis:6379
       SERVER_PORT: 5000
+      DOMAIN_API: https://server.gamenode.com
+      DOMAIN_WEBSITE: https://gamenode.com
 
     restart: always
 
@@ -82,6 +87,7 @@ services:
 
 networks:
   game_node_app:
+    driver: overlay
     external: true
 
 volumes:
