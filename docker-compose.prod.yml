@@ -53,8 +53,8 @@ services:
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
       REDIS_URL: redis://redis:6379
       SERVER_PORT: 5000
-      DOMAIN_API: https://server.gamenode.com
-      DOMAIN_WEBSITE: https://gamenode.com
+      DOMAIN_API: https://server.gamenode.app
+      DOMAIN_WEBSITE: https://gamenode.app
 
     restart: always
 
