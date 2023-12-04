@@ -20,24 +20,6 @@ services:
       timeout: 20s
       retries: 10
 
-  supertokens:
-    image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
-    depends_on:
-      - db
-
-    environment:
-      MYSQL_CONNECTION_URI: mysql://${DB_USER}:${DB_PASS}@db:3306/gamenode
-    networks:
-      - game_node_app
-    restart: always
-
-    healthcheck:
-      test: >
-        bash -c 'exec 3<>/dev/tcp/127.0.0.1/3567 && echo -e "GET /hello HTTP/1.1\r\nhost: 127.0.0.1:3567\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep "Hello"'
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:latest
     environment:
@@ -87,7 +69,6 @@ services:
 
 networks:
   game_node_app:
-    driver: overlay
     external: true
 
 volumes:
