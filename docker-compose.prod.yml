@@ -40,7 +40,6 @@ services:
     image: lamarcke/game-node-server:latest
     depends_on:
       - db
-      - supertokens
       - redis
 
     # Most of the env vars are loaded directly from .env, we only need to override some to make sure
