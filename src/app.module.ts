@@ -27,6 +27,7 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
             bigNumberStrings: false,
             type: "mysql",
             retryAttempts: 999999,
+            connectTimeout: 3000,
             host: process.env.DB_HOST,
             port: parseInt(process.env.DB_PORT as string) as any,
             username: process.env.DB_USER,
