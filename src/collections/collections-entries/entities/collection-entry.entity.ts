@@ -47,11 +47,15 @@ export class CollectionEntry {
     @JoinTable()
     ownedPlatforms: GamePlatform[];
 
-    @OneToOne(() => Review, (review) => review.collectionEntry)
+    @OneToOne(() => Review, (review) => review.collectionEntry, {
+        nullable: true,
+    })
     @JoinColumn()
     review: Review | null;
 
-    @Column()
+    @Column({
+        nullable: true,
+    })
     reviewId: string | null;
 
     @Column({
