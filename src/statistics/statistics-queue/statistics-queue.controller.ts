@@ -22,7 +22,7 @@ export class StatisticsQueueController {
         @Body() dto: StatisticsActionDto,
     ) {
         const userId = session.getUserId();
-        this.statisticsQueueService.registerLike(
+        return this.statisticsQueueService.registerLike(
             userId,
             dto,
             StatisticsActionType.INCREMENT,
@@ -35,7 +35,7 @@ export class StatisticsQueueController {
         @Body() dto: StatisticsActionDto,
     ) {
         const userId = session.getUserId();
-        this.statisticsQueueService.registerLike(
+        return this.statisticsQueueService.registerLike(
             userId,
             dto,
             StatisticsActionType.DECREMENT,
@@ -49,6 +49,6 @@ export class StatisticsQueueController {
         @Session() session?: SessionContainer,
     ) {
         const possibleUserId = session?.getUserId();
-        this.statisticsQueueService.registerView(dto, possibleUserId);
+        return this.statisticsQueueService.registerView(dto, possibleUserId);
     }
 }

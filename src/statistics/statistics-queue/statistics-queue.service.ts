@@ -1,9 +1,5 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { StatisticsService } from "../statistics.service";
-import {
-    StatisticsActionType,
-    StatisticsSourceType,
-} from "../statistics.constants";
+import { Injectable } from "@nestjs/common";
+import { StatisticsActionType } from "../statistics.constants";
 import { STATISTICS_QUEUE_NAME } from "./statistics-queue.constants";
 import { Queue } from "bull";
 import {
@@ -31,7 +27,7 @@ export class StatisticsQueueService {
             sourceType: dto.sourceType,
             userId,
         };
-        this.statisticsQueue.add("like", likeAction);
+        return this.statisticsQueue.add("like", likeAction);
     }
 
     registerView(dto: StatisticsActionDto, userId?: string) {
@@ -40,6 +36,6 @@ export class StatisticsQueueService {
             sourceType: dto.sourceType,
             sourceId: dto.sourceId,
         };
-        this.statisticsQueue.add("view", viewAction);
+        return this.statisticsQueue.add("view", viewAction);
     }
 }
