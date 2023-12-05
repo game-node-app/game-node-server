@@ -106,10 +106,7 @@ export class CollectionsService {
     }
 
     async create(userId: string, createCollectionDto: CreateCollectionDto) {
-        const userLibrary = await this.librariesService.findOneById(
-            userId,
-            true,
-        );
+        const userLibrary = await this.librariesService.findOneById(userId);
         if (!userLibrary) {
             throw new HttpException(
                 "User has no library defined.",
