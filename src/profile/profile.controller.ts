@@ -76,13 +76,17 @@ export class ProfileController {
     /**
      * Used to access other users' profiles
      * @param session
-     * @param id
+     * @param profileId
      */
     @Get(":id")
     async findOneById(
         @Session() session: SessionContainer,
-        @Param("id") id: string,
+        @Param("id") profileId: string,
     ) {
-        return await this.profileService.findOneByIdOrFail(id, false);
+        const isOwnProfile = session && session.getUserId() === profileId;
+        return await this.profileService.findOneByIdOrFail(
+            profileId,
+            isOwnProfile,
+        );
     }
 }

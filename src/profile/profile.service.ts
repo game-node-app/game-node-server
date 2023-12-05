@@ -143,6 +143,7 @@ export class ProfileService {
     }
 
     async handleUninitializedProfile(userId: string) {
+        console.log("Handling initialized user: ", userId);
         await this.create(userId);
     }
 }

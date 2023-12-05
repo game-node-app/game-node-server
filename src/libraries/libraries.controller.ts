@@ -44,11 +44,13 @@ export class LibrariesController {
     @Public()
     async findOneByIdWithPermissions(
         @Session() session: SessionContainer,
-        @Param("id") id: string,
+        @Param("id") libraryId: string,
     ) {
+        const isOwnLibrary = session && session.getUserId() === libraryId;
         return this.librariesService.findOneByIdWithPermissions(
             session.getUserId(),
-            id,
+            libraryId,
+            isOwnLibrary,
         );
     }
 }

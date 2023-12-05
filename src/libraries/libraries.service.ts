@@ -60,14 +60,22 @@ export class LibrariesService {
      * If trying to get a user's own library, internally, prefer the findOneById method.
      * @param userId
      * @param targetUserId
-     * @param dto
+     * @param handleUninitialized
      */
-    async findOneByIdWithPermissions(userId: string, targetUserId: string) {
-        const library = await this.findOneById(targetUserId, false, {
-            collections: {
-                library: true,
+    async findOneByIdWithPermissions(
+        userId: string,
+        targetUserId: string,
+        handleUninitialized = false,
+    ) {
+        const library = await this.findOneById(
+            targetUserId,
+            handleUninitialized,
+            {
+                collections: {
+                    library: true,
+                },
             },
-        });
+        );
 
         if (!library) {
             throw new HttpException("Library not found.", HttpStatus.NOT_FOUND);
@@ -107,6 +115,7 @@ export class LibrariesService {
     }
 
     async handleUninitializedLibrary(userId: string) {
+        console.log("Handling initialized user: ", userId);
         await this.create(userId);
     }
 }
