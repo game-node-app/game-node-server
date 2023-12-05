@@ -37,7 +37,7 @@ services:
       - game_node_app
 
   server:
-    image: lamarcke/game-node-server:latest
+    image: lamarcke/game-node-server:0.0.1
     depends_on:
       - db
       - redis
