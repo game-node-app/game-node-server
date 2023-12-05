@@ -45,10 +45,9 @@ export class AuthService {
                                         input,
                                     );
                                 if (result.status === "OK") {
-                                    this.userInitService
-                                        .initUser(result.user.id)
-                                        .then()
-                                        .catch((e) => console.error(e));
+                                    await this.userInitService.initUser(
+                                        result.user.id,
+                                    );
                                 }
                                 return result;
                             },
@@ -58,10 +57,9 @@ export class AuthService {
                                         input,
                                     );
                                 if (result.status === "OK") {
-                                    this.userInitService
-                                        .initUser(result.user.id)
-                                        .then()
-                                        .catch((e) => console.error(e));
+                                    await this.userInitService.initUser(
+                                        result.user.id,
+                                    );
                                 }
                                 return result;
                             },
