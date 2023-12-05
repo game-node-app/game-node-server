@@ -68,7 +68,6 @@ networks:
     external: true
 
 volumes:
-  gamenode:
   redis:
   db:
 
