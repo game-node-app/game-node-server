@@ -33,7 +33,7 @@ export class UserInitService {
         try {
             const possibleUserLibrary =
                 await this.librariesService.findOneById(userId);
-            if (possibleUserLibrary) {
+            if (!possibleUserLibrary) {
                 await this.librariesService.create(userId);
                 this.logger.log(`Created library for user ${userId} at signup`);
                 for (const defCollection of DEFAULT_COLLECTIONS) {
@@ -57,7 +57,7 @@ export class UserInitService {
         try {
             const possibleUserProfile =
                 await this.profileService.findOneById(userId);
-            if (possibleUserProfile) {
+            if (!possibleUserProfile) {
                 await this.profileService.create(userId);
             }
         } catch (e: any) {
