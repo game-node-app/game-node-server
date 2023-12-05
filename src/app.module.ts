@@ -26,6 +26,7 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
             // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
             bigNumberStrings: false,
             type: "mysql",
+            retryAttempts: 999999,
             host: process.env.DB_HOST,
             port: parseInt(process.env.DB_PORT as string) as any,
             username: process.env.DB_USER,
