@@ -1,19 +1,10 @@
-import {
-    Controller,
-    Post,
-    Body,
-    Param,
-    UseGuards,
-    HttpCode,
-    Get,
-} from "@nestjs/common";
+import { Controller, Param, UseGuards, HttpCode, Get } from "@nestjs/common";
 import { LibrariesService } from "./libraries.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiProduces, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { Session } from "../auth/session.decorator";
 import { Library } from "./entities/library.entity";
-import { GetLibraryDto } from "./dto/get-library.dto";
 import { Public } from "../auth/public.decorator";
 
 @Controller("libraries")
@@ -32,7 +23,6 @@ export class LibrariesController {
     async findOwn(@Session() session: SessionContainer): Promise<Library> {
         const library = await this.librariesService.findOneById(
             session.getUserId(),
-            true,
             {
                 collections: true,
             },
@@ -46,11 +36,9 @@ export class LibrariesController {
         @Session() session: SessionContainer,
         @Param("id") libraryId: string,
     ) {
-        const isOwnLibrary = session && session.getUserId() === libraryId;
         return this.librariesService.findOneByIdWithPermissions(
             session?.getUserId(),
             libraryId,
-            isOwnLibrary,
         );
     }
 }

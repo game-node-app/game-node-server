@@ -64,10 +64,7 @@ export class ProfileController {
         type: Profile,
     })
     async findOwn(@Session() session: SessionContainer) {
-        return await this.profileService.findOneByIdOrFail(
-            session.getUserId(),
-            true,
-        );
+        return await this.profileService.findOneByIdOrFail(session.getUserId());
     }
 
     /**
@@ -80,10 +77,6 @@ export class ProfileController {
         @Session() session: SessionContainer,
         @Param("id") profileId: string,
     ) {
-        const isOwnProfile = session && session.getUserId() === profileId;
-        return await this.profileService.findOneByIdOrFail(
-            profileId,
-            isOwnProfile,
-        );
+        return await this.profileService.findOneByIdOrFail(profileId);
     }
 }

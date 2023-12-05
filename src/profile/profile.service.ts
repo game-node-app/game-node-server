@@ -71,10 +71,7 @@ export class ProfileService {
         return await this.profileRepository.find();
     }
 
-    async findOneById(
-        userId: string,
-        handleUninitialized = false,
-    ): Promise<Profile | null> {
+    async findOneById(userId: string): Promise<Profile | null> {
         const profile = await this.profileRepository.findOne({
             where: {
                 userId,
@@ -83,15 +80,11 @@ export class ProfileService {
                 avatar: true,
             },
         });
-        if (!profile && handleUninitialized) {
-            await this.handleUninitializedProfile(userId);
-            return await this.findOneById(userId);
-        }
         return profile;
     }
 
-    async findOneByIdOrFail(userId: string, handleUnitialized = false) {
-        const profile = await this.findOneById(userId, handleUnitialized);
+    async findOneByIdOrFail(userId: string) {
+        const profile = await this.findOneById(userId);
         if (!profile) {
             throw new HttpException("Profile not found", HttpStatus.NOT_FOUND);
         }
@@ -113,7 +106,6 @@ export class ProfileService {
     ) {
         const profile = await this.findOneById(id);
         if (!profile) {
-            await this.handleUninitializedProfile(id);
             throw new HttpException(
                 "Profile was not found",
                 HttpStatus.NOT_FOUND,
@@ -140,10 +132,5 @@ export class ProfileService {
             profile.avatar = await this.createAvatar(avatarFile);
         }
         await this.profileRepository.save(profile);
-    }
-
-    async handleUninitializedProfile(userId: string) {
-        console.log("Handling initialized user: ", userId);
-        await this.create(userId);
     }
 }
