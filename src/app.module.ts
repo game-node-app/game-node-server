@@ -36,7 +36,7 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
             autoLoadEntities: true,
             // Never turn this on. Use migrations instead.
             synchronize: false,
-            logging: process.env.NODE_ENV === "development",
+            logging: true,
             debug: false,
         }),
 
