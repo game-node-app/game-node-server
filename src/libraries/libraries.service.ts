@@ -63,7 +63,7 @@ export class LibrariesService {
      * @param handleUninitialized
      */
     async findOneByIdWithPermissions(
-        userId: string,
+        userId: string | undefined,
         targetUserId: string,
         handleUninitialized = false,
     ) {

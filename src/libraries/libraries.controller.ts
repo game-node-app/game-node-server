@@ -48,7 +48,7 @@ export class LibrariesController {
     ) {
         const isOwnLibrary = session && session.getUserId() === libraryId;
         return this.librariesService.findOneByIdWithPermissions(
-            session.getUserId(),
+            session?.getUserId(),
             libraryId,
             isOwnLibrary,
         );
