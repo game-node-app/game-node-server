@@ -63,9 +63,6 @@ services:
     networks:
       - game_node_app
 
-    volumes:
-      - gamenode:/app
-
 networks:
   game_node_app:
     external: true
