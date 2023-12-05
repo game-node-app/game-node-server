@@ -36,6 +36,37 @@ export class AuthService {
                 ThirdPartyPasswordless.init({
                     flowType: "USER_INPUT_CODE",
                     contactMethod: "EMAIL",
+                    override: {
+                        apis: (originalImplementation) => ({
+                            ...originalImplementation,
+                            thirdPartySignInUpPOST: async (input) => {
+                                const result =
+                                    await originalImplementation.thirdPartySignInUpPOST!(
+                                        input,
+                                    );
+                                if (result.status === "OK") {
+                                    this.userInitService
+                                        .initUser(result.user.id)
+                                        .then()
+                                        .catch((e) => console.error(e));
+                                }
+                                return result;
+                            },
+                            consumeCodePOST: async (input) => {
+                                const result =
+                                    await originalImplementation.consumeCodePOST!(
+                                        input,
+                                    );
+                                if (result.status === "OK") {
+                                    this.userInitService
+                                        .initUser(result.user.id)
+                                        .then()
+                                        .catch((e) => console.error(e));
+                                }
+                                return result;
+                            },
+                        }),
+                    },
                 }),
                 UserRoles.init(),
                 Session.init(),

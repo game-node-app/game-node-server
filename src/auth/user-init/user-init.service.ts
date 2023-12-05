@@ -19,11 +19,6 @@ export class UserInitService {
     /**
      * Initialize the user
      * This function should be called on the PostSignup event for SuperTokens.
-     *
-     * The initialization should not fail no matter what. If it does, unexpected things
-     * may happen in all endpoints.
-     *
-     * Make sure to implement uninitialized handlers for each resource.
      * @param userId
      */
     async initUser(userId: string) {
@@ -36,30 +31,38 @@ export class UserInitService {
         } catch (e) {}
 
         try {
-            await this.librariesService.create(userId);
-            this.logger.log(`Created library for user ${userId} at signup`);
-            for (const defCollection of DEFAULT_COLLECTIONS) {
-                // Registers the promise but does not wait for it
-                this.collectionsService
-                    .create(userId, defCollection)
-                    .then()
-                    .catch();
+            const possibleUserLibrary =
+                await this.librariesService.findOneById(userId);
+            if (possibleUserLibrary) {
+                await this.librariesService.create(userId);
+                this.logger.log(`Created library for user ${userId} at signup`);
+                for (const defCollection of DEFAULT_COLLECTIONS) {
+                    // Registers the promise but does not wait for it
+                    this.collectionsService
+                        .create(userId, defCollection)
+                        .then()
+                        .catch();
+                }
+                this.logger.log(
+                    `Created default collections for user ${userId} at signup`,
+                );
             }
-            this.logger.log(
-                `Created default collections for user ${userId} at signup`,
-            );
         } catch (e: any) {
             this.logger.error(
-                `Failed to create library and default collections for user ${userId} at signup`,
+                `Failed to create library and default collections for user ${userId} at signup/in`,
                 e,
             );
         }
 
         try {
-            await this.profileService.create(userId);
+            const possibleUserProfile =
+                await this.profileService.findOneById(userId);
+            if (possibleUserProfile) {
+                await this.profileService.create(userId);
+            }
         } catch (e: any) {
             this.logger.error(
-                `Failed to create profile for user ${userId} at signup`,
+                `Failed to create profile for user ${userId} at signup/in`,
                 e,
             );
         }

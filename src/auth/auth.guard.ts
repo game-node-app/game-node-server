@@ -2,7 +2,6 @@ import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Error as STError } from "supertokens-node";
 
 import { verifySession } from "supertokens-node/recipe/session/framework/express";
-import { VerifySessionOptions } from "supertokens-node/recipe/session";
 import { Reflector } from "@nestjs/core";
 
 /**
@@ -30,10 +29,6 @@ export class AuthGuard implements CanActivate {
         })(ctx.getRequest(), resp, (res) => {
             err = res;
         });
-
-        if (isPublic) {
-            return true;
-        }
 
         if (resp.headersSent) {
             throw new STError({
