@@ -44,7 +44,9 @@ export class AuthService {
                                     await originalImplementation.thirdPartySignInUpPOST!(
                                         input,
                                     );
+                                console.log("THIRD PARTY POST");
                                 if (result.status === "OK") {
+                                    console.log("THIRD PARTY POST OK");
                                     await this.userInitService.initUser(
                                         result.user.id,
                                     );
@@ -56,7 +58,10 @@ export class AuthService {
                                     await originalImplementation.consumeCodePOST!(
                                         input,
                                     );
+                                console.log("CONSUME CODE POST");
                                 if (result.status === "OK") {
+                                    console.log("CONSUME CODE POST OK");
+
                                     await this.userInitService.initUser(
                                         result.user.id,
                                     );
