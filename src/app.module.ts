@@ -68,6 +68,12 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
                             return true;
                         },
                     },
+                    defaultJobOptions: {
+                        removeOnComplete: true,
+                        removeOnFail: true,
+                        attempts: 10,
+                        backoff: 5000,
+                    },
                 };
             },
         }),
