@@ -58,6 +58,9 @@ services:
 
     restart: always
 
+    volumes:
+      - gamenode:/app/public/uploads
+
     command: ["yarn", "start"]
 
     networks:
@@ -70,4 +73,5 @@ networks:
 volumes:
   redis:
   db:
+  gamenode:
 
