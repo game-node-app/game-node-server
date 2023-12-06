@@ -599,6 +599,102 @@
         ]
       }
     },
+    "/v1/collections-entries/library/{id}": {
+      "get": {
+        "operationId": "CollectionsEntriesController_findAllByLibraryId",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionEntriesPaginatedResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "collections-entries"
+        ]
+      }
+    },
+    "/v1/collections-entries/library/{id}/favorites": {
+      "get": {
+        "operationId": "CollectionsEntriesController_findFavoritesByLibraryId",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionEntriesPaginatedResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "collections-entries"
+        ]
+      }
+    },
     "/v1/collections-entries/collection/{id}": {
       "get": {
         "operationId": "CollectionsEntriesController_findAllByCollectionId",
