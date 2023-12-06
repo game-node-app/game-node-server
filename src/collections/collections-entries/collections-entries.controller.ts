@@ -24,6 +24,7 @@ import { CreateFavoriteStatusCollectionEntryDto } from "./dto/create-favorite-st
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 
 import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-paginated-response.dto";
+import { Public } from "../../auth/public.decorator";
 
 @Controller("collections-entries")
 @ApiTags("collections-entries")
@@ -94,12 +95,51 @@ export class CollectionsEntriesController {
         );
     }
 
+    @Get("/library/:id")
+    @HttpCode(HttpStatus.OK)
+    @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponse({
+        type: CollectionEntriesPaginatedResponseDto,
+    })
+    @Public()
+    async findAllByLibraryId(
+        @Session() session: SessionContainer | undefined,
+        @Param("id") libraryId: string,
+        @Query() dto: FindCollectionEntriesDto,
+    ) {
+        return this.collectionsEntriesService.findAllByUserIdWithPermissions(
+            session?.getUserId(),
+            libraryId,
+            dto,
+        );
+    }
+
+    @Get("/library/:id/favorites")
+    @HttpCode(HttpStatus.OK)
+    @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponse({
+        type: CollectionEntriesPaginatedResponseDto,
+    })
+    @Public()
+    async findFavoritesByLibraryId(
+        @Session() session: SessionContainer | undefined,
+        @Param("id") libraryId: string,
+        @Query() dto: FindCollectionEntriesDto,
+    ) {
+        return await this.collectionsEntriesService.findFavoritesByUserId(
+            session?.getUserId(),
+            libraryId,
+            dto,
+        );
+    }
+
     @Get("/collection/:id")
     @HttpCode(HttpStatus.OK)
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
         type: CollectionEntriesPaginatedResponseDto,
     })
+    @Public()
     async findAllByCollectionId(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,

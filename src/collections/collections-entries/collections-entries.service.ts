@@ -111,31 +111,72 @@ export class CollectionsEntriesService {
         return results;
     }
 
-    async findAllByUserId(userId: string, dto: FindCollectionEntriesDto) {
+    async findAllByUserIdWithPermissions(
+        userId: string | undefined,
+        targetUserId: string,
+        dto: FindCollectionEntriesDto,
+    ) {
+        const isOwnQuery = userId === targetUserId;
         const findOptions = buildBaseFindOptions(dto);
+        if (isOwnQuery) {
+            return await this.collectionEntriesRepository.findAndCount({
+                ...findOptions,
+                where: {
+                    collections: {
+                        library: {
+                            userId,
+                        },
+                    },
+                },
+                relations: this.relations,
+            });
+        }
+
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 collections: {
+                    isPublic: true,
                     library: {
                         userId,
                     },
                 },
             },
+            relations: this.relations,
         });
     }
 
-    async getFavoritesByUserId(userId: string, dto: FindCollectionEntriesDto) {
+    async findFavoritesByUserId(
+        userId: string | undefined,
+        targetUserId: string,
+        dto: FindCollectionEntriesDto,
+    ) {
         const findOptions = buildBaseFindOptions(dto);
-        return await this.collectionEntriesRepository.find({
+        const isOwnQuery = userId === targetUserId;
+        if (isOwnQuery) {
+            return await this.collectionEntriesRepository.findAndCount({
+                ...findOptions,
+                where: {
+                    isFavorite: true,
+                    collections: {
+                        library: {
+                            userId,
+                        },
+                    },
+                },
+                relations: this.relations,
+            });
+        }
+
+        return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 isFavorite: true,
                 collections: {
-                    isPublic: true,
                     library: {
-                        userId: userId,
+                        userId,
                     },
+                    isPublic: true,
                 },
             },
         });

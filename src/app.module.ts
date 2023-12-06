@@ -62,6 +62,11 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
                     redis: {
                         host: redisHost,
                         port: parseInt(redisPort as string) as any,
+                        connectTimeout: 3000,
+                        autoResubscribe: true,
+                        reconnectOnError: () => {
+                            return true;
+                        },
                     },
                 };
             },
