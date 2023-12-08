@@ -34,7 +34,7 @@ export class CollectionsEntriesController {
 
     @Post()
     @HttpCode(201)
-    async create(
+    async replace(
         @Session() session: SessionContainer,
         @Body() createCollectionEntryDto: CreateCollectionEntryDto,
     ) {

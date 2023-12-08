@@ -17,22 +17,17 @@ export class ActivitiesRepositoryService {
         private activitiesRepository: Repository<Activity>,
     ) {}
 
-    private isValidActivity(activity: DeepPartial<Activity>): boolean {
-        return (
-            activity.sourceId != undefined &&
-            activity.profile != undefined &&
-            activity.profile.userId != undefined
-        );
-    }
-
     async create(activityLike: DeepPartial<Activity>) {
-        if (this.isValidActivity(activityLike)) {
-            await this.activitiesRepository.save(activityLike);
-            return;
+        try {
+            return await this.activitiesRepository.save(activityLike);
+        } catch (e) {
+            this.logger.error(
+                "Invalid activity: " +
+                    JSON.stringify(activityLike) +
+                    "Aborting.",
+            );
+            this.logger.error(e);
         }
-        this.logger.warn(
-            "Invalid activity: " + JSON.stringify(activityLike) + "Aborting.",
-        );
     }
 
     async deleteBySourceId(sourceId: string) {

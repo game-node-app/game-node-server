@@ -35,6 +35,8 @@ export class Activity {
         nullable: false,
     })
     profile: Profile;
+    @Column({ nullable: false })
+    profileUserId: string;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

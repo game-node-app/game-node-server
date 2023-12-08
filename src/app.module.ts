@@ -15,6 +15,7 @@ import { CollectionsEntriesModule } from "./collections/collections-entries/coll
 import { LibrariesModule } from "./libraries/libraries.module";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
+import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
 
 @Module({
     imports: [
@@ -27,7 +28,6 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
             bigNumberStrings: false,
             type: "mysql",
             retryAttempts: 999999,
-            connectTimeout: 3000,
             host: process.env.DB_HOST,
             port: parseInt(process.env.DB_PORT as string) as any,
             username: process.env.DB_USER,
@@ -77,7 +77,7 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
                 };
             },
         }),
-        ActivitiesRepositoryModule,
+        ActivitiesFeedModule,
         GameQueueModule,
         CollectionsModule,
         CollectionsEntriesModule,

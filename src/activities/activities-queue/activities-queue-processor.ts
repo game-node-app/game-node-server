@@ -2,8 +2,6 @@ import { Process, Processor } from "@nestjs/bull";
 import { Activity } from "../activities-repository/entities/activity.entity";
 import { Job } from "bull";
 import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { ActivitiesRepositoryService } from "../activities-repository/activities-repository.service";
 
 @Processor("activities")

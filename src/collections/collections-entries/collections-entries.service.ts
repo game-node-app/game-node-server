@@ -228,6 +228,8 @@ export class CollectionsEntriesService {
             .addActivity({
                 sourceId: upsertedEntry.id,
                 type: ActivityType.COLLECTION_ENTRY,
+                profileUserId: userId,
+                metadata: null,
             })
             .then()
             .catch();

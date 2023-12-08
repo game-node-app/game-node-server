@@ -1,8 +1,7 @@
 import { InjectQueue } from "@nestjs/bull";
 import { Injectable } from "@nestjs/common";
 import { Queue } from "bull";
-import { Activity } from "../activities-repository/entities/activity.entity";
-import { DeepPartial } from "typeorm";
+import { ActivityCreate } from "./activities-queue.constants";
 
 @Injectable()
 export class ActivitiesQueueService {
@@ -10,8 +9,8 @@ export class ActivitiesQueueService {
         @InjectQueue("activities") private readonly activitiesQueue: Queue,
     ) {}
 
-    async addActivity(activity: DeepPartial<Activity>) {
-        if (typeof activity.profile == undefined) {
+    async addActivity(activity: ActivityCreate) {
+        if (activity.profileUserId == null) {
             throw new Error("An activity must have an associated profile.");
         } else if (
             activity.sourceId == undefined ||

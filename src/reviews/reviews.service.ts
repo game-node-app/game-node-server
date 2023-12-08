@@ -131,9 +131,8 @@ export class ReviewsService {
             .addActivity({
                 type: ActivityType.REVIEW,
                 sourceId: insertedEntry.id,
-                profile: {
-                    userId,
-                },
+                profileUserId: userId,
+                metadata: null,
             })
             .then()
             .catch();
