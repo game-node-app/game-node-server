@@ -1,13 +1,10 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { Between, Repository } from "typeorm";
+import { Between, FindManyOptions, Repository } from "typeorm";
 import { Statistics } from "./entity/statistics.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
-import {
-    StatisticsActionType,
-    StatisticsSourceType,
-} from "./statistics.constants";
+import { StatisticsActionType } from "./statistics.constants";
 import {
     StatisticsLikeAction,
     StatisticsViewAction,
@@ -19,7 +16,7 @@ import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dt
 import {
     StatisticsEntityDto,
     StatisticsStatus,
-} from "./dto/StatisticsEntity.dto";
+} from "./dto/statistics-entity.dto";
 
 @Injectable()
 export class StatisticsService {
@@ -134,8 +131,15 @@ export class StatisticsService {
         });
     }
 
+    private getPreviousDate(daysMinus: number) {
+        const previousDate = new Date(); // today
+        // If this is a negative number, months are automatically subtracted
+        previousDate.setDate(previousDate.getDate() - daysMinus);
+        return previousDate;
+    }
+
     /**
-     * Finds trending items in the last week/month.
+     * Finds trending items in the last day/week/month.
      * Do NOT return source entities here. The client should use the respective endpoints to retrieve it.
      * @param dto
      */
@@ -146,57 +150,47 @@ export class StatisticsService {
         // Just trust me
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const lastWeek = new Date();
-        const lastMonth = new Date();
-        lastWeek.setDate(lastWeek.getDate() - 7);
-        lastMonth.setDate(lastMonth.getDate() - 30);
-        const findOptions = buildBaseFindOptions<Statistics>(dto);
-        const [lastWeekStatistics, lastWeekCount] =
-            await this.statisticsRepository.findAndCount({
-                ...findOptions,
-                where: [
-                    {
-                        views: {
-                            createdAt: Between(lastWeek, tomorrow),
-                        },
-                    },
-                    {
-                        likes: {
-                            createdAt: Between(lastWeek, tomorrow),
-                        },
-                    },
-                ],
-                order: {
-                    viewsCount: "DESC",
-                    likesCount: "DESC",
-                },
-            });
+        const yesterday = this.getPreviousDate(1);
+        const lastWeek = this.getPreviousDate(7);
+        const lastMonth = this.getPreviousDate(30);
+        const lastYear = this.getPreviousDate(365);
 
-        if (lastWeekCount > 0) {
-            return [lastWeekStatistics, lastWeekCount];
+        const baseFindOptions = buildBaseFindOptions(dto);
+
+        const periods = [yesterday, lastWeek, lastMonth, lastYear] as const;
+
+        for (const period of periods) {
+            const [periodItems, periodTotal] =
+                await this.statisticsRepository.findAndCount({
+                    ...baseFindOptions,
+                    where: [
+                        {
+                            views: {
+                                createdAt: Between(period, tomorrow),
+                            },
+                        },
+                        {
+                            likes: {
+                                createdAt: Between(period, tomorrow),
+                            },
+                        },
+                    ],
+                    order: {
+                        viewsCount: "DESC",
+                        likesCount: "DESC",
+                    },
+                });
+            if (
+                period.getTime() > lastYear.getTime() &&
+                periodTotal < dto.minimumItems
+            ) {
+                continue;
+            }
+
+            return [periodItems, periodTotal];
         }
 
-        const [lastMonthStatistics, lastMonthCount] =
-            await this.statisticsRepository.findAndCount({
-                ...findOptions,
-                where: [
-                    {
-                        views: {
-                            createdAt: Between(lastMonth, tomorrow),
-                        },
-                    },
-                    {
-                        likes: {
-                            createdAt: Between(lastMonth, tomorrow),
-                        },
-                    },
-                ],
-                order: {
-                    viewsCount: "DESC",
-                    likesCount: "DESC",
-                },
-            });
-        return [lastMonthStatistics, lastMonthCount];
+        return [[], 0];
     }
 
     async findStatus(
@@ -204,27 +198,34 @@ export class StatisticsService {
         userId?: string,
     ): Promise<StatisticsStatus> {
         if (userId) {
+            const isLikedQuery = this.userLikeRepository.exist({
+                where: {
+                    statistics: {
+                        id: statisticsId,
+                    },
+                    profile: {
+                        userId,
+                    },
+                },
+            });
+            const isViewedQuery = this.userViewRepository.exist({
+                where: {
+                    statistics: {
+                        id: statisticsId,
+                    },
+                    profile: {
+                        userId,
+                    },
+                },
+            });
+            const [isLiked, isViewed] = await Promise.all([
+                isLikedQuery,
+                isViewedQuery,
+            ]);
+
             return {
-                isLiked: await this.userLikeRepository.exist({
-                    where: {
-                        statistics: {
-                            id: statisticsId,
-                        },
-                        profile: {
-                            userId,
-                        },
-                    },
-                }),
-                isViewed: await this.userViewRepository.exist({
-                    where: {
-                        statistics: {
-                            id: statisticsId,
-                        },
-                        profile: {
-                            userId,
-                        },
-                    },
-                }),
+                isLiked,
+                isViewed,
             };
         }
 

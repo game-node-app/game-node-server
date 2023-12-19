@@ -10,6 +10,7 @@ import { publicUploadDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
 import * as process from "process";
+import { ThrottlerGuard } from "@nestjs/throttler";
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);

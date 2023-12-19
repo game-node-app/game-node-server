@@ -5,9 +5,13 @@ import {
     HttpCode,
     Param,
     Post,
+    Query,
     UseInterceptors,
 } from "@nestjs/common";
-import { GameRepositoryService } from "./game-repository.service";
+import {
+    GameRepositoryService,
+    TAllowedResource,
+} from "./game-repository.service";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
@@ -21,19 +25,9 @@ export class GameRepositoryController {
         private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
-    @Get("platforms")
-    async findAllPlatforms() {
-        return await this.gameRepositoryService.getAllGamePlatforms();
-    }
-
-    @Get("genres")
-    async findAllGenres() {
-        return await this.gameRepositoryService.getAllGenres();
-    }
-
-    @Get("themes")
-    async findAllThemes() {
-        return await this.gameRepositoryService.getAllThemes();
+    @Get("resource")
+    async getResource(@Query("resourceName") resourceName: TAllowedResource) {
+        return await this.gameRepositoryService.getResource(resourceName);
     }
 
     @Post(":id")

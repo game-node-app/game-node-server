@@ -1,7 +1,7 @@
-import { ActivitiesFeedEntryDto } from "./activities-feed-entry.dto";
 import { PaginationInfo } from "../../../utils/pagination/pagination-response.dto";
+import { Activity } from "../../activities-repository/entities/activity.entity";
 
 export class ActivitiesFeedPaginatedResponseDto {
-    data: ActivitiesFeedEntryDto[];
+    data: Activity[];
     pagination: PaginationInfo;
 }

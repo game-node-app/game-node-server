@@ -1,12 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
-import {
-    FindOptionsRelationByString,
-    FindOptionsRelations,
-    In,
-    Repository,
-} from "typeorm";
+import { DataSource, In, Repository } from "typeorm";
 import { GameGenre } from "./entities/game-genre.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameTheme } from "./entities/game-theme.entity";
@@ -15,6 +10,18 @@ import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { BaseFindDto } from "../../utils/base-find.dto";
 import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
+import { GameMode } from "./entities/game-mode.entity";
+import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
+
+const resourceToEntityMap = {
+    platform: GamePlatform,
+    genre: GameGenre,
+    theme: GameTheme,
+    mode: GameMode,
+    playerPerspective: GamePlayerPerspective,
+};
+
+export type TAllowedResource = keyof typeof resourceToEntityMap;
 
 @Injectable()
 export class GameRepositoryService {
@@ -27,6 +34,7 @@ export class GameRepositoryService {
      * @param gameThemeRepository
      */
     constructor(
+        private readonly dataSource: DataSource,
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
         @InjectRepository(GameGenre)
@@ -78,15 +86,31 @@ export class GameRepositoryService {
         return this.gameRepository.findAndCount(findOptions);
     }
 
-    async getAllGamePlatforms(): Promise<GamePlatform[]> {
-        return await this.gamePlatformRepository.find();
+    async getResource(resource: TAllowedResource): Promise<any> {
+        const resourceAsEntity = resourceToEntityMap[resource];
+        if (resourceAsEntity == undefined) {
+            throw new HttpException("Resource type not allowed", 400);
+        }
+
+        const resourceRepository =
+            this.dataSource.getRepository(resourceAsEntity);
+        return await resourceRepository.find();
     }
 
-    async getAllGenres(): Promise<GameGenre[]> {
-        return await this.gameGenreRepository.find();
-    }
+    async getResourceByGameId(gameId: number, resource: TAllowedResource) {
+        const resourceAsEntity = resourceToEntityMap[resource];
+        if (resourceAsEntity == undefined) {
+            throw new HttpException("Resource type not allowed", 400);
+        }
 
-    async getAllThemes() {
-        return await this.gameThemeRepository.find();
+        const resourceRepository =
+            this.dataSource.getRepository(resourceAsEntity);
+        return await resourceRepository.find({
+            where: {
+                games: {
+                    id: gameId,
+                },
+            },
+        });
     }
 }

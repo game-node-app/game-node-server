@@ -8,9 +8,15 @@ export enum ActivityType {
     COLLECTION_ENTRY = "COLLECTION_ENTRY",
 }
 
-export class ActivityCreate extends PickType(Activity, [
-    "sourceId",
-    "type",
-    "profileUserId",
-    "metadata",
-]) {}
+export enum ActivityCriteria {
+    RECENCY,
+    POPULARITY,
+    FOLLOWING,
+}
+
+export class ActivityCreate {
+    type: ActivityType;
+    sourceId: string;
+    profileUserId: string;
+    metadata: object | null;
+}

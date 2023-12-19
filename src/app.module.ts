@@ -7,7 +7,6 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
-import { ActivitiesRepositoryModule } from "./activities/activities-repository/activities-repository.module";
 import { GlobalModule } from "./global/global.module";
 import { GameQueueModule } from "./game/game-queue/game-queue.module";
 import { CollectionsModule } from "./collections/collections.module";
@@ -16,7 +15,15 @@ import { LibrariesModule } from "./libraries/libraries.module";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
+import { seconds, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
+import { UserLevelModule } from "./user/user-level/user-level.module";
 
+/**
+ * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
+ * and specify the hostname manually, otherwise it will not pick up in the docker network.
+ * See "BullModule.forRootAsync" here for an example.
+ */
 @Module({
     imports: [
         ScheduleModule.forRoot(),
@@ -62,7 +69,6 @@ import { ActivitiesFeedModule } from "./activities/activities-feed/activities-fe
                     redis: {
                         host: redisHost,
                         port: parseInt(redisPort as string) as any,
-                        connectTimeout: 3000,
                         autoResubscribe: true,
                         reconnectOnError: () => {
                             return true;
@@ -77,6 +83,28 @@ import { ActivitiesFeedModule } from "./activities/activities-feed/activities-fe
                 };
             },
         }),
+        ThrottlerModule.forRootAsync({
+            useFactory: () => {
+                /**
+                 * While the "redis" property below accepts a script, and it works fine on local,
+                 * it fails on Docker, so use host and port instead.
+                 */
+                const redisUrl = process.env.REDIS_URL;
+                const redisHost = new URL(redisUrl!).hostname;
+                const redisPort = new URL(redisUrl!).port;
+                return {
+                    throttlers: [{ limit: 10, ttl: seconds(60) }],
+                    storage: new ThrottlerStorageRedisService({
+                        host: redisHost,
+                        autoResubscribe: true,
+                        port: redisPort,
+                        reconnectOnError: () => {
+                            return true;
+                        },
+                    } as any),
+                };
+            },
+        }),
         ActivitiesFeedModule,
         GameQueueModule,
         CollectionsModule,
@@ -85,6 +113,7 @@ import { ActivitiesFeedModule } from "./activities/activities-feed/activities-fe
         CollectionsModule,
         StatisticsModule,
         StatisticsQueueModule,
+        UserLevelModule,
     ],
 })
 export class AppModule implements NestModule {

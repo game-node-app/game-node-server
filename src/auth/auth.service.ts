@@ -5,12 +5,11 @@ import Dashboard from "supertokens-node/recipe/dashboard";
 import ThirdPartyPasswordless from "supertokens-node/recipe/thirdpartypasswordless";
 import UserRoles from "supertokens-node/recipe/userroles";
 import jwt from "supertokens-node/recipe/jwt";
-
 import {
     SupertokensConfigInjectionToken,
     AuthModuleConfig,
 } from "./config.interface";
-import { UserInitService } from "./user-init/user-init.service";
+import { UserInitService } from "../user/user-init/user-init.service";
 
 /**
  * The Auth Service

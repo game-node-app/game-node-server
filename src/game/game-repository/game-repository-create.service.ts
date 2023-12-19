@@ -344,7 +344,7 @@ export class GameRepositoryCreateService {
                 try {
                     await this.gamePlayerPerspectiveRepository
                         .createQueryBuilder()
-                        .relation(Game, "involvedCompanies")
+                        .relation(Game, "playerPerspectives")
                         .of(game)
                         .add(playerPerspective);
                 } catch (e) {}

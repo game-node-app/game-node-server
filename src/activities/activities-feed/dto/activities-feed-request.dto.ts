@@ -3,9 +3,9 @@ import { OmitType } from "@nestjs/swagger";
 import { BaseFindDto } from "../../../utils/base-find.dto";
 
 export enum ActivityFeedCriteria {
-    FOLLOWING = "FOLLOWING",
-    TRENDING = "TRENDING",
-    RECENT = "RECENT",
+    FOLLOWING = "following",
+    TRENDING = "trending",
+    LATEST = "latest",
 }
 
 export class ActivitiesFeedRequestDto extends OmitType(BaseFindDto, [
