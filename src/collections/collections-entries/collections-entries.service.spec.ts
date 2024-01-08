@@ -8,8 +8,9 @@ import { Repository } from "typeorm";
 import { Review } from "../../reviews/entities/review.entity";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { EGamePlatformIds } from "../../game/game-repository/game-repository.constants";
-import { mockRepository } from "../../../test/mocks/repositoryMocks";
+import { getMockRepositoryProvider } from "../../../test/mocks/repositoryMocks";
 import Mocked = jest.Mocked;
+import { ActivitiesQueueMock } from "../../../test/mocks/activities/activities-mocks";
 
 describe("CollectionsEntriesService", () => {
     let service: jest.Mocked<CollectionsEntriesService>;
@@ -19,17 +20,11 @@ describe("CollectionsEntriesService", () => {
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
-                {
-                    provide: getRepositoryToken(CollectionEntry),
-                    useValue: mockRepository,
-                },
+                getMockRepositoryProvider(CollectionEntry),
                 CollectionsEntriesService,
                 {
                     provide: ActivitiesQueueService,
-                    useValue: {
-                        addActivity: async () => {},
-                        deleteActivity: async () => {},
-                    },
+                    useValue: ActivitiesQueueMock,
                 },
                 {
                     provide: ReviewsService,
@@ -54,6 +49,25 @@ describe("CollectionsEntriesService", () => {
         expect(service).toBeDefined();
     });
 
+    it("should change favorite status", async () => {
+        const mockCollectionEntry = new CollectionEntry();
+        mockCollectionEntry.id = "123124";
+        mockCollectionEntry.isFavorite = false;
+        jest.spyOn(service, "findOneByUserIdAndGameIdOrFail").mockImplementationOnce(async () => {
+            return mockCollectionEntry;
+        });
+        const updateSpy = jest.spyOn(repository, "update");
+        await service.changeFavoriteStatus("12345", 12345, true);
+        expect(updateSpy).toHaveBeenCalledWith(
+            {
+                id: mockCollectionEntry.id,
+            },
+            expect.objectContaining({
+                isFavorite: true,
+            }));
+    });
+
+
     it("should keep favorite parameter when re-creating entry", async () => {
         const userId = "1";
         const dto: CreateCollectionEntryDto = {
@@ -71,10 +85,10 @@ describe("CollectionsEntriesService", () => {
         jest.spyOn(repository, "save").mockImplementationOnce(async () => {
             return { id: "12345" } as CollectionEntry;
         });
-        const createSpy = jest.spyOn(service, "replace");
+        const replaceSpy = jest.spyOn(service, "createOrUpdate");
         const repositorySaveSpy = jest.spyOn(repository, "save");
-        await service.replace(userId, dto);
-        expect(createSpy).toHaveReturned();
+        await service.createOrUpdate(userId, dto);
+        expect(replaceSpy).toHaveReturned();
         expect(repositorySaveSpy).toBeCalledWith(
             expect.objectContaining({
                 isFavorite: true,
@@ -101,9 +115,9 @@ describe("CollectionsEntriesService", () => {
             return { id: "12345" } as CollectionEntry;
         });
 
-        const createSpy = jest.spyOn(service, "replace");
+        const createSpy = jest.spyOn(service, "createOrUpdate");
         const repositorySaveSpy = jest.spyOn(repository, "save");
-        await service.replace(userId, dto);
+        await service.createOrUpdate(userId, dto);
         expect(reviewFindSpy).toBeCalled();
         expect(createSpy).toHaveReturned();
         expect(repositorySaveSpy).toBeCalledWith(

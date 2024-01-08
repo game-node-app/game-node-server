@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindOptionsRelations, In, Not, Repository } from "typeorm";
+import { FindOptionsRelations, In, Repository } from "typeorm";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
@@ -22,13 +22,15 @@ export class CollectionsEntriesService {
         game: false,
         ownedPlatforms: true,
     };
+
     constructor(
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
         private activitiesQueueService: ActivitiesQueueService,
         @Inject(forwardRef(() => ReviewsService))
         private reviewsService: ReviewsService,
-    ) {}
+    ) {
+    }
 
     async findOneById(id: string) {
         return await this.collectionEntriesRepository.findOne({
@@ -183,12 +185,14 @@ export class CollectionsEntriesService {
     }
 
     /**
-     * Creates a new collection entry by removing the previous one (if it exists),
-     * and re-creating it with new collection and platforms data.
+     * Create or update a user's Collection Entry
      * @param userId
      * @param createEntryDto
      */
-    async replace(userId: string, createEntryDto: CreateCollectionEntryDto) {
+    async createOrUpdate(
+        userId: string,
+        createEntryDto: CreateCollectionEntryDto,
+    ) {
         const { collectionIds, gameId, platformIds, isFavorite } =
             createEntryDto;
 
@@ -264,6 +268,7 @@ export class CollectionsEntriesService {
             userId,
             gameId,
         );
+
         await this.collectionEntriesRepository.update(
             {
                 id: entity.id,

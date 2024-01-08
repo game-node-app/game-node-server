@@ -30,7 +30,8 @@ import { Public } from "../../auth/public.decorator";
 @ApiTags("collections-entries")
 @UseGuards(AuthGuard)
 export class CollectionsEntriesController {
-    constructor(private collectionsEntriesService: CollectionsEntriesService) {}
+    constructor(private collectionsEntriesService: CollectionsEntriesService) {
+    }
 
     @Post()
     @HttpCode(201)
@@ -38,7 +39,7 @@ export class CollectionsEntriesController {
         @Session() session: SessionContainer,
         @Body() createCollectionEntryDto: CreateCollectionEntryDto,
     ) {
-        return await this.collectionsEntriesService.replace(
+        return await this.collectionsEntriesService.createOrUpdate(
             session.getUserId(),
             createCollectionEntryDto,
         );
