@@ -6,6 +6,7 @@ import {
     PrimaryGeneratedColumn,
 } from "typeorm";
 import { Profile } from "../../../profile/entities/profile.entity";
+import { BASE_LEVEL_UP_COST } from "../user-level.constants";
 
 @Entity()
 export class UserLevel {
@@ -33,12 +34,14 @@ export class UserLevel {
      */
     @Column({
         nullable: false,
+        default: BASE_LEVEL_UP_COST,
     })
-    nextLevelExp: number;
+    levelUpExpCost: number;
     /**
      * The multiplier to apply to all exp gains
      */
     @Column({
+        type: "float",
         nullable: false,
         default: 1,
     })
