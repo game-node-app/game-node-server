@@ -21,25 +21,21 @@ export class UserLevelService {
     findOneByUserId(userId: string) {
         return this.userLevelRepository.findOne({
             where: {
-                profile: {
-                    userId,
-                },
+                userId,
             },
         });
     }
 
-    findOneByUserIdOrFail(userId: string) {
-        return this.userLevelRepository.findOneOrFail({
-            where: {
-                profile: {
-                    userId,
-                },
-            },
-        });
+    async findOneByUserIdOrFail(userId: string) {
+        const entity = await this.findOneByUserId(userId);
+        if (!entity)
+            throw new Error("UserLevel not found for userId: " + userId);
+        return entity;
     }
 
     async create(userId: string) {
         await this.userLevelRepository.save({
+            userId,
             profile: {
                 userId,
             },

@@ -6,6 +6,8 @@ import Mocked = jest.Mocked;
 import { ProfileService } from "../../profile/profile.service";
 import { UserLevelService } from "../user-level/user-level.service";
 
+const mockUserId = "1234";
+
 describe("UserInitService", () => {
     let service: UserInitService;
     let librariesService: Mocked<LibrariesService>;
@@ -40,6 +42,7 @@ describe("UserInitService", () => {
                 {
                     provide: UserLevelService,
                     useValue: {
+                        findOneByUserId: jest.fn(),
                         findOneById: jest.fn(),
                         create: jest.fn(),
                     },
@@ -50,6 +53,7 @@ describe("UserInitService", () => {
         service = module.get<UserInitService>(UserInitService);
         librariesService = module.get(LibrariesService);
         profileService = module.get(ProfileService);
+        userLevelService = module.get(UserLevelService);
     });
 
     it("should be defined", () => {
@@ -57,16 +61,20 @@ describe("UserInitService", () => {
     });
 
     it("should create a user library", async () => {
-        const userId = "1235";
         librariesService.findOneById.mockResolvedValueOnce(null);
-        await service.init(userId);
-        expect(librariesService.create).toHaveBeenCalledWith(userId);
+        await service.init(mockUserId);
+        expect(librariesService.create).toHaveBeenCalledWith(mockUserId);
     });
 
     it("should create a user profile", async () => {
-        const userId = "1235";
         profileService.findOneById.mockResolvedValueOnce(null);
-        await service.init(userId);
-        expect(profileService.create).toHaveBeenCalledWith(userId);
+        await service.init(mockUserId);
+        expect(profileService.create).toHaveBeenCalledWith(mockUserId);
+    });
+
+    it("should create a user level entity", async () => {
+        userLevelService.findOneByUserId.mockResolvedValueOnce(null);
+        await service.init(mockUserId);
+        expect(userLevelService.create).toHaveBeenCalledWith(mockUserId);
     });
 });
