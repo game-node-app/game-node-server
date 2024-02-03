@@ -18,6 +18,7 @@ import { ActivitiesFeedModule } from "./activities/activities-feed/activities-fe
 import { seconds, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { UserLevelModule } from "./user/user-level/user-level.module";
+import { HealthModule } from './health/health.module';
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -29,6 +30,8 @@ import { UserLevelModule } from "./user/user-level/user-level.module";
         ScheduleModule.forRoot(),
         GlobalModule,
         AuthModule,
+        HealthModule,
+
         TypeOrmModule.forRoot({
             // Fixes Bigint values being returned as string
             // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
@@ -114,6 +117,7 @@ import { UserLevelModule } from "./user/user-level/user-level.module";
         StatisticsModule,
         StatisticsQueueModule,
         UserLevelModule,
+        HealthModule,
     ],
 })
 export class AppModule implements NestModule {

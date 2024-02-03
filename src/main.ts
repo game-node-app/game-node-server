@@ -44,7 +44,9 @@ async function bootstrap() {
         .build();
 
     const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-    fs.writeFileSync("server_swagger.json", JSON.stringify(swaggerDocument));
+    const swaggerFileName = "server_swagger.json"
+    fs.writeFileSync(swaggerFileName, JSON.stringify(swaggerDocument));
+    console.log(`Generated JSON of Swagger Documentation: ${swaggerFileName} at the project's root dir.`)
 
     if (process.env.NODE_ENV !== "production") {
         SwaggerModule.setup("v1/docs", app, swaggerDocument);

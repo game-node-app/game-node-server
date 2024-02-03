@@ -8,5 +8,6 @@ import { UserLevel } from "./entities/user-level.entity";
     imports: [TypeOrmModule.forFeature([UserLevel])],
     controllers: [UserLevelController],
     providers: [UserLevelService],
+    exports: [UserLevelService],
 })
 export class UserLevelModule {}
