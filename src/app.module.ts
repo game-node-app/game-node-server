@@ -18,7 +18,8 @@ import { ActivitiesFeedModule } from "./activities/activities-feed/activities-fe
 import { seconds, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { UserLevelModule } from "./user/user-level/user-level.module";
-import { HealthModule } from './health/health.module';
+import { HealthModule } from "./health/health.module";
+import { AchievementsModule } from './achievements/achievements.module';
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -61,7 +62,7 @@ import { HealthModule } from './health/health.module';
         BullModule.forRootAsync({
             useFactory: async () => {
                 /**
-                 * While the "redis" property below accepts a script, and it works fine on local,
+                 * While the "redis" property below accepts a string, and it works fine on local,
                  * it fails on Docker, so use host and port instead.
                  */
                 const redisUrl = process.env.REDIS_URL;
@@ -76,6 +77,7 @@ import { HealthModule } from './health/health.module';
                         reconnectOnError: () => {
                             return true;
                         },
+                        maxRetriesPerRequest: null,
                     },
                     defaultJobOptions: {
                         removeOnComplete: true,
@@ -118,6 +120,7 @@ import { HealthModule } from './health/health.module';
         StatisticsQueueModule,
         UserLevelModule,
         HealthModule,
+        AchievementsModule,
     ],
 })
 export class AppModule implements NestModule {

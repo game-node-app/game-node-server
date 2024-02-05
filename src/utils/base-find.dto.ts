@@ -14,7 +14,7 @@ import {
 } from "typeorm";
 
 /**
- * Base find options for all entities.
+ * Base find options for all models.
  */
 export class BaseFindDto<T> {
     @IsOptional()

@@ -140,7 +140,7 @@ export class StatisticsService {
 
     /**
      * Finds trending items in the last day/week/month.
-     * Do NOT return source entities here. The client should use the respective endpoints to retrieve it.
+     * Do NOT return source models here. The client should use the respective endpoints to retrieve it.
      * @param dto
      */
     async findTrending(

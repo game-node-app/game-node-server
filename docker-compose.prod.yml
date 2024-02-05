@@ -1,6 +1,7 @@
 version: '3'
 
-
+# Note: Supertokens is initialized in game-node-infra in production.
+# Make sure it's available before starting this.
 services:
   db:
     image: mysql:latest
@@ -39,10 +40,6 @@ services:
   server:
     image: lamarcke/game-node-server:latest
 
-    depends_on:
-      - db
-      - redis
-
     # Most of the env vars are loaded directly from .env, we only need to override some to make sure
     # the docker resources are accessible.
     environment:
@@ -67,6 +64,7 @@ services:
 
     volumes:
       - gamenode:/app/public/uploads
+      - gamenode:/app/public/icons
 
     command: ["yarn", "start"]
 

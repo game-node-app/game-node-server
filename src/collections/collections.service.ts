@@ -169,7 +169,7 @@ export class CollectionsService {
     }
 
     /**
-     * Removes a collection and it's entities.
+     * Removes a collection and it's models.
      * @param userId
      * @param collectionId
      */

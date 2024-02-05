@@ -88,6 +88,15 @@ enum EGamePlatformIds {
     Stadia = 170,
 }
 
+/**
+ * Where the game data is stored in the GameNode system.
+ * Helps the clients determine the source of the data.
+ */
+enum EGameStorageSource {
+    MYSQL = "MYSQL",
+    MANTICORE = "MANTICORE",
+}
+
 export {
     EGameCategory,
     EGameStatus,
@@ -95,4 +104,5 @@ export {
     EGameExternalGameCategory,
     EGamePlatformCategory,
     EGamePlatformIds,
+    EGameStorageSource,
 };

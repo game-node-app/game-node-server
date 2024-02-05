@@ -13,7 +13,11 @@ import {
 } from "typeorm";
 import { GameAlternativeName } from "./game-alternative-name.entity";
 import { GameArtwork } from "./game-artwork.entity";
-import { EGameCategory, EGameStatus } from "../game-repository.constants";
+import {
+    EGameCategory,
+    EGameStatus,
+    EGameStorageSource,
+} from "../game-repository.constants";
 import { GameCollection } from "./game-collection.entity";
 import { GameCover } from "./game-cover.entity";
 import { GameScreenshot } from "./game-screenshot.entity";
@@ -24,7 +28,6 @@ import { GameMode } from "./game-mode.entity";
 import { GameGenre } from "./game-genre.entity";
 import { GameKeyword } from "./game-keyword.entity";
 import { GamePlatform } from "./game-platform.entity";
-import { EGameStorageSource } from "../../utils/game-stored-source";
 import { GameInvolvedCompany } from "./game-involved-company.entity";
 import { GameTheme } from "./game-theme.entity";
 import { GamePlayerPerspective } from "./game-player-perspective.entity";
@@ -33,12 +36,12 @@ import { GameEngine } from "./game-engine.entity";
 /**
  * For future maintainers:
  * I've tried to work my way with this using cascades, but it didn't work:
- * There's a bug in the .save() method for entities that have OneToMany relationships:
+ * There's a bug in the .save() method for models that have OneToMany relationships:
  * https://github.com/typeorm/typeorm/issues/3095
  * The issue is open since 2018, so it will probably never be fixed.
  * I just saved you from 4 hours of debugging, you're welcome ;)
  *
- * TL;DR: Do not use .save() for this or related entities.
+ * TL;DR: Do not use .save() for this or related models.
  * */
 
 /**

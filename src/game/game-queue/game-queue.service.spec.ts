@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { GameQueueService } from "./game-queue.service";
 
-describe("IgdbSyncQueueService", () => {
+describe("GameQueueService", () => {
     let service: GameQueueService;
 
     beforeEach(async () => {
