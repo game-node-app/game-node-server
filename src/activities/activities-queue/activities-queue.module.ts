@@ -6,8 +6,8 @@ import { ActivitiesQueueService } from "./activities-queue.service";
 import { ActivitiesRepositoryModule } from "../activities-repository/activities-repository.module";
 
 /**
- * Module responsible for registering activities across all services.
- * All modules that register activities should do so through this.
+ * Module responsible for registering queue across all services.
+ * All modules that register queue should do so through this.
  */
 @Module({
     imports: [
@@ -20,5 +20,4 @@ import { ActivitiesRepositoryModule } from "../activities-repository/activities-
     providers: [ActivitiesQueueService, ActivitiesQueueProcessor],
     exports: [ActivitiesQueueService],
 })
-export class ActivitiesQueueModule {
-}
+export class ActivitiesQueueModule {}

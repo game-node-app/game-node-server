@@ -14,7 +14,7 @@ import { Cache } from "cache-manager";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { StatisticsService } from "../../statistics/statistics.service";
 
-export const ACTIVITY_FEED_CACHE_KEY = "activities-feed";
+export const ACTIVITY_FEED_CACHE_KEY = "queue-feed";
 
 @Injectable()
 export class ActivitiesFeedService {

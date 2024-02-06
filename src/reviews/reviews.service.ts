@@ -127,15 +127,12 @@ export class ReviewsService {
         );
 
         // Do not await this, as it will block the request
-        this.activitiesQueue
-            .addActivity({
-                type: ActivityType.REVIEW,
-                sourceId: insertedEntry.id,
-                profileUserId: userId,
-                metadata: null,
-            })
-            .then()
-            .catch();
+        this.activitiesQueue.addActivity({
+            type: ActivityType.REVIEW,
+            sourceId: insertedEntry.id,
+            profileUserId: userId,
+            metadata: null,
+        });
     }
 
     async delete(
@@ -171,6 +168,6 @@ export class ReviewsService {
             },
         });
 
-        this.activitiesQueue.deleteActivity(review.id).then().catch();
+        this.activitiesQueue.deleteActivity(review.id);
     }
 }
