@@ -1,6 +1,11 @@
 import { Achievement } from "../models/achievement.model";
-import { AchievementCategory } from "../achievements.constants";
+import {
+    AchievementCategory,
+    horrorGameThemeId,
+} from "../achievements.constants";
 import { Review } from "../../reviews/entities/review.entity";
+import { Collection } from "../../collections/entities/collection.entity";
+import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
 
 export const achievementsCollectionsData: Achievement[] = [
     {
@@ -10,8 +15,6 @@ export const achievementsCollectionsData: Achievement[] = [
         expGainAmount: 50,
         category: AchievementCategory.COLLECTIONS,
         checkEligibility: async (dataSource, targetUserId) => {
-            // Horror game ID in the game_theme table.
-            const horrorGameThemeId = 19;
             const reviewsRepository = dataSource.getRepository(Review);
             return await reviewsRepository.exist({
                 where: {
@@ -20,6 +23,7 @@ export const achievementsCollectionsData: Achievement[] = [
                     },
                     game: {
                         themes: {
+                            // Horror game ID in the game_theme table.
                             id: horrorGameThemeId,
                         },
                     },
@@ -34,21 +38,85 @@ export const achievementsCollectionsData: Achievement[] = [
         expGainAmount: 75,
         category: AchievementCategory.COLLECTIONS,
         checkEligibility: async (dataSource, targetUserId) => {
-            // Horror game ID in the game_theme table.
-            const horrorGameThemeId = 19;
-            const reviewsRepository = dataSource.getRepository(Review);
-            return await reviewsRepository.exist({
+            const collectionEntriesRepository =
+                dataSource.getRepository(CollectionEntry);
+            const totalCollectionEntries =
+                await collectionEntriesRepository.countBy({
+                    collections: {
+                        library: {
+                            userId: targetUserId,
+                        },
+                    },
+                });
+
+            return totalCollectionEntries >= 100;
+        },
+    },
+    {
+        id: "boo",
+        name: "Boo!",
+        description:
+            "Have a collection composing of at least five horror games",
+        expGainAmount: 75,
+        category: AchievementCategory.COLLECTIONS,
+        checkEligibility: async (dataSource, targetUserId) => {
+            const minimumCollectionEntries = 5;
+            const collectionRepository = dataSource.getRepository(Collection);
+            const collectionsWithHorrorGames = await collectionRepository.find({
                 where: {
-                    profile: {
+                    library: {
                         userId: targetUserId,
                     },
-                    game: {
-                        themes: {
-                            id: horrorGameThemeId,
+                    entries: {
+                        game: {
+                            themes: {
+                                // Horror game ID in the game_theme table.
+                                id: horrorGameThemeId,
+                            },
+                        },
+                    },
+                },
+                relations: {
+                    entries: {
+                        game: {
+                            themes: true,
                         },
                     },
                 },
             });
+            const collectionMeetsCriteria = collectionsWithHorrorGames.some(
+                (collection) => {
+                    if (
+                        collection.entries == undefined ||
+                        collection.entries.length === 0
+                    ) {
+                        return false;
+                    }
+                    const horrorGamesInCollection = collection.entries.filter(
+                        (entry) => {
+                            try {
+                                const game = entry.game;
+                                const themes = game.themes;
+                                return (
+                                    themes &&
+                                    themes.some(
+                                        (theme) =>
+                                            theme.id === horrorGameThemeId,
+                                    )
+                                );
+                            } catch (e) {}
+
+                            return false;
+                        },
+                    );
+                    return (
+                        horrorGamesInCollection.length >=
+                        minimumCollectionEntries
+                    );
+                },
+            );
+
+            return collectionMeetsCriteria;
         },
     },
 ];
