@@ -11,7 +11,9 @@ describe("ActivitiesFeedService", () => {
                 ActivitiesQueueService,
                 {
                     provide: getQueueToken("activities"),
-                    useValue: {},
+                    useValue: {
+                        add: jest.fn(async () => {}),
+                    },
                 },
             ],
         }).compile();

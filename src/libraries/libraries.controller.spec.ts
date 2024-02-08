@@ -28,4 +28,9 @@ describe("LibrariesController", () => {
         controller = module.get<LibrariesController>(LibrariesController);
         service = module.get<LibrariesService>(LibrariesService);
     });
+
+    it("should be defined", () => {
+        expect(controller).toBeDefined();
+        expect(service).toBeDefined();
+    });
 });
