@@ -2,7 +2,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { LibrariesController } from "./libraries.controller";
 import { LibrariesService } from "./libraries.service";
 import { AuthGuard } from "../auth/auth.guard";
-import { SessionContainer } from "supertokens-node/recipe/session";
 
 describe("LibrariesController", () => {
     let controller: LibrariesController;

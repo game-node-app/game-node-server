@@ -1,9 +1,13 @@
-export const mockCreateQueryBuilder = () => ({
+import { Provider } from "@nestjs/common";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { EntityClassOrSchema } from "@nestjs/typeorm/dist/interfaces/entity-class-or-schema.type";
+
+export const mockCreateQueryBuilder = {
     relation: () => mockCreateQueryBuilder,
     of: () => mockCreateQueryBuilder,
     remove: () => jest.fn(),
     select: () => mockCreateQueryBuilder,
-});
+};
 
 export const mockRepository = {
     find: jest.fn(),
@@ -11,5 +15,15 @@ export const mockRepository = {
     findOneBy: jest.fn(),
     delete: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
     createQueryBuilder: () => mockCreateQueryBuilder,
+};
+
+export const getMockRepositoryProvider = <T extends EntityClassOrSchema>(
+    entity: T,
+): Provider => {
+    return {
+        provide: getRepositoryToken(entity),
+        useValue: mockRepository,
+    };
 };
