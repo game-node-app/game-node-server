@@ -1,6 +1,6 @@
 import { BullModule } from "@nestjs/bull";
 import { Module } from "@nestjs/common";
-import { ProfileModule } from "src/profile/profile.module";
+import { ProfileModule } from "../../profile/profile.module";
 import { ActivitiesQueueProcessor } from "./activities-queue-processor";
 import { ActivitiesQueueService } from "./activities-queue.service";
 import { ActivitiesRepositoryModule } from "../activities-repository/activities-repository.module";
@@ -20,4 +20,5 @@ import { ActivitiesRepositoryModule } from "../activities-repository/activities-
     providers: [ActivitiesQueueService, ActivitiesQueueProcessor],
     exports: [ActivitiesQueueService],
 })
-export class ActivitiesQueueModule {}
+export class ActivitiesQueueModule {
+}

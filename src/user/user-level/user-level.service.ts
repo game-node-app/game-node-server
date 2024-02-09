@@ -6,7 +6,11 @@ import { Repository } from "typeorm";
 @Injectable()
 export class UserLevelService {
     private readonly currentMaximumLevel = 50;
-    private readonly baseLevelUpCostMultiplier = 1.3;
+    /**
+     * The base amount to multiply the current level requirement when a user levels up
+     * @private
+     */
+    private readonly baseLevelUpCostMultiplier = 1.5;
 
     constructor(
         @InjectRepository(UserLevel)
@@ -34,36 +38,39 @@ export class UserLevelService {
     }
 
     async increaseExp(userId: string, amount: number) {
-        const userLevel = await this.findOneByUserIdOrFail(userId);
-        const amountWithMultipler = amount * userLevel.expMultiplier;
-        const increasedExp = userLevel.currentLevelExp * amountWithMultipler;
-        const levelUpCount = Math.ceil(
-            amountWithMultipler / userLevel.nextLevelExp,
-        );
-        if (levelUpCount >= 1) {
-            for (let i = 1; i <= levelUpCount; i++) {
-                const updatedCurrentLevel = userLevel.currentLevel + 1;
-
-                await this.userLevelRepository.update(userLevel.id, {
-                    currentLevel: updatedCurrentLevel,
-                    currentLevelExp: 0,
-                    nextLevelExp,
+        let remainingExpAmount = structuredClone(amount);
+        while (remainingExpAmount > 0) {
+            const userLevelEntity = await this.findOneByUserIdOrFail(userId);
+            if (remainingExpAmount <= userLevelEntity.nextLevelExp) {
+                await this.userLevelRepository.save({
+                    ...userLevelEntity,
+                    currentLevelExp:
+                        userLevelEntity.currentLevelExp + remainingExpAmount,
                 });
+                break;
             }
-
-            return;
+            const updatedUserLevelEntity =
+                this.userLevelRepository.create(userLevelEntity);
+            const nextLevelExp = this.getNextLevelRequiredExp(
+                updatedUserLevelEntity.currentLevel,
+                updatedUserLevelEntity.currentLevelExp,
+            );
+            updatedUserLevelEntity.currentLevel += 1;
+            updatedUserLevelEntity.currentLevelExp = 0;
+            updatedUserLevelEntity.nextLevelExp = nextLevelExp;
+            await this.userLevelRepository.save(updatedUserLevelEntity);
+            remainingExpAmount -= userLevelEntity.nextLevelExp;
         }
     }
 
-    private getNextLevelMultipler(
+    private getNextLevelRequiredExp(
         currentLevel: number,
-        currentLevelCost: number,
+        currentLevelExpCost: number,
     ) {
-        const maxLevelDerivedMultiplier =
-            currentLevel / this.currentMaximumLevel;
+        const maxLevelCostMultiplier = currentLevel / this.currentMaximumLevel;
         return (
-            currentLevelCost *
-            (this.baseLevelUpCostMultiplier + maxLevelDerivedMultiplier)
+            currentLevelExpCost *
+            (this.baseLevelUpCostMultiplier + maxLevelCostMultiplier)
         );
     }
 }
