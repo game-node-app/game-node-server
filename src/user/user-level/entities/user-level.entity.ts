@@ -1,17 +1,14 @@
-import {
-    Column,
-    Entity,
-    JoinColumn,
-    OneToOne,
-    PrimaryGeneratedColumn,
-} from "typeorm";
+import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from "typeorm";
 import { Profile } from "../../../profile/entities/profile.entity";
 import { BASE_LEVEL_UP_COST } from "../user-level.constants";
 
 @Entity()
 export class UserLevel {
-    @PrimaryGeneratedColumn()
-    id: number;
+    /**
+     * Should be the same as the profile's UserId
+     */
+    @PrimaryColumn()
+    userId: string;
 
     @OneToOne(() => Profile)
     @JoinColumn()
