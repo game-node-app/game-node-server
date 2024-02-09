@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
 import { DataSource, Repository } from "typeorm";
@@ -8,6 +8,7 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { listToPaginationData } from "../utils/pagination/listToPaginationData";
 import { AchievementCategory } from "./achievements.constants";
 import { Profile } from "../profile/entities/profile.entity";
+import { GetAchievementsRequestDto } from "./dto/get-achievements-request.dto";
 
 @Injectable()
 export class AchievementsService {
@@ -46,11 +47,13 @@ export class AchievementsService {
         });
     }
 
-    public getAchievements(): TPaginationData<Achievement> {
-        return listToPaginationData(achievementsData);
+    public getAchievements(
+        dto: GetAchievementsRequestDto,
+    ): TPaginationData<Achievement> {
+        return listToPaginationData(achievementsData, dto?.offset, dto?.limit);
     }
 
-    private verifyAchievement(
+    private checkAchievementsEligibility(
         targetUserId: string,
         achievement: Achievement,
     ): void {
@@ -88,7 +91,25 @@ export class AchievementsService {
 
         for (const achievement of achievementsToProcess) {
             // Do not await this, as it will block the loop
-            this.verifyAchievement(targetUserId, achievement);
+            this.checkAchievementsEligibility(targetUserId, achievement);
         }
+    }
+
+    async getObtainedAchievementById(targetUserId: string, id: string) {
+        if (!targetUserId) {
+            throw new HttpException("", 404);
+        }
+        const achievement = await this.obtainedAchievementsRepository.findOneBy(
+            {
+                profile: {
+                    userId: targetUserId,
+                },
+                id,
+            },
+        );
+
+        if (achievement) return achievement;
+
+        throw new HttpException("", 404);
     }
 }

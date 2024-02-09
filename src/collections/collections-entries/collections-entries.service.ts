@@ -14,6 +14,8 @@ import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { ActivityType } from "../../activities/activities-queue/activities-queue.constants";
 import { ReviewsService } from "../../reviews/reviews.service";
+import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
+import { AchievementCategory } from "../../achievements/achievements.constants";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -29,8 +31,8 @@ export class CollectionsEntriesService {
         private activitiesQueueService: ActivitiesQueueService,
         @Inject(forwardRef(() => ReviewsService))
         private reviewsService: ReviewsService,
-    ) {
-    }
+        private achievementsQueueService: AchievementsQueueService,
+    ) {}
 
     async findOneById(id: string) {
         return await this.collectionEntriesRepository.findOne({
@@ -228,15 +230,17 @@ export class CollectionsEntriesService {
             },
         });
 
-        this.activitiesQueueService
-            .addActivity({
-                sourceId: upsertedEntry.id,
-                type: ActivityType.COLLECTION_ENTRY,
-                profileUserId: userId,
-                metadata: null,
-            })
-            .then()
-            .catch();
+        this.activitiesQueueService.addActivity({
+            sourceId: upsertedEntry.id,
+            type: ActivityType.COLLECTION_ENTRY,
+            profileUserId: userId,
+            metadata: null,
+        });
+
+        this.achievementsQueueService.addTrackingJob({
+            targetUserId: userId,
+            category: AchievementCategory.COLLECTIONS,
+        });
     }
 
     async attachReview(userId: string, gameId: number, reviewId: string) {
@@ -325,6 +329,6 @@ export class CollectionsEntriesService {
 
         await this.collectionEntriesRepository.delete(entry.id);
 
-        this.activitiesQueueService.deleteActivity(entry.id).then().catch();
+        this.activitiesQueueService.deleteActivity(entry.id);
     }
 }

@@ -1,4 +1,10 @@
-import { Entity, ManyToOne, PrimaryColumn } from "typeorm";
+import {
+    CreateDateColumn,
+    Entity,
+    ManyToOne,
+    PrimaryColumn,
+    UpdateDateColumn,
+} from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
 
 /**
@@ -10,4 +16,8 @@ export class ObtainedAchievement {
     id: string;
     @ManyToOne(() => Profile)
     profile: Profile;
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
 }

@@ -6,6 +6,7 @@ import { Collection } from "./entities/collection.entity";
 import { LibrariesModule } from "../libraries/libraries.module";
 import { ReviewsModule } from "../reviews/reviews.module";
 import { CollectionsEntriesModule } from "./collections-entries/collections-entries.module";
+import { AchievementsModule } from "../achievements/achievements.module";
 
 @Module({
     imports: [
@@ -13,6 +14,7 @@ import { CollectionsEntriesModule } from "./collections-entries/collections-entr
         LibrariesModule,
         ReviewsModule,
         CollectionsEntriesModule,
+        AchievementsModule,
     ],
     controllers: [CollectionsController],
     providers: [CollectionsService],
