@@ -42,7 +42,6 @@ lerna-debug.log*
 wrapper
 
 /src/migrations/*
-
 /public/uploads/*
 !/public
 !/public/uploads

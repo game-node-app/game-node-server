@@ -25,14 +25,37 @@ import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { PartialGame } from "./game-repository.types";
 
 /**
- * Service responsible for data inserting and updating for all game-related entities.
+ * Service responsible for data inserting and updating for all game-related models.
+ * PS: Only make changes to this service if you are sure it won't break the sync process.
  */
 @Injectable()
 export class GameRepositoryCreateService {
     private readonly logger = new Logger(GameRepositoryCreateService.name);
 
+    /**
+     * Good luck unit-testing this btw
+     * @param gameRepository
+     * @param gameAlternativeNameRepository
+     * @param gameArtworkRepository
+     * @param gameCollectionRepository
+     * @param gameCoverRepository
+     * @param gameScreenshotRepository
+     * @param gameFranchiseRepository
+     * @param gameExternalGameRepository
+     * @param gameLocalizationRepository
+     * @param gameModeRepository
+     * @param gameGenreRepository
+     * @param gameKeywordRepository
+     * @param gamePlatformRepository
+     * @param gameInvolvedCompanyRepository
+     * @param gameCompanyRepository
+     * @param gameCompanyLogoRepository
+     * @param gameThemeRepository
+     * @param gamePlayerPerspectiveRepository
+     * @param gameEngineRepository
+     * @param gameEngineLogoRepository
+     */
     constructor(
-        private readonly gameRepositoryService: GameRepositoryService,
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
         @InjectRepository(GameAlternativeName)
@@ -76,22 +99,24 @@ export class GameRepositoryCreateService {
     ) {}
 
     /**
-     * ManyToMany entities can't be easily upserted, since the junction table is not inserted/updated automatically.
+     * ManyToMany models can't be easily upserted, since the junction table is not inserted/updated automatically.
      * To both fix this and circumvent the .save() bug, use the QueryBuilder with the .relation() method.
-     * https://github.com/typeorm/typeorm/issues/1754
+     * Bug info: https://github.com/typeorm/typeorm/issues/1754
      * @param game
      */
     async createOrUpdate(game: PartialGame) {
         if (game.id == null || typeof game.id !== "number") {
             throw new Error("Game ID must be a number.");
         } else if (
-            (game.name == undefined && game.alternativeNames == undefined) ||
-            game.alternativeNames?.length === 0
+            game.name == undefined &&
+            (game.alternativeNames == undefined ||
+                game.alternativeNames.length === 0)
         ) {
             throw new Error(
                 "Game name or alternative names must be specified.",
             );
         }
+
         await this.buildParentRelationships(game);
         await this.gameRepository.upsert(game, ["id"]);
         await this.buildChildRelationships(game);
@@ -101,7 +126,7 @@ export class GameRepositoryCreateService {
     /**
      * Builds relationships that are necessary for the game to be saved (e.g. collections).
      *
-     * e.g. Relationships where Game is on the ManyToOne side. Do not update ManyToMany entities here.
+     * e.g. Relationships where Game is on the ManyToOne side. Do not update ManyToMany models here.
      * @param game
      */
     async buildParentRelationships(game: PartialGame) {
@@ -381,9 +406,10 @@ export class GameRepositoryCreateService {
     ) {
         if (companies == undefined || companies.length === 0) return;
         for (const company of companies) {
-            if (company == undefined) continue;
+            if (company == undefined || typeof company.id !== "number")
+                continue;
 
-            if (company.logo) {
+            if (company.logo && typeof company.logo.id === "number") {
                 try {
                     await this.gameCompanyLogoRepository.upsert(company.logo, [
                         "id",
