@@ -40,4 +40,9 @@ describe("CollectionsController", () => {
         controller = module.get<CollectionsController>(CollectionsController);
         service = module.get<CollectionsService>(CollectionsService);
     });
+
+    it("should be defined", () => {
+        expect(controller).toBeDefined();
+        expect(service).toBeDefined();
+    });
 });
