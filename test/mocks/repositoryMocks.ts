@@ -1,6 +1,7 @@
 import { Provider } from "@nestjs/common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { EntityClassOrSchema } from "@nestjs/typeorm/dist/interfaces/entity-class-or-schema.type";
+import { Repository } from "typeorm";
 
 export const mockCreateQueryBuilder = {
     relation: () => mockCreateQueryBuilder,
@@ -15,9 +16,11 @@ export const mockRepository = {
     findOne: jest.fn(),
     findOneBy: jest.fn(),
     delete: jest.fn(),
-    save: jest.fn(),
+    save: jest.fn(async () => {}),
     update: jest.fn(),
     findOneOrFail: jest.fn(),
+    countBy: jest.fn(),
+    exist: jest.fn(),
     createQueryBuilder: () => mockCreateQueryBuilder,
 };
 

@@ -3,12 +3,12 @@ import { AchievementCategory } from "../achievements.constants";
 
 export const achievementsMiscData: Achievement[] = [
     {
-        id: "beta-tester",
+        id: "test-lab",
         name: "Test Lab",
         description: "Become a beta tester of GameNode",
         expGainAmount: 100,
         category: AchievementCategory.MISC,
-        checkEligibility: () => false,
+        checkEligibility: async () => false,
     },
     {
         id: "dna",
@@ -16,7 +16,7 @@ export const achievementsMiscData: Achievement[] = [
         description: "Contribute to GameNode's source code",
         expGainAmount: 100,
         category: AchievementCategory.MISC,
-        checkEligibility: () => false,
+        checkEligibility: async () => false,
     },
     {
         id: "spaceman",
@@ -24,6 +24,6 @@ export const achievementsMiscData: Achievement[] = [
         description: "Donate to GameNode",
         expGainAmount: 150,
         category: AchievementCategory.MISC,
-        checkEligibility: () => false,
+        checkEligibility: async () => false,
     },
 ];

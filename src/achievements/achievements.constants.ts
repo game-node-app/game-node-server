@@ -9,3 +9,5 @@ export enum AchievementCategory {
     REVIEWS,
     MISC,
 }
+
+export const horrorGameThemeId = 19;

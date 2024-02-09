@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 
 /**
- * Type alias for paginable data.
+ * Type alias for data that can be paginated.
  * Basically, a tuple of an array of data and the total number of data (preferably the total count of items without query parameters applied). <br>
  * TypeOrm has a handy function (findAndCount) that returns this type of data.
  */
