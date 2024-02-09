@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLevel } from "./entities/user-level.entity";
 import { Repository } from "typeorm";
+import { BASE_LEVEL_UP_COST } from "./user-level.constants";
 
 @Injectable()
 export class UserLevelService {
@@ -37,39 +38,52 @@ export class UserLevelService {
         });
     }
 
-    async increaseExp(userId: string, amount: number) {
-        let remainingExpAmount = structuredClone(amount);
-        while (remainingExpAmount > 0) {
-            const userLevelEntity = await this.findOneByUserIdOrFail(userId);
-            if (remainingExpAmount <= userLevelEntity.nextLevelExp) {
-                await this.userLevelRepository.save({
-                    ...userLevelEntity,
-                    currentLevelExp:
-                        userLevelEntity.currentLevelExp + remainingExpAmount,
-                });
-                break;
-            }
-            const updatedUserLevelEntity =
-                this.userLevelRepository.create(userLevelEntity);
-            const nextLevelExp = this.getNextLevelRequiredExp(
-                updatedUserLevelEntity.currentLevel,
-                updatedUserLevelEntity.currentLevelExp,
-            );
-            updatedUserLevelEntity.currentLevel += 1;
-            updatedUserLevelEntity.currentLevelExp = 0;
-            updatedUserLevelEntity.nextLevelExp = nextLevelExp;
-            await this.userLevelRepository.save(updatedUserLevelEntity);
-            remainingExpAmount -= userLevelEntity.nextLevelExp;
-        }
+    async create(userId: string) {
+        await this.userLevelRepository.save({
+            profile: {
+                userId,
+            },
+        });
     }
 
-    private getNextLevelRequiredExp(
-        currentLevel: number,
-        currentLevelExpCost: number,
-    ) {
-        const maxLevelCostMultiplier = currentLevel / this.currentMaximumLevel;
+    async increaseExp(userId: string, amount: number) {
+        const userLevelEntity = await this.findOneByUserIdOrFail(userId);
+        const multipliedExpAmount = amount * userLevelEntity.expMultiplier;
+        let unprocessedExpAmount = structuredClone(multipliedExpAmount);
+        const updatedUserLevelEntity =
+            this.userLevelRepository.create(userLevelEntity);
+
+        while (unprocessedExpAmount > 0) {
+            const nextLevel = updatedUserLevelEntity.currentLevel + 1;
+            const nextLevelRequiredExp = this.getLevelUpExpCost(nextLevel);
+            const currentLevelRequiredExp = structuredClone(
+                updatedUserLevelEntity.levelUpExpCost,
+            );
+
+            if (unprocessedExpAmount > updatedUserLevelEntity.levelUpExpCost) {
+                updatedUserLevelEntity.currentLevel = nextLevel;
+                updatedUserLevelEntity.currentLevelExp = 0;
+                updatedUserLevelEntity.levelUpExpCost = nextLevelRequiredExp;
+            } else {
+                updatedUserLevelEntity.currentLevelExp += unprocessedExpAmount;
+            }
+
+            unprocessedExpAmount -= currentLevelRequiredExp;
+        }
+
+        await this.userLevelRepository.save(updatedUserLevelEntity);
+    }
+
+    /**
+     * Retrieves the levelUpExpCost to reach a new level based on the provided level.
+     * @param level
+     * @private
+     */
+    private getLevelUpExpCost(level: number) {
+        const maxLevelCostMultiplier = level / this.currentMaximumLevel;
+        const baseCurrentLevelCost = level * BASE_LEVEL_UP_COST;
         return (
-            currentLevelExpCost *
+            baseCurrentLevelCost *
             (this.baseLevelUpCostMultiplier + maxLevelCostMultiplier)
         );
     }

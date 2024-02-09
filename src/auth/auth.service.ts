@@ -45,7 +45,7 @@ export class AuthService {
                                     );
                                 if (result.status === "OK") {
                                     this.userInitService
-                                        .initUser(result.user.id)
+                                        .init(result.user.id)
                                         .then()
                                         .catch((e) => console.error(e));
                                 }
@@ -58,7 +58,7 @@ export class AuthService {
                                     );
                                 if (result.status === "OK") {
                                     this.userInitService
-                                        .initUser(result.user.id)
+                                        .init(result.user.id)
                                         .then()
                                         .catch((e) => console.error(e));
                                 }
