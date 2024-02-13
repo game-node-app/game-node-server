@@ -22,11 +22,6 @@ export class ProfileAvatar {
     filename: string;
     @Column({ nullable: false })
     encoding: string;
-    /**
-     * Multer's File's destination + filename
-     */
-    @Column({ nullable: false })
-    path: string;
     @OneToOne(() => Profile, (profile) => profile.avatar)
     profile: Profile;
     @CreateDateColumn()

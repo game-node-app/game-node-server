@@ -6,10 +6,11 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import supertokens from "supertokens-node";
 
-import { publicUploadDir } from "./utils/constants";
+import { publicImagesDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
 import * as process from "process";
+import { AuthGuard } from "./auth/auth.guard";
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -44,9 +45,11 @@ async function bootstrap() {
         .build();
 
     const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-    const swaggerFileName = "server_swagger.json"
+    const swaggerFileName = "server_swagger.json";
     fs.writeFileSync(swaggerFileName, JSON.stringify(swaggerDocument));
-    console.log(`Generated JSON of Swagger Documentation: ${swaggerFileName} at the project's root dir.`)
+    console.log(
+        `Generated JSON of Swagger Documentation: ${swaggerFileName} at the project's root dir.`,
+    );
 
     if (process.env.NODE_ENV !== "production") {
         SwaggerModule.setup("v1/docs", app, swaggerDocument);
@@ -54,8 +57,8 @@ async function bootstrap() {
 
     app.useGlobalFilters(new SupertokensExceptionFilter());
 
-    app.useStaticAssets(publicUploadDir, {
-        prefix: "/v1/public/uploads",
+    app.useStaticAssets(publicImagesDir, {
+        prefix: "/v1/public",
     });
 
     app.use(json({ limit: "15mb" }));

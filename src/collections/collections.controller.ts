@@ -4,7 +4,6 @@ import {
     Body,
     Param,
     UseGuards,
-    UseInterceptors,
     Patch,
     Get,
     Delete,
@@ -17,14 +16,12 @@ import { AuthGuard } from "../auth/auth.guard";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { ApiTags } from "@nestjs/swagger";
-import { CacheInterceptor } from "@nestjs/cache-manager";
 import { Public } from "../auth/public.decorator";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 
 @Controller("collections")
 @ApiTags("collections")
 @UseGuards(AuthGuard)
-@UseInterceptors(CacheInterceptor)
 export class CollectionsController {
     constructor(private readonly collectionsService: CollectionsService) {}
 

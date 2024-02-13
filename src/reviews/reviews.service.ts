@@ -12,9 +12,7 @@ import { CollectionsEntriesService } from "../collections/collections-entries/co
 
 export class ReviewsService {
     private readonly badWordsFilter = new Filter();
-    private relations: FindOptionsRelations<Review> = {
-        profile: true,
-    };
+    private relations: FindOptionsRelations<Review> = {};
 
     constructor(
         @InjectRepository(Review) private reviewsRepository: Repository<Review>,
@@ -30,6 +28,14 @@ export class ReviewsService {
             },
             relations: this.relations,
         });
+    }
+
+    async findOneByIdOrFail(id: string) {
+        const review = await this.findOneById(id);
+        if (!review) {
+            throw new HttpException("", HttpStatus.NOT_FOUND);
+        }
+        return review;
     }
 
     async findOneByUserIdAndGameId(userId: string, gameId: number) {

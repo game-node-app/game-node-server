@@ -1,4 +1,5 @@
 import {
+    Column,
     CreateDateColumn,
     Entity,
     ManyToOne,
@@ -16,6 +17,10 @@ export class ObtainedAchievement {
     id: string;
     @ManyToOne(() => Profile)
     profile: Profile;
+    @Column({
+        default: false,
+    })
+    isFeatured: boolean;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

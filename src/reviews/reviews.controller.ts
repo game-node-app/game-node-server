@@ -83,7 +83,7 @@ export class ReviewsController {
 
     @Get(":id")
     async findOneById(@Param("id") id: string) {
-        return this.reviewsService.findOneById(id);
+        return this.reviewsService.findOneByIdOrFail(id);
     }
 
     @Delete(":id")

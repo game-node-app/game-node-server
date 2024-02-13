@@ -1,7 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { CACHE_MANAGER, CacheStore } from "@nestjs/cache-manager";
 import jwt from "supertokens-node/recipe/jwt";
-import { HttpService } from "@nestjs/axios";
 
 @Injectable()
 export class JwtAuthService {

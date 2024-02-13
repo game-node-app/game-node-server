@@ -6,11 +6,4 @@ export enum EUserRoles {
     MOD = "mod",
 }
 
-export const publicUploadDir = join(
-    __dirname,
-    "..",
-    "..",
-    "..",
-    "public",
-    "uploads",
-);
+export const publicImagesDir = join(__dirname, "..", "..", "..", "public");

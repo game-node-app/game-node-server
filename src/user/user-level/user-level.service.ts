@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLevel } from "./entities/user-level.entity";
 import { Repository } from "typeorm";
@@ -28,8 +28,7 @@ export class UserLevelService {
 
     async findOneByUserIdOrFail(userId: string) {
         const entity = await this.findOneByUserId(userId);
-        if (!entity)
-            throw new Error("UserLevel not found for userId: " + userId);
+        if (!entity) throw new HttpException("", 404);
         return entity;
     }
 

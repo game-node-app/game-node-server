@@ -30,12 +30,11 @@ import { Public } from "../../auth/public.decorator";
 @ApiTags("collections-entries")
 @UseGuards(AuthGuard)
 export class CollectionsEntriesController {
-    constructor(private collectionsEntriesService: CollectionsEntriesService) {
-    }
+    constructor(private collectionsEntriesService: CollectionsEntriesService) {}
 
     @Post()
     @HttpCode(201)
-    async replace(
+    async createOrUpdate(
         @Session() session: SessionContainer,
         @Body() createCollectionEntryDto: CreateCollectionEntryDto,
     ) {

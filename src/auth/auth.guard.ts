@@ -6,6 +6,9 @@ import { Reflector } from "@nestjs/core";
 
 /**
  * Default AuthGuard that checks for a valid session.
+ * Use 'Public()' decorator to bypass authentication
+ * (session info will still be available if user is logged in)
+ * <br>
  * This guard should not be used for microservice communication, prefer JwtAuthGuard instead.
  */
 @Injectable()
