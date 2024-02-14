@@ -9,6 +9,7 @@ import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import Filter from "bad-words";
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
+import { BAD_WORDS_TAG_NAME } from "./reviews.constants";
 
 export class ReviewsService {
     private readonly badWordsFilter = new Filter();
@@ -88,22 +89,32 @@ export class ReviewsService {
         });
     }
 
+    private tagBadWords(content: string): string {
+        const words = content.split(" ");
+        const taggedWords = words.map((word) => {
+            if (this.badWordsFilter.isProfane(word)) {
+                return `<${BAD_WORDS_TAG_NAME}>${word}</${BAD_WORDS_TAG_NAME}>`;
+            }
+
+            return word;
+        });
+
+        return taggedWords.join(" ");
+    }
+
     async createOrUpdate(userId: string, createReviewDto: CreateReviewDto) {
-        await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
-            userId,
-            createReviewDto.gameId,
-        );
+        const collectionEntry =
+            await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
+                userId,
+                createReviewDto.gameId,
+            );
 
         const possibleExistingReview = await this.findOneByUserIdAndGameId(
             userId,
             createReviewDto.gameId,
         );
 
-        // Censors bad words from content
-        // TODO: Check if this is enough
-        createReviewDto.content = this.badWordsFilter.clean(
-            createReviewDto.content,
-        );
+        createReviewDto.content = this.tagBadWords(createReviewDto.content);
 
         if (possibleExistingReview) {
             const mergedEntry = this.reviewsRepository.merge(
@@ -122,15 +133,10 @@ export class ReviewsService {
             profile: {
                 userId,
             },
+            collectionEntry: collectionEntry,
         });
 
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
-
-        await this.collectionsEntriesService.attachReview(
-            userId,
-            createReviewDto.gameId,
-            insertedEntry.id,
-        );
 
         // Do not await this, as it will block the request
         this.activitiesQueue.addActivity({
@@ -141,11 +147,7 @@ export class ReviewsService {
         });
     }
 
-    async delete(
-        userId: string,
-        reviewId: string,
-        detachCollectionEntry = true,
-    ) {
+    async delete(userId: string, reviewId: string) {
         const review = await this.reviewsRepository.findOne({
             where: {
                 id: reviewId,
@@ -159,12 +161,6 @@ export class ReviewsService {
         });
         if (review == undefined) {
             throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
-        }
-
-        if (review.collectionEntry && detachCollectionEntry) {
-            await this.collectionsEntriesService.detachReview(
-                review.collectionEntry.id,
-            );
         }
 
         await this.reviewsRepository.delete({

@@ -32,6 +32,11 @@ export class Profile {
     @JoinColumn()
     avatar: ProfileAvatar;
 
+    @Column({
+        default: 0,
+    })
+    followersCount: number;
+
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

@@ -50,7 +50,6 @@ export class CollectionEntry {
     @OneToOne(() => Review, (review) => review.collectionEntry, {
         nullable: true,
     })
-    @JoinColumn()
     review: Review | null;
 
     @Column({

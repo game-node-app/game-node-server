@@ -1,9 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserInitService } from "./user-init.service";
-import { CollectionsService } from "../../collections/collections.service";
-import { LibrariesService } from "../../libraries/libraries.service";
+import { CollectionsService } from "../collections/collections.service";
+import { LibrariesService } from "../libraries/libraries.service";
 import Mocked = jest.Mocked;
-import { ProfileService } from "../../profile/profile.service";
+import { ProfileService } from "../profile/profile.service";
 import { UserLevelService } from "../user-level/user-level.service";
 
 const mockUserId = "1234";

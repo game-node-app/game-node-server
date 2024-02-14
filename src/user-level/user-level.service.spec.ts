@@ -1,11 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserLevelService } from "./user-level.service";
-import { getMockRepositoryProvider } from "../../../test/mocks/repositoryMocks";
+import { getMockRepositoryProvider } from "../../test/mocks/repositoryMocks";
 import { UserLevel } from "./entities/user-level.entity";
 import Mocked = jest.Mocked;
 import { DeepPartial, Repository } from "typeorm";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Profile } from "../../profile/entities/profile.entity";
+import { Profile } from "../profile/entities/profile.entity";
 
 function getMockUserLevel() {
     const mockUserLevel = new UserLevel();

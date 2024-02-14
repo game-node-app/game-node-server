@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinColumn,
     ManyToOne,
     OneToOne,
     PrimaryGeneratedColumn,
@@ -39,6 +40,7 @@ export class Review {
     @OneToOne(() => CollectionEntry, (entry) => entry.review, {
         nullable: false,
     })
+    @JoinColumn()
     collectionEntry: CollectionEntry;
     @CreateDateColumn()
     createdAt: Date;

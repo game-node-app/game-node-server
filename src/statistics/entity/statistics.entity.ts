@@ -14,7 +14,8 @@ export class Statistics {
     @PrimaryGeneratedColumn()
     id: number;
     /**
-     * Always stored as string. May sometimes refer to a number ID.
+     * Always stored as string. May sometimes refer to a number ID. <br>
+     * StatisticsPipe automatically converts this to the right type before returning data. <br>
      */
     @Column("varchar", { nullable: false, unique: true })
     sourceId: string;

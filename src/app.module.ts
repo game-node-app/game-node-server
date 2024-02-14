@@ -17,11 +17,12 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
 import { seconds, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
-import { UserLevelModule } from "./user/user-level/user-level.module";
+import { UserLevelModule } from "./user-level/user-level.module";
 import { HealthModule } from "./health/health.module";
 import { AchievementsModule } from "./achievements/achievements.module";
 import { APP_GUARD } from "@nestjs/core";
 import { AuthGuard } from "./auth/auth.guard";
+import { FollowModule } from "./follow/follow.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -123,6 +124,7 @@ import { AuthGuard } from "./auth/auth.guard";
         UserLevelModule,
         HealthModule,
         AchievementsModule,
+        FollowModule,
     ],
 })
 export class AppModule implements NestModule {
