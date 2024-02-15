@@ -118,4 +118,5 @@ volumes:
   redis:
   db:
   gamenode:
+  supertokens:
 
