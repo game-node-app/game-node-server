@@ -72,7 +72,7 @@ describe("UserInitService", () => {
         expect(profileService.create).toHaveBeenCalledWith(mockUserId);
     });
 
-    it("should create a user level entity", async () => {
+    it("should create a user user-level entity", async () => {
         userLevelService.findOneByUserId.mockResolvedValueOnce(null);
         await service.init(mockUserId);
         expect(userLevelService.create).toHaveBeenCalledWith(mockUserId);

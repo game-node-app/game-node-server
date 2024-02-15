@@ -7,12 +7,12 @@ import { ActivitiesQueueService } from "../activities/activities-queue/activitie
 import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
-import Filter from "bad-words";
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
-import { BAD_WORDS_TAG_NAME } from "./reviews.constants";
+import { tagBadWords } from "../utils/tagBadWords";
+import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
+import { AchievementCategory } from "../achievements/achievements.constants";
 
 export class ReviewsService {
-    private readonly badWordsFilter = new Filter();
     private relations: FindOptionsRelations<Review> = {};
 
     constructor(
@@ -20,6 +20,7 @@ export class ReviewsService {
         private activitiesQueue: ActivitiesQueueService,
         @Inject(forwardRef(() => CollectionsEntriesService))
         private collectionsEntriesService: CollectionsEntriesService,
+        private readonly achievementsQueueService: AchievementsQueueService,
     ) {}
 
     async findOneById(id: string) {
@@ -89,19 +90,6 @@ export class ReviewsService {
         });
     }
 
-    private tagBadWords(content: string): string {
-        const words = content.split(" ");
-        const taggedWords = words.map((word) => {
-            if (this.badWordsFilter.isProfane(word)) {
-                return `<${BAD_WORDS_TAG_NAME}>${word}</${BAD_WORDS_TAG_NAME}>`;
-            }
-
-            return word;
-        });
-
-        return taggedWords.join(" ");
-    }
-
     async createOrUpdate(userId: string, createReviewDto: CreateReviewDto) {
         const collectionEntry =
             await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
@@ -114,7 +102,7 @@ export class ReviewsService {
             createReviewDto.gameId,
         );
 
-        createReviewDto.content = this.tagBadWords(createReviewDto.content);
+        createReviewDto.content = tagBadWords(createReviewDto.content);
 
         if (possibleExistingReview) {
             const mergedEntry = this.reviewsRepository.merge(
@@ -144,6 +132,11 @@ export class ReviewsService {
             sourceId: insertedEntry.id,
             profileUserId: userId,
             metadata: null,
+        });
+
+        this.achievementsQueueService.addTrackingJob({
+            targetUserId: userId,
+            category: AchievementCategory.REVIEWS,
         });
     }
 

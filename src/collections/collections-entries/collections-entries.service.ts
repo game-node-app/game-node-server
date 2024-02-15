@@ -209,12 +209,9 @@ export class CollectionsEntriesService {
             id: id,
         }));
 
-        const relevantReview =
-            await this.reviewsService.findOneByUserIdAndGameId(userId, gameId);
-
         const entry = await this.findOneByUserIdAndGameId(userId, gameId);
         if (entry != undefined) {
-            await this.delete(userId, entry.id);
+            // await this.delete(userId, entry.id);
         }
 
         const upsertedEntry = await this.collectionEntriesRepository.save({
@@ -225,9 +222,6 @@ export class CollectionsEntriesService {
                 id: gameId,
             },
             ownedPlatforms,
-            review: {
-                id: relevantReview?.id,
-            },
         });
 
         this.activitiesQueueService.addActivity({
@@ -263,19 +257,6 @@ export class CollectionsEntriesService {
         );
     }
 
-    async detachDependencies(entry: CollectionEntry) {
-        const queryBuilder =
-            this.collectionEntriesRepository.createQueryBuilder();
-        await queryBuilder
-            .relation("collections")
-            .of(entry)
-            .remove(entry.collections);
-        await queryBuilder
-            .relation("ownedPlatforms")
-            .of(entry)
-            .remove(entry.ownedPlatforms);
-    }
-
     /**
      * Removes a collection entry, and detaches it's dependencies (like collections, platforms and review).
      * @param userId
@@ -300,8 +281,7 @@ export class CollectionsEntriesService {
             throw new HttpException("Entry not found.", HttpStatus.NOT_FOUND);
         }
 
-        await this.detachDependencies(entry);
-
+        // This also deletes entries in the many-to-many tables.
         await this.collectionEntriesRepository.delete(entry.id);
 
         this.activitiesQueueService.deleteActivity(entry.id);

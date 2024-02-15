@@ -3,8 +3,8 @@ import { UserLevelService } from "./user-level.service";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { UserLevel } from "./entities/user-level.entity";
 
-@Controller("user/level")
-@ApiTags("user-level")
+@Controller("user/user-level")
+@ApiTags("level")
 export class UserLevelController {
     constructor(private readonly userLevelService: UserLevelService) {}
 

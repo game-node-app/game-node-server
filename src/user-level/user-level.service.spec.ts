@@ -36,7 +36,7 @@ describe("UserLevelService", () => {
         expect(service).toBeDefined();
     });
 
-    it("should increase exp without increasing level", async () => {
+    it("should increase exp without increasing user-level", async () => {
         const mockUserLevel = getMockUserLevel();
         repository.findOne.mockResolvedValue(mockUserLevel);
         repository.create.mockReturnValueOnce(mockUserLevel);
@@ -49,7 +49,7 @@ describe("UserLevelService", () => {
         );
     });
 
-    it("should increase level when exp reaches threshold", async () => {
+    it("should increase user-level when exp reaches threshold", async () => {
         const mockUserLevel = structuredClone(getMockUserLevel());
         repository.findOne.mockResolvedValueOnce(mockUserLevel);
         repository.create.mockReturnValueOnce(mockUserLevel);
@@ -64,7 +64,7 @@ describe("UserLevelService", () => {
         );
     });
 
-    it("should increase level multiple times when exp reaches threshold multiple times", async () => {
+    it("should increase user-level multiple times when exp reaches threshold multiple times", async () => {
         const minimumLevelUpIncrease = 2;
         const mockUserLevel = getMockUserLevel();
         const expAmount = 1000;

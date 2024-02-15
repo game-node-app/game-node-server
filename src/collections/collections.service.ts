@@ -219,7 +219,6 @@ export class CollectionsService {
                     await this.collectionEntriesService.delete(
                         userId,
                         collectionEntry.id,
-                        true,
                     );
                 } catch (e) {
                     console.error(e);

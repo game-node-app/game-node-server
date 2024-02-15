@@ -19,7 +19,7 @@ export class UserLevel {
     })
     currentLevel: number;
     /**
-     * XP in the current level
+     * XP in the current user-level
      */
     @Column({
         nullable: false,
@@ -27,7 +27,7 @@ export class UserLevel {
     })
     currentLevelExp: number;
     /**
-     * Threshold XP to hit the next level
+     * Threshold XP to hit the next user-level
      */
     @Column({
         nullable: false,
