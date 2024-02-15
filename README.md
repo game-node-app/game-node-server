@@ -3,6 +3,7 @@
 </p>
 
 [circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
+
 [circleci-url]: https://circleci.com/gh/nestjs/nest
 
   <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
@@ -26,72 +27,87 @@
 
 A NestJS API responsible for handling all GameNode requests.
 
-
 ## Docker
+
 You can use the `docker-compose.yml` file in the root folder to start a local instance of GameNode.  
 It will automatically set up a Supertokens instance, the NestJS server, a MySQL database and a Redis instance.  
 If you are looking to self-host GameNode (server), this is the easiest way to do it.
 
 #### Important:
-You still need to set up `.env` file. Most of the docker-compose parameters come from it. See [Installation](#installation) for more details.
+
+You still need to set up `.env` file. Most of the docker-compose parameters come from it.
+See [Installation](#installation) for more details.
 
 #### Migrations and Docker
+
 The default docker-compose files will **not** run migrations automatically.    
-Migrations are dangerous and should be run manually, after checking each generated migration file.  
+Migrations are dangerous and should be run manually, after checking each generated migration file.
 
 You can attach to any running gamenode container and run the migrations manually:
+
 ```bash
 $ docker exec -it gamenode_server_1 bash # Replace gamenode_server_1 with your container name
-$ yarn typeorm:migration:generate
+$ yarn migration:generate
 # ...manually check the generated migration file (use Vim/Nano or docker cp to host)
-$ yarn typeorm:migration:run
+$ yarn migration:run
 # No need to restart the container, changes are made directly to MySQL.
 ```
 
 If you are developing locally, you can use this command to spin up your containers and start the server:
+
 ```bash
 $ yarn start:dev:docker # docker compose up -d && yarn start:dev
 ```
 
-You can also attach your editor to the Docker container if it supports remote development (like VS Code, IntelliJ IDEA, etc.).
+You can also attach your editor to the Docker container if it supports remote development (like VS Code, IntelliJ IDEA,
+etc.).
 
-The provided MySQL instance will hold all data for both GameNode Server itself and from Supertokens.  
+The provided MySQL instance will hold all data for both GameNode Server itself and from Supertokens.
 
-Bugs and issues related to migrations are not covered by support, and should instead be reported to the [TypeORM team](https://github.com/typeorm/typeorm).
-
+Bugs and issues related to migrations are not covered by support, and should instead be reported to
+the [TypeORM team](https://github.com/typeorm/typeorm).
 
 ## Installation
+
 ```bash
 $ yarn
 ```
 
 Use the `.env.example` file as an example for your own `.env` file.  
-All parameters are required.  
+All parameters are required.
 
 You will also need to install MySQL, Redis and have a Supertokens instance running.
 You can use a managed version of all of these services.
 
 ### SuperTokens
+
 Hosting your own instance of Supertokens is not required for local development.
-You can instead use their public instance url:  
+You can instead use their public instance url:
+
 ```dotenv
 SUPERTOKENS_CORE_URI=https://try.supertokens.io
 ```
 
 ### Database
+
 After setting up your database credentials in `.env`, run the migrations:
+
 ```bash
 $ yarn typeorm:migration:generate
 $ yarn typeorm:migration:run
 ```
 
-We use TypeORM to handle everything related to database. You only need to run migrations when changing the models (.entity.ts) files, or when you first start the app.
+We use TypeORM to handle everything related to database. You only need to run migrations when changing the models (
+.entity.ts) files, or when you first start the app.
+
 #### Important
+
 ALWAYS check your migrations before running them. Typeorm may sometimes drop important tables and columns.
 
 ### IGDB
-GameNode's games are powered by IGDB metadata. To use it, you need to set up [game-node-sync](https://github.com/game-node-app/game-node-sync).
 
+GameNode's games are powered by IGDB metadata. To use it, you need to set
+up [game-node-sync](https://github.com/game-node-app/game-node-sync).
 
 ## Running the app
 
@@ -119,11 +135,13 @@ $ yarn test:e2e
 $ yarn test:cov
 ```
 
-Keep in mind that you can't (they won't show in SwaggerDocs) test Supertokens protected routes without a valid session token.  
-This makes integration testing a tad difficult.  
+Keep in mind that you can't (they won't show in SwaggerDocs) test Supertokens protected routes without a valid session
+token.  
+This makes integration testing a tad difficult.
 
 ## Support
-Feel free to reach out to us through a Github Issue. We can help you set up your own instance of GameNode, 
+
+Feel free to reach out to us through a Github Issue. We can help you set up your own instance of GameNode,
 or help you with any other issue you might have.
 
 PS: If you have issues with overral app usage, please fill an issue in the corresponding repository.  

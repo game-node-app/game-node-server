@@ -1,15 +1,14 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
-import { CreateProfileDto } from "./dto/create-profile.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Profile } from "./entities/profile.entity";
 import { Repository } from "typeorm";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
 import * as crypto from "crypto";
-import * as path from "path";
-import { publicUploadDir } from "../utils/constants";
-import * as fs from "fs";
+import { publicImagesDir } from "../utils/constants";
+import * as fs from "fs/promises";
 import { generateUsername } from "unique-username-generator";
+import mimetype from "mime-types";
 
 @Injectable()
 export class ProfileService {
@@ -21,6 +20,10 @@ export class ProfileService {
         private profileAvatarRepository: Repository<ProfileAvatar>,
     ) {}
 
+    getAvatarFilePath(filename: string, extension: string) {
+        return `${publicImagesDir}/uploads/${filename}.${extension}`;
+    }
+
     /**
      * Called at initial user registration
      * @param userId
@@ -30,11 +33,7 @@ export class ProfileService {
         let placeholderUsername = "";
         while (usernameInUse) {
             placeholderUsername = generateUsername("-", 4, 20);
-            const possibleProfile =
-                await this.findOneByUserName(placeholderUsername);
-            if (!possibleProfile) {
-                usernameInUse = false;
-            }
+            usernameInUse = await this.existsByUserName(placeholderUsername);
         }
 
         const profile = this.profileRepository.create({
@@ -46,11 +45,11 @@ export class ProfileService {
 
     async createAvatar(avatarFile: Express.Multer.File) {
         const fileName = crypto.randomBytes(16).toString("hex");
-        const fileExt = path.extname(avatarFile.originalname);
+        const fileExt = mimetype.extension(avatarFile.mimetype) || "jpeg";
 
-        const filePath = `${publicUploadDir}/${fileName}${fileExt}`;
+        const filePath = this.getAvatarFilePath(fileName, fileExt);
         try {
-            fs.writeFileSync(filePath, avatarFile.buffer);
+            await fs.writeFile(filePath, avatarFile.buffer);
         } catch (e) {
             this.logger.error(e);
             throw new HttpException("Error saving employee picture.", 500);
@@ -61,10 +60,38 @@ export class ProfileService {
             mimetype: avatarFile.mimetype,
             extension: fileExt,
             size: avatarFile.size,
-            path: filePath,
         });
 
         return await this.profileAvatarRepository.save(profileAvatar);
+    }
+
+    async detachAvatar(userId: string, removeFile = true) {
+        const avatar = await this.profileAvatarRepository.findOneBy({
+            profile: {
+                userId,
+            },
+        });
+        if (!avatar) return;
+        await this.profileRepository
+            .createQueryBuilder()
+            .relation("avatar")
+            .of({
+                userId: userId,
+            })
+            .set(null);
+        await this.profileAvatarRepository.delete(avatar.id);
+        if (removeFile) {
+            const filePath = this.getAvatarFilePath(
+                avatar.filename,
+                avatar.extension,
+            );
+            try {
+                await fs.access(filePath, fs.constants.F_OK);
+                await fs.unlink(filePath);
+            } catch (e) {
+                console.warn(e);
+            }
+        }
     }
 
     async findAll() {
@@ -91,8 +118,8 @@ export class ProfileService {
         return profile;
     }
 
-    async findOneByUserName(username: string) {
-        return await this.profileRepository.findOne({
+    private async existsByUserName(username: string) {
+        return await this.profileRepository.exist({
             where: {
                 username,
             },
@@ -100,22 +127,23 @@ export class ProfileService {
     }
 
     async update(
-        id: string,
+        userId: string,
         updateProfileDto: UpdateProfileDto,
         avatarFile?: Express.Multer.File,
     ) {
-        const profile = await this.findOneById(id);
+        const profile = await this.findOneById(userId);
         if (!profile) {
             throw new HttpException(
                 "Profile was not found",
                 HttpStatus.NOT_FOUND,
             );
         }
+
         if (updateProfileDto.username) {
-            const possibleProfile = await this.findOneByUserName(
+            const usernameInUse = await this.existsByUserName(
                 updateProfileDto.username,
             );
-            if (possibleProfile) {
+            if (usernameInUse) {
                 throw new HttpException(
                     "A profile with the same username already exists",
                     HttpStatus.BAD_REQUEST,
@@ -123,12 +151,8 @@ export class ProfileService {
             }
             profile.username = updateProfileDto.username;
         }
-        if (updateProfileDto.avatar && avatarFile) {
-            if (profile.avatar) {
-                await this.profileAvatarRepository.delete({
-                    id: profile.avatar.id,
-                });
-            }
+        if (avatarFile) {
+            await this.detachAvatar(userId, true);
             profile.avatar = await this.createAvatar(avatarFile);
         }
         await this.profileRepository.save(profile);

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLevel } from "./entities/user-level.entity";
 import { Repository } from "typeorm";
@@ -8,7 +8,7 @@ import { BASE_LEVEL_UP_COST } from "./user-level.constants";
 export class UserLevelService {
     private readonly currentMaximumLevel = 50;
     /**
-     * The base amount to multiply the current level requirement when a user levels up
+     * The base amount to multiply the current user-level requirement when a user levels up
      * @private
      */
     private readonly baseLevelUpCostMultiplier = 1.5;
@@ -28,8 +28,7 @@ export class UserLevelService {
 
     async findOneByUserIdOrFail(userId: string) {
         const entity = await this.findOneByUserId(userId);
-        if (!entity)
-            throw new Error("UserLevel not found for userId: " + userId);
+        if (!entity) throw new HttpException("", 404);
         return entity;
     }
 
@@ -71,7 +70,7 @@ export class UserLevelService {
     }
 
     /**
-     * Retrieves the levelUpExpCost to reach a new level based on the provided level.
+     * Retrieves the levelUpExpCost to reach a new user-level based on the provided user-level.
      * @param level
      * @private
      */

@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { Between, FindManyOptions, Repository } from "typeorm";
+import { Between, Repository } from "typeorm";
 import { Statistics } from "./entity/statistics.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLike } from "./entity/user-like.entity";
@@ -49,7 +49,8 @@ export class StatisticsService {
                 sourceType: sourceType,
             },
         });
-        if (likeEntity) {
+
+        if (action === StatisticsActionType.INCREMENT && likeEntity) {
             throw new HttpException(
                 "User has already liked this item.",
                 HttpStatus.NOT_ACCEPTABLE,
@@ -60,6 +61,7 @@ export class StatisticsService {
             sourceType: sourceType,
             sourceId: sourceId,
         });
+
         if (!statisticsEntity) {
             if (action === StatisticsActionType.DECREMENT) {
                 throw new HttpException(
@@ -71,6 +73,14 @@ export class StatisticsService {
         }
 
         if (action === StatisticsActionType.INCREMENT) {
+            // This will fail if the user doesn't have a profile.
+            await this.userLikeRepository.save({
+                profile: {
+                    userId,
+                },
+                statistics: statisticsEntity,
+            });
+
             await this.statisticsRepository.increment(
                 {
                     sourceType,
@@ -79,24 +89,20 @@ export class StatisticsService {
                 "likesCount",
                 1,
             );
-            // This will fail if the user doesn't have a profile.
-            await this.userLikeRepository.save({
-                profile: {
-                    userId,
-                },
-                statistics: statisticsEntity,
-            });
             return;
         }
 
-        await this.statisticsRepository.decrement(
-            {
-                sourceType,
-                sourceId,
-            },
-            "likesCount",
-            1,
-        );
+        if (statisticsEntity.likesCount > 0) {
+            await this.statisticsRepository.decrement(
+                {
+                    sourceType,
+                    sourceId,
+                },
+                "likesCount",
+                1,
+            );
+        }
+
         await this.userLikeRepository.delete({
             profile: {
                 userId,
@@ -140,7 +146,7 @@ export class StatisticsService {
 
     /**
      * Finds trending items in the last day/week/month.
-     * Do NOT return source entities here. The client should use the respective endpoints to retrieve it.
+     * Do NOT return source models here. The client should use the respective endpoints to retrieve it.
      * @param dto
      */
     async findTrending(
@@ -168,11 +174,13 @@ export class StatisticsService {
                             views: {
                                 createdAt: Between(period, tomorrow),
                             },
+                            sourceType: dto.sourceType,
                         },
                         {
                             likes: {
                                 createdAt: Between(period, tomorrow),
                             },
+                            sourceType: dto.sourceType,
                         },
                     ],
                     order: {

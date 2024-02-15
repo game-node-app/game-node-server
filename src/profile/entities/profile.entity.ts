@@ -25,13 +25,17 @@ export class Profile {
     userId: string;
     @Column({ nullable: false, unique: true, length: 20 })
     username: string;
-
     @OneToOne(() => ProfileAvatar, (avatar) => avatar.profile, {
         nullable: true,
         cascade: true,
     })
     @JoinColumn()
     avatar: ProfileAvatar;
+
+    @Column({
+        default: 0,
+    })
+    followersCount: number;
 
     @CreateDateColumn()
     createdAt: Date;

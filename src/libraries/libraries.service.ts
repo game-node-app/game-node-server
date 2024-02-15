@@ -11,7 +11,7 @@ export class LibrariesService {
     ) {}
 
     /**
-     * The calling user is guaranteed to be the owner of the library by Supertokens Session at the controller level.
+     * The calling user is guaranteed to be the owner of the library by Supertokens Session at the controller user-level.
      *
      * This method should not be called from a controller. Use findOneByIdWithPermissions instead.
      * @param userId

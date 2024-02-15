@@ -7,20 +7,20 @@ import { ActivitiesQueueService } from "../activities/activities-queue/activitie
 import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
-import Filter from "bad-words";
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
+import { tagBadWords } from "../utils/tagBadWords";
+import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
+import { AchievementCategory } from "../achievements/achievements.constants";
 
 export class ReviewsService {
-    private readonly badWordsFilter = new Filter();
-    private relations: FindOptionsRelations<Review> = {
-        profile: true,
-    };
+    private relations: FindOptionsRelations<Review> = {};
 
     constructor(
         @InjectRepository(Review) private reviewsRepository: Repository<Review>,
         private activitiesQueue: ActivitiesQueueService,
         @Inject(forwardRef(() => CollectionsEntriesService))
         private collectionsEntriesService: CollectionsEntriesService,
+        private readonly achievementsQueueService: AchievementsQueueService,
     ) {}
 
     async findOneById(id: string) {
@@ -30,6 +30,14 @@ export class ReviewsService {
             },
             relations: this.relations,
         });
+    }
+
+    async findOneByIdOrFail(id: string) {
+        const review = await this.findOneById(id);
+        if (!review) {
+            throw new HttpException("", HttpStatus.NOT_FOUND);
+        }
+        return review;
     }
 
     async findOneByUserIdAndGameId(userId: string, gameId: number) {
@@ -83,21 +91,18 @@ export class ReviewsService {
     }
 
     async createOrUpdate(userId: string, createReviewDto: CreateReviewDto) {
-        await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
-            userId,
-            createReviewDto.gameId,
-        );
+        const collectionEntry =
+            await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
+                userId,
+                createReviewDto.gameId,
+            );
 
         const possibleExistingReview = await this.findOneByUserIdAndGameId(
             userId,
             createReviewDto.gameId,
         );
 
-        // Censors bad words from content
-        // TODO: Check if this is enough
-        createReviewDto.content = this.badWordsFilter.clean(
-            createReviewDto.content,
-        );
+        createReviewDto.content = tagBadWords(createReviewDto.content);
 
         if (possibleExistingReview) {
             const mergedEntry = this.reviewsRepository.merge(
@@ -116,33 +121,26 @@ export class ReviewsService {
             profile: {
                 userId,
             },
+            collectionEntry: collectionEntry,
         });
 
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
 
-        await this.collectionsEntriesService.attachReview(
-            userId,
-            createReviewDto.gameId,
-            insertedEntry.id,
-        );
-
         // Do not await this, as it will block the request
-        this.activitiesQueue
-            .addActivity({
-                type: ActivityType.REVIEW,
-                sourceId: insertedEntry.id,
-                profileUserId: userId,
-                metadata: null,
-            })
-            .then()
-            .catch();
+        this.activitiesQueue.addActivity({
+            type: ActivityType.REVIEW,
+            sourceId: insertedEntry.id,
+            profileUserId: userId,
+            metadata: null,
+        });
+
+        this.achievementsQueueService.addTrackingJob({
+            targetUserId: userId,
+            category: AchievementCategory.REVIEWS,
+        });
     }
 
-    async delete(
-        userId: string,
-        reviewId: string,
-        detachCollectionEntry = true,
-    ) {
+    async delete(userId: string, reviewId: string) {
         const review = await this.reviewsRepository.findOne({
             where: {
                 id: reviewId,
@@ -158,12 +156,6 @@ export class ReviewsService {
             throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
         }
 
-        if (review.collectionEntry && detachCollectionEntry) {
-            await this.collectionsEntriesService.detachReview(
-                review.collectionEntry.id,
-            );
-        }
-
         await this.reviewsRepository.delete({
             id: reviewId,
             profile: {
@@ -171,6 +163,6 @@ export class ReviewsService {
             },
         });
 
-        this.activitiesQueue.deleteActivity(review.id).then().catch();
+        this.activitiesQueue.deleteActivity(review.id);
     }
 }

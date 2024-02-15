@@ -11,7 +11,7 @@ import { FindStatisticsDto } from "./dto/find-statistics.dto";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { StatisticsInterceptor } from "./statistics.interceptor";
 import { StatisticsPaginatedResponseDto } from "./dto/statistics-paginated-response.dto";
-import { CacheTTL } from "@nestjs/cache-manager";
+import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
@@ -30,6 +30,7 @@ export class StatisticsController {
     @Get("trending")
     @UseInterceptors(StatisticsInterceptor)
     @UseInterceptors(PaginationInterceptor)
+    @UseInterceptors(CacheInterceptor)
     @ApiOkResponse({
         type: StatisticsPaginatedResponseDto,
     })

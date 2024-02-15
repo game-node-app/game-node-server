@@ -6,6 +6,8 @@ import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { CollectionsEntriesService } from "./collections-entries/collections-entries.service";
+import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
+import { AchievementCategory } from "../achievements/achievements.constants";
 
 @Injectable()
 export class CollectionsService {
@@ -19,6 +21,7 @@ export class CollectionsService {
         private collectionsRepository: Repository<Collection>,
         private readonly librariesService: LibrariesService,
         private readonly collectionEntriesService: CollectionsEntriesService,
+        private readonly achievementsQueueService: AchievementsQueueService,
     ) {}
 
     async findOneById(id: string) {
@@ -130,10 +133,15 @@ export class CollectionsService {
         });
 
         try {
-            return await this.collectionsRepository.save(collectionEntity);
+            await this.collectionsRepository.save(collectionEntity);
         } catch (e) {
             throw new HttpException(e, 500);
         }
+
+        this.achievementsQueueService.addTrackingJob({
+            targetUserId: userId,
+            category: AchievementCategory.COLLECTIONS,
+        });
     }
 
     async update(
@@ -169,7 +177,7 @@ export class CollectionsService {
     }
 
     /**
-     * Removes a collection and it's entities.
+     * Removes a collection and it's models.
      * @param userId
      * @param collectionId
      */
@@ -211,7 +219,6 @@ export class CollectionsService {
                     await this.collectionEntriesService.delete(
                         userId,
                         collectionEntry.id,
-                        true,
                     );
                 } catch (e) {
                     console.error(e);

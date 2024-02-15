@@ -20,7 +20,6 @@ export class JwtAuthGuard implements CanActivate {
      * @private
      */
     async getSigningKey(jwtHeader: JwtHeader) {
-        console.log("getSigningKey");
         const client = jwksClient({
             jwksUri: this.JWKS_URI,
         });
@@ -64,6 +63,7 @@ export class JwtAuthGuard implements CanActivate {
         try {
             const jwtHeader = decodedToken.header;
             const signingKey = await this.getSigningKey(jwtHeader);
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
             JsonWebToken.verify(bearerToken, signingKey, {
                 algorithms: ["RS256"],

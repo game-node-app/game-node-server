@@ -1,12 +1,15 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { CollectionsService } from "../../collections/collections.service";
-import { LibrariesService } from "../../libraries/libraries.service";
-import { ProfileService } from "../../profile/profile.service";
+import { CollectionsService } from "../collections/collections.service";
+import { LibrariesService } from "../libraries/libraries.service";
+import { ProfileService } from "../profile/profile.service";
 // import UserRoles from "supertokens-node/recipe/userroles";
 // import { EUserRoles } from "../../utils/constants";
-import { DEFAULT_COLLECTIONS } from "../../collections/collections.constants";
+import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 import { UserLevelService } from "../user-level/user-level.service";
 
+/**
+ * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
+ */
 @Injectable()
 export class UserInitService {
     private logger = new Logger(UserInitService.name);

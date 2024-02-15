@@ -10,7 +10,9 @@ import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
 import { EGamePlatformIds } from "../../game/game-repository/game-repository.constants";
 import { getMockRepositoryProvider } from "../../../test/mocks/repositoryMocks";
 import Mocked = jest.Mocked;
-import { ActivitiesQueueMock } from "../../../test/mocks/activities/activities-mocks";
+import { ActivitiesQueueMock } from "../../../test/mocks/queue/activities-mocks";
+import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
+import { achievementsQueueMock } from "../../../test/mocks/queue/achievements-mocks";
 
 describe("CollectionsEntriesService", () => {
     let service: jest.Mocked<CollectionsEntriesService>;
@@ -25,6 +27,10 @@ describe("CollectionsEntriesService", () => {
                 {
                     provide: ActivitiesQueueService,
                     useValue: ActivitiesQueueMock,
+                },
+                {
+                    provide: AchievementsQueueService,
+                    useValue: achievementsQueueMock,
                 },
                 {
                     provide: ReviewsService,
@@ -53,7 +59,10 @@ describe("CollectionsEntriesService", () => {
         const mockCollectionEntry = new CollectionEntry();
         mockCollectionEntry.id = "123124";
         mockCollectionEntry.isFavorite = false;
-        jest.spyOn(service, "findOneByUserIdAndGameIdOrFail").mockImplementationOnce(async () => {
+        jest.spyOn(
+            service,
+            "findOneByUserIdAndGameIdOrFail",
+        ).mockImplementationOnce(async () => {
             return mockCollectionEntry;
         });
         const updateSpy = jest.spyOn(repository, "update");
@@ -64,9 +73,9 @@ describe("CollectionsEntriesService", () => {
             },
             expect.objectContaining({
                 isFavorite: true,
-            }));
+            }),
+        );
     });
-
 
     it("should keep favorite parameter when re-creating entry", async () => {
         const userId = "1";

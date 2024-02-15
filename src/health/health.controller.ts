@@ -1,11 +1,12 @@
 import { Controller, Get } from "@nestjs/common";
 import { HealthService } from "./health.service";
-import * as process from "process";
-import Redis from "ioredis";
+import { ApiTags } from "@nestjs/swagger";
 
 @Controller("health")
+@ApiTags("health")
 export class HealthController {
-    constructor(private healthService: HealthService) {}
+    constructor(private healthService: HealthService) {
+    }
 
     @Get()
     async health() {

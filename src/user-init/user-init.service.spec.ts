@@ -1,9 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserInitService } from "./user-init.service";
-import { CollectionsService } from "../../collections/collections.service";
-import { LibrariesService } from "../../libraries/libraries.service";
+import { CollectionsService } from "../collections/collections.service";
+import { LibrariesService } from "../libraries/libraries.service";
 import Mocked = jest.Mocked;
-import { ProfileService } from "../../profile/profile.service";
+import { ProfileService } from "../profile/profile.service";
 import { UserLevelService } from "../user-level/user-level.service";
 
 const mockUserId = "1234";
@@ -72,7 +72,7 @@ describe("UserInitService", () => {
         expect(profileService.create).toHaveBeenCalledWith(mockUserId);
     });
 
-    it("should create a user level entity", async () => {
+    it("should create a user user-level entity", async () => {
         userLevelService.findOneByUserId.mockResolvedValueOnce(null);
         await service.init(mockUserId);
         expect(userLevelService.create).toHaveBeenCalledWith(mockUserId);

@@ -28,21 +28,13 @@ export class GameRepositoryService {
     private readonly logger = new Logger(GameRepositoryService.name);
 
     /**
+     * @param dataSource
      * @param gameRepository
-     * @param gameGenreRepository
-     * @param gamePlatformRepository
-     * @param gameThemeRepository
      */
     constructor(
         private readonly dataSource: DataSource,
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
-        @InjectRepository(GameGenre)
-        private readonly gameGenreRepository: Repository<GameGenre>,
-        @InjectRepository(GamePlatform)
-        private readonly gamePlatformRepository: Repository<GamePlatform>,
-        @InjectRepository(GameTheme)
-        private readonly gameThemeRepository: Repository<GameTheme>,
     ) {}
 
     async findOneById(

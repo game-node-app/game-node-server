@@ -1,11 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserLevelService } from "./user-level.service";
-import { getMockRepositoryProvider } from "../../../test/mocks/repositoryMocks";
+import { getMockRepositoryProvider } from "../../test/mocks/repositoryMocks";
 import { UserLevel } from "./entities/user-level.entity";
 import Mocked = jest.Mocked;
 import { DeepPartial, Repository } from "typeorm";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Profile } from "../../profile/entities/profile.entity";
+import { Profile } from "../profile/entities/profile.entity";
 
 function getMockUserLevel() {
     const mockUserLevel = new UserLevel();
@@ -36,9 +36,9 @@ describe("UserLevelService", () => {
         expect(service).toBeDefined();
     });
 
-    it("should increase exp without increasing level", async () => {
+    it("should increase exp without increasing user-level", async () => {
         const mockUserLevel = getMockUserLevel();
-        repository.findOneOrFail.mockResolvedValueOnce(mockUserLevel);
+        repository.findOne.mockResolvedValue(mockUserLevel);
         repository.create.mockReturnValueOnce(mockUserLevel);
         await service.increaseExp(mockUserLevel.profile.userId, 50);
         expect(repository.save).toHaveBeenCalledWith(
@@ -49,9 +49,9 @@ describe("UserLevelService", () => {
         );
     });
 
-    it("should increase level when exp reaches threshold", async () => {
-        const mockUserLevel = getMockUserLevel();
-        repository.findOneOrFail.mockResolvedValueOnce(mockUserLevel);
+    it("should increase user-level when exp reaches threshold", async () => {
+        const mockUserLevel = structuredClone(getMockUserLevel());
+        repository.findOne.mockResolvedValueOnce(mockUserLevel);
         repository.create.mockReturnValueOnce(mockUserLevel);
         await service.increaseExp(
             mockUserLevel.profile.userId,
@@ -64,11 +64,11 @@ describe("UserLevelService", () => {
         );
     });
 
-    it("should increase level multiple times when exp reaches threshold multiple times", async () => {
+    it("should increase user-level multiple times when exp reaches threshold multiple times", async () => {
         const minimumLevelUpIncrease = 2;
         const mockUserLevel = getMockUserLevel();
         const expAmount = 1000;
-        repository.findOneOrFail.mockResolvedValueOnce(
+        repository.findOne.mockResolvedValueOnce(
             structuredClone(mockUserLevel),
         );
         repository.create.mockReturnValueOnce(structuredClone(mockUserLevel));
