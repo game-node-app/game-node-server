@@ -274,6 +274,7 @@ export class CollectionsEntriesService {
             },
             relations: {
                 ownedPlatforms: true,
+                review: true,
             },
         });
 
@@ -283,6 +284,10 @@ export class CollectionsEntriesService {
 
         // This also deletes entries in the many-to-many tables.
         await this.collectionEntriesRepository.delete(entry.id);
+
+        if (entry.review) {
+            await this.reviewsService.delete(userId, entry.review.id);
+        }
 
         this.activitiesQueueService.deleteActivity(entry.id);
     }
