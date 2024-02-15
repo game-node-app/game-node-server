@@ -118,5 +118,5 @@ volumes:
   redis:
   db:
   gamenode:
-  supertokens:
+  supertokens-db:
 
