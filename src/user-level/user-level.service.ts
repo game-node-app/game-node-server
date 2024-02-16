@@ -11,7 +11,7 @@ export class UserLevelService {
      * The base amount to multiply the current user-level requirement when a user levels up
      * @private
      */
-    private readonly baseLevelUpCostMultiplier = 1.5;
+    private readonly baseLevelUpCostMultiplier = 1.2;
 
     constructor(
         @InjectRepository(UserLevel)
@@ -49,15 +49,25 @@ export class UserLevelService {
             this.userLevelRepository.create(userLevelEntity);
 
         while (unprocessedExpAmount > 0) {
+            const totalCurrentLevelExp =
+                updatedUserLevelEntity.currentLevelExp + unprocessedExpAmount;
             const nextLevel = updatedUserLevelEntity.currentLevel + 1;
             const nextLevelRequiredExp = this.getLevelUpExpCost(nextLevel);
+            /**
+             * Alas: exp processed in this iteration
+             */
             const currentLevelRequiredExp = structuredClone(
                 updatedUserLevelEntity.levelUpExpCost,
             );
 
-            if (unprocessedExpAmount > updatedUserLevelEntity.levelUpExpCost) {
+            if (totalCurrentLevelExp >= updatedUserLevelEntity.levelUpExpCost) {
+                let remainingExp = 0;
+                if (totalCurrentLevelExp - currentLevelRequiredExp > 0) {
+                    remainingExp =
+                        totalCurrentLevelExp - currentLevelRequiredExp;
+                }
                 updatedUserLevelEntity.currentLevel = nextLevel;
-                updatedUserLevelEntity.currentLevelExp = 0;
+                updatedUserLevelEntity.currentLevelExp = remainingExp;
                 updatedUserLevelEntity.levelUpExpCost = nextLevelRequiredExp;
             } else {
                 updatedUserLevelEntity.currentLevelExp += unprocessedExpAmount;
@@ -75,7 +85,7 @@ export class UserLevelService {
      * @private
      */
     private getLevelUpExpCost(level: number) {
-        const maxLevelCostMultiplier = level / this.currentMaximumLevel;
+        const maxLevelCostMultiplier = level / this.currentMaximumLevel - 0.5;
         const baseCurrentLevelCost = level * BASE_LEVEL_UP_COST;
         return (
             baseCurrentLevelCost *

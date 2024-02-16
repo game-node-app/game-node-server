@@ -9,29 +9,6 @@ import { CollectionEntry } from "../../collections/collections-entries/entities/
 
 export const achievementsCollectionsData: Achievement[] = [
     {
-        id: "spooky",
-        name: "Spooky",
-        description: "Review an horror game",
-        expGainAmount: 50,
-        category: AchievementCategory.COLLECTIONS,
-        checkEligibility: async (dataSource, targetUserId) => {
-            const reviewsRepository = dataSource.getRepository(Review);
-            return await reviewsRepository.exist({
-                where: {
-                    profile: {
-                        userId: targetUserId,
-                    },
-                    game: {
-                        themes: {
-                            // Horror game ID in the game_theme table.
-                            id: horrorGameThemeId,
-                        },
-                    },
-                },
-            });
-        },
-    },
-    {
         id: "space-station",
         name: "Space Station",
         description: "Add 100 games to your collections",

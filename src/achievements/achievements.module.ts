@@ -7,6 +7,7 @@ import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
 import { AchievementsQueueProcessor } from "./achievements-queue/achievements-queue.processor";
 import { BullModule } from "@nestjs/bull";
 import { ACHIEVEMENTS_QUEUE_NAME } from "./achievements-queue/achievements-queue.constants";
+import { UserLevelModule } from "../user-level/user-level.module";
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { ACHIEVEMENTS_QUEUE_NAME } from "./achievements-queue/achievements-queue
                 removeOnFail: false,
             },
         }),
+        UserLevelModule,
     ],
     controllers: [AchievementsController],
     providers: [
