@@ -78,45 +78,28 @@ export class AchievementsService {
 
         if (shouldSkipAchievement) return;
 
-        const eligible = await achievement.checkEligibility(
+        const isEligible = await achievement.checkEligibility(
             this.dataSource,
             targetUserId,
         );
 
-        if (eligible) {
-            const obtainedAchivementEntity =
-                this.obtainedAchievementsRepository.create();
-            obtainedAchivementEntity.id = achievement.id;
-            obtainedAchivementEntity.profile = {
-                userId: targetUserId,
-            } as Profile;
+        if (!isEligible) return;
 
-            const persistedAchievement =
-                await this.obtainedAchievementsRepository.save(
-                    obtainedAchivementEntity,
-                );
+        const obtainedAchivementEntity =
+            this.obtainedAchievementsRepository.create();
+        obtainedAchivementEntity.id = achievement.id;
+        obtainedAchivementEntity.profile = {
+            userId: targetUserId,
+        } as Profile;
 
-            const achievementsCount =
-                await this.obtainedAchievementsRepository.countBy({
-                    profile: {
-                        userId: targetUserId,
-                    },
-                });
+        await this.obtainedAchievementsRepository.save(
+            obtainedAchivementEntity,
+        );
 
-            const isFirstAchievement = achievementsCount === 1;
-
-            if (isFirstAchievement) {
-                await this.updateFeaturedObtainedAchievement(targetUserId, {
-                    isFeatured: true,
-                    id: persistedAchievement.id,
-                });
-            }
-
-            await this.userLevelService.increaseExp(
-                targetUserId,
-                achievement.expGainAmount,
-            );
-        }
+        await this.userLevelService.increaseExp(
+            targetUserId,
+            achievement.expGainAmount,
+        );
     }
 
     public trackAchievementsProgress(

@@ -25,9 +25,14 @@ export class Profile {
     userId: string;
     @Column({ nullable: false, unique: true, length: 20 })
     username: string;
+    @Column({
+        nullable: true,
+        type: "varchar",
+        length: 240,
+    })
+    bio: string;
     @OneToOne(() => ProfileAvatar, (avatar) => avatar.profile, {
         nullable: true,
-        cascade: true,
     })
     @JoinColumn()
     avatar: ProfileAvatar;
