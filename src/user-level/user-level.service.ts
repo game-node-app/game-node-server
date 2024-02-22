@@ -80,7 +80,7 @@ export class UserLevelService {
     }
 
     /**
-     * Retrieves the levelUpExpCost to reach a new user-level based on the provided user-level.
+     * Retrieves the levelUpExpCost to reach a new level based on the provided level.
      * @param level
      * @private
      */

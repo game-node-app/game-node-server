@@ -1,22 +1,31 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { Between, Repository } from "typeorm";
+import {
+    Between,
+    FindManyOptions,
+    FindOptionsWhere,
+    Repository,
+} from "typeorm";
 import { Statistics } from "./entity/statistics.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
-import { StatisticsActionType } from "./statistics.constants";
+import {
+    StatisticsActionType,
+    StatisticsPeriodToMinusDays,
+    StatisticsSourceType,
+} from "./statistics.constants";
 import {
     StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
-import { FindStatisticsDto } from "./dto/find-statistics.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dto";
-import {
-    StatisticsEntityDto,
-    StatisticsStatus,
-} from "./dto/statistics-entity.dto";
+import { StatisticsStatus } from "./dto/statistics-entity.dto";
+import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
+import { buildFilterFindOptions } from "../game/utils/build-filter-find-options";
+import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
+import { Review } from "../reviews/entities/review.entity";
 
 @Injectable()
 export class StatisticsService {
@@ -30,37 +39,74 @@ export class StatisticsService {
     ) {}
 
     async initialize(data: StatisticsActionDto) {
-        return await this.statisticsRepository.save({
-            sourceId: data.sourceId,
+        if (
+            data.sourceId == undefined ||
+            !["number", "string"].includes(typeof data.sourceId)
+        ) {
+            throw new HttpException(
+                "Invalid type for sourceId",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+        const statisticsEntity = this.statisticsRepository.create({
             sourceType: data.sourceType,
             viewsCount: 0,
             likesCount: 0,
         });
+        switch (data.sourceType) {
+            case StatisticsSourceType.GAME:
+                statisticsEntity.gameId = data.sourceId as number;
+                break;
+            case StatisticsSourceType.REVIEW:
+                statisticsEntity.reviewId = data.sourceId as string;
+                break;
+            default:
+                throw new HttpException(
+                    "Invalid type for sourceType",
+                    HttpStatus.BAD_REQUEST,
+                );
+        }
+
+        return await this.statisticsRepository.save(statisticsEntity);
+    }
+
+    async findOneBySourceIdAndType(
+        sourceId: string | number,
+        sourceType: StatisticsSourceType,
+    ) {
+        const options: FindManyOptions<Statistics> = {
+            where: {
+                sourceType,
+            },
+        };
+        switch (sourceType) {
+            case StatisticsSourceType.GAME:
+                options.where = {
+                    ...options.where,
+                    gameId: sourceId as number,
+                };
+                break;
+            case StatisticsSourceType.REVIEW:
+                options.where = {
+                    ...options.where,
+                    reviewId: sourceId as string,
+                };
+                break;
+            default:
+                throw new HttpException(
+                    "Invalid type for sourceType",
+                    HttpStatus.BAD_REQUEST,
+                );
+        }
+        return await this.statisticsRepository.findOne(options);
     }
 
     async handleLike(data: StatisticsLikeAction) {
         const { sourceId, sourceType, userId, action } = data;
-        const likeEntity = await this.userLikeRepository.findOneBy({
-            profile: {
-                userId: userId,
-            },
-            statistics: {
-                sourceId: sourceId,
-                sourceType: sourceType,
-            },
-        });
-
-        if (action === StatisticsActionType.INCREMENT && likeEntity) {
-            throw new HttpException(
-                "User has already liked this item.",
-                HttpStatus.NOT_ACCEPTABLE,
-            );
-        }
-
-        let statisticsEntity = await this.statisticsRepository.findOneBy({
-            sourceType: sourceType,
-            sourceId: sourceId,
-        });
+        let statisticsEntity = await this.findOneBySourceIdAndType(
+            sourceId,
+            sourceType,
+        );
 
         if (!statisticsEntity) {
             if (action === StatisticsActionType.DECREMENT) {
@@ -70,6 +116,21 @@ export class StatisticsService {
                 );
             }
             statisticsEntity = await this.initialize(data);
+        }
+        const likeEntity = await this.userLikeRepository.findOneBy({
+            profile: {
+                userId: userId,
+            },
+            statistics: {
+                sourceType: sourceType,
+            },
+        });
+
+        if (action === StatisticsActionType.INCREMENT && likeEntity) {
+            throw new HttpException(
+                "User has already liked this item.",
+                HttpStatus.NOT_ACCEPTABLE,
+            );
         }
 
         if (action === StatisticsActionType.INCREMENT) {
@@ -83,8 +144,7 @@ export class StatisticsService {
 
             await this.statisticsRepository.increment(
                 {
-                    sourceType,
-                    sourceId,
+                    id: statisticsEntity.id,
                 },
                 "likesCount",
                 1,
@@ -95,8 +155,7 @@ export class StatisticsService {
         if (statisticsEntity.likesCount > 0) {
             await this.statisticsRepository.decrement(
                 {
-                    sourceType,
-                    sourceId,
+                    id: statisticsEntity.id,
                 },
                 "likesCount",
                 1,
@@ -113,17 +172,16 @@ export class StatisticsService {
 
     async handleView(data: StatisticsViewAction) {
         const { userId, sourceId, sourceType } = data;
-        let statisticsEntity = await this.statisticsRepository.findOneBy({
-            sourceType,
+        let statisticsEntity = await this.findOneBySourceIdAndType(
             sourceId,
-        });
+            sourceType,
+        );
         if (!statisticsEntity) {
             statisticsEntity = await this.initialize(data);
         }
         await this.statisticsRepository.increment(
             {
-                sourceType,
-                sourceId,
+                id: statisticsEntity.id,
             },
             "viewsCount",
             1,
@@ -144,61 +202,77 @@ export class StatisticsService {
         return previousDate;
     }
 
-    /**
-     * Finds trending items in the last day/week/month.
-     * Do NOT return source models here. The client should use the respective endpoints to retrieve it.
-     * @param dto
-     */
-    async findTrending(
-        dto: FindStatisticsDto,
+    async findTrendingGames(
+        dto: FindStatisticsTrendingGamesDto,
     ): Promise<TPaginationData<Statistics>> {
+        const findOptions = buildBaseFindOptions(dto);
+        const findOptionsGameWhere = buildFilterFindOptions(dto.criteria);
         // Avoids timezone-related issues
         // Just trust me
         const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const yesterday = this.getPreviousDate(1);
-        const lastWeek = this.getPreviousDate(7);
-        const lastMonth = this.getPreviousDate(30);
-        const lastYear = this.getPreviousDate(365);
-
-        const baseFindOptions = buildBaseFindOptions(dto);
-
-        const periods = [yesterday, lastWeek, lastMonth, lastYear] as const;
-
-        for (const period of periods) {
-            const [periodItems, periodTotal] =
-                await this.statisticsRepository.findAndCount({
-                    ...baseFindOptions,
-                    where: [
-                        {
-                            views: {
-                                createdAt: Between(period, tomorrow),
-                            },
-                            sourceType: dto.sourceType,
-                        },
-                        {
-                            likes: {
-                                createdAt: Between(period, tomorrow),
-                            },
-                            sourceType: dto.sourceType,
-                        },
-                    ],
-                    order: {
-                        viewsCount: "DESC",
-                        likesCount: "DESC",
+        const minusDays = StatisticsPeriodToMinusDays[dto.period] || 7;
+        const previousDate = this.getPreviousDate(minusDays);
+        return await this.statisticsRepository.findAndCount({
+            ...findOptions,
+            where: [
+                {
+                    views: {
+                        createdAt: Between(previousDate, tomorrow),
                     },
-                });
-            if (
-                period.getTime() > lastYear.getTime() &&
-                periodTotal < dto.minimumItems
-            ) {
-                continue;
-            }
+                    game: findOptionsGameWhere,
+                    sourceType: StatisticsSourceType.GAME,
+                },
+                {
+                    likes: {
+                        createdAt: Between(previousDate, tomorrow),
+                    },
+                    game: findOptionsGameWhere,
+                    sourceType: StatisticsSourceType.GAME,
+                },
+            ],
+            order: {
+                viewsCount: "DESC",
+                likesCount: "DESC",
+            },
+        });
+    }
 
-            return [periodItems, periodTotal];
-        }
-
-        return [[], 0];
+    async findTrendingReviews(dto: FindStatisticsTrendingReviewsDto) {
+        const findOptions = buildBaseFindOptions(dto);
+        // Avoids timezone-related issues
+        // Just trust me
+        const tomorrow = new Date();
+        const minusDays = StatisticsPeriodToMinusDays[dto.period] || 7;
+        const previousDate = this.getPreviousDate(minusDays);
+        const reviewFindOptionsWhere: FindOptionsWhere<Review> | undefined =
+            dto.gameId
+                ? {
+                      gameId: dto.gameId,
+                  }
+                : undefined;
+        return await this.statisticsRepository.findAndCount({
+            ...findOptions,
+            where: [
+                {
+                    views: {
+                        createdAt: Between(previousDate, tomorrow),
+                    },
+                    review: reviewFindOptionsWhere,
+                    sourceType: StatisticsSourceType.REVIEW,
+                },
+                {
+                    likes: {
+                        createdAt: Between(previousDate, tomorrow),
+                    },
+                    review: reviewFindOptionsWhere,
+                    sourceType: StatisticsSourceType.REVIEW,
+                },
+            ],
+            order: {
+                viewsCount: "DESC",
+                likesCount: "DESC",
+            },
+        });
     }
 
     async findStatus(
@@ -240,27 +314,6 @@ export class StatisticsService {
         return {
             isLiked: false,
             isViewed: false,
-        };
-    }
-
-    async findOne(
-        dto: StatisticsActionDto,
-        userId?: string,
-    ): Promise<StatisticsEntityDto> {
-        const statistics = await this.statisticsRepository.findOne({
-            where: {
-                sourceType: dto.sourceType,
-                sourceId: dto.sourceId,
-            },
-        });
-        if (!statistics) {
-            throw new HttpException("No entry found.", HttpStatus.NOT_FOUND);
-        }
-        const statisticsStatus = await this.findStatus(statistics.id, userId);
-
-        return {
-            ...statistics,
-            ...statisticsStatus,
         };
     }
 }

@@ -43,15 +43,6 @@ import { GameEngine } from "./game-engine.entity";
  *
  * TL;DR: Do not use .save() for this or related models.
  * */
-
-/**
- * TODO
- * Pending relationships (these have lots of deeply nested child relationships):
- * - game_engines
- * - involved_companies
- * - language_supports
- */
-
 @Entity()
 export class Game {
     /**

@@ -1,12 +1,9 @@
 import { StatisticsSourceType } from "../../statistics.constants";
-import { IsEnum, IsNotEmpty, IsString } from "class-validator";
-import { Transform } from "class-transformer";
+import { IsEnum, IsNotEmpty } from "class-validator";
 
 export class StatisticsActionDto {
     @IsNotEmpty()
-    @IsString()
-    @Transform(({ value }) => (typeof value === "number" ? `${value}` : value))
-    sourceId: string;
+    sourceId: string | number;
     @IsNotEmpty()
     @IsEnum(StatisticsSourceType)
     sourceType: StatisticsSourceType;

@@ -1,0 +1,28 @@
+import { GameRepositoryFilterDto } from "../game-repository/dto/game-repository-filter.dto";
+import { FindManyOptions, FindOptionsWhere, In } from "typeorm";
+import { Game } from "../game-repository/entities/game.entity";
+
+const singleValueProperties = ["category", "status"];
+
+export function buildFilterFindOptions(
+    dto: GameRepositoryFilterDto,
+): FindOptionsWhere<Game> {
+    let options: FindOptionsWhere<Game> = {};
+    for (const [key, value] of Object.entries(dto)) {
+        if (singleValueProperties.includes(key) && typeof value === "number") {
+            options = {
+                ...options,
+                [key]: value,
+            };
+        } else if (Array.isArray(value) && value.length > 0) {
+            options = {
+                ...options,
+                [key]: {
+                    id: In(value),
+                },
+            };
+        }
+    }
+
+    return options;
+}

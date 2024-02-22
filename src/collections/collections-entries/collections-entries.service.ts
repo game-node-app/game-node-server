@@ -16,6 +16,7 @@ import { ActivityType } from "../../activities/activities-queue/activities-queue
 import { ReviewsService } from "../../reviews/reviews.service";
 import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../../achievements/achievements.constants";
+import { Length } from "class-validator";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -210,10 +211,6 @@ export class CollectionsEntriesService {
         }));
 
         const entry = await this.findOneByUserIdAndGameId(userId, gameId);
-        if (entry != undefined) {
-            // await this.delete(userId, entry.id);
-        }
-
         const upsertedEntry = await this.collectionEntriesRepository.save({
             ...entry,
             isFavorite,
