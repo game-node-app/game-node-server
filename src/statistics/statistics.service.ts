@@ -40,26 +40,38 @@ export class StatisticsService {
         private readonly userViewRepository: Repository<UserView>,
     ) {}
 
-    async initialize(data: StatisticsActionDto) {
-        if (
-            data.sourceId == undefined ||
-            !["number", "string"].includes(typeof data.sourceId)
-        ) {
-            throw new HttpException(
-                "Invalid type for sourceId",
-                HttpStatus.BAD_REQUEST,
-            );
+    public async create(data: StatisticsActionDto) {
+        const possibleEntity = await this.findOneBySourceIdAndType(
+            data.sourceId,
+            data.sourceType,
+        );
+        if (possibleEntity) {
+            return possibleEntity;
         }
+
         const statisticsEntity = this.statisticsRepository.create({
             sourceType: data.sourceType,
             viewsCount: 0,
             likesCount: 0,
         });
+
         switch (data.sourceType) {
             case StatisticsSourceType.GAME:
+                if (typeof data.sourceId !== "number") {
+                    throw new HttpException(
+                        "Invalid type for sourceId",
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
                 statisticsEntity.gameId = data.sourceId as number;
                 break;
             case StatisticsSourceType.REVIEW:
+                if (typeof data.sourceId !== "string") {
+                    throw new HttpException(
+                        "Invalid type for sourceId",
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
                 statisticsEntity.reviewId = data.sourceId as string;
                 break;
             default:
@@ -117,7 +129,7 @@ export class StatisticsService {
                     HttpStatus.NOT_ACCEPTABLE,
                 );
             }
-            statisticsEntity = await this.initialize(data);
+            statisticsEntity = await this.create(data);
         }
         const likeEntity = await this.userLikeRepository.findOneBy({
             profile: {
@@ -179,7 +191,7 @@ export class StatisticsService {
             sourceType,
         );
         if (!statisticsEntity) {
-            statisticsEntity = await this.initialize(data);
+            statisticsEntity = await this.create(data);
         }
         await this.statisticsRepository.increment(
             {

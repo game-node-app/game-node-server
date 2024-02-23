@@ -24,6 +24,7 @@ import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { GameCompanyLogo } from "./entities/game-company-logo.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryCreateService } from "./game-repository-create.service";
+import { StatisticsModule } from "../../statistics/statistics.module";
 
 /**
  * This is a pretty big module, with lots of dependencies.
@@ -52,6 +53,7 @@ import { GameRepositoryCreateService } from "./game-repository-create.service";
             GameEngineLogo,
             GamePlayerPerspective,
         ]),
+        StatisticsModule,
     ],
     providers: [GameRepositoryService, GameRepositoryCreateService],
     exports: [GameRepositoryService, GameRepositoryCreateService],

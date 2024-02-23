@@ -1,5 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { GameRepositoryService } from "./game-repository.service";
+import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
 import { DeepPartial, Repository } from "typeorm";
@@ -23,6 +22,8 @@ import { GamePlayerPerspective } from "./entities/game-player-perspective.entity
 import { GameEngine } from "./entities/game-engine.entity";
 import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { PartialGame } from "./game-repository.types";
+import { StatisticsService } from "../../statistics/statistics.service";
+import { StatisticsSourceType } from "../../statistics/statistics.constants";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -54,6 +55,7 @@ export class GameRepositoryCreateService {
      * @param gamePlayerPerspectiveRepository
      * @param gameEngineRepository
      * @param gameEngineLogoRepository
+     * @param statisticsService
      */
     constructor(
         @InjectRepository(Game)
@@ -96,6 +98,7 @@ export class GameRepositoryCreateService {
         private readonly gameEngineRepository: Repository<GameEngine>,
         @InjectRepository(GameEngineLogo)
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
+        private readonly statisticsService: StatisticsService,
     ) {}
 
     /**
@@ -121,6 +124,19 @@ export class GameRepositoryCreateService {
         await this.gameRepository.upsert(game, ["id"]);
         await this.buildChildRelationships(game);
         this.logger.log(`Upserted game ${game.id} and it's relationships`);
+
+        this.statisticsService
+            .create({
+                sourceId: game.id,
+                sourceType: StatisticsSourceType.GAME,
+            })
+            .then()
+            .catch((err) => {
+                this.logger.error(
+                    "Error while inserting game statistics: ",
+                    err,
+                );
+            });
     }
 
     /**

@@ -1,4 +1,10 @@
-import { forwardRef, HttpException, HttpStatus, Inject } from "@nestjs/common";
+import {
+    forwardRef,
+    HttpException,
+    HttpStatus,
+    Inject,
+    Logger,
+} from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Review } from "./entities/review.entity";
@@ -11,8 +17,11 @@ import { CollectionsEntriesService } from "../collections/collections-entries/co
 import { filterBadWords } from "../utils/filterBadWords";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../achievements/achievements.constants";
+import { StatisticsService } from "../statistics/statistics.service";
+import { StatisticsSourceType } from "../statistics/statistics.constants";
 
 export class ReviewsService {
+    private readonly logger = new Logger(ReviewsService.name);
     private relations: FindOptionsRelations<Review> = {};
 
     constructor(
@@ -21,6 +30,7 @@ export class ReviewsService {
         @Inject(forwardRef(() => CollectionsEntriesService))
         private collectionsEntriesService: CollectionsEntriesService,
         private readonly achievementsQueueService: AchievementsQueueService,
+        private readonly statisticsService: StatisticsService,
     ) {}
 
     async findOneById(id: string) {
@@ -126,7 +136,6 @@ export class ReviewsService {
 
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
 
-        // Do not await this, as it will block the request
         this.activitiesQueue.addActivity({
             type: ActivityType.REVIEW,
             sourceId: insertedEntry.id,
@@ -138,6 +147,19 @@ export class ReviewsService {
             targetUserId: userId,
             category: AchievementCategory.REVIEWS,
         });
+
+        this.statisticsService
+            .create({
+                sourceType: StatisticsSourceType.REVIEW,
+                sourceId: insertedEntry.id,
+            })
+            .then()
+            .catch((err) => {
+                this.logger.error(
+                    "Error while inserting review statistics: ",
+                    err,
+                );
+            });
     }
 
     async delete(userId: string, reviewId: string) {

@@ -3,12 +3,14 @@ import {
     CreateDateColumn,
     Entity,
     JoinColumn,
+    ManyToMany,
     OneToOne,
     PrimaryColumn,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { ProfileAvatar } from "./profile-avatar.entity";
+import { UserFollow } from "../../follow/entity/user-follow.entity";
 
 @Entity()
 export class Profile {
@@ -36,12 +38,14 @@ export class Profile {
     })
     @JoinColumn()
     avatar: ProfileAvatar;
-
     @Column({
         default: 0,
     })
     followersCount: number;
-
+    @ManyToMany(() => UserFollow, (userFollow) => userFollow.profile)
+    followers: UserFollow[];
+    @ManyToMany(() => UserFollow, (userFollow) => userFollow.profile)
+    following: UserFollow[];
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

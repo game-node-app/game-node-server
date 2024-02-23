@@ -8,6 +8,7 @@ import { ActivitiesQueueModule } from "../activities/activities-queue/activities
 import { CollectionEntry } from "../collections/collections-entries/entities/collection-entry.entity";
 import { CollectionsEntriesModule } from "../collections/collections-entries/collections-entries.module";
 import { AchievementsModule } from "../achievements/achievements.module";
+import { StatisticsModule } from "../statistics/statistics.module";
 
 @Module({
     imports: [
@@ -16,6 +17,7 @@ import { AchievementsModule } from "../achievements/achievements.module";
         ActivitiesQueueModule,
         AchievementsModule,
         forwardRef(() => CollectionsEntriesModule),
+        StatisticsModule,
     ],
     controllers: [ReviewsController],
     providers: [ReviewsService],

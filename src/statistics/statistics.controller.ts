@@ -7,7 +7,7 @@ import {
     UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
-import { ApiOkResponse, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import { StatisticsService } from "./statistics.service";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { StatisticsPaginatedResponseDto } from "./dto/statistics-paginated-response.dto";
