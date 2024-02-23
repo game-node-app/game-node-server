@@ -3,6 +3,7 @@ import {
     Between,
     FindManyOptions,
     FindOptionsWhere,
+    In,
     Repository,
 } from "typeorm";
 import { Statistics } from "./entity/statistics.entity";
@@ -11,6 +12,7 @@ import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import {
     StatisticsActionType,
+    StatisticsPeriod,
     StatisticsPeriodToMinusDays,
     StatisticsSourceType,
 } from "./statistics.constants";
@@ -122,7 +124,7 @@ export class StatisticsService {
                 userId: userId,
             },
             statistics: {
-                sourceType: sourceType,
+                id: statisticsEntity.id,
             },
         });
 
@@ -202,14 +204,13 @@ export class StatisticsService {
         return previousDate;
     }
 
-    async findTrendingGames(
-        dto: FindStatisticsTrendingGamesDto,
-    ): Promise<TPaginationData<Statistics>> {
+    async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
         const findOptions = buildBaseFindOptions(dto);
         const findOptionsGameWhere = buildFilterFindOptions(dto.criteria);
         // Avoids timezone-related issues
         // Just trust me
         const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
         const minusDays = StatisticsPeriodToMinusDays[dto.period] || 7;
         const previousDate = this.getPreviousDate(minusDays);
         return await this.statisticsRepository.findAndCount({
@@ -237,11 +238,46 @@ export class StatisticsService {
         });
     }
 
+    async findTrendingGamesForGameIds(
+        gameIds: number[],
+        period: StatisticsPeriod,
+    ) {
+        // Avoids timezone-related issues
+        // Just trust me
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const minusDays = StatisticsPeriodToMinusDays[period] || 7;
+        const previousDate = this.getPreviousDate(minusDays);
+        return await this.statisticsRepository.findAndCount({
+            where: [
+                {
+                    views: {
+                        createdAt: Between(previousDate, tomorrow),
+                    },
+                    sourceType: StatisticsSourceType.GAME,
+                    gameId: In(gameIds),
+                },
+                {
+                    likes: {
+                        createdAt: Between(previousDate, tomorrow),
+                    },
+                    sourceType: StatisticsSourceType.GAME,
+                    gameId: In(gameIds),
+                },
+            ],
+            order: {
+                viewsCount: "DESC",
+                likesCount: "DESC",
+            },
+        });
+    }
+
     async findTrendingReviews(dto: FindStatisticsTrendingReviewsDto) {
         const findOptions = buildBaseFindOptions(dto);
         // Avoids timezone-related issues
         // Just trust me
         const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
         const minusDays = StatisticsPeriodToMinusDays[dto.period] || 7;
         const previousDate = this.getPreviousDate(minusDays);
         const reviewFindOptionsWhere: FindOptionsWhere<Review> | undefined =

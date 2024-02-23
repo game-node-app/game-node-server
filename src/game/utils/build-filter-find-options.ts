@@ -5,9 +5,10 @@ import { Game } from "../game-repository/entities/game.entity";
 const singleValueProperties = ["category", "status"];
 
 export function buildFilterFindOptions(
-    dto: GameRepositoryFilterDto,
+    dto?: GameRepositoryFilterDto,
 ): FindOptionsWhere<Game> {
     let options: FindOptionsWhere<Game> = {};
+    if (dto == undefined) return options;
     for (const [key, value] of Object.entries(dto)) {
         if (singleValueProperties.includes(key) && typeof value === "number") {
             options = {

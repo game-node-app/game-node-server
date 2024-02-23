@@ -23,6 +23,7 @@ import { AchievementsModule } from "./achievements/achievements.module";
 import { APP_GUARD } from "@nestjs/core";
 import { AuthGuard } from "./auth/auth.guard";
 import { FollowModule } from "./follow/follow.module";
+import { ExploreModule } from './explore/explore.module';
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -125,6 +126,7 @@ import { FollowModule } from "./follow/follow.module";
         HealthModule,
         AchievementsModule,
         FollowModule,
+        ExploreModule,
     ],
 })
 export class AppModule implements NestModule {

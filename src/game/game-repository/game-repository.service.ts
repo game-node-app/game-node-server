@@ -12,6 +12,8 @@ import { BaseFindDto } from "../../utils/base-find.dto";
 import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 import { GameMode } from "./entities/game-mode.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
+import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
+import { buildFilterFindOptions } from "../utils/build-filter-find-options";
 
 const resourceToEntityMap = {
     platform: GamePlatform,
@@ -76,6 +78,15 @@ export class GameRepositoryService {
     async findAll(dto: BaseFindDto<Game>): Promise<TPaginationData<Game>> {
         const findOptions = buildBaseFindOptions(dto);
         return this.gameRepository.findAndCount(findOptions);
+    }
+
+    async findAllWithFilter(filterDto: GameRepositoryFilterDto) {
+        const findOptions = buildBaseFindOptions(filterDto);
+        const whereOptions = buildFilterFindOptions(filterDto);
+        return await this.gameRepository.findAndCount({
+            ...findOptions,
+            where: whereOptions,
+        });
     }
 
     async getResource(resource: TAllowedResource): Promise<any> {
