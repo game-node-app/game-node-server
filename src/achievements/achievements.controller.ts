@@ -37,7 +37,7 @@ export class AchievementsController {
         return this.achievementsService.getAchievements(query);
     }
 
-    @Get(":id")
+    @Get("obtained/:id")
     @Public()
     public getObtainedAchievement(
         @Param("id") achievementId: string,
@@ -46,6 +46,16 @@ export class AchievementsController {
         return this.achievementsService.getObtainedAchievementById(
             queryDto.targetUserId,
             achievementId,
+        );
+    }
+
+    @Get("obtained")
+    @Public()
+    public getAllObtainedAchievements(
+        @Query() queryDto: GetObtainedAchievementRequestDto,
+    ) {
+        return this.achievementsService.getObtainedAchievementsByUserId(
+            queryDto.targetUserId,
         );
     }
 

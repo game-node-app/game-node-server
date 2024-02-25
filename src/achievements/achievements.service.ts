@@ -1,4 +1,4 @@
-import { HttpException, Injectable } from "@nestjs/common";
+import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
 import { DataSource, Not, Repository } from "typeorm";
@@ -10,6 +10,7 @@ import { AchievementCategory } from "./achievements.constants";
 import { Profile } from "../profile/entities/profile.entity";
 import { GetAchievementsRequestDto } from "./dto/get-achievements-request.dto";
 import { UpdateFeaturedObtainedAchievementDto } from "./dto/update-featured-obtained-achievement.dto";
+import { UserLevelService } from "../user-level/user-level.service";
 
 function validateAchievements() {
     achievementsData.forEach((achievement, index, array) => {
@@ -40,10 +41,12 @@ function validateAchievements() {
 
 @Injectable()
 export class AchievementsService {
+    private readonly logger = new Logger(AchievementsService.name);
     constructor(
         @InjectRepository(ObtainedAchievement)
         private obtainedAchievementsRepository: Repository<ObtainedAchievement>,
         private dataSource: DataSource,
+        private userLevelService: UserLevelService,
     ) {
         validateAchievements();
     }
@@ -59,32 +62,44 @@ export class AchievementsService {
         return listToPaginationData(achievementsData, dto?.offset, dto?.limit);
     }
 
-    private checkAchievementsEligibility(
+    private async checkAchievementsEligibility(
         targetUserId: string,
         achievement: Achievement,
-    ): void {
-        if (achievement.checkEligibility == undefined) {
-            console.warn(`The achievement with id ${achievement.id} 
-            can't be processed because it's eligibility function is missing.`);
-            return;
-        }
-        achievement
-            .checkEligibility(this.dataSource, targetUserId)
-            .then((eligible) => {
-                if (eligible) {
-                    const obtainedAchivementEntity =
-                        this.obtainedAchievementsRepository.create();
-                    obtainedAchivementEntity.id = achievement.id;
-                    obtainedAchivementEntity.profile = {
+    ): Promise<void> {
+        const shouldSkipAchievement =
+            await this.obtainedAchievementsRepository.exist({
+                where: {
+                    id: achievement.id,
+                    profile: {
                         userId: targetUserId,
-                    } as Profile;
-                    this.obtainedAchievementsRepository
-                        .save(obtainedAchivementEntity)
-                        .then()
-                        .catch((e) => console.error(e));
-                }
-            })
-            .catch((e) => console.error(e));
+                    },
+                },
+            });
+
+        if (shouldSkipAchievement) return;
+
+        const isEligible = await achievement.checkEligibility(
+            this.dataSource,
+            targetUserId,
+        );
+
+        if (!isEligible) return;
+
+        const obtainedAchivementEntity =
+            this.obtainedAchievementsRepository.create();
+        obtainedAchivementEntity.id = achievement.id;
+        obtainedAchivementEntity.profile = {
+            userId: targetUserId,
+        } as Profile;
+
+        await this.obtainedAchievementsRepository.save(
+            obtainedAchivementEntity,
+        );
+
+        await this.userLevelService.increaseExp(
+            targetUserId,
+            achievement.expGainAmount,
+        );
     }
 
     public trackAchievementsProgress(
@@ -97,7 +112,11 @@ export class AchievementsService {
 
         for (const achievement of achievementsToProcess) {
             // Do not await this, as it will block the loop
-            this.checkAchievementsEligibility(targetUserId, achievement);
+            this.checkAchievementsEligibility(targetUserId, achievement)
+                .then()
+                .catch((err) => {
+                    this.logger.error(err);
+                });
         }
     }
 
@@ -120,6 +139,14 @@ export class AchievementsService {
         if (achievement) return achievement;
 
         throw new HttpException("", 404);
+    }
+
+    async getObtainedAchievementsByUserId(targetUserId: string) {
+        return this.obtainedAchievementsRepository.findBy({
+            profile: {
+                userId: targetUserId,
+            },
+        });
     }
 
     async updateFeaturedObtainedAchievement(

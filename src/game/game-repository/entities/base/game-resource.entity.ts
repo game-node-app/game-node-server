@@ -13,7 +13,7 @@ export class GameResource {
     @PrimaryColumn("bigint")
     id: number;
     @Column({ nullable: true })
-    checksum: string;
+    checksum?: string;
     @Column({
         nullable: true,
     })

@@ -202,13 +202,6 @@ export class CollectionsService {
             );
         }
 
-        const queryBuilder = this.collectionsRepository.createQueryBuilder();
-        // Detaches entries from this collection
-        await queryBuilder
-            .relation(Collection, "entries")
-            .of(collection)
-            .remove(collection.entries);
-
         if (collection.entries.length > 0) {
             // Only delete entries that are only in this collection
             const entriesToRemove = collection.entries.filter(
@@ -216,6 +209,9 @@ export class CollectionsService {
             );
             for (const collectionEntry of entriesToRemove) {
                 try {
+                    /**
+                     * This needs to be awaited because 'delete' checks if the entry actually belongs to the user.
+                     */
                     await this.collectionEntriesService.delete(
                         userId,
                         collectionEntry.id,

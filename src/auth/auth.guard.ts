@@ -25,6 +25,7 @@ export class AuthGuard implements CanActivate {
             "isPublic",
             context.getHandler(),
         );
+        console.log("isPublic: ", isPublic);
 
         // You can create an optional version of this by passing {sessionRequired: false} to verifySession
         await verifySession({

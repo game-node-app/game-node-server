@@ -1,25 +1,35 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { Between, Repository } from "typeorm";
+import {
+    Between,
+    FindManyOptions,
+    FindOptionsWhere,
+    Repository,
+} from "typeorm";
 import { Statistics } from "./entity/statistics.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
-import { StatisticsActionType } from "./statistics.constants";
+import {
+    StatisticsActionType,
+    StatisticsPeriodToMinusDays,
+    StatisticsSourceType,
+} from "./statistics.constants";
 import {
     StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
-import { FindStatisticsDto } from "./dto/find-statistics.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
-import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dto";
-import {
-    StatisticsEntityDto,
-    StatisticsStatus,
-} from "./dto/statistics-entity.dto";
+import { StatisticsStatus } from "./dto/statistics-entity.dto";
+import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
+import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-options";
+import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
+import { Review } from "../reviews/entities/review.entity";
+import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 
 @Injectable()
 export class StatisticsService {
+    private readonly DEFAULT_TRENDING_LIMIT = 20;
     constructor(
         @InjectRepository(Statistics)
         private readonly statisticsRepository: Repository<Statistics>,
@@ -29,38 +39,87 @@ export class StatisticsService {
         private readonly userViewRepository: Repository<UserView>,
     ) {}
 
-    async initialize(data: StatisticsActionDto) {
-        return await this.statisticsRepository.save({
-            sourceId: data.sourceId,
+    public async create(data: StatisticsActionDto) {
+        const possibleEntity = await this.findOneBySourceIdAndType(
+            data.sourceId,
+            data.sourceType,
+        );
+        if (possibleEntity) {
+            return possibleEntity;
+        }
+
+        const statisticsEntity = this.statisticsRepository.create({
             sourceType: data.sourceType,
             viewsCount: 0,
             likesCount: 0,
         });
+
+        switch (data.sourceType) {
+            case StatisticsSourceType.GAME:
+                if (typeof data.sourceId !== "number") {
+                    throw new HttpException(
+                        "Invalid type for sourceId",
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
+                statisticsEntity.gameId = data.sourceId as number;
+                break;
+            case StatisticsSourceType.REVIEW:
+                if (typeof data.sourceId !== "string") {
+                    throw new HttpException(
+                        "Invalid type for sourceId",
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
+                statisticsEntity.reviewId = data.sourceId as string;
+                break;
+            default:
+                throw new HttpException(
+                    "Invalid type for sourceType",
+                    HttpStatus.BAD_REQUEST,
+                );
+        }
+
+        return await this.statisticsRepository.save(statisticsEntity);
+    }
+
+    async findOneBySourceIdAndType(
+        sourceId: string | number,
+        sourceType: StatisticsSourceType,
+    ) {
+        const options: FindManyOptions<Statistics> = {
+            where: {
+                sourceType,
+            },
+        };
+        switch (sourceType) {
+            case StatisticsSourceType.GAME:
+                options.where = {
+                    ...options.where,
+                    gameId: sourceId as number,
+                };
+                break;
+            case StatisticsSourceType.REVIEW:
+                options.where = {
+                    ...options.where,
+                    reviewId: sourceId as string,
+                };
+                break;
+            default:
+                throw new HttpException(
+                    "Invalid type for sourceType",
+                    HttpStatus.BAD_REQUEST,
+                );
+        }
+        return await this.statisticsRepository.findOne(options);
     }
 
     async handleLike(data: StatisticsLikeAction) {
         const { sourceId, sourceType, userId, action } = data;
-        const likeEntity = await this.userLikeRepository.findOneBy({
-            profile: {
-                userId: userId,
-            },
-            statistics: {
-                sourceId: sourceId,
-                sourceType: sourceType,
-            },
-        });
-
-        if (action === StatisticsActionType.INCREMENT && likeEntity) {
-            throw new HttpException(
-                "User has already liked this item.",
-                HttpStatus.NOT_ACCEPTABLE,
-            );
-        }
-
-        let statisticsEntity = await this.statisticsRepository.findOneBy({
-            sourceType: sourceType,
-            sourceId: sourceId,
-        });
+        let statisticsEntity = await this.findOneBySourceIdAndType(
+            sourceId,
+            sourceType,
+        );
 
         if (!statisticsEntity) {
             if (action === StatisticsActionType.DECREMENT) {
@@ -69,7 +128,22 @@ export class StatisticsService {
                     HttpStatus.NOT_ACCEPTABLE,
                 );
             }
-            statisticsEntity = await this.initialize(data);
+            statisticsEntity = await this.create(data);
+        }
+        const likeEntity = await this.userLikeRepository.findOneBy({
+            profile: {
+                userId: userId,
+            },
+            statistics: {
+                id: statisticsEntity.id,
+            },
+        });
+
+        if (action === StatisticsActionType.INCREMENT && likeEntity) {
+            throw new HttpException(
+                "User has already liked this item.",
+                HttpStatus.NOT_ACCEPTABLE,
+            );
         }
 
         if (action === StatisticsActionType.INCREMENT) {
@@ -83,8 +157,7 @@ export class StatisticsService {
 
             await this.statisticsRepository.increment(
                 {
-                    sourceType,
-                    sourceId,
+                    id: statisticsEntity.id,
                 },
                 "likesCount",
                 1,
@@ -95,8 +168,7 @@ export class StatisticsService {
         if (statisticsEntity.likesCount > 0) {
             await this.statisticsRepository.decrement(
                 {
-                    sourceType,
-                    sourceId,
+                    id: statisticsEntity.id,
                 },
                 "likesCount",
                 1,
@@ -113,17 +185,16 @@ export class StatisticsService {
 
     async handleView(data: StatisticsViewAction) {
         const { userId, sourceId, sourceType } = data;
-        let statisticsEntity = await this.statisticsRepository.findOneBy({
-            sourceType,
+        let statisticsEntity = await this.findOneBySourceIdAndType(
             sourceId,
-        });
+            sourceType,
+        );
         if (!statisticsEntity) {
-            statisticsEntity = await this.initialize(data);
+            statisticsEntity = await this.create(data);
         }
         await this.statisticsRepository.increment(
             {
-                sourceType,
-                sourceId,
+                id: statisticsEntity.id,
             },
             "viewsCount",
             1,
@@ -144,61 +215,99 @@ export class StatisticsService {
         return previousDate;
     }
 
-    /**
-     * Finds trending items in the last day/week/month.
-     * Do NOT return source models here. The client should use the respective endpoints to retrieve it.
-     * @param dto
-     */
-    async findTrending(
-        dto: FindStatisticsDto,
+    private async findTrendingItems(
+        baseFindOptions: FindManyOptions<Statistics>,
+        findWhereOptions?: FindOptionsWhere<Statistics>,
+        limit: number = this.DEFAULT_TRENDING_LIMIT,
     ): Promise<TPaginationData<Statistics>> {
         // Avoids timezone-related issues
         // Just trust me
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const yesterday = this.getPreviousDate(1);
-        const lastWeek = this.getPreviousDate(7);
-        const lastMonth = this.getPreviousDate(30);
-        const lastYear = this.getPreviousDate(365);
-
-        const baseFindOptions = buildBaseFindOptions(dto);
-
-        const periods = [yesterday, lastWeek, lastMonth, lastYear] as const;
-
+        const periods = Object.values(StatisticsPeriodToMinusDays);
+        const lastPeriod = periods[periods.length - 1];
+        const minimumItems =
+            limit > this.DEFAULT_TRENDING_LIMIT
+                ? this.DEFAULT_TRENDING_LIMIT
+                : limit;
         for (const period of periods) {
-            const [periodItems, periodTotal] =
+            const periodDate = this.getPreviousDate(period);
+            const [statistics, totalCount] =
                 await this.statisticsRepository.findAndCount({
                     ...baseFindOptions,
                     where: [
                         {
+                            ...findWhereOptions,
                             views: {
-                                createdAt: Between(period, tomorrow),
+                                createdAt: Between(periodDate, tomorrow),
                             },
-                            sourceType: dto.sourceType,
                         },
                         {
+                            ...findWhereOptions,
                             likes: {
-                                createdAt: Between(period, tomorrow),
+                                createdAt: Between(periodDate, tomorrow),
                             },
-                            sourceType: dto.sourceType,
+                        },
+                        {
+                            ...findWhereOptions,
+                            likesCount: 0,
+                        },
+                        {
+                            ...findWhereOptions,
+                            viewsCount: 0,
                         },
                     ],
                     order: {
-                        viewsCount: "DESC",
                         likesCount: "DESC",
+                        viewsCount: "DESC",
                     },
                 });
+            const itemsWithLikesOrViews = statistics.filter(
+                (s) => s.likesCount > 0 || s.viewsCount > 0,
+            );
             if (
-                period.getTime() > lastYear.getTime() &&
-                periodTotal < dto.minimumItems
+                itemsWithLikesOrViews.length < minimumItems &&
+                period < lastPeriod
             ) {
                 continue;
             }
-
-            return [periodItems, periodTotal];
+            return [statistics, totalCount];
         }
 
         return [[], 0];
+    }
+
+    async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
+        const findOptions = buildBaseFindOptions(dto);
+        const findOptionsGameWhere = buildFilterFindOptions(dto.criteria);
+        const findOptionsWhere: FindOptionsWhere<Statistics> = {
+            sourceType: StatisticsSourceType.GAME,
+            game: findOptionsGameWhere,
+        };
+        return await this.findTrendingItems(
+            findOptions,
+            findOptionsWhere,
+            dto.limit,
+        );
+    }
+
+    async findTrendingReviews(dto: FindStatisticsTrendingReviewsDto) {
+        const baseFindOptions = buildBaseFindOptions(dto);
+        const reviewFindOptionsWhere: FindOptionsWhere<Review> | undefined =
+            dto.gameId
+                ? {
+                      gameId: dto.gameId,
+                  }
+                : undefined;
+        const findOptionsWhere: FindOptionsWhere<Statistics> = {
+            sourceType: StatisticsSourceType.REVIEW,
+            review: reviewFindOptionsWhere,
+        };
+        return await this.findTrendingItems(
+            baseFindOptions,
+            findOptionsWhere,
+            dto.limit,
+        );
     }
 
     async findStatus(
@@ -240,27 +349,6 @@ export class StatisticsService {
         return {
             isLiked: false,
             isViewed: false,
-        };
-    }
-
-    async findOne(
-        dto: StatisticsActionDto,
-        userId?: string,
-    ): Promise<StatisticsEntityDto> {
-        const statistics = await this.statisticsRepository.findOne({
-            where: {
-                sourceType: dto.sourceType,
-                sourceId: dto.sourceId,
-            },
-        });
-        if (!statistics) {
-            throw new HttpException("No entry found.", HttpStatus.NOT_FOUND);
-        }
-        const statisticsStatus = await this.findStatus(statistics.id, userId);
-
-        return {
-            ...statistics,
-            ...statisticsStatus,
         };
     }
 }

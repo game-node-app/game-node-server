@@ -54,7 +54,7 @@ export class GameCompany {
     @ManyToOne(() => GameCompany, {
         nullable: true,
     })
-    @JoinColumn({ name: "parent" })
+    @JoinColumn()
     parent?: GameCompany;
 
     @Column({ type: "varchar", length: 255 })

@@ -1,16 +1,16 @@
 import { Process, Processor } from "@nestjs/bull";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { GameRepositoryService } from "../game-repository/game-repository.service";
 import { Logger } from "@nestjs/common";
 import { Job } from "bull";
-import { GAME_QUEUE_NAME } from "./game-queue.constants";
-import { PartialGame } from "../game-repository/game-repository.types";
+import { IGDB_SYNC_QUEUE_NAME } from "./game-queue.constants";
 import isEmptyObject from "../../utils/isEmptyObject";
 import {
     objectKeysToCamelCase,
     parseGameDates,
-} from "../utils/game-conversor-utils";
-import { GameRepositoryCreateService } from "../game-repository/game-repository-create.service";
+} from "./utils/game-conversor-utils";
+
+import sleep from "../../utils/sleep";
+import { PartialGame } from "../../game/game-repository/game-repository.types";
+import { GameRepositoryCreateService } from "../../game/game-repository/game-repository-create.service";
 
 /**
  * Recursively converts types of a game object.
@@ -54,9 +54,9 @@ function normalizeIgdbResults(results: any[]) {
     return normalizedResults;
 }
 
-@Processor(GAME_QUEUE_NAME)
-export class GameQueueProcessor {
-    private logger = new Logger(GameQueueProcessor.name);
+@Processor(IGDB_SYNC_QUEUE_NAME)
+export class IgdbSyncProcessor {
+    private logger = new Logger(IgdbSyncProcessor.name);
 
     constructor(
         private readonly gameRepositoryCreateService: GameRepositoryCreateService,

@@ -1,4 +1,4 @@
-import { PartialGame } from "../game-repository/game-repository.types";
+import { PartialGame } from "../../../game/game-repository/game-repository.types";
 
 export const snakeCaseToCamelCase = (str: string) => {
     if (str == null || str.startsWith("_")) {

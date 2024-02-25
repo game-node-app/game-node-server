@@ -1,17 +1,17 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { GameQueueService } from "./game-queue.service";
+import { IgdbSyncService } from "./igdb-sync.service";
 import { getQueueToken } from "@nestjs/bull";
-import { GAME_QUEUE_NAME } from "./game-queue.constants";
+import { IGDB_SYNC_QUEUE_NAME } from "./game-queue.constants";
 
-describe("GameQueueService", () => {
-    let service: GameQueueService;
+describe("IgdbSyncService", () => {
+    let service: IgdbSyncService;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
-                GameQueueService,
+                IgdbSyncService,
                 {
-                    provide: getQueueToken(GAME_QUEUE_NAME),
+                    provide: getQueueToken(IGDB_SYNC_QUEUE_NAME),
                     useValue: {
                         add: jest.fn(async () => {}),
                     },
@@ -19,7 +19,7 @@ describe("GameQueueService", () => {
             ],
         }).compile();
 
-        service = module.get<GameQueueService>(GameQueueService);
+        service = module.get<IgdbSyncService>(IgdbSyncService);
     });
 
     it("should be defined", () => {

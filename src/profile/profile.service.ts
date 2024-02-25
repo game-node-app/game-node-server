@@ -9,6 +9,7 @@ import { publicImagesDir } from "../utils/constants";
 import * as fs from "fs/promises";
 import { generateUsername } from "unique-username-generator";
 import mimetype from "mime-types";
+import { filterBadWords } from "../utils/filterBadWords";
 
 @Injectable()
 export class ProfileService {
@@ -151,10 +152,16 @@ export class ProfileService {
             }
             profile.username = updateProfileDto.username;
         }
+
+        if (updateProfileDto.bio) {
+            profile.bio = filterBadWords(updateProfileDto.bio);
+        }
+
         if (avatarFile) {
             await this.detachAvatar(userId, true);
             profile.avatar = await this.createAvatar(avatarFile);
         }
+
         await this.profileRepository.save(profile);
     }
 }

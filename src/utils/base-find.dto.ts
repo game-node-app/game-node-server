@@ -1,17 +1,6 @@
-import {
-    IsArray,
-    IsNotEmpty,
-    IsNumber,
-    IsOptional,
-    IsString,
-    ValidateIf,
-} from "class-validator";
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 import { Transform } from "class-transformer";
-import {
-    FindOptionsOrder,
-    FindOptionsRelations,
-    FindOptionsSelect,
-} from "typeorm";
+import { FindOptionsOrder } from "typeorm";
 
 /**
  * Base find options for all models.

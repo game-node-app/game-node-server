@@ -1,6 +1,7 @@
 import { Statistics } from "../entity/statistics.entity";
-import { withPaginationResponse } from "../../utils/pagination/buildPaginationResponse";
+import { PaginationInfo } from "../../utils/pagination/pagination-response.dto";
 
-export class StatisticsPaginatedResponseDto extends withPaginationResponse(
-    Statistics,
-) {}
+export class StatisticsPaginatedResponseDto {
+    data: Statistics[];
+    pagination: PaginationInfo;
+}

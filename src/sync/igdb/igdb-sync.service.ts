@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bull";
 import { Queue } from "bull";
-import { GAME_QUEUE_NAME } from "./game-queue.constants";
+import { IGDB_SYNC_QUEUE_NAME } from "./game-queue.constants";
 
 /**
  * Queue responsible for syncing games from IGDB (results already fetched) to our database.
@@ -9,11 +9,11 @@ import { GAME_QUEUE_NAME } from "./game-queue.constants";
  * See game-queue.processor.ts for processing logic.
  */
 @Injectable()
-export class GameQueueService {
-    private logger = new Logger(GameQueueService.name);
+export class IgdbSyncService {
+    private logger = new Logger(IgdbSyncService.name);
 
     constructor(
-        @InjectQueue(GAME_QUEUE_NAME)
+        @InjectQueue(IGDB_SYNC_QUEUE_NAME)
         private readonly gameQueue: Queue,
     ) {}
 

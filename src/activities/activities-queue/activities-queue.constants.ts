@@ -1,6 +1,3 @@
-import { PickType } from "@nestjs/swagger";
-import { Activity } from "../activities-repository/entities/activity.entity";
-
 export enum ActivityType {
     REVIEW = "REVIEW",
     // TODO: Implement this
