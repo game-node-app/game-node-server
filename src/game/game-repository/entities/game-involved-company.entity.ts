@@ -5,6 +5,7 @@ import {
     JoinColumn,
     JoinTable,
     ManyToMany,
+    ManyToOne,
     OneToOne,
     PrimaryColumn,
     UpdateDateColumn,
@@ -23,9 +24,12 @@ export class GameInvolvedCompany {
     })
     checksum?: string;
 
-    @OneToOne(() => GameCompany)
-    @JoinColumn()
+    @ManyToOne(() => GameCompany)
     company: GameCompany;
+    @Column({
+        nullable: false,
+    })
+    companyId: number;
 
     @CreateDateColumn({ type: "datetime" })
     createdAt: Date;

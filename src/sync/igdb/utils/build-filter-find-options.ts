@@ -1,6 +1,6 @@
-import { GameRepositoryFilterDto } from "../game-repository/dto/game-repository-filter.dto";
+import { GameRepositoryFilterDto } from "../../../game/game-repository/dto/game-repository-filter.dto";
 import { FindManyOptions, FindOptionsWhere, In } from "typeorm";
-import { Game } from "../game-repository/entities/game.entity";
+import { Game } from "../../../game/game-repository/entities/game.entity";
 
 const singleValueProperties = ["category", "status"];
 

@@ -1,4 +1,4 @@
-import { Entity, JoinTable, ManyToMany } from "typeorm";
+import { Entity, ManyToMany } from "typeorm";
 import { GameResource } from "./base/game-resource.entity";
 import { Game } from "./game.entity";
 

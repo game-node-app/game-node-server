@@ -2,6 +2,8 @@ import {
     Body,
     Controller,
     Get,
+    HttpCode,
+    HttpStatus,
     Post,
     Query,
     UseGuards,
@@ -11,7 +13,6 @@ import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import { StatisticsService } from "./statistics.service";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { StatisticsPaginatedResponseDto } from "./dto/statistics-paginated-response.dto";
-import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
@@ -29,6 +30,7 @@ export class StatisticsController {
     constructor(private readonly statisticsService: StatisticsService) {}
 
     @Post()
+    @HttpCode(HttpStatus.OK)
     async findOneBySourceIdAndType(@Body() dto: FindOneStatisticsDto) {
         return this.statisticsService.findOneBySourceIdAndType(
             dto.sourceId,
@@ -37,13 +39,13 @@ export class StatisticsController {
     }
 
     @Post("trending/games")
+    @Public()
     @UseInterceptors(PaginationInterceptor)
-    @UseInterceptors(CacheInterceptor)
     @ApiResponse({
         status: 200,
         type: StatisticsPaginatedResponseDto,
     })
-    @CacheTTL(600)
+    @HttpCode(HttpStatus.OK)
     @Public()
     async findTrendingGames(@Body() dto: FindStatisticsTrendingGamesDto) {
         return (await this.statisticsService.findTrendingGames(
@@ -53,12 +55,11 @@ export class StatisticsController {
 
     @Post("trending/reviews")
     @UseInterceptors(PaginationInterceptor)
-    @UseInterceptors(CacheInterceptor)
     @ApiResponse({
         status: 200,
         type: StatisticsPaginatedResponseDto,
     })
-    @CacheTTL(600)
+    @HttpCode(HttpStatus.OK)
     @Public()
     async findTrendingReviews(@Body() dto: FindStatisticsTrendingReviewsDto) {
         return (await this.statisticsService.findTrendingReviews(

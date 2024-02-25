@@ -1,4 +1,4 @@
-import { HttpException, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
 import { DeepPartial, Repository } from "typeorm";
@@ -219,10 +219,10 @@ export class GameRepositoryCreateService {
 
         if (game.externalGames) {
             for (const externalGame of game.externalGames) {
-                await this.gameExternalGameRepository.upsert(externalGame, [
-                    "id",
-                ]);
                 try {
+                    await this.gameExternalGameRepository.upsert(externalGame, [
+                        "id",
+                    ]);
                     await this.gameExternalGameRepository
                         .createQueryBuilder()
                         .relation(Game, "externalGames")
@@ -334,7 +334,11 @@ export class GameRepositoryCreateService {
         }
         if (game.involvedCompanies) {
             for (const involvedCompany of game.involvedCompanies) {
-                await this.handleCompanies([involvedCompany.company]);
+                if (involvedCompany.company) {
+                    await this.handleCompanies([involvedCompany.company]);
+                    involvedCompany.companyId = involvedCompany.company.id;
+                }
+
                 await this.gameInvolvedCompanyRepository.upsert(
                     involvedCompany,
                     ["id"],
@@ -344,7 +348,7 @@ export class GameRepositoryCreateService {
                         .createQueryBuilder()
                         .relation(Game, "involvedCompanies")
                         .of(game)
-                        .add(involvedCompany);
+                        .add(involvedCompany.id);
                 } catch (e) {}
             }
         }
@@ -357,9 +361,7 @@ export class GameRepositoryCreateService {
                         .relation(Game, "themes")
                         .of(game)
                         .add(theme);
-                } catch (e) {
-                    console.error(e);
-                }
+                } catch (e) {}
             }
         }
         if (game.gameModes) {
@@ -371,9 +373,7 @@ export class GameRepositoryCreateService {
                         .relation(Game, "gameModes")
                         .of(game)
                         .add(mode);
-                } catch (e) {
-                    console.error(e);
-                }
+                } catch (e) {}
             }
         }
         if (game.playerPerspectives) {
@@ -394,7 +394,7 @@ export class GameRepositoryCreateService {
         if (game.gameEngines) {
             for (const gameEngine of game.gameEngines) {
                 await this.handleCompanies(gameEngine.companies);
-                if (gameEngine.logo) {
+                if (gameEngine.logo && typeof gameEngine.logo.id === "number") {
                     await this.gameEngineLogoRepository.upsert(
                         gameEngine.logo,
                         ["id"],
@@ -421,7 +421,10 @@ export class GameRepositoryCreateService {
         companies: DeepPartial<GameCompany | undefined>[] | undefined,
     ) {
         if (companies == undefined || companies.length === 0) return;
-        for (const company of companies) {
+        for (const originalCompany of companies) {
+            // Avoids errors where company.id is transformed to "undefined".
+            // Probably TypeORM messing something interanally.
+            const company = structuredClone(originalCompany);
             if (company == undefined || typeof company.id !== "number")
                 continue;
 
@@ -430,10 +433,12 @@ export class GameRepositoryCreateService {
                     await this.gameCompanyLogoRepository.upsert(company.logo, [
                         "id",
                     ]);
-                } catch (e) {
-                    console.error(e);
-                }
+                } catch (e) {}
             }
+            /**
+             * Not relevant for us for now.
+             */
+            company.parent = undefined;
             await this.gameCompanyRepository.upsert(company, ["id"]);
         }
     }

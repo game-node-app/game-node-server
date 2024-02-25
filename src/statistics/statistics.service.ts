@@ -3,7 +3,6 @@ import {
     Between,
     FindManyOptions,
     FindOptionsWhere,
-    In,
     Repository,
 } from "typeorm";
 import { Statistics } from "./entity/statistics.entity";
@@ -12,7 +11,6 @@ import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import {
     StatisticsActionType,
-    StatisticsPeriod,
     StatisticsPeriodToMinusDays,
     StatisticsSourceType,
 } from "./statistics.constants";
@@ -21,16 +19,17 @@ import {
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
-import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
-import { buildFilterFindOptions } from "../game/utils/build-filter-find-options";
+import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-options";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { Review } from "../reviews/entities/review.entity";
+import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 
 @Injectable()
 export class StatisticsService {
+    private readonly DEFAULT_TRENDING_LIMIT = 20;
     constructor(
         @InjectRepository(Statistics)
         private readonly statisticsRepository: Repository<Statistics>,
@@ -216,111 +215,95 @@ export class StatisticsService {
         return previousDate;
     }
 
+    private async findTrendingItems(
+        baseFindOptions: FindManyOptions<Statistics>,
+        findWhereOptions?: FindOptionsWhere<Statistics>,
+        limit: number = this.DEFAULT_TRENDING_LIMIT,
+    ): Promise<TPaginationData<Statistics>> {
+        // Avoids timezone-related issues
+        // Just trust me
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const periods = Object.values(StatisticsPeriodToMinusDays);
+        const lastPeriod = periods[periods.length - 1];
+        const minimumItems =
+            limit > this.DEFAULT_TRENDING_LIMIT
+                ? this.DEFAULT_TRENDING_LIMIT
+                : limit;
+        for (const period of periods) {
+            const periodDate = this.getPreviousDate(period);
+            const [statistics, totalCount] =
+                await this.statisticsRepository.findAndCount({
+                    ...baseFindOptions,
+                    where: [
+                        {
+                            ...findWhereOptions,
+                            views: {
+                                createdAt: Between(periodDate, tomorrow),
+                            },
+                        },
+                        {
+                            ...findWhereOptions,
+                            likes: {
+                                createdAt: Between(periodDate, tomorrow),
+                            },
+                        },
+                        {
+                            ...findWhereOptions,
+                            likesCount: 0,
+                        },
+                        {
+                            ...findWhereOptions,
+                            viewsCount: 0,
+                        },
+                    ],
+                });
+            const itemsWithLikesOrViews = statistics.filter(
+                (s) => s.likesCount > 0 || s.viewsCount > 0,
+            );
+            if (
+                itemsWithLikesOrViews.length < minimumItems &&
+                period < lastPeriod
+            ) {
+                continue;
+            }
+            return [statistics, totalCount];
+        }
+
+        return [[], 0];
+    }
+
     async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
         const findOptions = buildBaseFindOptions(dto);
         const findOptionsGameWhere = buildFilterFindOptions(dto.criteria);
-        // Avoids timezone-related issues
-        // Just trust me
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const minusDays = StatisticsPeriodToMinusDays[dto.period] || 7;
-        const previousDate = this.getPreviousDate(minusDays);
-        return await this.statisticsRepository.findAndCount({
-            ...findOptions,
-            where: [
-                {
-                    views: {
-                        createdAt: Between(previousDate, tomorrow),
-                    },
-                    game: findOptionsGameWhere,
-                    sourceType: StatisticsSourceType.GAME,
-                },
-                {
-                    likes: {
-                        createdAt: Between(previousDate, tomorrow),
-                    },
-                    game: findOptionsGameWhere,
-                    sourceType: StatisticsSourceType.GAME,
-                },
-            ],
-            order: {
-                viewsCount: "DESC",
-                likesCount: "DESC",
-            },
-        });
-    }
-
-    async findTrendingGamesForGameIds(
-        gameIds: number[],
-        period: StatisticsPeriod,
-    ) {
-        // Avoids timezone-related issues
-        // Just trust me
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const minusDays = StatisticsPeriodToMinusDays[period] || 7;
-        const previousDate = this.getPreviousDate(minusDays);
-        return await this.statisticsRepository.findAndCount({
-            where: [
-                {
-                    views: {
-                        createdAt: Between(previousDate, tomorrow),
-                    },
-                    sourceType: StatisticsSourceType.GAME,
-                    gameId: In(gameIds),
-                },
-                {
-                    likes: {
-                        createdAt: Between(previousDate, tomorrow),
-                    },
-                    sourceType: StatisticsSourceType.GAME,
-                    gameId: In(gameIds),
-                },
-            ],
-            order: {
-                viewsCount: "DESC",
-                likesCount: "DESC",
-            },
-        });
+        const findOptionsWhere: FindOptionsWhere<Statistics> = {
+            sourceType: StatisticsSourceType.GAME,
+            game: findOptionsGameWhere,
+        };
+        return await this.findTrendingItems(
+            findOptions,
+            findOptionsWhere,
+            dto.limit,
+        );
     }
 
     async findTrendingReviews(dto: FindStatisticsTrendingReviewsDto) {
-        const findOptions = buildBaseFindOptions(dto);
-        // Avoids timezone-related issues
-        // Just trust me
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const minusDays = StatisticsPeriodToMinusDays[dto.period] || 7;
-        const previousDate = this.getPreviousDate(minusDays);
+        const baseFindOptions = buildBaseFindOptions(dto);
         const reviewFindOptionsWhere: FindOptionsWhere<Review> | undefined =
             dto.gameId
                 ? {
                       gameId: dto.gameId,
                   }
                 : undefined;
-        return await this.statisticsRepository.findAndCount({
-            ...findOptions,
-            where: [
-                {
-                    views: {
-                        createdAt: Between(previousDate, tomorrow),
-                    },
-                    review: reviewFindOptionsWhere,
-                    sourceType: StatisticsSourceType.REVIEW,
-                },
-                {
-                    likes: {
-                        createdAt: Between(previousDate, tomorrow),
-                    },
-                    review: reviewFindOptionsWhere,
-                    sourceType: StatisticsSourceType.REVIEW,
-                },
-            ],
-            order: {
-                viewsCount: "DESC",
-                likesCount: "DESC",
-            },
-        });
+        const findOptionsWhere: FindOptionsWhere<Statistics> = {
+            sourceType: StatisticsSourceType.REVIEW,
+            review: reviewFindOptionsWhere,
+        };
+        return await this.findTrendingItems(
+            baseFindOptions,
+            findOptionsWhere,
+            dto.limit,
+        );
     }
 
     async findStatus(

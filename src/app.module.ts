@@ -8,7 +8,6 @@ import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bull";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { GlobalModule } from "./global/global.module";
-import { GameQueueModule } from "./game/game-queue/game-queue.module";
 import { CollectionsModule } from "./collections/collections.module";
 import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
 import { LibrariesModule } from "./libraries/libraries.module";
@@ -20,10 +19,8 @@ import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { UserLevelModule } from "./user-level/user-level.module";
 import { HealthModule } from "./health/health.module";
 import { AchievementsModule } from "./achievements/achievements.module";
-import { APP_GUARD } from "@nestjs/core";
-import { AuthGuard } from "./auth/auth.guard";
 import { FollowModule } from "./follow/follow.module";
-import { ExploreModule } from './explore/explore.module';
+import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -36,7 +33,6 @@ import { ExploreModule } from './explore/explore.module';
         GlobalModule,
         AuthModule,
         HealthModule,
-
         TypeOrmModule.forRoot({
             // Fixes Bigint values being returned as string
             // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
@@ -115,7 +111,7 @@ import { ExploreModule } from './explore/explore.module';
             },
         }),
         ActivitiesFeedModule,
-        GameQueueModule,
+        IgdbSyncModule,
         CollectionsModule,
         CollectionsEntriesModule,
         LibrariesModule,
@@ -126,7 +122,6 @@ import { ExploreModule } from './explore/explore.module';
         HealthModule,
         AchievementsModule,
         FollowModule,
-        ExploreModule,
     ],
 })
 export class AppModule implements NestModule {
