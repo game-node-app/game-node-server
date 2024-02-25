@@ -257,6 +257,10 @@ export class StatisticsService {
                             viewsCount: 0,
                         },
                     ],
+                    order: {
+                        likesCount: "DESC",
+                        viewsCount: "DESC",
+                    },
                 });
             const itemsWithLikesOrViews = statistics.filter(
                 (s) => s.likesCount > 0 || s.viewsCount > 0,
