@@ -11,11 +11,13 @@ import { AchievementCategory } from "./achievements.constants";
 import Mocked = jest.Mocked;
 import sleep from "../utils/sleep";
 import { CollectionEntry } from "../collections/collections-entries/entities/collection-entry.entity";
+import { UserLevelService } from "../user-level/user-level.service";
 
 describe("AchievementsService", () => {
     let service: AchievementsService;
     let dataSource: Mocked<DataSource>;
     let obtainedAchievementRepository: Mocked<Repository<ObtainedAchievement>>;
+    let userLevelService: Mocked<UserLevelService>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -28,6 +30,12 @@ describe("AchievementsService", () => {
                         getRepository: jest.fn(),
                     },
                 },
+                {
+                    provide: UserLevelService,
+                    useValue: {
+                        increaseExp: jest.fn(),
+                    },
+                },
             ],
         }).compile();
 
@@ -36,6 +44,7 @@ describe("AchievementsService", () => {
         obtainedAchievementRepository = module.get(
             getRepositoryToken(ObtainedAchievement),
         );
+        userLevelService = module.get(UserLevelService);
     });
 
     it("should be defined", () => {
@@ -60,6 +69,7 @@ describe("AchievementsService", () => {
         );
         // Timeout to wait for internal promises to finish
         await sleep(2000);
+        expect(userLevelService.increaseExp).toHaveBeenCalled();
         expect(obtainedAchievementRepository.save).toHaveBeenCalledWith(
             expect.objectContaining({
                 id: "space-station",
