@@ -14,6 +14,7 @@ import { GameMode } from "./entities/game-mode.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
 import { buildFilterFindOptions } from "../../sync/igdb/utils/build-filter-find-options";
+import { platformAbbreviationToIconMap } from "./game-repository.utils";
 
 const resourceToEntityMap = {
     platforms: GamePlatform,
@@ -112,5 +113,21 @@ export class GameRepositoryService {
         const resourceRepository =
             this.dataSource.getRepository(resourceAsEntity);
         return await resourceRepository.find();
+    }
+
+    getIconNamesForPlatformAbbreviations(platformAbbreviations: string[]) {
+        const iconsNames: string[] = [];
+        for (const [iconName, platforms] of Object.entries(
+            platformAbbreviationToIconMap,
+        )) {
+            const abbreviationPresent = platformAbbreviations.some(
+                (abbreviation) => platforms.includes(abbreviation),
+            );
+            if (abbreviationPresent) {
+                iconsNames.push(iconName);
+            }
+        }
+
+        return iconsNames;
     }
 }

@@ -11,6 +11,7 @@ import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import {
     StatisticsActionType,
+    StatisticsPeriod,
     StatisticsPeriodToMinusDays,
     StatisticsSourceType,
 } from "./statistics.constants";
@@ -29,7 +30,6 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 
 @Injectable()
 export class StatisticsService {
-    private readonly DEFAULT_TRENDING_LIMIT = 20;
     constructor(
         @InjectRepository(Statistics)
         private readonly statisticsRepository: Repository<Statistics>,
@@ -217,64 +217,41 @@ export class StatisticsService {
 
     private async findTrendingItems(
         baseFindOptions: FindManyOptions<Statistics>,
+        period: StatisticsPeriod = StatisticsPeriod.WEEK,
         findWhereOptions?: FindOptionsWhere<Statistics>,
-        limit: number = this.DEFAULT_TRENDING_LIMIT,
     ): Promise<TPaginationData<Statistics>> {
         // Avoids timezone-related issues
         // Just trust me
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const periods = Object.values(StatisticsPeriodToMinusDays);
-        const lastPeriod = periods[periods.length - 1];
-        const minimumItems =
-            limit > this.DEFAULT_TRENDING_LIMIT
-                ? this.DEFAULT_TRENDING_LIMIT
-                : limit;
-        for (const period of periods) {
-            const periodDate = this.getPreviousDate(period);
-            const [statistics, totalCount] =
-                await this.statisticsRepository.findAndCount({
-                    ...baseFindOptions,
-                    where: [
-                        {
-                            ...findWhereOptions,
-                            views: {
-                                createdAt: Between(periodDate, tomorrow),
-                            },
-                        },
-                        {
-                            ...findWhereOptions,
-                            likes: {
-                                createdAt: Between(periodDate, tomorrow),
-                            },
-                        },
-                        {
-                            ...findWhereOptions,
-                            likesCount: 0,
-                        },
-                        {
-                            ...findWhereOptions,
-                            viewsCount: 0,
-                        },
-                    ],
-                    order: {
-                        likesCount: "DESC",
-                        viewsCount: "DESC",
+        const periodMinusDays = StatisticsPeriodToMinusDays[period];
+        const periodDate = this.getPreviousDate(periodMinusDays);
+        return await this.statisticsRepository.findAndCount({
+            ...baseFindOptions,
+            where: [
+                {
+                    ...findWhereOptions,
+                    views: {
+                        createdAt: Between(periodDate, tomorrow),
                     },
-                });
-            const itemsWithLikesOrViews = statistics.filter(
-                (s) => s.likesCount > 0 || s.viewsCount > 0,
-            );
-            if (
-                itemsWithLikesOrViews.length < minimumItems &&
-                period < lastPeriod
-            ) {
-                continue;
-            }
-            return [statistics, totalCount];
-        }
-
-        return [[], 0];
+                },
+                {
+                    ...findWhereOptions,
+                    likes: {
+                        createdAt: Between(periodDate, tomorrow),
+                    },
+                },
+                {
+                    ...findWhereOptions,
+                    likesCount: 0,
+                    viewsCount: 0,
+                },
+            ],
+            order: {
+                likesCount: "DESC",
+                viewsCount: "DESC",
+            },
+        });
     }
 
     async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
@@ -286,8 +263,8 @@ export class StatisticsService {
         };
         return await this.findTrendingItems(
             findOptions,
+            dto.period,
             findOptionsWhere,
-            dto.limit,
         );
     }
 
@@ -305,8 +282,8 @@ export class StatisticsService {
         };
         return await this.findTrendingItems(
             baseFindOptions,
+            dto.period,
             findOptionsWhere,
-            dto.limit,
         );
     }
 

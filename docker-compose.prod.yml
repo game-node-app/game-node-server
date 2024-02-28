@@ -103,7 +103,6 @@ services:
 
     volumes:
       - gamenode:/app/public/uploads
-      - gamenode:/app/public/icons
 
     command: ["yarn", "start"]
 

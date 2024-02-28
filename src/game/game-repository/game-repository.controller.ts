@@ -6,18 +6,15 @@ import {
     Param,
     Post,
     Query,
-    UseInterceptors,
 } from "@nestjs/common";
 import {
     GameRepositoryService,
     TAllowedResource,
 } from "./game-repository.service";
-import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
-import { GameRepositoryPaginatedResponseDto } from "./dto/game-repository-paginated-response.dto";
 import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
-import { Game } from "./entities/game.entity";
+import { ApiTags } from "@nestjs/swagger";
+import { IconNamesForPlatformRequestDto } from "./dto/icon-names-for-platform-request.dto";
 
 @Controller("game/repository")
 @ApiTags("game-repository")
@@ -29,6 +26,15 @@ export class GameRepositoryController {
     @Get("resource")
     async getResource(@Query("resourceName") resourceName: TAllowedResource) {
         return await this.gameRepositoryService.getResource(resourceName);
+    }
+
+    @Post("platforms/icon")
+    getIconNamesForPlatformAbbreviations(
+        @Body() dto: IconNamesForPlatformRequestDto,
+    ) {
+        return this.gameRepositoryService.getIconNamesForPlatformAbbreviations(
+            dto.platformAbbreviations,
+        );
     }
 
     @Post(":id")
