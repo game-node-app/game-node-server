@@ -30,7 +30,6 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 
 @Injectable()
 export class StatisticsService {
-    private readonly DEFAULT_TRENDING_LIMIT = 20;
     constructor(
         @InjectRepository(Statistics)
         private readonly statisticsRepository: Repository<Statistics>,
