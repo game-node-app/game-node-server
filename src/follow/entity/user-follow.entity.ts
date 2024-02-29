@@ -14,7 +14,10 @@ export class UserFollow {
     id: number;
     @ManyToMany(() => Profile)
     @JoinTable()
-    profile: Profile;
+    follower: Profile;
+    @ManyToMany(() => Profile)
+    @JoinTable()
+    followed: Profile;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()
