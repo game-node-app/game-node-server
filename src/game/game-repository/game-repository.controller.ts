@@ -29,6 +29,7 @@ export class GameRepositoryController {
     }
 
     @Post("platforms/icon")
+    @HttpCode(200)
     getIconNamesForPlatformAbbreviations(
         @Body() dto: IconNamesForPlatformRequestDto,
     ) {
