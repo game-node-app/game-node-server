@@ -59,7 +59,8 @@ describe("UserLevelService", () => {
         );
         expect(repository.save).toHaveBeenCalledWith(
             expect.objectContaining({
-                currentLevel: mockUserLevel.currentLevel + 1,
+                currentLevel:
+                    structuredClone(getMockUserLevel()).currentLevel + 1,
             } satisfies Partial<UserLevel>),
         );
     });
