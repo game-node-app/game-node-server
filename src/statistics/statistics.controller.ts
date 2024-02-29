@@ -22,6 +22,7 @@ import { StatisticsStatusRequestDto } from "./dto/statistics-status-request.dto"
 import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { FindOneStatisticsDto } from "./dto/find-one-statistics.dto";
+import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 
 @Controller("statistics")
 @ApiTags("statistics")
@@ -41,6 +42,8 @@ export class StatisticsController {
     @Post("trending/games")
     @Public()
     @UseInterceptors(PaginationInterceptor)
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(600)
     @ApiResponse({
         status: 200,
         type: StatisticsPaginatedResponseDto,
@@ -55,6 +58,8 @@ export class StatisticsController {
 
     @Post("trending/reviews")
     @UseInterceptors(PaginationInterceptor)
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(600)
     @ApiResponse({
         status: 200,
         type: StatisticsPaginatedResponseDto,
