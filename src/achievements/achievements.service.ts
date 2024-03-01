@@ -10,7 +10,7 @@ import { AchievementCategory } from "./achievements.constants";
 import { Profile } from "../profile/entities/profile.entity";
 import { GetAchievementsRequestDto } from "./dto/get-achievements-request.dto";
 import { UpdateFeaturedObtainedAchievementDto } from "./dto/update-featured-obtained-achievement.dto";
-import { UserLevelService } from "../user-level/user-level.service";
+import { LevelService } from "../level/level.service";
 
 function validateAchievements() {
     achievementsData.forEach((achievement, index, array) => {
@@ -42,11 +42,12 @@ function validateAchievements() {
 @Injectable()
 export class AchievementsService {
     private readonly logger = new Logger(AchievementsService.name);
+
     constructor(
         @InjectRepository(ObtainedAchievement)
         private obtainedAchievementsRepository: Repository<ObtainedAchievement>,
         private dataSource: DataSource,
-        private userLevelService: UserLevelService,
+        private userLevelService: LevelService,
     ) {
         validateAchievements();
     }

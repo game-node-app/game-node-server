@@ -11,13 +11,13 @@ import { AchievementCategory } from "./achievements.constants";
 import Mocked = jest.Mocked;
 import sleep from "../utils/sleep";
 import { CollectionEntry } from "../collections/collections-entries/entities/collection-entry.entity";
-import { UserLevelService } from "../user-level/user-level.service";
+import { LevelService } from "../level/level.service";
 
 describe("AchievementsService", () => {
     let service: AchievementsService;
     let dataSource: Mocked<DataSource>;
     let obtainedAchievementRepository: Mocked<Repository<ObtainedAchievement>>;
-    let userLevelService: Mocked<UserLevelService>;
+    let userLevelService: Mocked<LevelService>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -31,7 +31,7 @@ describe("AchievementsService", () => {
                     },
                 },
                 {
-                    provide: UserLevelService,
+                    provide: LevelService,
                     useValue: {
                         increaseExp: jest.fn(),
                     },
@@ -44,7 +44,7 @@ describe("AchievementsService", () => {
         obtainedAchievementRepository = module.get(
             getRepositoryToken(ObtainedAchievement),
         );
-        userLevelService = module.get(UserLevelService);
+        userLevelService = module.get(LevelService);
     });
 
     it("should be defined", () => {

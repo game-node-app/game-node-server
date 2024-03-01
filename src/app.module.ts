@@ -16,7 +16,7 @@ import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
 import { seconds, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
-import { UserLevelModule } from "./user-level/user-level.module";
+import { LevelModule } from "./level/level.module";
 import { HealthModule } from "./health/health.module";
 import { AchievementsModule } from "./achievements/achievements.module";
 import { FollowModule } from "./follow/follow.module";
@@ -118,7 +118,7 @@ import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
         CollectionsModule,
         StatisticsModule,
         StatisticsQueueModule,
-        UserLevelModule,
+        LevelModule,
         HealthModule,
         AchievementsModule,
         FollowModule,

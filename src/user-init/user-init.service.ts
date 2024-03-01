@@ -5,7 +5,7 @@ import { ProfileService } from "../profile/profile.service";
 // import UserRoles from "supertokens-node/recipe/userroles";
 // import { EUserRoles } from "../../utils/constants";
 import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
-import { UserLevelService } from "../user-level/user-level.service";
+import { LevelService } from "../level/level.service";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
@@ -18,7 +18,7 @@ export class UserInitService {
         private collectionsService: CollectionsService,
         private librariesService: LibrariesService,
         private profileService: ProfileService,
-        private userLevelService: UserLevelService,
+        private userLevelService: LevelService,
     ) {}
 
     /**
