@@ -4,10 +4,11 @@ import { FollowService } from "./follow.service";
 import { FollowRegisterDto } from "./dto/follow-register.dto";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { Session } from "../auth/session.decorator";
-import { ApiOkResponse } from "@nestjs/swagger";
+import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { FollowStatusDto } from "./dto/follow-status.dto";
 
 @Controller("follow")
+@ApiTags("follow")
 @UseGuards(AuthGuard)
 export class FollowController {
     constructor(private followService: FollowService) {}
@@ -29,12 +30,14 @@ export class FollowController {
         type: FollowStatusDto,
     })
     async getFollowerStatus(
-        @Session() session: SessionContainer,
+        @Query("followerUserId") followerUserId: string,
         @Query("followedUserId") followedUserId: string,
     ) {
-        return this.followService.getStatus(
-            session.getUserId(),
-            followedUserId,
-        );
+        return this.followService.getStatus(followerUserId, followedUserId);
+    }
+
+    @Get("count")
+    async getFollowersCount(@Query("targetUserId") targetUserId: string) {
+        return await this.followService.getFollowersCount(targetUserId);
     }
 }

@@ -19,6 +19,10 @@ import { AchievementsQueueService } from "../achievements/achievements-queue/ach
 import { AchievementCategory } from "../achievements/achievements.constants";
 import { StatisticsService } from "../statistics/statistics.service";
 import { StatisticsSourceType } from "../statistics/statistics.constants";
+import {
+    ReviewScoreDistribution,
+    ReviewScoreResponseDto,
+} from "./dto/review-score-response.dto";
 
 export class ReviewsService {
     private readonly logger = new Logger(ReviewsService.name);
@@ -98,6 +102,62 @@ export class ReviewsService {
             },
             relations: this.relations,
         });
+    }
+
+    private getReviewsScoreDistribution(
+        reviews: Review[],
+    ): ReviewScoreDistribution {
+        const distribution: ReviewScoreDistribution = {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0,
+            total: reviews.length,
+        };
+        for (const num of [1, 2, 3, 4, 5] as const) {
+            const items = reviews
+                .filter(
+                    (review) => review != undefined && review.rating === num,
+                )
+                .map((review) => review.rating);
+            distribution[num] = items.length;
+        }
+
+        return distribution;
+    }
+
+    private getScoresMedian(scores: number[]) {
+        if (scores.length === 0) {
+            return 0;
+        } else if (scores.length === 1) {
+            return scores[0];
+        }
+        const sortedScores = scores.toSorted((a, b) => a - b);
+        const middleIndex = Math.ceil(sortedScores.length / 2);
+        if (sortedScores.length % 2) {
+            return (
+                (sortedScores[middleIndex - 1] + sortedScores[middleIndex]) / 2
+            );
+        }
+
+        return sortedScores[middleIndex];
+    }
+
+    async getScore(gameId: number): Promise<ReviewScoreResponseDto> {
+        const reviews = await this.reviewsRepository.findBy({
+            gameId: gameId,
+        });
+        const scores = reviews.map((review) => {
+            return review.rating;
+        });
+        const median = this.getScoresMedian(scores);
+        const distribution = this.getReviewsScoreDistribution(reviews);
+        console.log(scores, median, distribution);
+        return {
+            median,
+            distribution,
+        };
     }
 
     async createOrUpdate(userId: string, createReviewDto: CreateReviewDto) {

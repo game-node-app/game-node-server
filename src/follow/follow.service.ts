@@ -17,6 +17,12 @@ export class FollowService {
         followerUserId: string,
         followedUserId: string,
     ) {
+        if (followerUserId === followedUserId) {
+            throw new HttpException(
+                "User can't follow itself.",
+                HttpStatus.I_AM_A_TEAPOT,
+            );
+        }
         try {
             await this.userFollowRepository.save({
                 follower: {
@@ -49,6 +55,13 @@ export class FollowService {
                 );
             }
         }
+
+        if (followerUserId === followedUserId) {
+            return {
+                isFollowing: false,
+            };
+        }
+
         const exist = await this.userFollowRepository.exist({
             where: {
                 follower: {
@@ -63,5 +76,13 @@ export class FollowService {
         return {
             isFollowing: exist,
         };
+    }
+
+    public async getFollowersCount(userId: string) {
+        return await this.userFollowRepository.countBy({
+            followed: {
+                userId,
+            },
+        });
     }
 }

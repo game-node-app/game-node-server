@@ -251,6 +251,7 @@ export class StatisticsService {
                 likesCount: "DESC",
                 viewsCount: "DESC",
             },
+            relationLoadStrategy: "query",
         });
     }
 

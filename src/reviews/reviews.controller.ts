@@ -20,6 +20,7 @@ import { FindReviewPaginatedDto } from "./dto/find-review-paginated.dto";
 import { Review } from "./entities/review.entity";
 import { FindReviewDto } from "./dto/find-review.dto";
 import { Public } from "../auth/public.decorator";
+import { ReviewScoreRequestDto } from "./dto/review-score-request.dto";
 
 @Controller("reviews")
 @ApiTags("reviews")
@@ -36,6 +37,11 @@ export class ReviewsController {
             session.getUserId(),
             createReviewDto,
         );
+    }
+
+    @Get("/score")
+    async getScoreForGameId(@Query() dto: ReviewScoreRequestDto) {
+        return this.reviewsService.getScore(dto.gameId);
     }
 
     @Get("profile/:userId")
@@ -67,6 +73,7 @@ export class ReviewsController {
     }
 
     @Get()
+    @Public()
     @ApiOkResponse({
         type: Review,
         status: 200,
@@ -82,6 +89,7 @@ export class ReviewsController {
     }
 
     @Get(":id")
+    @Public()
     async findOneById(@Param("id") id: string) {
         return this.reviewsService.findOneByIdOrFail(id);
     }
