@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { UserFollow } from "./entity/user-follow.entity";
 import { Repository } from "typeorm";
 import { FollowStatusDto } from "./dto/follow-status.dto";
+import { FollowRemoveDto } from "./dto/follow-remove.dto";
 
 @Injectable()
 export class FollowService {
@@ -82,6 +83,17 @@ export class FollowService {
         return await this.userFollowRepository.countBy({
             followed: {
                 userId,
+            },
+        });
+    }
+
+    async removeFollow(userId: string, dto: FollowRemoveDto) {
+        await this.userFollowRepository.delete({
+            follower: {
+                userId,
+            },
+            followed: {
+                userId: dto.followedUserId,
             },
         });
     }
