@@ -1,9 +1,8 @@
-import { IsNotEmpty, IsString, Max, Min } from "class-validator";
+import { IsNotEmpty, IsString, Length } from "class-validator";
 
 export class FollowRegisterDto {
     @IsNotEmpty()
     @IsString()
-    @Min(36)
-    @Max(36)
+    @Length(36)
     followedUserId: string;
 }
