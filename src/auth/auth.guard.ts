@@ -3,6 +3,8 @@ import { Error as STError } from "supertokens-node";
 
 import { verifySession } from "supertokens-node/recipe/session/framework/express";
 import { Reflector } from "@nestjs/core";
+import { SessionRequest } from "supertokens-node/lib/build/framework/express";
+import UserRoles from "supertokens-node/recipe/userroles";
 
 /**
  * Default AuthGuard that checks for a valid session.
@@ -25,11 +27,31 @@ export class AuthGuard implements CanActivate {
             "isPublic",
             context.getHandler(),
         );
-        console.log("isPublic: ", isPublic);
+
+        const requiredRoles = this.reflector.get<string[] | undefined>(
+            "roles",
+            context.getHandler(),
+        );
 
         // You can create an optional version of this by passing {sessionRequired: false} to verifySession
         await verifySession({
             sessionRequired: !isPublic,
+            /**
+             * Override Supertokens validators to use UserRole validation logic.
+             * @param globalClaimValidators
+             */
+            overrideGlobalClaimValidators: (globalClaimValidators) => {
+                const validators = [...globalClaimValidators];
+                if (requiredRoles && requiredRoles.length > 0) {
+                    for (const role of requiredRoles) {
+                        validators.push(
+                            UserRoles.UserRoleClaim.validators.includes(role),
+                        );
+                    }
+                }
+
+                return validators;
+            },
         })(ctx.getRequest(), resp, (res) => {
             err = res;
         });
