@@ -1,8 +1,7 @@
 import {
     CreateDateColumn,
     Entity,
-    JoinTable,
-    ManyToMany,
+    ManyToOne,
     PrimaryGeneratedColumn,
     Unique,
     UpdateDateColumn,
@@ -10,14 +9,13 @@ import {
 import { Profile } from "../../profile/entities/profile.entity";
 
 @Entity()
+@Unique(["follower", "followed"])
 export class UserFollow {
     @PrimaryGeneratedColumn()
     id: number;
-    @ManyToMany(() => Profile)
-    @JoinTable()
+    @ManyToOne(() => Profile)
     follower: Profile;
-    @ManyToMany(() => Profile)
-    @JoinTable()
+    @ManyToOne(() => Profile)
     followed: Profile;
     @CreateDateColumn()
     createdAt: Date;
