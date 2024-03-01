@@ -87,14 +87,22 @@ export class FollowService {
         });
     }
 
-    async removeFollow(userId: string, dto: FollowRemoveDto) {
-        await this.userFollowRepository.delete({
-            follower: {
-                userId,
-            },
-            followed: {
-                userId: dto.followedUserId,
-            },
-        });
+    async removeFollow(followerUserId: string, followedUserId: string) {
+        try {
+            await this.userFollowRepository.delete({
+                follower: {
+                    userId: followerUserId,
+                },
+                followed: {
+                    userId: followedUserId,
+                },
+            });
+        } catch (e) {
+            console.error(e);
+            throw new HttpException(
+                "Error while removing follow",
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
     }
 }

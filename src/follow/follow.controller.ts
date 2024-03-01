@@ -58,6 +58,9 @@ export class FollowController {
         @Session() session: SessionContainer,
         @Body() dto: FollowRemoveDto,
     ) {
-        return await this.followService.removeFollow(session.getUserId(), dto);
+        return await this.followService.removeFollow(
+            session.getUserId(),
+            dto.followedUserId,
+        );
     }
 }

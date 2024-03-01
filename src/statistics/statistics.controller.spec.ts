@@ -1,6 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { StatisticsController } from "./statistics.controller";
 import { StatisticsService } from "./statistics.service";
+import { CACHE_MANAGER, CacheInterceptor } from "@nestjs/cache-manager";
+import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 
 describe("StatisticsController", () => {
     let controller: StatisticsController;
@@ -11,6 +13,10 @@ describe("StatisticsController", () => {
             providers: [
                 {
                     provide: StatisticsService,
+                    useValue: {},
+                },
+                {
+                    provide: CACHE_MANAGER,
                     useValue: {},
                 },
             ],
