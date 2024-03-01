@@ -4,6 +4,7 @@ import {
     JoinTable,
     ManyToMany,
     PrimaryGeneratedColumn,
+    Unique,
     UpdateDateColumn,
 } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
@@ -14,7 +15,10 @@ export class UserFollow {
     id: number;
     @ManyToMany(() => Profile)
     @JoinTable()
-    profile: Profile;
+    follower: Profile;
+    @ManyToMany(() => Profile)
+    @JoinTable()
+    followed: Profile;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

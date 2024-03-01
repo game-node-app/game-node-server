@@ -42,9 +42,9 @@ export class Profile {
         default: 0,
     })
     followersCount: number;
-    @ManyToMany(() => UserFollow, (userFollow) => userFollow.profile)
+    @ManyToMany(() => UserFollow, (userFollow) => userFollow.follower)
     followers: UserFollow[];
-    @ManyToMany(() => UserFollow, (userFollow) => userFollow.profile)
+    @ManyToMany(() => UserFollow, (userFollow) => userFollow.follower)
     following: UserFollow[];
     @CreateDateColumn()
     createdAt: Date;
