@@ -179,7 +179,7 @@ export class CollectionsEntriesService {
                 isFavorite: true,
                 collections: {
                     library: {
-                        userId,
+                        userId: targetUserId,
                     },
                     isPublic: true,
                 },
