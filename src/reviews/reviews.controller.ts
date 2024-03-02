@@ -21,6 +21,7 @@ import { Review } from "./entities/review.entity";
 import { FindReviewDto } from "./dto/find-review.dto";
 import { Public } from "../auth/public.decorator";
 import { ReviewScoreRequestDto } from "./dto/review-score-request.dto";
+import { FindAllReviewsByIdDto } from "./dto/find-all-reviews-by-id.dto";
 
 @Controller("reviews")
 @ApiTags("reviews")
@@ -37,6 +38,11 @@ export class ReviewsController {
             session.getUserId(),
             createReviewDto,
         );
+    }
+
+    @Post("all")
+    async findAllById(@Body() dto: FindAllReviewsByIdDto) {
+        return this.reviewsService.findAllByIdIn(dto.reviewsIds);
     }
 
     @Get("/score")

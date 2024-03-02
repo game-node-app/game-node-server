@@ -17,6 +17,7 @@ export enum StatisticsPeriod {
     QUARTER = "quarter",
     HALF_YEAR = "half_year",
     YEAR = "year",
+    ALL = "all",
 }
 
 /**
@@ -29,4 +30,5 @@ export const StatisticsPeriodToMinusDays = {
     [StatisticsPeriod.QUARTER]: 90,
     [StatisticsPeriod.HALF_YEAR]: 180,
     [StatisticsPeriod.YEAR]: 365,
+    [StatisticsPeriod.ALL]: 365 * 100,
 };

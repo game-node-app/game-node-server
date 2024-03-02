@@ -88,6 +88,12 @@ export class FollowService {
     }
 
     async removeFollow(followerUserId: string, followedUserId: string) {
+        if (followerUserId === followedUserId) {
+            throw new HttpException(
+                "User can't unfollow itself",
+                HttpStatus.I_AM_A_TEAPOT,
+            );
+        }
         try {
             await this.userFollowRepository.delete({
                 follower: {
