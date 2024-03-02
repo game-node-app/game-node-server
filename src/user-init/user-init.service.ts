@@ -2,24 +2,49 @@ import { Injectable, Logger } from "@nestjs/common";
 import { CollectionsService } from "../collections/collections.service";
 import { LibrariesService } from "../libraries/libraries.service";
 import { ProfileService } from "../profile/profile.service";
-// import UserRoles from "supertokens-node/recipe/userroles";
-// import { EUserRoles } from "../../utils/constants";
+import UserRoles from "supertokens-node/recipe/userroles";
+import { EUserRoles } from "../utils/constants";
 import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
-import { UserLevelService } from "../user-level/user-level.service";
+import { LevelService } from "../level/level.service";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
  */
 @Injectable()
 export class UserInitService {
+    private readonly defaultTenantId = "public";
     private logger = new Logger(UserInitService.name);
 
     constructor(
         private collectionsService: CollectionsService,
         private librariesService: LibrariesService,
         private profileService: ProfileService,
-        private userLevelService: UserLevelService,
-    ) {}
+        private userLevelService: LevelService,
+    ) {
+        this.createUserRoles();
+    }
+
+    private createUserRoles() {
+        for (const role of Object.values(EUserRoles)) {
+            UserRoles.createNewRoleOrAddPermissions(role, [])
+                .then()
+                .catch((e) => {
+                    this.logger.error(e);
+                });
+        }
+    }
+
+    private async initUserRole(userId: string) {
+        try {
+            await UserRoles.addRoleToUser(
+                this.defaultTenantId,
+                userId,
+                EUserRoles.USER,
+            );
+        } catch (e) {
+            console.error(e);
+        }
+    }
 
     /**
      * Initialize the user
@@ -31,6 +56,7 @@ export class UserInitService {
             `Started init routine for userId ${userId} at ${new Date().toISOString()}`,
         );
         const initPromises: Promise<void>[] = [
+            this.initUserRole(userId),
             this.initProfile(userId),
             this.initLibrary(userId),
             this.initLevel(userId),

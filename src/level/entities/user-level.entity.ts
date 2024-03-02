@@ -1,6 +1,6 @@
 import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
-import { BASE_LEVEL_UP_COST } from "../user-level.constants";
+import { BASE_LEVEL_UP_COST } from "../level.constants";
 
 @Entity()
 export class UserLevel {

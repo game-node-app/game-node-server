@@ -4,7 +4,7 @@ import { CollectionsService } from "../collections/collections.service";
 import { LibrariesService } from "../libraries/libraries.service";
 import Mocked = jest.Mocked;
 import { ProfileService } from "../profile/profile.service";
-import { UserLevelService } from "../user-level/user-level.service";
+import { LevelService } from "../level/level.service";
 
 const mockUserId = "1234";
 
@@ -12,7 +12,7 @@ describe("UserInitService", () => {
     let service: UserInitService;
     let librariesService: Mocked<LibrariesService>;
     let profileService: Mocked<ProfileService>;
-    let userLevelService: Mocked<UserLevelService>;
+    let userLevelService: Mocked<LevelService>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -40,7 +40,7 @@ describe("UserInitService", () => {
                     },
                 },
                 {
-                    provide: UserLevelService,
+                    provide: LevelService,
                     useValue: {
                         findOneByUserId: jest.fn(),
                         findOneById: jest.fn(),
@@ -53,7 +53,7 @@ describe("UserInitService", () => {
         service = module.get<UserInitService>(UserInitService);
         librariesService = module.get(LibrariesService);
         profileService = module.get(ProfileService);
-        userLevelService = module.get(UserLevelService);
+        userLevelService = module.get(LevelService);
     });
 
     it("should be defined", () => {

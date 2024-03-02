@@ -2,10 +2,10 @@ import { HttpException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLevel } from "./entities/user-level.entity";
 import { Repository } from "typeorm";
-import { BASE_LEVEL_UP_COST } from "./user-level.constants";
+import { BASE_LEVEL_UP_COST } from "./level.constants";
 
 @Injectable()
-export class UserLevelService {
+export class LevelService {
     private readonly currentMaximumLevel = 50;
     /**
      * The base amount to multiply the current user-level requirement when a user levels up

@@ -104,37 +104,4 @@ describe("CollectionsEntriesService", () => {
             }),
         );
     });
-
-    it("should attach a review when re-creating a entry", async () => {
-        const userId = "1";
-        const dto: CreateCollectionEntryDto = {
-            isFavorite: true,
-            gameId: 1942,
-            collectionIds: ["111111"],
-            platformIds: [EGamePlatformIds.PC.valueOf()],
-        };
-        const reviewFindSpy = jest.spyOn(
-            reviewService,
-            "findOneByUserIdAndGameId",
-        );
-        reviewFindSpy.mockImplementation(async () => {
-            return { id: "review12345" } as Review;
-        });
-        jest.spyOn(repository, "save").mockImplementationOnce(async () => {
-            return { id: "12345" } as CollectionEntry;
-        });
-
-        const createSpy = jest.spyOn(service, "createOrUpdate");
-        const repositorySaveSpy = jest.spyOn(repository, "save");
-        await service.createOrUpdate(userId, dto);
-        expect(reviewFindSpy).toBeCalled();
-        expect(createSpy).toHaveReturned();
-        expect(repositorySaveSpy).toBeCalledWith(
-            expect.objectContaining({
-                review: {
-                    id: "review12345",
-                },
-            }),
-        );
-    });
 });

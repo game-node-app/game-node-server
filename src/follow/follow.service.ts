@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { UserFollow } from "./entity/user-follow.entity";
 import { Repository } from "typeorm";
 import { FollowStatusDto } from "./dto/follow-status.dto";
+import { FollowRemoveDto } from "./dto/follow-remove.dto";
 
 @Injectable()
 export class FollowService {
@@ -84,5 +85,30 @@ export class FollowService {
                 userId,
             },
         });
+    }
+
+    async removeFollow(followerUserId: string, followedUserId: string) {
+        if (followerUserId === followedUserId) {
+            throw new HttpException(
+                "User can't unfollow itself",
+                HttpStatus.I_AM_A_TEAPOT,
+            );
+        }
+        try {
+            await this.userFollowRepository.delete({
+                follower: {
+                    userId: followerUserId,
+                },
+                followed: {
+                    userId: followedUserId,
+                },
+            });
+        } catch (e) {
+            console.error(e);
+            throw new HttpException(
+                "Error while removing follow",
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
     }
 }

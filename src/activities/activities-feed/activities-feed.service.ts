@@ -1,11 +1,4 @@
 import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
-import { CollectionsEntriesService } from "src/collections/collections-entries/collections-entries.service";
-import { ReviewsService } from "src/reviews/reviews.service";
-import {
-    ActivityCriteria,
-    ActivityType,
-} from "../activities-queue/activities-queue.constants";
-import { ProfileService } from "src/profile/profile.service";
 import { Activity } from "../activities-repository/entities/activity.entity";
 import { ActivitiesFeedRequestDto } from "./dto/activities-feed-request.dto";
 import { ActivitiesRepositoryService } from "../activities-repository/activities-repository.service";
@@ -13,6 +6,13 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { StatisticsService } from "../../statistics/statistics.service";
+import { ProfileService } from "../../profile/profile.service";
+import { ReviewsService } from "../../reviews/reviews.service";
+import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
+import {
+    ActivityCriteria,
+    ActivityType,
+} from "../activities-queue/activities-queue.constants";
 
 export const ACTIVITY_FEED_CACHE_KEY = "queue-feed";
 

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { UserLevelService } from "./user-level.service";
+import { LevelService } from "./level.service";
 import { getMockRepositoryProvider } from "../../test/mocks/repositoryMocks";
 import { UserLevel } from "./entities/user-level.entity";
 import Mocked = jest.Mocked;
@@ -20,15 +20,15 @@ function getMockUserLevel() {
 }
 
 describe("UserLevelService", () => {
-    let service: UserLevelService;
+    let service: LevelService;
     let repository: Mocked<Repository<UserLevel>>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [getMockRepositoryProvider(UserLevel), UserLevelService],
+            providers: [getMockRepositoryProvider(UserLevel), LevelService],
         }).compile();
 
-        service = module.get<UserLevelService>(UserLevelService);
+        service = module.get<LevelService>(LevelService);
         repository = module.get(getRepositoryToken(UserLevel));
     });
 
