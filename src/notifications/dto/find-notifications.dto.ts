@@ -5,4 +5,5 @@ import { OmitType } from "@nestjs/swagger";
 export class FindNotificationsDto extends OmitType(BaseFindDto<Notification>, [
     "search",
     "orderBy",
+    "limit",
 ]) {}

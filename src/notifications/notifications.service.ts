@@ -9,6 +9,7 @@ import { FindNotificationsDto } from "./dto/find-notifications.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { NotificationAggregateDto } from "./dto/notification-aggregate.dto";
+import { ENotificationCategory } from "./notifications.constants";
 
 @Injectable()
 @UseGuards(AuthGuard)
@@ -57,31 +58,103 @@ export class NotificationsService {
 
     private aggregate(
         notifications: Notification[],
-        limit: number = 10,
+        aggregatedLimit: number = 10,
     ): NotificationAggregateDto[] {
+        const aggregationCategories = [
+            ENotificationCategory.LIKE,
+            ENotificationCategory.COMMENT,
+        ];
         const aggregations: NotificationAggregateDto[] = [];
         const processedEntities = new Map<number, Notification>();
+
         for (const notification of notifications) {
-            if (aggregations.length >= limit) {
-                break;
-            }
-            if (processedEntities.has(notification.id)) {
+            if (
+                notification.reviewId == undefined &&
+                notification.activityId == undefined
+            ) {
                 continue;
             }
-            const similarNotifications = notifications.filter(
-                (notification) => {},
+            console.log(notification.id);
+            console.log(
+                notification.id,
+                ...processedEntities.keys(),
+                processedEntities.get(notification.id),
+                processedEntities.has(notification.id),
             );
+            if (processedEntities.has(notification.id)) {
+                console.log("Skipped " + notification.id);
+                continue;
+            }
+            if (aggregations.length >= aggregatedLimit) {
+                break;
+            }
+
+            const similarNotifications = notifications.filter(
+                (comparedNotification) => {
+                    const hasSameId =
+                        comparedNotification.id !== notification.id;
+                    const isAlreadyProcessed = processedEntities.has(
+                        comparedNotification.id,
+                    );
+                    const hasValidCategory = aggregationCategories.includes(
+                        comparedNotification.category,
+                    );
+                    const isSameSource =
+                        (comparedNotification.reviewId != undefined &&
+                            comparedNotification.reviewId ===
+                                notification.reviewId) ||
+                        (comparedNotification.activityId != undefined &&
+                            comparedNotification.activityId ===
+                                notification.activityId);
+
+                    return (
+                        !hasSameId &&
+                        !isAlreadyProcessed &&
+                        hasValidCategory &&
+                        isSameSource
+                    );
+                },
+            );
+
+            if (similarNotifications.length > 0) {
+                const allNotifications = [
+                    notification,
+                    ...similarNotifications,
+                ];
+                allNotifications.forEach((notif) => {
+                    processedEntities.set(notif.id, notif);
+                });
+
+                aggregations.push({
+                    category: notification.category,
+                    sourceId:
+                        notification.reviewId! || notification.activityId!,
+                    notifications: allNotifications,
+                });
+            } else {
+                processedEntities.set(notification.id, notification);
+                aggregations.push({
+                    category: notification.category,
+                    sourceId:
+                        notification.reviewId! || notification.activityId!,
+                    notifications: [notification],
+                });
+            }
         }
+
+        return aggregations;
     }
 
     public async findAllAndAggregate(
         userId: string,
         dto: FindNotificationsDto,
     ): Promise<TPaginationData<NotificationAggregateDto>> {
-        let skippedEntities = 0;
+        const offset = dto.offset || 0;
+        const safeFindLimit = offset + 100;
         const [notifications, total] =
             await this.notificationRepository.findAndCount({
-                skip: dto.offset || 0,
+                skip: offset,
+                take: safeFindLimit,
                 where: [
                     {
                         targetProfileUserId: userId,
@@ -94,15 +167,19 @@ export class NotificationsService {
                     createdAt: "DESC",
                 },
             });
+        return [this.aggregate(notifications), total];
     }
 
-    public async findNewNotifications(userId: string) {
+    public async findNewNotifications(
+        userId: string,
+        isInitialConnection: boolean,
+    ) {
         const now = new Date();
         const lastCheckedDate = await this.getLastCheckedDate(userId);
         /*
         Avoids notifying users when they first connect to the SSE.
          */
-        if (!lastCheckedDate) {
+        if (!lastCheckedDate || isInitialConnection) {
             await this.setLastCheckedDate(userId, now);
             return [];
         }

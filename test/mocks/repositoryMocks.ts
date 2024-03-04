@@ -19,6 +19,7 @@ export const mockRepository = {
     save: jest.fn(async () => {}),
     update: jest.fn(),
     findOneOrFail: jest.fn(),
+    findAndCount: jest.fn(),
     countBy: jest.fn(),
     exist: jest.fn(),
     createQueryBuilder: () => mockCreateQueryBuilder,

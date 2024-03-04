@@ -10,6 +10,7 @@ import { Profile } from "../../profile/entities/profile.entity";
 import { ENotificationCategory } from "../notifications.constants";
 import { Review } from "../../reviews/entities/review.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
+import { Activity } from "../../activities/activities-repository/entities/activity.entity";
 
 @Entity()
 export class Notification {
@@ -41,6 +42,14 @@ export class Notification {
         nullable: true,
     })
     gameId: number | null;
+    @ManyToOne(() => Activity, {
+        nullable: true,
+    })
+    activity: Activity | null;
+    @Column({
+        nullable: true,
+    })
+    activityId: string | null;
     @ManyToOne(() => Profile, {
         nullable: true,
     })
@@ -63,6 +72,11 @@ export class Notification {
         nullable: true,
     })
     targetProfile: Profile | null;
+    /**
+     * Target user profile/id. <br>
+     * If this is empty (null/undefined), the notification is targeted at all users. <br>
+     * Not to be confused with the 'profile' property.
+     */
     @Column({
         nullable: true,
     })
