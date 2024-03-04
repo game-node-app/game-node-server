@@ -59,7 +59,7 @@ export class CollectionsEntriesController {
     ): Promise<CollectionEntry> {
         if (gameId == undefined) {
             throw new HttpException(
-                "Invalid query. igdbId must be provided.",
+                "Invalid query. gameId must be provided.",
                 400,
             );
         }

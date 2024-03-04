@@ -21,7 +21,7 @@ import { HealthModule } from "./health/health.module";
 import { AchievementsModule } from "./achievements/achievements.module";
 import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
-import { NotificationsModule } from './notifications/notifications.module';
+import { NotificationsModule } from "./notifications/notifications.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -48,7 +48,7 @@ import { NotificationsModule } from './notifications/notifications.module';
             autoLoadEntities: true,
             // Never turn this on. Use migrations instead.
             synchronize: false,
-            logging: true,
+            logging: process.env.NODE_ENV === "development",
             debug: false,
         }),
 
