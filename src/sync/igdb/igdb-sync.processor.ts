@@ -8,7 +8,6 @@ import {
     parseGameDates,
 } from "./utils/game-conversor-utils";
 
-import sleep from "../../utils/sleep";
 import { PartialGame } from "../../game/game-repository/game-repository.types";
 import { GameRepositoryCreateService } from "../../game/game-repository/game-repository-create.service";
 

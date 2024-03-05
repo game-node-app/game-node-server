@@ -1,11 +1,4 @@
-import {
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-    Logger,
-    UseGuards,
-} from "@nestjs/common";
+import { Inject, Injectable, Logger, UseGuards } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindOptionsRelations,
@@ -34,7 +27,6 @@ export class NotificationsService {
 
     private readonly relations: FindOptionsRelations<Notification> = {
         profile: true,
-        targetProfile: true,
     };
 
     constructor(
@@ -80,10 +72,19 @@ export class NotificationsService {
         });
     }
 
+    /**
+     * Creates groups of related notifications
+     * @param notifications - notifications to aggregate
+     * @param aggregationLimit - maximum numer of aggregated objects
+     * @returns [Array, number] - Tuple with aggregated entities and number of processed notifications <br>
+     * (e.g. notifications which were processed before reaching aggregationLimit) <br>
+     * While similar, doesn't represent pagination data, so it shouldn't be used for that.
+     * @private
+     */
     private aggregate(
         notifications: Notification[],
-        aggregatedLimit: number = 10,
-    ): NotificationAggregateDto[] {
+        aggregationLimit: number = 10,
+    ): [NotificationAggregateDto[], number] {
         const aggregationCategories = [
             ENotificationCategory.LIKE,
             ENotificationCategory.COMMENT,
@@ -100,18 +101,18 @@ export class NotificationsService {
             }
 
             if (processedEntities.has(notification.id)) {
-                console.log("Skipped " + notification.id);
                 continue;
             }
-            if (aggregations.length >= aggregatedLimit) {
+
+            if (aggregations.length >= aggregationLimit) {
                 break;
             }
 
+            /**
+             * Notifications similar to this one (including current iteration notification)
+             */
             const similarNotifications = notifications.filter(
                 (comparedNotification) => {
-                    const hasSameId =
-                        comparedNotification.id === notification.id;
-
                     const isAlreadyProcessed = processedEntities.has(
                         comparedNotification.id,
                     );
@@ -126,43 +127,30 @@ export class NotificationsService {
                             comparedNotification.activityId ===
                                 notification.activityId);
 
-                    return (
-                        !hasSameId &&
-                        !isAlreadyProcessed &&
-                        hasValidCategory &&
-                        isSameSource
-                    );
+                    const isSimilar =
+                        !isAlreadyProcessed && hasValidCategory && isSameSource;
+
+                    if (isSimilar) {
+                        processedEntities.set(
+                            comparedNotification.id,
+                            comparedNotification,
+                        );
+                    }
+
+                    return isSimilar;
                 },
             );
 
-            if (similarNotifications.length > 0) {
-                const allNotifications = [
-                    notification,
-                    ...similarNotifications,
-                ];
-                allNotifications.forEach((notif) => {
-                    processedEntities.set(notif.id, notif);
-                });
-                console.log(allNotifications, similarNotifications);
+            if (similarNotifications.length === 0) continue;
 
-                aggregations.push({
-                    category: notification.category,
-                    sourceId:
-                        notification.reviewId! || notification.activityId!,
-                    notifications: allNotifications,
-                });
-            } else {
-                processedEntities.set(notification.id, notification);
-                aggregations.push({
-                    category: notification.category,
-                    sourceId:
-                        notification.reviewId! || notification.activityId!,
-                    notifications: [notification],
-                });
-            }
+            aggregations.push({
+                category: notification.category,
+                sourceId: notification.reviewId! || notification.activityId!,
+                notifications: similarNotifications,
+            });
         }
 
-        return aggregations;
+        return [aggregations, processedEntities.size];
     }
 
     public async findAllAndAggregate(
@@ -170,7 +158,7 @@ export class NotificationsService {
         dto: FindNotificationsDto,
     ): Promise<TPaginationData<NotificationAggregateDto>> {
         const offset = dto.offset || 0;
-        const safeFindLimit = offset + 100;
+        const safeFindLimit = 100;
         const [notifications, total] =
             await this.notificationRepository.findAndCount({
                 skip: offset,
@@ -188,7 +176,15 @@ export class NotificationsService {
                 },
                 relations: this.relations,
             });
-        return [this.aggregate(notifications), total];
+        const [aggregations, totalProcessedNotifications] = this.aggregate(
+            notifications,
+            10,
+        );
+
+        // Actual total to be used as basis for pagination
+        const paginationAvailableNotifications =
+            total - totalProcessedNotifications;
+        return [aggregations, paginationAvailableNotifications];
     }
 
     public async findNewNotifications(
@@ -228,6 +224,7 @@ export class NotificationsService {
             sourceType: dto.sourceType,
             category: dto.category,
         });
+
         switch (dto.sourceType) {
             case ENotificationSourceType.GAME:
                 entity.gameId = dto.sourceId as number;
