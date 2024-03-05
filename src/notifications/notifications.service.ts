@@ -1,20 +1,41 @@
-import { Inject, Injectable, Logger, UseGuards } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+    Logger,
+    UseGuards,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, MoreThanOrEqual, Repository } from "typeorm";
+import {
+    FindOptionsRelations,
+    IsNull,
+    MoreThanOrEqual,
+    Repository,
+} from "typeorm";
 import { Notification } from "./entity/notification.entity";
 import { AuthGuard } from "../auth/auth.guard";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
-import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { NotificationAggregateDto } from "./dto/notification-aggregate.dto";
-import { ENotificationCategory } from "./notifications.constants";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "./notifications.constants";
+import { CreateNotificationDto } from "./dto/create-notification.dto";
+import { MessageEvent } from "@nestjs/common";
 
 @Injectable()
 @UseGuards(AuthGuard)
 export class NotificationsService {
     private readonly logger = new Logger(NotificationsService.name);
+
+    private readonly relations: FindOptionsRelations<Notification> = {
+        profile: true,
+        targetProfile: true,
+    };
 
     constructor(
         @InjectRepository(Notification)
@@ -38,7 +59,10 @@ export class NotificationsService {
     }
 
     private setLastCheckedDate(userId: string, date: Date) {
-        return this.cacheManager.set(userId, date.toISOString());
+        return this.cacheManager.set(
+            this.getCheckedDateKey(userId),
+            date.toISOString(),
+        );
     }
 
     private async findAllAfterDate(userId: string, date: Date) {
@@ -48,11 +72,11 @@ export class NotificationsService {
                     targetProfileUserId: userId,
                     createdAt: MoreThanOrEqual(date),
                 },
-                {
-                    targetProfileUserId: IsNull(),
-                    createdAt: MoreThanOrEqual(date),
-                },
             ],
+            relations: this.relations,
+            order: {
+                createdAt: "DESC",
+            },
         });
     }
 
@@ -65,7 +89,7 @@ export class NotificationsService {
             ENotificationCategory.COMMENT,
         ];
         const aggregations: NotificationAggregateDto[] = [];
-        const processedEntities = new Map<number, Notification>();
+        const processedEntities = new Map<any, Notification>();
 
         for (const notification of notifications) {
             if (
@@ -74,13 +98,7 @@ export class NotificationsService {
             ) {
                 continue;
             }
-            console.log(notification.id);
-            console.log(
-                notification.id,
-                ...processedEntities.keys(),
-                processedEntities.get(notification.id),
-                processedEntities.has(notification.id),
-            );
+
             if (processedEntities.has(notification.id)) {
                 console.log("Skipped " + notification.id);
                 continue;
@@ -92,7 +110,8 @@ export class NotificationsService {
             const similarNotifications = notifications.filter(
                 (comparedNotification) => {
                     const hasSameId =
-                        comparedNotification.id !== notification.id;
+                        comparedNotification.id === notification.id;
+
                     const isAlreadyProcessed = processedEntities.has(
                         comparedNotification.id,
                     );
@@ -124,6 +143,7 @@ export class NotificationsService {
                 allNotifications.forEach((notif) => {
                     processedEntities.set(notif.id, notif);
                 });
+                console.log(allNotifications, similarNotifications);
 
                 aggregations.push({
                     category: notification.category,
@@ -166,6 +186,7 @@ export class NotificationsService {
                 order: {
                     createdAt: "DESC",
                 },
+                relations: this.relations,
             });
         return [this.aggregate(notifications), total];
     }
@@ -173,7 +194,7 @@ export class NotificationsService {
     public async findNewNotifications(
         userId: string,
         isInitialConnection: boolean,
-    ) {
+    ): Promise<MessageEvent> {
         const now = new Date();
         const lastCheckedDate = await this.getLastCheckedDate(userId);
         /*
@@ -181,13 +202,63 @@ export class NotificationsService {
          */
         if (!lastCheckedDate || isInitialConnection) {
             await this.setLastCheckedDate(userId, now);
-            return [];
+            return {
+                data: JSON.stringify([]),
+            };
         }
         const notifications = await this.findAllAfterDate(
             userId,
             lastCheckedDate,
         );
         await this.setLastCheckedDate(userId, now);
-        return notifications;
+        return {
+            data: JSON.stringify(notifications),
+        };
+    }
+
+    public async create(dto: CreateNotificationDto) {
+        if (dto.sourceId == undefined) {
+            throw new Error(
+                "Error while creating a new notification: invalid parameters.",
+            );
+        }
+        const entity = this.notificationRepository.create({
+            profileUserId: dto.userId,
+            targetProfileUserId: dto.targetUserId,
+            sourceType: dto.sourceType,
+            category: dto.category,
+        });
+        switch (dto.sourceType) {
+            case ENotificationSourceType.GAME:
+                entity.gameId = dto.sourceId as number;
+                entity.targetProfileUserId = dto.userId;
+                break;
+            case ENotificationSourceType.REVIEW:
+                entity.reviewId = dto.sourceId as string;
+                break;
+            case ENotificationSourceType.ACTIVITY:
+                entity.activityId = dto.sourceId as string;
+                break;
+        }
+
+        if (entity.targetProfileUserId == undefined) {
+            throw new Error(
+                "Common notifications can't be targeted at all users (targetProfile is null): " +
+                    JSON.stringify(dto),
+            );
+        }
+
+        await this.notificationRepository.save(entity);
+    }
+
+    public async updateViewedStatus(
+        userId: string,
+        notificationId: number,
+        isViewed: boolean,
+    ) {
+        return this.notificationRepository.update(notificationId, {
+            isViewed,
+            targetProfileUserId: userId,
+        });
     }
 }

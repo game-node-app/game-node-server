@@ -27,6 +27,11 @@ import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-opt
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { Review } from "../reviews/entities/review.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
+import { NotificationsService } from "../notifications/notifications.service";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "../notifications/notifications.constants";
 
 @Injectable()
 export class StatisticsService {
@@ -37,6 +42,7 @@ export class StatisticsService {
         private readonly userLikeRepository: Repository<UserLike>,
         @InjectRepository(UserView)
         private readonly userViewRepository: Repository<UserView>,
+        private readonly notificationsService: NotificationsService,
     ) {}
 
     public async create(data: StatisticsActionDto) {
@@ -115,7 +121,7 @@ export class StatisticsService {
     }
 
     async handleLike(data: StatisticsLikeAction) {
-        const { sourceId, sourceType, userId, action } = data;
+        const { sourceId, sourceType, userId, targetUserId, action } = data;
         let statisticsEntity = await this.findOneBySourceIdAndType(
             sourceId,
             sourceType,
@@ -162,6 +168,21 @@ export class StatisticsService {
                 "likesCount",
                 1,
             );
+
+            if (targetUserId) {
+                this.notificationsService
+                    .create({
+                        sourceType:
+                            this.sourceTypeToNotificationSourceType(sourceType),
+                        sourceId: sourceId,
+                        userId: userId,
+                        targetUserId: targetUserId,
+                        category: ENotificationCategory.LIKE,
+                    })
+                    .then()
+                    .catch(console.error);
+            }
+
             return;
         }
 
@@ -206,6 +227,17 @@ export class StatisticsService {
             },
             statistics: statisticsEntity,
         });
+    }
+
+    private sourceTypeToNotificationSourceType(
+        sourceType: StatisticsSourceType,
+    ) {
+        switch (sourceType) {
+            case StatisticsSourceType.REVIEW:
+                return ENotificationSourceType.REVIEW;
+            case StatisticsSourceType.GAME:
+                return ENotificationSourceType.GAME;
+        }
     }
 
     private getPreviousDate(daysMinus: number) {

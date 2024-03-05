@@ -80,7 +80,7 @@ describe("NotificationsService", () => {
             mockLastCheckedDate.toISOString(),
         );
         repository.findAndCount.mockResolvedValue([
-            mockNotifications,
+            structuredClone(mockNotifications),
             mockNotifications.length,
         ]);
 

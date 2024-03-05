@@ -26,6 +26,7 @@ export class StatisticsQueueService {
             sourceId: dto.sourceId,
             sourceType: dto.sourceType,
             userId,
+            targetUserId: dto.targetUserId,
         };
         return this.statisticsQueue.add("like", likeAction);
     }
@@ -33,6 +34,7 @@ export class StatisticsQueueService {
     registerView(dto: StatisticsActionDto, userId?: string) {
         const viewAction: StatisticsViewAction = {
             userId,
+            targetUserId: dto.targetUserId,
             sourceType: dto.sourceType,
             sourceId: dto.sourceId,
         };
