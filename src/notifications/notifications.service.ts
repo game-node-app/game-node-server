@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, UseGuards } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindOptionsRelations,
+    FindOptionsWhere,
     IsNull,
     MoreThanOrEqual,
     Repository,
@@ -24,6 +25,7 @@ import { MessageEvent } from "@nestjs/common";
 @UseGuards(AuthGuard)
 export class NotificationsService {
     private readonly logger = new Logger(NotificationsService.name);
+    private readonly repeatedNotificationWaitPeriodHours = 1;
 
     private readonly relations: FindOptionsRelations<Notification> = {
         profile: true,
@@ -92,6 +94,12 @@ export class NotificationsService {
         const aggregations: NotificationAggregateDto[] = [];
         const processedEntities = new Map<any, Notification>();
 
+        /**
+         * The logic here is:
+         * Given a notification, find other ones which are similar to it (refer to the same target entity).
+         * With this information, store it as 'processedEntities' to avoid re-using said notifications in
+         * future iterations.
+         */
         for (const notification of notifications) {
             if (
                 notification.reviewId == undefined &&
@@ -146,6 +154,7 @@ export class NotificationsService {
             aggregations.push({
                 category: notification.category,
                 sourceId: notification.reviewId! || notification.activityId!,
+                sourceType: notification.sourceType,
                 notifications: similarNotifications,
             });
         }
@@ -183,7 +192,9 @@ export class NotificationsService {
 
         // Actual total to be used as basis for pagination
         const paginationAvailableNotifications =
-            total - totalProcessedNotifications;
+            total - totalProcessedNotifications > 0
+                ? total - totalProcessedNotifications
+                : 1;
         return [aggregations, paginationAvailableNotifications];
     }
 
@@ -212,11 +223,57 @@ export class NotificationsService {
         };
     }
 
+    private async isPossibleSpam(createDto: CreateNotificationDto) {
+        const minimumRepeatedNotificationDate = new Date();
+        minimumRepeatedNotificationDate.setHours(
+            minimumRepeatedNotificationDate.getHours() -
+                this.repeatedNotificationWaitPeriodHours,
+        );
+        const whereOptions: FindOptionsWhere<Notification> = {
+            sourceType: createDto.sourceType,
+            category: createDto.category,
+            profileUserId: createDto.userId,
+            targetProfileUserId: createDto.targetUserId,
+            createdAt: MoreThanOrEqual(minimumRepeatedNotificationDate),
+        };
+
+        switch (createDto.sourceType) {
+            case ENotificationSourceType.GAME:
+                whereOptions.gameId = createDto.sourceId as number;
+                break;
+            case ENotificationSourceType.REVIEW:
+                whereOptions.reviewId = createDto.sourceId as string;
+                break;
+            case ENotificationSourceType.ACTIVITY:
+                whereOptions.activityId = createDto.sourceId as string;
+                break;
+        }
+
+        return await this.notificationRepository.exist({
+            where: whereOptions,
+        });
+    }
+
     public async create(dto: CreateNotificationDto) {
         if (dto.sourceId == undefined) {
             throw new Error(
-                "Error while creating a new notification: invalid parameters.",
+                "Error while creating a new notification: missing sourceId.",
             );
+        } else if (
+            dto.targetUserId != undefined &&
+            dto.userId === dto.targetUserId
+        ) {
+            this.logger.warn(
+                `Skipping attempt to make user notify itself: ${dto.userId} -> ${dto.targetUserId}`,
+            );
+            // return;
+        } else if (await this.isPossibleSpam(dto)) {
+            this.logger.warn(
+                `Skipping attempt to create repeated notification: ${JSON.stringify(
+                    dto,
+                )}`,
+            );
+            return;
         }
         const entity = this.notificationRepository.create({
             profileUserId: dto.userId,
@@ -228,7 +285,6 @@ export class NotificationsService {
         switch (dto.sourceType) {
             case ENotificationSourceType.GAME:
                 entity.gameId = dto.sourceId as number;
-                entity.targetProfileUserId = dto.userId;
                 break;
             case ENotificationSourceType.REVIEW:
                 entity.reviewId = dto.sourceId as string;
@@ -244,7 +300,6 @@ export class NotificationsService {
                     JSON.stringify(dto),
             );
         }
-
         await this.notificationRepository.save(entity);
     }
 

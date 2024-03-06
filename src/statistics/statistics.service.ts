@@ -27,11 +27,11 @@ import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-opt
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { Review } from "../reviews/entities/review.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
-import { NotificationsService } from "../notifications/notifications.service";
 import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
+import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 
 @Injectable()
 export class StatisticsService {
@@ -42,7 +42,7 @@ export class StatisticsService {
         private readonly userLikeRepository: Repository<UserLike>,
         @InjectRepository(UserView)
         private readonly userViewRepository: Repository<UserView>,
-        private readonly notificationsService: NotificationsService,
+        private readonly notificationsQueueService: NotificationsQueueService,
     ) {}
 
     public async create(data: StatisticsActionDto) {
@@ -136,16 +136,18 @@ export class StatisticsService {
             }
             statisticsEntity = await this.create(data);
         }
-        const likeEntity = await this.userLikeRepository.findOneBy({
-            profile: {
-                userId: userId,
-            },
-            statistics: {
-                id: statisticsEntity.id,
+        const isLiked = await this.userLikeRepository.exist({
+            where: {
+                profile: {
+                    userId: userId,
+                },
+                statistics: {
+                    id: statisticsEntity.id,
+                },
             },
         });
 
-        if (action === StatisticsActionType.INCREMENT && likeEntity) {
+        if (action === StatisticsActionType.INCREMENT && isLiked) {
             throw new HttpException(
                 "User has already liked this item.",
                 HttpStatus.NOT_ACCEPTABLE,
@@ -170,17 +172,14 @@ export class StatisticsService {
             );
 
             if (targetUserId) {
-                this.notificationsService
-                    .create({
-                        sourceType:
-                            this.sourceTypeToNotificationSourceType(sourceType),
-                        sourceId: sourceId,
-                        userId: userId,
-                        targetUserId: targetUserId,
-                        category: ENotificationCategory.LIKE,
-                    })
-                    .then()
-                    .catch(console.error);
+                this.notificationsQueueService.registerNotification({
+                    sourceType:
+                        this.sourceTypeToNotificationSourceType(sourceType),
+                    sourceId: sourceId,
+                    userId: userId,
+                    targetUserId: targetUserId,
+                    category: ENotificationCategory.LIKE,
+                });
             }
 
             return;

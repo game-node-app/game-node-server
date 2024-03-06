@@ -47,11 +47,12 @@ describe("NotificationsService", () => {
         );
         const mockedNotifications = [{ id: 12345 } as Notification];
         repository.find.mockResolvedValueOnce(mockedNotifications);
-        const newNotifications = await service.findNewNotifications(
+        const messageEvent = await service.findNewNotifications(
             mockUserId,
             false,
         );
-        expect(newNotifications.length).toEqual(mockedNotifications.length);
+        const data: Notification[] = JSON.parse(messageEvent.data as string);
+        expect(data.length).toEqual(mockedNotifications.length);
     });
 
     it("should find and aggregate similar notifications", async () => {

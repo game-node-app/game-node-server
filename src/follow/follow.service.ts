@@ -3,7 +3,11 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { UserFollow } from "./entity/user-follow.entity";
 import { Repository } from "typeorm";
 import { FollowStatusDto } from "./dto/follow-status.dto";
-import { FollowRemoveDto } from "./dto/follow-remove.dto";
+import { NotificationsQueueService } from "../notifications/notifications-queue.service";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "../notifications/notifications.constants";
 
 @Injectable()
 export class FollowService {
@@ -12,6 +16,7 @@ export class FollowService {
     constructor(
         @InjectRepository(UserFollow)
         private userFollowRepository: Repository<UserFollow>,
+        private readonly notificationsQueue: NotificationsQueueService,
     ) {}
 
     public async registerFollow(
@@ -32,6 +37,13 @@ export class FollowService {
                 followed: {
                     userId: followedUserId,
                 },
+            });
+            this.notificationsQueue.registerNotification({
+                userId: followerUserId,
+                targetUserId: followedUserId,
+                category: ENotificationCategory.FOLLOW,
+                sourceType: ENotificationSourceType.PROFILE,
+                sourceId: followerUserId,
             });
         } catch (e) {
             this.logger.error(e);

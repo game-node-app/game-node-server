@@ -9,8 +9,9 @@ import {
     Query,
     Sse,
     UseGuards,
+    UseInterceptors,
 } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { NotificationsService } from "./notifications.service";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
@@ -20,6 +21,8 @@ import { FindNotificationsDto } from "./dto/find-notifications.dto";
 import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
 import { MessageEvent } from "@nestjs/common";
 import { fromPromise } from "rxjs/internal/observable/innerFrom";
+import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
+import { PaginatedNotificationAggregationDto } from "./dto/paginated-notification-aggregation.dto";
 
 const NOTIFICATIONS_CHECK_INTERVAL = 5000;
 
@@ -30,6 +33,11 @@ export class NotificationsController {
     constructor(private readonly notificationsService: NotificationsService) {}
 
     @Get()
+    @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponse({
+        status: 200,
+        type: PaginatedNotificationAggregationDto,
+    })
     async findAllAndAggregate(
         @Session() session: SessionContainer,
         @Query() dto: FindNotificationsDto,
