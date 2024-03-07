@@ -24,7 +24,7 @@ import { fromPromise } from "rxjs/internal/observable/innerFrom";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { PaginatedNotificationAggregationDto } from "./dto/paginated-notification-aggregation.dto";
 
-const NOTIFICATIONS_CHECK_INTERVAL = 5000;
+const NOTIFICATIONS_CHECK_INTERVAL = 20000;
 
 @Controller("notifications")
 @ApiTags("notifications")
