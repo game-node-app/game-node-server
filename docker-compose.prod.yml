@@ -107,7 +107,7 @@ services:
     volumes:
       - gamenode:/app/public/uploads
 
-    command: ["yarn", "start"]
+    command: ["yarn", "start:prod"]
 
     networks:
       - game_node_app
