@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ActivitiesQueueService } from "./activities-queue.service";
-import { BullModule, getQueueToken } from "@nestjs/bull";
+import { getQueueToken } from "@nestjs/bullmq";
 
 describe("ActivitiesFeedService", () => {
     let service: ActivitiesQueueService;

@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { StatisticsQueueService } from "./statistics-queue.service";
 import { StatisticsQueueController } from "./statistics-queue.controller";
-import { BullModule } from "@nestjs/bull";
+import { BullModule } from "@nestjs/bullmq";
 import { STATISTICS_QUEUE_NAME } from "./statistics-queue.constants";
 import { StatisticsModule } from "../statistics.module";
 import { TypeOrmModule } from "@nestjs/typeorm";

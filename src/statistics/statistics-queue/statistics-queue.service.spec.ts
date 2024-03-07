@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { StatisticsQueueService } from "./statistics-queue.service";
-import { getQueueToken } from "@nestjs/bull";
+import { getQueueToken } from "@nestjs/bullmq";
 import { STATISTICS_QUEUE_NAME } from "./statistics-queue.constants";
 
 describe("StatisticsQueueService", () => {

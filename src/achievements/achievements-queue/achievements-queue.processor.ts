@@ -1,21 +1,26 @@
-import { Process, Processor } from "@nestjs/bull";
+import { Processor, WorkerHost } from "@nestjs/bullmq";
 import {
     ACHIEVEMENTS_QUEUE_NAME,
     ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME,
     AchievementsQueueJob,
 } from "./achievements-queue.constants";
-import { Job } from "bull";
+import { Job } from "bullmq";
 import { AchievementsService } from "../achievements.service";
+import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 
 @Processor(ACHIEVEMENTS_QUEUE_NAME)
-export class AchievementsQueueProcessor {
-    constructor(private readonly achievementsService: AchievementsService) {}
+export class AchievementsQueueProcessor extends WorkerHostProcessor {
+    constructor(private readonly achievementsService: AchievementsService) {
+        super();
+    }
 
-    @Process(ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME)
-    async processTrackingJobs(job: Job<AchievementsQueueJob>) {
-        return this.achievementsService.trackAchievementsProgress(
-            job.data.targetUserId,
-            job.data.category,
-        );
+    async process(job: Job<AchievementsQueueJob>): Promise<void> {
+        switch (job.name) {
+            case ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME:
+                return this.achievementsService.trackAchievementsProgress(
+                    job.data.targetUserId,
+                    job.data.category,
+                );
+        }
     }
 }

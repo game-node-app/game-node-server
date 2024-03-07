@@ -1,14 +1,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AchievementsQueueService } from "./achievements-queue.service";
 import { ACHIEVEMENTS_QUEUE_NAME } from "./achievements-queue.constants";
-import { BullModule, getQueueToken } from "@nestjs/bull";
+import { BullModule, getQueueToken } from "@nestjs/bullmq";
 
 describe("AchievementsQueueService", () => {
     let service: AchievementsQueueService;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            imports: [BullModule.forRoot({})],
             providers: [
                 AchievementsQueueService,
                 {

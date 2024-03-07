@@ -1,4 +1,4 @@
-import { BullModule } from "@nestjs/bull";
+import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { ProfileModule } from "../../profile/profile.module";
 import { ActivitiesQueueProcessor } from "./activities-queue-processor";

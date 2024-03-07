@@ -1,7 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { InjectQueue } from "@nestjs/bull";
-import { Queue } from "bull";
-import { IGDB_SYNC_QUEUE_NAME } from "./game-queue.constants";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import {
+    IGDB_SYNC_JOB_NAME,
+    IGDB_SYNC_QUEUE_NAME,
+} from "./game-queue.constants";
 
 /**
  * Queue responsible for syncing games from IGDB (results already fetched) to our database.
@@ -21,6 +24,6 @@ export class IgdbSyncService {
      * @param games - assumed to be in the format of IGDB's API response (snake_case).
      */
     async handle(games: any[]) {
-        await this.gameQueue.add(games);
+        await this.gameQueue.add(IGDB_SYNC_JOB_NAME, games);
     }
 }

@@ -5,7 +5,7 @@ import { AchievementsQueueService } from "./achievements-queue/achievements-queu
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
 import { AchievementsQueueProcessor } from "./achievements-queue/achievements-queue.processor";
-import { BullModule } from "@nestjs/bull";
+import { BullModule } from "@nestjs/bullmq";
 import { ACHIEVEMENTS_QUEUE_NAME } from "./achievements-queue/achievements-queue.constants";
 import { LevelModule } from "../level/level.module";
 

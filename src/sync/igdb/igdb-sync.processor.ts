@@ -1,7 +1,10 @@
-import { Process, Processor } from "@nestjs/bull";
+import { Processor } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
-import { Job } from "bull";
-import { IGDB_SYNC_QUEUE_NAME } from "./game-queue.constants";
+import { Job } from "bullmq";
+import {
+    IGDB_SYNC_JOB_NAME,
+    IGDB_SYNC_QUEUE_NAME,
+} from "./game-queue.constants";
 import isEmptyObject from "../../utils/isEmptyObject";
 import {
     objectKeysToCamelCase,
@@ -10,6 +13,7 @@ import {
 
 import { PartialGame } from "../../game/game-repository/game-repository.types";
 import { GameRepositoryCreateService } from "../../game/game-repository/game-repository-create.service";
+import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 
 /**
  * Recursively converts types of a game object.
@@ -54,27 +58,30 @@ function normalizeIgdbResults(results: any[]) {
 }
 
 @Processor(IGDB_SYNC_QUEUE_NAME)
-export class IgdbSyncProcessor {
-    private logger = new Logger(IgdbSyncProcessor.name);
+export class IgdbSyncProcessor extends WorkerHostProcessor {
+    logger = new Logger(IgdbSyncProcessor.name);
 
     constructor(
         private readonly gameRepositoryCreateService: GameRepositoryCreateService,
-    ) {}
+    ) {
+        super();
+    }
 
-    @Process({
-        concurrency: 1,
-    })
     async process(job: Job<any[]>) {
-        const results = job.data;
+        if (job.name === IGDB_SYNC_JOB_NAME) {
+            const results = job.data;
 
-        const normalizedResults = normalizeIgdbResults(results);
+            const normalizedResults = normalizeIgdbResults(results);
 
-        const tasks: Promise<any>[] = [];
+            const tasks: Promise<any>[] = [];
 
-        for (const result of normalizedResults) {
-            tasks.push(this.gameRepositoryCreateService.createOrUpdate(result));
+            for (const result of normalizedResults) {
+                tasks.push(
+                    this.gameRepositoryCreateService.createOrUpdate(result),
+                );
+            }
+
+            await Promise.all(tasks);
         }
-
-        await Promise.all(tasks);
     }
 }

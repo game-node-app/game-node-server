@@ -1,22 +1,26 @@
-import { Process, Processor } from "@nestjs/bull";
+import { Processor } from "@nestjs/bullmq";
 import { NotificationsService } from "./notifications.service";
-import { Job } from "bull";
+import { Job } from "bullmq";
 import {
     NOTIFICATIONS_QUEUE_NAME,
     NOTIFICATIONS_REGISTER_JOB_NAME,
 } from "./notifications.constants";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
+import { WorkerHostProcessor } from "../utils/WorkerHostProcessor";
 
 @Processor(NOTIFICATIONS_QUEUE_NAME)
-export class NotificationsQueueProcessor {
-    constructor(private readonly notificationsService: NotificationsService) {}
+export class NotificationsQueueProcessor extends WorkerHostProcessor {
+    constructor(private readonly notificationsService: NotificationsService) {
+        super();
+    }
 
-    @Process(NOTIFICATIONS_REGISTER_JOB_NAME)
     async process(job: Job<CreateNotificationDto>) {
-        try {
-            await this.notificationsService.create(job.data);
-        } catch (e) {
-            console.error(e);
+        if (job.name === NOTIFICATIONS_REGISTER_JOB_NAME) {
+            try {
+                await this.notificationsService.create(job.data);
+            } catch (e) {
+                console.error(e);
+            }
         }
     }
 }
