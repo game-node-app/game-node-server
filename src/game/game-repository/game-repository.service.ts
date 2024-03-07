@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
-import { DataSource, In, Repository } from "typeorm";
+import { DataSource, FindOptionsRelations, In, Repository } from "typeorm";
 import { GameGenre } from "./entities/game-genre.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameTheme } from "./entities/game-theme.entity";
@@ -29,6 +29,7 @@ export type TAllowedResource = keyof typeof resourceToEntityMap;
 @Injectable()
 export class GameRepositoryService {
     private readonly logger = new Logger(GameRepositoryService.name);
+    private readonly maximumAllowedRelationsQuery = 3;
 
     /**
      * @param dataSource
@@ -40,10 +41,29 @@ export class GameRepositoryService {
         private readonly gameRepository: Repository<Game>,
     ) {}
 
+    private validateMaximumRelations(
+        relations: FindOptionsRelations<Game> | undefined,
+    ) {
+        if (!relations) return;
+        const totalQueriedEntries = Object.entries(relations).filter(
+            ([key, value]) => {
+                // E.g.: genres: true
+                return key != undefined && value;
+            },
+        ).length;
+        if (totalQueriedEntries > this.maximumAllowedRelationsQuery) {
+            throw new HttpException(
+                `For performance reasons, queries with more than ${this.maximumAllowedRelationsQuery} relations are not allowed.`,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+    }
+
     async findOneById(
         id: number,
         dto?: GameRepositoryFindOneDto,
     ): Promise<Game> {
+        this.validateMaximumRelations(dto?.relations);
         const game = await this.gameRepository.findOne({
             where: {
                 id,
@@ -64,6 +84,8 @@ export class GameRepositoryService {
         ) {
             throw new HttpException("Invalid query.", HttpStatus.BAD_REQUEST);
         }
+        this.validateMaximumRelations(dto?.relations);
+
         const games = await this.gameRepository.find({
             where: {
                 id: In(dto?.gameIds),
