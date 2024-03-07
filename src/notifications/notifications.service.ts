@@ -100,19 +100,12 @@ export class NotificationsService {
          * future iterations.
          */
         for (const notification of notifications) {
-            if (
-                notification.reviewId == undefined &&
-                notification.activityId == undefined
-            ) {
-                continue;
-            }
-
             if (processedEntities.has(notification.id)) {
                 continue;
             }
 
             /**
-             * Notifications similar to this one (including current iteration notification)
+             * Notifications similar to this one (including current iteration notification) that can be grouped for aggregation
              */
             const similarNotifications = notifications.filter(
                 (comparedNotification) => {
@@ -144,7 +137,18 @@ export class NotificationsService {
                 },
             );
 
-            if (similarNotifications.length === 0) continue;
+            if (similarNotifications.length === 0) {
+                aggregations.push({
+                    category: notification.category,
+                    sourceId:
+                        notification.reviewId! ||
+                        notification.activityId! ||
+                        notification.profileUserId!,
+                    sourceType: notification.sourceType,
+                    notifications: [notification],
+                });
+                continue;
+            }
 
             aggregations.push({
                 category: notification.category,
