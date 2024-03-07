@@ -29,7 +29,7 @@ export type TAllowedResource = keyof typeof resourceToEntityMap;
 @Injectable()
 export class GameRepositoryService {
     private readonly logger = new Logger(GameRepositoryService.name);
-    private readonly maximumAllowedRelationsQuery = 2;
+    private readonly maximumAllowedRelationsQuery = 3;
 
     /**
      * @param dataSource
@@ -53,7 +53,7 @@ export class GameRepositoryService {
         ).length;
         if (totalQueriedEntries > this.maximumAllowedRelationsQuery) {
             throw new HttpException(
-                "For performance reasons, queries with more than 2 relations are not allowed.",
+                `For performance reasons, queries with more than ${this.maximumAllowedRelationsQuery} relations are not allowed.`,
                 HttpStatus.BAD_REQUEST,
             );
         }
