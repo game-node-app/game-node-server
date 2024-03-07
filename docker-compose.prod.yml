@@ -101,6 +101,9 @@ services:
 
     restart: always
 
+    deploy:
+      replicas: 3
+
     volumes:
       - gamenode:/app/public/uploads
 

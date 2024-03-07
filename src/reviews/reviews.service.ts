@@ -116,12 +116,10 @@ export class ReviewsService {
             total: reviews.length,
         };
         for (const num of [1, 2, 3, 4, 5] as const) {
-            const items = reviews
-                .filter(
-                    (review) => review != undefined && review.rating === num,
-                )
-                .map((review) => review.rating);
-            distribution[num] = items.length;
+            const items = reviews.filter(
+                (review) => review != undefined && review.rating === num,
+            );
+            distribution[`${num}`] = items.length;
         }
 
         return distribution;

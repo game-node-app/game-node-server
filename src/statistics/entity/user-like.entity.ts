@@ -5,6 +5,7 @@ import {
     Unique,
     CreateDateColumn,
     UpdateDateColumn,
+    DeleteDateColumn,
 } from "typeorm";
 import { Statistics } from "./statistics.entity";
 import { Profile } from "../../profile/entities/profile.entity";

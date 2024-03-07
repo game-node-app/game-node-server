@@ -24,6 +24,8 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
                 // If this is not used, Redis will take a lot of ram for completed jobs
                 removeOnComplete: true,
                 removeOnFail: true,
+                attempts: 1,
+                backoff: 300,
             },
         }),
         GameRepositoryModule,

@@ -6,6 +6,7 @@ import UserRoles from "supertokens-node/recipe/userroles";
 import { EUserRoles } from "../utils/constants";
 import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 import { LevelService } from "../level/level.service";
+import { Timeout } from "@nestjs/schedule";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
@@ -20,11 +21,11 @@ export class UserInitService {
         private librariesService: LibrariesService,
         private profileService: ProfileService,
         private userLevelService: LevelService,
-    ) {
-        this.createUserRoles();
-    }
+    ) {}
 
+    @Timeout(2000)
     private createUserRoles() {
+        this.logger.log("Starting user role creation routine.");
         for (const role of Object.values(EUserRoles)) {
             UserRoles.createNewRoleOrAddPermissions(role, [])
                 .then()

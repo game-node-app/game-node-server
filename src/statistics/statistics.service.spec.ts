@@ -4,6 +4,7 @@ import { getMockRepositoriesProviders } from "../../test/mocks/repositoryMocks";
 import { Statistics } from "./entity/statistics.entity";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
+import { Notification } from "../notifications/entity/notification.entity";
 
 describe("StatisticsService", () => {
     let service: StatisticsService;
@@ -16,6 +17,7 @@ describe("StatisticsService", () => {
                     Statistics,
                     UserLike,
                     UserView,
+                    Notification,
                 ]),
             ],
         }).compile();

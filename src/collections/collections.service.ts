@@ -160,6 +160,20 @@ export class CollectionsService {
             );
         }
 
+        const privateCollectionRequest =
+            !collection.isPublic ||
+            (updateCollectionDto.isPublic != undefined &&
+                !updateCollectionDto.isPublic);
+
+        if (privateCollectionRequest) {
+            if (collection.isFeatured || updateCollectionDto.isFeatured) {
+                throw new HttpException(
+                    "Featured collections must be public.",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+        }
+
         const updatedCollection = this.collectionsRepository.merge(
             collection,
             updateCollectionDto,

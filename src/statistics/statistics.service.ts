@@ -27,6 +27,11 @@ import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-opt
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { Review } from "../reviews/entities/review.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "../notifications/notifications.constants";
+import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 
 @Injectable()
 export class StatisticsService {
@@ -37,6 +42,7 @@ export class StatisticsService {
         private readonly userLikeRepository: Repository<UserLike>,
         @InjectRepository(UserView)
         private readonly userViewRepository: Repository<UserView>,
+        private readonly notificationsQueueService: NotificationsQueueService,
     ) {}
 
     public async create(data: StatisticsActionDto) {
@@ -115,7 +121,7 @@ export class StatisticsService {
     }
 
     async handleLike(data: StatisticsLikeAction) {
-        const { sourceId, sourceType, userId, action } = data;
+        const { sourceId, sourceType, userId, targetUserId, action } = data;
         let statisticsEntity = await this.findOneBySourceIdAndType(
             sourceId,
             sourceType,
@@ -130,16 +136,18 @@ export class StatisticsService {
             }
             statisticsEntity = await this.create(data);
         }
-        const likeEntity = await this.userLikeRepository.findOneBy({
-            profile: {
-                userId: userId,
-            },
-            statistics: {
-                id: statisticsEntity.id,
+        const isLiked = await this.userLikeRepository.exist({
+            where: {
+                profile: {
+                    userId: userId,
+                },
+                statistics: {
+                    id: statisticsEntity.id,
+                },
             },
         });
 
-        if (action === StatisticsActionType.INCREMENT && likeEntity) {
+        if (action === StatisticsActionType.INCREMENT && isLiked) {
             throw new HttpException(
                 "User has already liked this item.",
                 HttpStatus.NOT_ACCEPTABLE,
@@ -162,6 +170,18 @@ export class StatisticsService {
                 "likesCount",
                 1,
             );
+
+            if (targetUserId) {
+                this.notificationsQueueService.registerNotification({
+                    sourceType:
+                        this.sourceTypeToNotificationSourceType(sourceType),
+                    sourceId: sourceId,
+                    userId: userId,
+                    targetUserId: targetUserId,
+                    category: ENotificationCategory.LIKE,
+                });
+            }
+
             return;
         }
 
@@ -206,6 +226,17 @@ export class StatisticsService {
             },
             statistics: statisticsEntity,
         });
+    }
+
+    private sourceTypeToNotificationSourceType(
+        sourceType: StatisticsSourceType,
+    ) {
+        switch (sourceType) {
+            case StatisticsSourceType.REVIEW:
+                return ENotificationSourceType.REVIEW;
+            case StatisticsSourceType.GAME:
+                return ENotificationSourceType.GAME;
+        }
     }
 
     private getPreviousDate(daysMinus: number) {

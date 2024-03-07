@@ -21,6 +21,6 @@ export class IgdbSyncService {
      * @param games - assumed to be in the format of IGDB's API response (snake_case).
      */
     async handle(games: any[]) {
-        await this.gameQueue.add(games, {});
+        await this.gameQueue.add(games);
     }
 }

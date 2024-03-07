@@ -21,7 +21,7 @@ import { HealthModule } from "./health/health.module";
 import { AchievementsModule } from "./achievements/achievements.module";
 import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
-import { NotificationsModule } from './notifications/notifications.module';
+import { NotificationsModule } from "./notifications/notifications.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -42,13 +42,14 @@ import { NotificationsModule } from './notifications/notifications.module';
             retryAttempts: 999999,
             host: process.env.DB_HOST,
             port: parseInt(process.env.DB_PORT as string) as any,
+            timezone: "Z",
             username: process.env.DB_USER,
             password: process.env.DB_PASS,
             database: process.env.DB_DATABASE,
             autoLoadEntities: true,
             // Never turn this on. Use migrations instead.
             synchronize: false,
-            logging: true,
+            logging: process.env.NODE_ENV === "development",
             debug: false,
         }),
 
