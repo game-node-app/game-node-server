@@ -85,8 +85,7 @@ export class NotificationsService {
      */
     private aggregate(
         notifications: Notification[],
-        aggregationLimit: number = 10,
-    ): [NotificationAggregateDto[], number] {
+    ): NotificationAggregateDto[] {
         const aggregationCategories = [
             ENotificationCategory.LIKE,
             ENotificationCategory.COMMENT,
@@ -110,10 +109,6 @@ export class NotificationsService {
 
             if (processedEntities.has(notification.id)) {
                 continue;
-            }
-
-            if (aggregations.length >= aggregationLimit) {
-                break;
             }
 
             /**
@@ -159,7 +154,7 @@ export class NotificationsService {
             });
         }
 
-        return [aggregations, processedEntities.size];
+        return aggregations;
     }
 
     public async findAllAndAggregate(
@@ -167,11 +162,11 @@ export class NotificationsService {
         dto: FindNotificationsDto,
     ): Promise<TPaginationData<NotificationAggregateDto>> {
         const offset = dto.offset || 0;
-        const safeFindLimit = 100;
+        const limit = dto.limit || 20;
         const [notifications, total] =
             await this.notificationRepository.findAndCount({
                 skip: offset,
-                take: safeFindLimit,
+                take: limit,
                 where: [
                     {
                         targetProfileUserId: userId,
@@ -185,17 +180,8 @@ export class NotificationsService {
                 },
                 relations: this.relations,
             });
-        const [aggregations, totalProcessedNotifications] = this.aggregate(
-            notifications,
-            10,
-        );
-
-        // Actual total to be used as basis for pagination
-        const paginationAvailableNotifications =
-            total - totalProcessedNotifications > 0
-                ? total - totalProcessedNotifications
-                : 1;
-        return [aggregations, paginationAvailableNotifications];
+        const aggregations = this.aggregate(notifications);
+        return [aggregations, total];
     }
 
     public async findNewNotifications(
@@ -266,7 +252,7 @@ export class NotificationsService {
             this.logger.warn(
                 `Skipping attempt to make user notify itself: ${dto.userId} -> ${dto.targetUserId}`,
             );
-            // return;
+            return;
         } else if (await this.isPossibleSpam(dto)) {
             this.logger.warn(
                 `Skipping attempt to create repeated notification: ${JSON.stringify(
