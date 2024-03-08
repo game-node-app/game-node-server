@@ -12,6 +12,6 @@ export class IgdbSyncController {
 
     @Post()
     async sync(@Body() dto: CreateGameDto) {
-        await this.gameQueueService.handle(dto.games);
+        // await this.gameQueueService.handle(dto.games);
     }
 }

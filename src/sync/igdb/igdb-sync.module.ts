@@ -2,9 +2,10 @@ import { Module } from "@nestjs/common";
 import { IgdbSyncService } from "./igdb-sync.service";
 import { BullModule } from "@nestjs/bullmq";
 import { IgdbSyncProcessor } from "./igdb-sync.processor";
-import { IGDB_SYNC_QUEUE_NAME } from "./game-queue.constants";
+import { IGDB_SYNC_QUEUE_NAME } from "./igdb-sync.constants";
 import { IgdbSyncController } from "./igdb-sync.controller";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
+import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 
 /**
  * This module is responsible for handling the game create/update queue.
@@ -23,6 +24,7 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
                 backoff: 300,
             },
         }),
+
         GameRepositoryModule,
     ],
     providers: [IgdbSyncService, IgdbSyncProcessor],

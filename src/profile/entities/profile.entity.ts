@@ -6,7 +6,6 @@ import {
     ManyToMany,
     OneToOne,
     PrimaryColumn,
-    PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { ProfileAvatar } from "./profile-avatar.entity";

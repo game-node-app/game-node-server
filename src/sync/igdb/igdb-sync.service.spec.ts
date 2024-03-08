@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { IgdbSyncService } from "./igdb-sync.service";
 import { getQueueToken } from "@nestjs/bullmq";
-import { IGDB_SYNC_QUEUE_NAME } from "./game-queue.constants";
+import { IGDB_SYNC_QUEUE_NAME } from "./igdb-sync.constants";
 
 describe("IgdbSyncService", () => {
     let service: IgdbSyncService;

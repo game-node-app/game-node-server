@@ -4,7 +4,7 @@ import { Job } from "bullmq";
 import {
     IGDB_SYNC_JOB_NAME,
     IGDB_SYNC_QUEUE_NAME,
-} from "./game-queue.constants";
+} from "./igdb-sync.constants";
 import isEmptyObject from "../../utils/isEmptyObject";
 import {
     objectKeysToCamelCase,
