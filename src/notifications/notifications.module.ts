@@ -4,7 +4,7 @@ import { NotificationsController } from "./notifications.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Notification } from "./entity/notification.entity";
 import { NotificationsQueueService } from "./notifications-queue.service";
-import { BullModule } from "@nestjs/bull";
+import { BullModule } from "@nestjs/bullmq";
 import { NOTIFICATIONS_QUEUE_NAME } from "./notifications.constants";
 import { NotificationsQueueProcessor } from "./notifications-queue.processor";
 

@@ -1,11 +1,12 @@
-import { InjectQueue } from "@nestjs/bull";
+import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
-import { Queue } from "bull";
+import { Queue } from "bullmq";
 import { ActivityCreate } from "./activities-queue.constants";
 
 @Injectable()
 export class ActivitiesQueueService {
     private readonly logger = new Logger(ActivitiesQueueService.name);
+
     constructor(
         @InjectQueue("activities") private readonly activitiesQueue: Queue,
     ) {}

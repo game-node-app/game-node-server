@@ -5,7 +5,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ScheduleModule } from "@nestjs/schedule";
 import { redisStore } from "cache-manager-redis-yet";
-import { BullModule } from "@nestjs/bull";
+import { BullModule } from "@nestjs/bullmq";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { GlobalModule } from "./global/global.module";
 import { CollectionsModule } from "./collections/collections.module";
@@ -72,7 +72,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
                 const redisPort = new URL(redisUrl!).port;
 
                 return {
-                    redis: {
+                    connection: {
                         host: redisHost,
                         port: parseInt(redisPort as string) as any,
                         autoResubscribe: true,
@@ -84,8 +84,8 @@ import { NotificationsModule } from "./notifications/notifications.module";
                     defaultJobOptions: {
                         removeOnComplete: true,
                         removeOnFail: true,
-                        attempts: 10,
-                        backoff: 5000,
+                        attempts: 3,
+                        backoff: 10000,
                     },
                 };
             },

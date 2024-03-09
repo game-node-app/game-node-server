@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
-import { InjectQueue } from "@nestjs/bull";
-import { Queue } from "bull";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 import {
     NOTIFICATIONS_QUEUE_NAME,
     NOTIFICATIONS_REGISTER_JOB_NAME,
@@ -10,6 +10,7 @@ import {
 @Injectable()
 export class NotificationsQueueService {
     private readonly logger = new Logger(NotificationsQueueService.name);
+
     constructor(
         @InjectQueue(NOTIFICATIONS_QUEUE_NAME)
         private readonly queue: Queue,

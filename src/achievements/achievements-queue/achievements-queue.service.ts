@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { InjectQueue } from "@nestjs/bull";
+import { InjectQueue } from "@nestjs/bullmq";
 import {
     ACHIEVEMENTS_QUEUE_NAME,
     ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME,
     AchievementsQueueJob,
 } from "./achievements-queue.constants";
-import { Queue } from "bull";
+import { Queue } from "bullmq";
 
 @Injectable()
 export class AchievementsQueueService {

@@ -2,7 +2,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { FollowService } from "./follow.service";
 import { getMockRepositoryProvider } from "../../test/mocks/repositoryMocks";
 import { UserFollow } from "./entity/user-follow.entity";
-import { FollowRegisterDto } from "./dto/follow-register.dto";
 import Mocked = jest.Mocked;
 import { Repository } from "typeorm";
 import { getRepositoryToken } from "@nestjs/typeorm";

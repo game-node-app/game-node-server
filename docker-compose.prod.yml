@@ -1,47 +1,6 @@
 version: '3'
 
 services:
-  supertokens-db:
-    hostname: supertokens-db
-    image: mysql:latest
-    environment:
-      MYSQL_ROOT_PASSWORD: ${SUPERTOKENS_DB_PASS}
-      MYSQL_USER: ${SUPERTOKENS_DB_USER}
-      MYSQL_PASSWORD: ${SUPERTOKENS_DB_PASS}
-      MYSQL_DATABASE: supertokens
-
-    networks:
-      - game_node_app
-    restart: always
-    volumes:
-      - supertokens-db:/var/lib/mysql
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      timeout: 20s
-      retries: 10
-
-  supertokens:
-    hostname: supertokens
-    image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
-
-    depends_on:
-      - supertokens-db
-
-    environment:
-      MYSQL_CONNECTION_URI: mysql://${SUPERTOKENS_DB_USER}:${SUPERTOKENS_DB_PASS}@supertokens-db:3306/supertokens
-
-    networks:
-      - game_node_app
-    restart: always
-
-    healthcheck:
-      test: >
-        bash -c 'exec 3<>/dev/tcp/127.0.0.1/3567 && echo -e "GET /hello HTTP/1.1\r\nhost: 127.0.0.1:3567\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep "Hello"'
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-
   db:
     image: mysql:latest
     environment:
@@ -88,6 +47,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PORT: 3306
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
+      RABBITMQ_URI: amqp://${RABBITMQ_USERNAME}:${RABBITMQ_PASSWORD}@rabbitmq:5672
       REDIS_URL: redis://redis:6379
       SERVER_PORT: 5000
       DOMAIN_API: https://server.gamenode.app
@@ -120,5 +80,4 @@ volumes:
   redis:
   db:
   gamenode:
-  supertokens-db:
 

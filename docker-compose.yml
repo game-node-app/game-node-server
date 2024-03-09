@@ -64,6 +64,21 @@ services:
     networks:
       - game_node_app
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      # These will be available at your localhost:
+      - "5672:5672"
+      - "25672:25672" # (erlang) communication between the nodes and CLI tool
+      - "15672:15672" # communication with the web management API
+
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq/
+
+    environment:
+      RABBITMQ_DEFAULT_USER: gamenode
+      RABBITMQ_DEFAULT_PASS: gamenode
+
 
 networks:
   game_node_app:
@@ -73,4 +88,5 @@ volumes:
   redis:
   db:
   manticore:
+  rabbitmq:
 

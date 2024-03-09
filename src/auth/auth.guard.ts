@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
+import {
+    CanActivate,
+    ExecutionContext,
+    Injectable,
+    Logger,
+} from "@nestjs/common";
 import { Error as STError } from "supertokens-node";
 
 import { verifySession } from "supertokens-node/recipe/session/framework/express";
@@ -15,9 +20,20 @@ import UserRoles from "supertokens-node/recipe/userroles";
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
+    private readonly logger = new Logger(AuthGuard.name);
     constructor(private readonly reflector: Reflector) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
+        const ctxType = context.getType<"http" | "rmq">();
+
+        if (ctxType === "rmq") {
+            this.logger.warn(
+                `Warning: AuthGuard can't be used in a RabbitMQ service/handler`,
+            );
+
+            return true;
+        }
+
         const ctx = context.switchToHttp();
 
         let err = undefined;
