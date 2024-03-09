@@ -16,7 +16,7 @@ import { NotificationsService } from "./notifications.service";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
-import { flatMap, interval, map, Observable } from "rxjs";
+import { flatMap, interval, Observable } from "rxjs";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
 import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
 import { MessageEvent } from "@nestjs/common";
