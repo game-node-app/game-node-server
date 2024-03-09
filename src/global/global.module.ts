@@ -3,6 +3,7 @@ import * as process from "process";
 import { SupertokensConfigInjectionToken } from "../auth/config.interface";
 import { ConfigModule } from "@nestjs/config";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
+import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constants";
 
 @Global()
 @Module({
@@ -29,17 +30,7 @@ import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
                         },
                     ],
                     uri: rabbitUri,
-                    queues: [
-                        {
-                            name: "sync",
-                            routingKey: "sync",
-                            exchange: "sync",
-                            options: {
-                                durable: true,
-                            },
-                            createQueueIfNotExists: true,
-                        },
-                    ],
+                    queues: [IGDB_SYNC_RABBITMQ_QUEUE_CONFIG],
                 };
             },
         }),
