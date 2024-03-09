@@ -41,17 +41,25 @@ services:
     # Most of the env vars are loaded directly from .env, we only need to override some to make sure
     # the docker resources are accessible.
     environment:
+      REDIS_URL: redis://redis:6379
+      SUPERTOKENS_CORE_URI: http://@supertokens:3567
+      SERVER_PORT: 5000
+      DOMAIN_API: https://server.gamenode.app
+      DOMAIN_WEBSITE: https://gamenode.app
       DB_HOST: db
       DB_DATABASE: gamenode
       DB_PASS: ${DB_PASS}
       DB_USER: ${DB_USER}
       DB_PORT: 3306
-      SUPERTOKENS_CORE_URI: http://@supertokens:3567
       RABBITMQ_URI: amqp://${RABBITMQ_USERNAME}:${RABBITMQ_PASSWORD}@rabbitmq:5672
-      REDIS_URL: redis://redis:6379
-      SERVER_PORT: 5000
-      DOMAIN_API: https://server.gamenode.app
-      DOMAIN_WEBSITE: https://gamenode.app
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT}
+      EMAIL_USERNAME: ${EMAIL_USERNAME}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      PROVIDER_GOOGLE_CLIENT_ID: ${PROVIDER_GOOGLE_CLIENT_ID}
+      PROVIDER_GOOGLE_CLIENT_SECRET: ${PROVIDER_GOOGLE_CLIENT_SECRET}
+      PROVIDER_DISCORD_CLIENT_ID: ${PROVIDER_DISCORD_CLIENT_ID}
+      PROVIDER_DISCORD_CLIENT_SECRET: ${PROVIDER_DISCORD_CLIENT_SECRET}
 
     healthcheck:
       test: [ "CMD-SHELL", "yarn run healthcheck" ]

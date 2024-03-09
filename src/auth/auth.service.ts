@@ -9,6 +9,8 @@ import {
     AuthModuleConfig,
 } from "./config.interface";
 import { UserInitService } from "../user-init/user-init.service";
+import { SMTPService } from "supertokens-node/lib/build/recipe/thirdpartypasswordless/emaildelivery/services";
+import * as process from "process";
 
 /**
  * The Auth Service
@@ -33,6 +35,8 @@ export class AuthService {
                 ThirdPartyPasswordless.init({
                     flowType: "USER_INPUT_CODE",
                     contactMethod: "EMAIL",
+                    emailDelivery: this.getEmailDeliverySettings(config),
+                    providers: config.providers,
                     override: {
                         apis: (originalImplementation) => ({
                             ...originalImplementation,
@@ -70,5 +74,29 @@ export class AuthService {
                 Dashboard.init(),
             ],
         });
+    }
+
+    private getEmailDeliverySettings(config: AuthModuleConfig): any {
+        const smtpSettings = config.smtpSettings;
+        const requiredFields = [
+            smtpSettings.host,
+            smtpSettings.port,
+            smtpSettings.authUsername,
+            smtpSettings.password,
+        ];
+        const hasEmptyField = requiredFields.some(
+            (field) => field == undefined,
+        );
+        if (hasEmptyField) {
+            this.logger.warn(
+                `No email service configured - Supertokens default API service will be used to send emails.`,
+            );
+            return undefined;
+        }
+        return {
+            service: new SMTPService({
+                smtpSettings: config.smtpSettings,
+            }),
+        };
     }
 }

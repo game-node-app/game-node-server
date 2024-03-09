@@ -1,6 +1,9 @@
 import { Global, Module } from "@nestjs/common";
 import * as process from "process";
-import { SupertokensConfigInjectionToken } from "../auth/config.interface";
+import {
+    AuthModuleConfig,
+    SupertokensConfigInjectionToken,
+} from "../auth/config.interface";
 import { ConfigModule } from "@nestjs/config";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constants";
@@ -49,7 +52,50 @@ import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constant
                 },
                 connectionURI: process.env.SUPERTOKENS_CORE_URI as string,
                 apiKey: undefined,
-            },
+                smtpSettings: {
+                    from: {
+                        name: "GameNode",
+                        email: "gamenode@gamenode.app",
+                    },
+                    host: process.env.EMAIL_HOST!,
+                    port: process.env.EMAIL_PORT
+                        ? parseInt(process.env.EMAIL_PORT!)
+                        : (undefined as any as number),
+                    secure: true,
+                    password: process.env.EMAIL_PASSWORD!,
+                    authUsername: process.env.EMAIL_USERNAME,
+                },
+                providers: [
+                    {
+                        config: {
+                            thirdPartyId: "google",
+                            clients: [
+                                {
+                                    clientId:
+                                        process.env.PROVIDER_GOOGLE_CLIENT_ID!,
+                                    clientSecret:
+                                        process.env
+                                            .PROVIDER_GOOGLE_CLIENT_SECRET!,
+                                },
+                            ],
+                        },
+                    },
+                    {
+                        config: {
+                            thirdPartyId: "discord",
+                            clients: [
+                                {
+                                    clientId:
+                                        process.env.PROVIDER_DISCORD_CLIENT_ID!,
+                                    clientSecret:
+                                        process.env
+                                            .PROVIDER_DISCORD_CLIENT_SECRET!,
+                                },
+                            ],
+                        },
+                    },
+                ],
+            } satisfies AuthModuleConfig,
             provide: SupertokensConfigInjectionToken,
         },
     ],
