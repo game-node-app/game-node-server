@@ -76,6 +76,7 @@ $ yarn
 Use the `.env.example` file as an example for your own `.env` file.  
 All parameters are required.
 
+
 You will also need to install MySQL, Redis and have a Supertokens instance running.
 You can use a managed version of all of these services.
 
