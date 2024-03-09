@@ -14,7 +14,6 @@ import { GameLocalization } from "./entities/game-localization.entity";
 import { GameMode } from "./entities/game-mode.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameKeyword } from "./entities/game-keyword.entity";
-import { JwtAuthModule } from "../../auth/jwt-auth/jwt-auth.module";
 import { GameRepositoryController } from "./game-repository.controller";
 import { GameInvolvedCompany } from "./entities/game-involved-company.entity";
 import { GameCompany } from "./entities/game-company.entity";

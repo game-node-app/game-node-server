@@ -4,7 +4,6 @@ import Session from "supertokens-node/recipe/session";
 import Dashboard from "supertokens-node/recipe/dashboard";
 import ThirdPartyPasswordless from "supertokens-node/recipe/thirdpartypasswordless";
 import UserRoles from "supertokens-node/recipe/userroles";
-import jwt from "supertokens-node/recipe/jwt";
 import {
     SupertokensConfigInjectionToken,
     AuthModuleConfig,
@@ -31,7 +30,6 @@ export class AuthService {
                 apiKey: this.config.apiKey,
             },
             recipeList: [
-                jwt.init(),
                 ThirdPartyPasswordless.init({
                     flowType: "USER_INPUT_CODE",
                     contactMethod: "EMAIL",
