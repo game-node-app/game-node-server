@@ -94,6 +94,20 @@ import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constant
                             ],
                         },
                     },
+                    {
+                        config: {
+                            thirdPartyId: "twitter",
+                            clients: [
+                                {
+                                    clientId:
+                                        process.env.PROVIDER_TWITTER_CLIENT_ID!,
+                                    clientSecret:
+                                        process.env
+                                            .PROVIDER_TWITTER_CLIENT_SECRET!,
+                                },
+                            ],
+                        },
+                    },
                 ],
             } satisfies AuthModuleConfig,
             provide: SupertokensConfigInjectionToken,
