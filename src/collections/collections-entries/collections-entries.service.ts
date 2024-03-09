@@ -287,4 +287,16 @@ export class CollectionsEntriesService {
 
         this.activitiesQueueService.deleteActivity(entry.id);
     }
+
+    async countEntriesForUserId(targetUserId: string) {
+        return await this.collectionEntriesRepository.count({
+            where: {
+                collections: {
+                    library: {
+                        userId: targetUserId,
+                    },
+                },
+            },
+        });
+    }
 }

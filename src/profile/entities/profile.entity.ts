@@ -37,10 +37,6 @@ export class Profile {
     })
     @JoinColumn()
     avatar: ProfileAvatar;
-    @Column({
-        default: 0,
-    })
-    followersCount: number;
     @ManyToMany(() => UserFollow, (userFollow) => userFollow.follower)
     followers: UserFollow[];
     @ManyToMany(() => UserFollow, (userFollow) => userFollow.follower)
