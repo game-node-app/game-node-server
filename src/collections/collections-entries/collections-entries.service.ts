@@ -128,7 +128,7 @@ export class CollectionsEntriesService {
                 where: {
                     collections: {
                         library: {
-                            userId,
+                            userId: targetUserId,
                         },
                     },
                 },
@@ -142,7 +142,7 @@ export class CollectionsEntriesService {
                 collections: {
                     isPublic: true,
                     library: {
-                        userId,
+                        userId: targetUserId,
                     },
                 },
             },
@@ -164,7 +164,7 @@ export class CollectionsEntriesService {
                     isFavorite: true,
                     collections: {
                         library: {
-                            userId,
+                            userId: targetUserId,
                         },
                     },
                 },
