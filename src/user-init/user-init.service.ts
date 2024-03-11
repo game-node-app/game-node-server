@@ -7,6 +7,11 @@ import { EUserRoles } from "../utils/constants";
 import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 import { LevelService } from "../level/level.service";
 import { Timeout } from "@nestjs/schedule";
+import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
+import {
+    USER_INIT_RABBITMQ_EXCHANGE,
+    USER_INIT_RABBITMQ_ROUTING_KEY,
+} from "./user-init.constants";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
@@ -17,11 +22,28 @@ export class UserInitService {
     private logger = new Logger(UserInitService.name);
 
     constructor(
+        private amqpConnection: AmqpConnection,
         private collectionsService: CollectionsService,
         private librariesService: LibrariesService,
         private profileService: ProfileService,
         private userLevelService: LevelService,
     ) {}
+
+    /**
+     * Notifies other listening services of a new user sign-in/up.
+     */
+    public dispatchUserInitEvent(userId: string) {
+        this.amqpConnection
+            .publish(
+                USER_INIT_RABBITMQ_EXCHANGE,
+                USER_INIT_RABBITMQ_ROUTING_KEY,
+                userId,
+            )
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
+    }
 
     @Timeout(2000)
     private createUserRoles() {
@@ -37,6 +59,17 @@ export class UserInitService {
 
     private async initUserRole(userId: string) {
         try {
+            const getRoles = await UserRoles.getRolesForUser(
+                this.defaultTenantId,
+                userId,
+            );
+            const roles = getRoles.roles;
+            if (
+                roles.includes(EUserRoles.MOD) ||
+                roles.includes(EUserRoles.ADMIN)
+            ) {
+                return;
+            }
             await UserRoles.addRoleToUser(
                 this.defaultTenantId,
                 userId,

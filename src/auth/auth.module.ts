@@ -24,6 +24,9 @@ import {
                     websiteBasePath: "/auth",
                 },
                 connectionURI: process.env.SUPERTOKENS_CORE_URI as string,
+                /**
+                 * This should be set if Supertokens Core is running in a public docker/host network.
+                 */
                 apiKey: undefined,
                 smtpSettings: {
                     from: {

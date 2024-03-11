@@ -48,7 +48,7 @@ You can attach to any running gamenode container and run the migrations manually
 ```bash
 $ docker exec -it gamenode_server_1 bash # Replace gamenode_server_1 with your container name
 $ yarn migration:generate
-# ...manually check the generated migration file (use Vim/Nano or docker cp to host)
+# ...manually check the generated migration file (use vim/nano/cat or docker cp to host)
 $ yarn migration:run
 # No need to restart the container, changes are made directly to MySQL.
 ```
@@ -74,8 +74,8 @@ $ yarn
 ```
 
 Use the `.env.example` file as an example for your own `.env` file.  
-All parameters are required.
-
+All parameters are required.  
+Some parameters are omitted because they are not needed for local development.
 
 You will also need to install MySQL, Redis and have a Supertokens instance running.
 You can use a managed version of all of these services.
@@ -107,8 +107,9 @@ ALWAYS check your migrations before running them. Typeorm may sometimes drop imp
 
 ### IGDB
 
-GameNode's games are powered by IGDB metadata. To use it, you need to set
-up [game-node-sync](https://github.com/game-node-app/game-node-sync).
+GameNode's games metadata are powered by IGDB. To use it, you need to set
+up [game-node-sync-igdb](https://github.com/game-node-app/game-node-sync-igdb). See [CONTRIBUTING](CONTRIBUTING.md) for
+a guide.
 
 ## Running the app
 
@@ -136,9 +137,7 @@ $ yarn test:e2e
 $ yarn test:cov
 ```
 
-Keep in mind that you can't (they won't show in SwaggerDocs) test Supertokens protected routes without a valid session
-token.  
-This makes integration testing a tad difficult.
+Keep in mind that it's not possible to test Supertokens' routes (nor should we have to).
 
 ## Support
 
