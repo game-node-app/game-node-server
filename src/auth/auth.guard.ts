@@ -8,7 +8,6 @@ import { Error as STError } from "supertokens-node";
 
 import { verifySession } from "supertokens-node/recipe/session/framework/express";
 import { Reflector } from "@nestjs/core";
-import { SessionRequest } from "supertokens-node/lib/build/framework/express";
 import UserRoles from "supertokens-node/recipe/userroles";
 
 /**
@@ -21,6 +20,7 @@ import UserRoles from "supertokens-node/recipe/userroles";
 @Injectable()
 export class AuthGuard implements CanActivate {
     private readonly logger = new Logger(AuthGuard.name);
+
     constructor(private readonly reflector: Reflector) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
