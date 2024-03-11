@@ -128,7 +128,7 @@ export class CollectionsEntriesService {
                 where: {
                     collections: {
                         library: {
-                            userId,
+                            userId: targetUserId,
                         },
                     },
                 },
@@ -142,7 +142,7 @@ export class CollectionsEntriesService {
                 collections: {
                     isPublic: true,
                     library: {
-                        userId,
+                        userId: targetUserId,
                     },
                 },
             },
@@ -164,7 +164,7 @@ export class CollectionsEntriesService {
                     isFavorite: true,
                     collections: {
                         library: {
-                            userId,
+                            userId: targetUserId,
                         },
                     },
                 },
@@ -286,5 +286,17 @@ export class CollectionsEntriesService {
         }
 
         this.activitiesQueueService.deleteActivity(entry.id);
+    }
+
+    async countEntriesForUserId(targetUserId: string) {
+        return await this.collectionEntriesRepository.count({
+            where: {
+                collections: {
+                    library: {
+                        userId: targetUserId,
+                    },
+                },
+            },
+        });
     }
 }
