@@ -8,9 +8,10 @@ import {
     AuthModuleConfig,
     SupertokensConfigInjectionToken,
 } from "./config.interface";
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
-    imports: [UserInitModule],
+    imports: [ConfigModule.forRoot(), UserInitModule],
     providers: [
         AuthService,
         {

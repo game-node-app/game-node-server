@@ -22,6 +22,7 @@ import { AchievementsModule } from "./achievements/achievements.module";
 import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { ConfigModule } from "@nestjs/config";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -30,6 +31,9 @@ import { NotificationsModule } from "./notifications/notifications.module";
  */
 @Module({
     imports: [
+        ConfigModule.forRoot({
+            isGlobal: true,
+        }),
         ScheduleModule.forRoot(),
         GlobalModule,
         AuthModule,

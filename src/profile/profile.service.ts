@@ -41,7 +41,7 @@ export class ProfileService {
             userId: userId,
             username: placeholderUsername,
         });
-        await this.profileRepository.save(profile);
+        await this.profileRepository.insert(profile);
     }
 
     async createAvatar(avatarFile: Express.Multer.File) {

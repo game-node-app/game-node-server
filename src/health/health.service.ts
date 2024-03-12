@@ -3,6 +3,7 @@ import { HealthCheckService, TypeOrmHealthIndicator } from "@nestjs/terminus";
 import * as process from "process";
 import Redis from "ioredis";
 import { RedisHealthIndicator } from "@liaoliaots/nestjs-redis-health";
+import { RabbitMQHealthCheckService } from "./checks/rabbitmq-health-check.service";
 
 @Injectable()
 export class HealthService {
@@ -10,6 +11,7 @@ export class HealthService {
         private healthCheckService: HealthCheckService,
         private redisHealthCheck: RedisHealthIndicator,
         private typeOrmHealthCheck: TypeOrmHealthIndicator,
+        private rabbitMqHealthCheck: RabbitMQHealthCheckService,
     ) {}
 
     private buildRedisInstance() {
@@ -34,10 +36,11 @@ export class HealthService {
         return this.typeOrmHealthCheck.pingCheck("typeorm");
     }
 
-    checkHealth() {
+    async checkHealth() {
         return this.healthCheckService.check([
             () => this.checkRedisHealth(),
             () => this.checkTypeOrmHealth(),
+            () => this.rabbitMqHealthCheck.check(),
         ]);
     }
 }
