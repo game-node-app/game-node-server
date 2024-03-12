@@ -14,6 +14,3 @@ RUN rm -f .env
 
 # Build app
 RUN yarn build
-
-# Starts app
-RUN yarn start:prod
