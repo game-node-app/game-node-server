@@ -18,6 +18,7 @@ import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
 import { Profile } from "./entities/profile.entity";
+import { Public } from "../auth/public.decorator";
 
 @Controller("profile")
 @ApiTags("profile")
@@ -73,6 +74,7 @@ export class ProfileController {
      * @param profileId
      */
     @Get(":id")
+    @Public()
     async findOneById(
         @Session() session: SessionContainer,
         @Param("id") profileId: string,

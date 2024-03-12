@@ -11,9 +11,6 @@ import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constant
 @Global()
 @Module({
     imports: [
-        ConfigModule.forRoot({
-            isGlobal: true,
-        }),
         /**
          * This module allows for easy integration with RabbitMQ by allowing us to mark
          * services' (injectables) methods as message handlers.
@@ -32,6 +29,9 @@ import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constant
                             createExchangeIfNotExists: true,
                         },
                     ],
+                    connectionInitOptions: {
+                        wait: false,
+                    },
                     uri: rabbitUri,
                     queues: [IGDB_SYNC_RABBITMQ_QUEUE_CONFIG],
                 };
@@ -41,6 +41,6 @@ import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constant
     providers: [
         // Add global providers here
     ],
-    exports: [SupertokensConfigInjectionToken, RabbitMQModule],
+    exports: [RabbitMQModule],
 })
 export class GlobalModule {}
