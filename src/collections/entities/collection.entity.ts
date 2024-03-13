@@ -4,7 +4,6 @@ import {
     Entity,
     ManyToMany,
     ManyToOne,
-    OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
@@ -28,6 +27,10 @@ export class Collection {
         nullable: false,
     })
     library: Library;
+    @Column({
+        nullable: false,
+    })
+    libraryUserId: string;
 
     @ManyToMany(
         () => CollectionEntry,

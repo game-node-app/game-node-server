@@ -57,6 +57,7 @@ export class CollectionsEntriesController {
         @Session() session: SessionContainer,
         @Param("id") gameId: number,
     ): Promise<CollectionEntry> {
+        console.log(`Reaches here! ${session.getUserId()} ${gameId}`);
         if (gameId == undefined) {
             throw new HttpException(
                 "Invalid query. gameId must be provided.",

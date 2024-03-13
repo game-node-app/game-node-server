@@ -43,7 +43,9 @@ export class AuthService {
                 ThirdPartyPasswordless.init({
                     flowType: "USER_INPUT_CODE",
                     contactMethod: "EMAIL",
-                    emailDelivery: this.getEmailDeliverySettings(emailConfig),
+                    emailDelivery: this.getEmailDeliverySettings(
+                        this.emailConfig,
+                    ),
                     providers: config.providers,
                     /**
                      * Custom logic implemented here:

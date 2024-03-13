@@ -2,7 +2,6 @@ import {
     Column,
     CreateDateColumn,
     Entity,
-    JoinColumn,
     JoinTable,
     ManyToMany,
     ManyToOne,
@@ -34,7 +33,6 @@ export class CollectionEntry {
         nullable: false,
     })
     game: Game;
-
     @Column({ nullable: false })
     gameId: number;
 
