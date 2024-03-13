@@ -6,7 +6,7 @@ import ThirdPartyPasswordless from "supertokens-node/recipe/thirdpartypasswordle
 import UserRoles from "supertokens-node/recipe/userroles";
 import {
     SupertokensConfigInjectionToken,
-    AuthModuleConfig,
+    SupertokensConfig,
 } from "./config.interface";
 import { UserInitService } from "../user-init/user-init.service";
 import { SMTPService } from "supertokens-node/lib/build/recipe/thirdpartypasswordless/emaildelivery/services";
@@ -14,6 +14,8 @@ import {
     AUTH_DUPLICATE_ACCOUNT_ERROR,
     AUTH_MISSING_PROVIDER_EMAIL_ERROR,
 } from "./auth.constants";
+import { SMTPServiceConfig } from "supertokens-node/lib/build/ingredients/emaildelivery/services/smtp";
+import { EMAIL_CONFIG_TOKEN } from "../global/global.tokens";
 
 /**
  * The auth service is responsible for setting up and providing Supertokens integration to GameNode. <br>
@@ -26,7 +28,9 @@ export class AuthService {
 
     constructor(
         @Inject(SupertokensConfigInjectionToken)
-        private config: AuthModuleConfig,
+        private config: SupertokensConfig,
+        @Inject(EMAIL_CONFIG_TOKEN)
+        private readonly emailConfig: SMTPServiceConfig,
         private userInitService: UserInitService,
     ) {
         supertokens.init({
@@ -39,7 +43,7 @@ export class AuthService {
                 ThirdPartyPasswordless.init({
                     flowType: "USER_INPUT_CODE",
                     contactMethod: "EMAIL",
-                    emailDelivery: this.getEmailDeliverySettings(config),
+                    emailDelivery: this.getEmailDeliverySettings(emailConfig),
                     providers: config.providers,
                     /**
                      * Custom logic implemented here:
@@ -206,13 +210,12 @@ export class AuthService {
         });
     }
 
-    private getEmailDeliverySettings(config: AuthModuleConfig): any {
-        const smtpSettings = config.smtpSettings;
+    private getEmailDeliverySettings(config: SMTPServiceConfig): any {
         const requiredFields = [
-            smtpSettings.host,
-            smtpSettings.port,
-            smtpSettings.authUsername,
-            smtpSettings.password,
+            config.host,
+            config.port,
+            config.authUsername,
+            config.password,
         ];
         const hasEmptyField = requiredFields.some(
             (field) => field == undefined,
@@ -225,7 +228,7 @@ export class AuthService {
         }
         return {
             service: new SMTPService({
-                smtpSettings: config.smtpSettings,
+                smtpSettings: config,
             }),
         };
     }
