@@ -4,10 +4,9 @@ import { ProviderInput } from "supertokens-node/lib/build/recipe/thirdparty/type
 
 export const SupertokensConfigInjectionToken = "ConfigInjectionToken";
 
-export type AuthModuleConfig = {
+export type SupertokensConfig = {
     appInfo: AppInfo;
     connectionURI: string;
     apiKey?: string;
-    smtpSettings: SMTPServiceConfig;
     providers: ProviderInput[];
 };

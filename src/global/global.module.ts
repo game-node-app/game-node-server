@@ -1,12 +1,10 @@
 import { Global, Module } from "@nestjs/common";
 import * as process from "process";
-import {
-    AuthModuleConfig,
-    SupertokensConfigInjectionToken,
-} from "../auth/config.interface";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigService } from "@nestjs/config";
 import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constants";
+import { EMAIL_CONFIG_TOKEN } from "./global.tokens";
+import { SMTPServiceConfig } from "supertokens-node/lib/build/ingredients/emaildelivery/services/smtp";
 
 @Global()
 @Module({
@@ -40,7 +38,26 @@ import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constant
     ],
     providers: [
         // Add global providers here
+        {
+            provide: EMAIL_CONFIG_TOKEN,
+            useFactory: (configService: ConfigService) => {
+                return {
+                    from: {
+                        name: "GameNode",
+                        email: configService.get("EMAIL_FROM")!,
+                    },
+                    host: configService.get("EMAIL_HOST")!,
+                    port: configService.get("EMAIL_PORT")
+                        ? parseInt(configService.get("EMAIL_PORT")!)
+                        : 465,
+                    secure: true,
+                    password: configService.get("EMAIL_PASSWORD")!,
+                    authUsername: configService.get("EMAIL_USERNAME"),
+                } satisfies SMTPServiceConfig;
+            },
+            inject: [ConfigService],
+        },
     ],
-    exports: [RabbitMQModule],
+    exports: [RabbitMQModule, EMAIL_CONFIG_TOKEN],
 })
 export class GlobalModule {}
