@@ -63,10 +63,7 @@ export class StatisticsService {
         switch (data.sourceType) {
             case StatisticsSourceType.GAME:
                 if (typeof data.sourceId !== "number") {
-                    throw new HttpException(
-                        "Invalid type for sourceId",
-                        HttpStatus.BAD_REQUEST,
-                    );
+                    data.sourceId = parseInt(data.sourceId, 10);
                 }
                 statisticsEntity.gameId = data.sourceId as number;
                 break;

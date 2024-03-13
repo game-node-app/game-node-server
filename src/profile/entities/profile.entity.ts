@@ -41,6 +41,11 @@ export class Profile {
     followers: UserFollow[];
     @ManyToMany(() => UserFollow, (userFollow) => userFollow.follower)
     following: UserFollow[];
+    @Column({
+        type: "timestamp",
+        nullable: true,
+    })
+    usernameLastUpdatedAt: Date | null;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

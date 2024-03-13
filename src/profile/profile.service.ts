@@ -150,7 +150,21 @@ export class ProfileService {
                     HttpStatus.BAD_REQUEST,
                 );
             }
+            if (profile.usernameLastUpdatedAt) {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(-30);
+                if (
+                    profile.usernameLastUpdatedAt.getTime() <
+                    thirtyDaysAgo.getTime()
+                ) {
+                    throw new HttpException(
+                        "Username updated in the last 30 days. Please try again later.",
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
+            }
             profile.username = updateProfileDto.username;
+            profile.usernameLastUpdatedAt = new Date();
         }
 
         if (updateProfileDto.bio) {

@@ -51,9 +51,7 @@ export class CollectionsEntriesService {
         return await this.collectionEntriesRepository.findOne({
             where: {
                 collections: {
-                    library: {
-                        userId,
-                    },
+                    libraryUserId: userId,
                 },
                 game: {
                     id: gameId,
