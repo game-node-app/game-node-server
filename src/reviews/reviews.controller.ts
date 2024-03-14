@@ -41,6 +41,7 @@ export class ReviewsController {
     }
 
     @Post("all")
+    @Public()
     async findAllById(@Body() dto: FindAllReviewsByIdDto) {
         return this.reviewsService.findAllByIdIn(dto.reviewsIds);
     }
