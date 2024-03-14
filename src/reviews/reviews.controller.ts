@@ -47,6 +47,7 @@ export class ReviewsController {
     }
 
     @Get("/score")
+    @Public()
     async getScoreForGameId(@Query() dto: ReviewScoreRequestDto) {
         return this.reviewsService.getScore(dto.gameId);
     }
