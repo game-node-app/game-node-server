@@ -14,7 +14,7 @@ import { LibrariesModule } from "./libraries/libraries.module";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
-import { seconds, ThrottlerModule } from "@nestjs/throttler";
+import { seconds, ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { LevelModule } from "./level/level.module";
 import { HealthModule } from "./health/health.module";
@@ -23,6 +23,7 @@ import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConfigModule } from "@nestjs/config";
+import { APP_GUARD } from "@nestjs/core";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -130,6 +131,12 @@ import { ConfigModule } from "@nestjs/config";
         AchievementsModule,
         FollowModule,
         NotificationsModule,
+    ],
+    providers: [
+        {
+            provide: APP_GUARD,
+            useClass: ThrottlerGuard,
+        },
     ],
 })
 export class AppModule implements NestModule {
