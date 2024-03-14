@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+    Logger,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
 import { DataSource, FindOptionsRelations, In, Repository } from "typeorm";
@@ -15,6 +21,9 @@ import { GamePlayerPerspective } from "./entities/game-player-perspective.entity
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
 import { buildFilterFindOptions } from "../../sync/igdb/utils/build-filter-find-options";
 import { platformAbbreviationToIconMap } from "./game-repository.utils";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
+import { minutes } from "@nestjs/throttler";
 
 const resourceToEntityMap = {
     platforms: GamePlatform,
@@ -37,6 +46,8 @@ export class GameRepositoryService {
      */
     constructor(
         private readonly dataSource: DataSource,
+        @Inject(CACHE_MANAGER)
+        private readonly cacheManager: Cache,
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
     ) {}
@@ -64,6 +75,16 @@ export class GameRepositoryService {
         dto?: GameRepositoryFindOneDto,
     ): Promise<Game> {
         this.validateMaximumRelations(dto?.relations);
+
+        let cacheKey = `gr-find-one-${id}`;
+        if (dto) {
+            cacheKey = `${cacheKey}-${JSON.stringify(dto)}`;
+        }
+        try {
+            const gameInCache = await this.cacheManager.get<Game>(cacheKey);
+            if (gameInCache) return gameInCache;
+        } catch (err) {}
+
         const game = await this.gameRepository.findOne({
             where: {
                 id,
@@ -73,6 +94,12 @@ export class GameRepositoryService {
         if (!game) {
             throw new HttpException("Game not found.", HttpStatus.NOT_FOUND);
         }
+
+        this.cacheManager
+            .set(cacheKey, game, minutes(5))
+            .then()
+            .catch((err) => this.logger.error(err));
+
         return game;
     }
 
@@ -85,6 +112,12 @@ export class GameRepositoryService {
             throw new HttpException("Invalid query.", HttpStatus.BAD_REQUEST);
         }
         this.validateMaximumRelations(dto?.relations);
+
+        const cacheKey = JSON.stringify(dto);
+        try {
+            const gamesInCache = await this.cacheManager.get<Game[]>(cacheKey);
+            if (gamesInCache) return gamesInCache;
+        } catch (err) {}
 
         const games = await this.gameRepository.find({
             where: {
@@ -105,11 +138,18 @@ export class GameRepositoryService {
             return acc;
         }, new Map<number, Game>());
 
-        return dto.gameIds
+        const filteredGames = dto.gameIds
             .map((id) => {
                 return gamesMap.get(id);
             })
             .filter((game) => game != undefined) as Game[];
+
+        this.cacheManager
+            .set(cacheKey, filteredGames, minutes(10))
+            .then()
+            .catch((err) => this.logger.error(err));
+
+        return filteredGames;
     }
 
     async findAll(dto: BaseFindDto<Game>): Promise<TPaginationData<Game>> {

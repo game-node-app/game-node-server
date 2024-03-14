@@ -9,6 +9,7 @@ import {
     SupertokensConfigInjectionToken,
 } from "./config.interface";
 import { ConfigService } from "@nestjs/config";
+import { AuthController } from "./auth.controller";
 
 @Module({
     imports: [UserInitModule],
@@ -83,6 +84,7 @@ import { ConfigService } from "@nestjs/config";
             },
         },
     ],
+    controllers: [AuthController],
 })
 export class AuthModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {

@@ -41,11 +41,13 @@ export class ReviewsController {
     }
 
     @Post("all")
+    @Public()
     async findAllById(@Body() dto: FindAllReviewsByIdDto) {
         return this.reviewsService.findAllByIdIn(dto.reviewsIds);
     }
 
     @Get("/score")
+    @Public()
     async getScoreForGameId(@Query() dto: ReviewScoreRequestDto) {
         return this.reviewsService.getScore(dto.gameId);
     }

@@ -12,6 +12,7 @@ import {
     USER_INIT_RABBITMQ_EXCHANGE,
     USER_INIT_RABBITMQ_ROUTING_KEY,
 } from "./user-init.constants";
+import { AUTH_ERRORS } from "../auth/auth.constants";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
@@ -22,28 +23,11 @@ export class UserInitService {
     private logger = new Logger(UserInitService.name);
 
     constructor(
-        private amqpConnection: AmqpConnection,
         private collectionsService: CollectionsService,
         private librariesService: LibrariesService,
         private profileService: ProfileService,
         private userLevelService: LevelService,
     ) {}
-
-    /**
-     * Notifies other listening services of a new user sign-in/up.
-     */
-    public dispatchUserInitEvent(userId: string) {
-        this.amqpConnection
-            .publish(
-                USER_INIT_RABBITMQ_EXCHANGE,
-                USER_INIT_RABBITMQ_ROUTING_KEY,
-                userId,
-            )
-            .then()
-            .catch((err) => {
-                this.logger.error(err);
-            });
-    }
 
     @Timeout(2000)
     private createUserRoles() {
@@ -57,37 +41,16 @@ export class UserInitService {
         }
     }
 
-    private async initUserRole(userId: string) {
-        try {
-            const getRoles = await UserRoles.getRolesForUser(
-                this.defaultTenantId,
-                userId,
-            );
-            const roles = getRoles.roles;
-            if (
-                roles.includes(EUserRoles.MOD) ||
-                roles.includes(EUserRoles.ADMIN)
-            ) {
-                return;
-            }
-            await UserRoles.addRoleToUser(
-                this.defaultTenantId,
-                userId,
-                EUserRoles.USER,
-            );
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
     /**
-     * Initialize the user
-     * This function should be called on the PostSignup event for SuperTokens.
+     * Given a Supertokens userId, initialize said user in our system. <br>
+     * This function should be called on the PostSignup event for SuperTokens. <br>
+     * Throws errors when any of the init methods fails.
      * @param userId
+     * @throws Error
      */
     async init(userId: string) {
         this.logger.log(
-            `Started init routine for userId ${userId} at ${new Date().toISOString()}`,
+            `Started init routine for ${userId} at ${new Date().toISOString()}`,
         );
         const initPromises: Promise<void>[] = [
             this.initUserRole(userId),
@@ -95,70 +58,73 @@ export class UserInitService {
             this.initLibrary(userId),
             this.initLevel(userId),
         ];
-
         try {
             await Promise.all(initPromises);
-        } catch (e: unknown) {
-            console.error(e);
+            this.logger.log(
+                `Finished init routine for ${userId} at ${new Date().toISOString()}`,
+            );
+        } catch (err) {
+            this.logger.error(err);
+            throw new Error(AUTH_ERRORS.USER_INIT_ERROR);
         }
+    }
+
+    private async initUserRole(userId: string) {
+        const getRoles = await UserRoles.getRolesForUser(
+            this.defaultTenantId,
+            userId,
+        );
+        const roles = getRoles.roles;
+        if (
+            roles.includes(EUserRoles.MOD) ||
+            roles.includes(EUserRoles.ADMIN)
+        ) {
+            return;
+        }
+        await UserRoles.addRoleToUser(
+            this.defaultTenantId,
+            userId,
+            EUserRoles.USER,
+        );
     }
 
     private async initProfile(userId: string) {
-        try {
-            const possibleUserProfile =
-                await this.profileService.findOneById(userId);
-            if (possibleUserProfile) {
-                return;
-            }
-            await this.profileService.create(userId);
-        } catch (e: any) {
-            this.logger.error(
-                `Failed to create profile for user ${userId} at signup/in`,
-                e,
-            );
+        const possibleUserProfile =
+            await this.profileService.findOneById(userId);
+        if (possibleUserProfile) {
+            return;
         }
+        await this.profileService.create(userId);
+        this.logger.log(`Created profile for user ${userId} at signup`);
     }
 
     private async initLibrary(userId: string) {
-        try {
-            const possibleUserLibrary =
-                await this.librariesService.findOneById(userId);
-            if (possibleUserLibrary) {
-                return;
-            }
-
-            await this.librariesService.create(userId);
-            this.logger.log(`Created library for user ${userId} at signup`);
-            for (const defCollection of DEFAULT_COLLECTIONS) {
-                // Registers the promise but does not wait for it
-                this.collectionsService
-                    .create(userId, defCollection)
-                    .then()
-                    .catch();
-            }
-            this.logger.log(
-                `Created default collections for user ${userId} at signup`,
-            );
-        } catch (e: any) {
-            this.logger.error(
-                `Failed to create library and default collections for user ${userId} at signup/in`,
-                e,
-            );
+        const possibleUserLibrary =
+            await this.librariesService.findOneById(userId);
+        if (possibleUserLibrary) {
+            return;
         }
+
+        await this.librariesService.create(userId);
+        this.logger.log(`Created library for user ${userId} at signup`);
+        const defaultCollectionsCreatePromises = DEFAULT_COLLECTIONS.map(
+            (collectionSpec) =>
+                this.collectionsService.create(userId, collectionSpec),
+        );
+        await Promise.all(defaultCollectionsCreatePromises);
+        this.logger.log(
+            `Created default collections for user ${userId} at signup`,
+        );
     }
 
     private async initLevel(userId: string) {
-        try {
-            const userLevelEntity =
-                await this.userLevelService.findOneByUserId(userId);
+        const userLevelEntity =
+            await this.userLevelService.findOneByUserId(userId);
 
-            if (userLevelEntity) {
-                return;
-            }
-
-            await this.userLevelService.create(userId);
-        } catch (e: any) {
-            console.error(e);
+        if (userLevelEntity) {
+            return;
         }
+
+        await this.userLevelService.create(userId);
     }
 }
