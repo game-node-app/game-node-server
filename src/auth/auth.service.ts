@@ -10,10 +10,7 @@ import {
 } from "./config.interface";
 import { UserInitService } from "../user-init/user-init.service";
 import { SMTPService } from "supertokens-node/lib/build/recipe/thirdpartypasswordless/emaildelivery/services";
-import {
-    AUTH_DUPLICATE_ACCOUNT_ERROR,
-    AUTH_MISSING_PROVIDER_EMAIL_ERROR,
-} from "./auth.constants";
+import { AUTH_ERRORS } from "./auth.constants";
 import { SMTPServiceConfig } from "supertokens-node/lib/build/ingredients/emaildelivery/services/smtp";
 import { EMAIL_CONFIG_TOKEN } from "../global/global.tokens";
 
@@ -57,11 +54,6 @@ export class AuthService {
                         functions: (originalImplementation) => ({
                             ...originalImplementation,
                             thirdPartySignInUp: async (input) => {
-                                if (input.email == undefined) {
-                                    throw new Error(
-                                        AUTH_MISSING_PROVIDER_EMAIL_ERROR,
-                                    );
-                                }
                                 const existingUsers =
                                     await supertokens.listUsersByAccountInfo(
                                         input.tenantId,
@@ -104,7 +96,9 @@ export class AuthService {
                                         input,
                                     );
                                 }
-                                throw new Error(AUTH_DUPLICATE_ACCOUNT_ERROR);
+                                throw new Error(
+                                    AUTH_ERRORS.DUPLICATE_ACCOUNT_ERROR,
+                                );
                             },
                         }),
                         apis: (originalImplementation) => ({
@@ -168,39 +162,57 @@ export class AuthService {
                                             input,
                                         );
                                     if (result.status === "OK") {
-                                        this.userInitService
-                                            .init(result.user.id)
-                                            .then()
-                                            .catch((e) => console.error(e));
+                                        await this.userInitService.init(
+                                            result.user.id,
+                                        );
                                     }
                                     return result;
                                 } catch (err: any) {
-                                    if (
-                                        err.message ===
-                                        AUTH_DUPLICATE_ACCOUNT_ERROR
-                                    ) {
-                                        return {
-                                            status: "GENERAL_ERROR",
-                                            message:
-                                                "It seems like you already have an account with us. Please sign-in with the usual method.",
-                                        };
+                                    this.logger.error(err);
+                                    switch (err.message) {
+                                        case AUTH_ERRORS.DUPLICATE_ACCOUNT_ERROR:
+                                            return {
+                                                status: "GENERAL_ERROR",
+                                                message:
+                                                    "It seems like you already have an account with us. Please sign-in with the usual method.",
+                                            };
+                                        case AUTH_ERRORS.USER_INIT_ERROR:
+                                            return {
+                                                status: "GENERAL_ERROR",
+                                                message:
+                                                    "Our internal user initialization process failed. Please try again.",
+                                            };
                                     }
 
                                     throw err;
                                 }
                             },
                             consumeCodePOST: async (input) => {
-                                const result =
-                                    await originalImplementation.consumeCodePOST!(
-                                        input,
-                                    );
-                                if (result.status === "OK") {
-                                    this.userInitService
-                                        .init(result.user.id)
-                                        .then()
-                                        .catch((e) => console.error(e));
+                                try {
+                                    const result =
+                                        await originalImplementation.consumeCodePOST!(
+                                            input,
+                                        );
+                                    if (result.status === "OK") {
+                                        if (result.status === "OK") {
+                                            await this.userInitService.init(
+                                                result.user.id,
+                                            );
+                                        }
+                                    }
+                                    return result;
+                                } catch (err) {
+                                    this.logger.error(err);
+                                    switch (err.message) {
+                                        case AUTH_ERRORS.USER_INIT_ERROR:
+                                            return {
+                                                status: "GENERAL_ERROR",
+                                                message:
+                                                    "Our internal user initialization process failed. Please go back and try again.",
+                                            };
+                                    }
+                                    throw err;
                                 }
-                                return result;
                             },
                         }),
                     },

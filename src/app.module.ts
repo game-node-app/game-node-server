@@ -41,6 +41,7 @@ import { ConfigModule } from "@nestjs/config";
         TypeOrmModule.forRoot({
             // Fixes Bigint values being returned as string
             // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
+            // This will cause issues if you actually use huge numbers (not our case)
             bigNumberStrings: false,
             type: "mysql",
             retryAttempts: 999999,
