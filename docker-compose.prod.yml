@@ -12,13 +12,19 @@ services:
 
     networks:
       - game_node_app
+
     restart: always
+
     volumes:
       - supertokens-db:/var/lib/mysql
+
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s
       retries: 10
+
+    deploy:
+      replicas: 1
 
   supertokens:
     hostname: supertokens
@@ -33,6 +39,9 @@ services:
     networks:
       - game_node_app
     restart: always
+
+    deploy:
+      replicas: 1
 
     healthcheck:
       test: >
@@ -79,6 +88,9 @@ services:
       timeout: 20s
       retries: 10
 
+    deploy:
+      replicas: 3
+
   redis:
     image: redis:latest
     environment:
@@ -88,6 +100,9 @@ services:
 
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+
+    deploy:
+      replicas: 2
 
     volumes:
       - redis:/var/lib/redis

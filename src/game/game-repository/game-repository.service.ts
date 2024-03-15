@@ -64,7 +64,7 @@ export class GameRepositoryService {
         ).length;
         if (totalQueriedEntries > this.maximumAllowedRelationsQuery) {
             throw new HttpException(
-                `For performance reasons, queries with more than ${this.maximumAllowedRelationsQuery} relations are not allowed.`,
+                `For performance reasons, queries with more than ${this.maximumAllowedRelationsQuery} relations are not allowed. Send multiple requests instead.`,
                 HttpStatus.BAD_REQUEST,
             );
         }
