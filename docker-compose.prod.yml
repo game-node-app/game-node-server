@@ -23,9 +23,6 @@ services:
       timeout: 20s
       retries: 10
 
-    deploy:
-      replicas: 1
-
   supertokens:
     hostname: supertokens
     image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
@@ -88,8 +85,6 @@ services:
       timeout: 20s
       retries: 10
 
-    deploy:
-      replicas: 3
 
   redis:
     image: redis:latest
