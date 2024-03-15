@@ -132,12 +132,6 @@ import { APP_GUARD } from "@nestjs/core";
         FollowModule,
         NotificationsModule,
     ],
-    providers: [
-        {
-            provide: APP_GUARD,
-            useClass: ThrottlerGuard,
-        },
-    ],
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
