@@ -3,7 +3,7 @@ version: '3'
 services:
   supertokens-db:
     hostname: supertokens-db
-    image: mysql:8.2.0
+    image: mysql:8.3
     environment:
       MYSQL_ROOT_PASSWORD: ${SUPERTOKENS_DB_PASS}
       MYSQL_USER: ${SUPERTOKENS_DB_USER}
@@ -68,7 +68,7 @@ services:
       - game_node_app
 
   db:
-    image: mysql:8.2.0
+    image: mysql:8.3
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASS}
       MYSQL_USER: ${DB_USER}
