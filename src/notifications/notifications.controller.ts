@@ -23,8 +23,7 @@ import { MessageEvent } from "@nestjs/common";
 import { fromPromise } from "rxjs/internal/observable/innerFrom";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { PaginatedNotificationAggregationDto } from "./dto/paginated-notification-aggregation.dto";
-import { minutes, seconds, ThrottlerGuard } from "@nestjs/throttler";
-import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
+import { ThrottlerGuard } from "@nestjs/throttler";
 
 const NOTIFICATIONS_CHECK_INTERVAL = 60000;
 
