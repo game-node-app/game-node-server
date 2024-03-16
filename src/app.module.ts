@@ -60,6 +60,7 @@ function getRedisConfig() {
         TypeOrmModule.forRootAsync({
             inject: [ConfigService],
             useFactory: () => {
+                const redisConfig = getRedisConfig();
                 return {
                     // Fixes Bigint values being returned as string
                     // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
@@ -87,8 +88,8 @@ function getRedisConfig() {
                     cache: {
                         type: "ioredis",
                         options: {
-                            host: getRedisConfig().host,
-                            port: getRedisConfig().port,
+                            host: redisConfig.host,
+                            port: redisConfig.port,
                         },
                     },
                 };
