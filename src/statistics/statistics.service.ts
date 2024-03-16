@@ -261,10 +261,6 @@ export class StatisticsService {
         extraFindOptionsWhere: FindOptionsWhere<Statistics>,
         period: StatisticsPeriod = StatisticsPeriod.WEEK,
     ): Promise<TPaginationData<Statistics>> {
-        // Avoids timezone-related issues
-        // Just trust me
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
         const periodMinusDays = StatisticsPeriodToMinusDays[period];
         const periodDate = this.getPreviousDate(periodMinusDays);
 
