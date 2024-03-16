@@ -26,6 +26,25 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 
 /**
+ * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
+ */
+function getRedisConfig() {
+    /**
+     * While the "redis" property below accepts a string, and it works fine on local,
+     * it fails on Docker, so use host and port instead.
+     */
+    const redisUrl = process.env.REDIS_URL;
+    const redisHost = new URL(redisUrl!).hostname;
+    const redisPort = new URL(redisUrl!).port;
+
+    return {
+        url: redisUrl,
+        host: redisHost,
+        port: parseInt(redisPort, 10),
+    } as const;
+}
+
+/**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
  * and specify the hostname manually, otherwise it will not pick up in the docker network.
  * See "BullModule.forRootAsync" here for an example.
@@ -55,8 +74,28 @@ import { APP_GUARD } from "@nestjs/core";
             autoLoadEntities: true,
             // Never turn this on. Use migrations instead.
             synchronize: false,
-            logging: process.env.NODE_ENV === "development",
+            // logging: process.env.NODE_ENV === "development",
+            logging: false,
             debug: false,
+            /**
+             * Allows us to cache select queries using ioredis
+             * https://orkhan.gitbook.io/typeorm/docs/caching
+             * TODO: Check if this is actually working
+             */
+            cache: {
+                type: "ioredis",
+                options: {
+                    connection: {
+                        host: getRedisConfig().host,
+                        port: getRedisConfig().port,
+                        autoResubscribe: true,
+                        reconnectOnError: () => {
+                            return true;
+                        },
+                        maxRetriesPerRequest: null,
+                    },
+                },
+            },
         }),
 
         CacheModule.registerAsync({
@@ -69,18 +108,12 @@ import { APP_GUARD } from "@nestjs/core";
         }),
         BullModule.forRootAsync({
             useFactory: async () => {
-                /**
-                 * While the "redis" property below accepts a string, and it works fine on local,
-                 * it fails on Docker, so use host and port instead.
-                 */
-                const redisUrl = process.env.REDIS_URL;
-                const redisHost = new URL(redisUrl!).hostname;
-                const redisPort = new URL(redisUrl!).port;
+                const { port, host } = getRedisConfig();
 
                 return {
                     connection: {
-                        host: redisHost,
-                        port: parseInt(redisPort as string) as any,
+                        host: host,
+                        port: port,
                         autoResubscribe: true,
                         reconnectOnError: () => {
                             return true;
@@ -98,19 +131,13 @@ import { APP_GUARD } from "@nestjs/core";
         }),
         ThrottlerModule.forRootAsync({
             useFactory: () => {
-                /**
-                 * While the "redis" property below accepts a script, and it works fine on local,
-                 * it fails on Docker, so use host and port instead.
-                 */
-                const redisUrl = process.env.REDIS_URL;
-                const redisHost = new URL(redisUrl!).hostname;
-                const redisPort = new URL(redisUrl!).port;
+                const { port, host } = getRedisConfig();
                 return {
                     throttlers: [{ limit: 10, ttl: seconds(60) }],
                     storage: new ThrottlerStorageRedisService({
-                        host: redisHost,
+                        host: host,
                         autoResubscribe: true,
-                        port: redisPort,
+                        port: port,
                         reconnectOnError: () => {
                             return true;
                         },

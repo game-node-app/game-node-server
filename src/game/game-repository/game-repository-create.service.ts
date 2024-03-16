@@ -24,6 +24,7 @@ import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { PartialGame } from "./game-repository.types";
 import { StatisticsService } from "../../statistics/statistics.service";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
+import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -98,11 +99,11 @@ export class GameRepositoryCreateService {
         private readonly gameEngineRepository: Repository<GameEngine>,
         @InjectRepository(GameEngineLogo)
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
-        private readonly statisticsService: StatisticsService,
+        private readonly statisticsQueueService: StatisticsQueueService,
     ) {}
 
     /**
-     * ManyToMany models can't be easily upserted, since the junction table is not inserted/updated automatically.
+     * ManyToMany models can't be easily upserted, since the junction table is not inserted/updated automatically (without .save).
      * To both fix this and circumvent the .save() bug, use the QueryBuilder with the .relation() method.
      * Bug info: https://github.com/typeorm/typeorm/issues/1754
      * @param game
@@ -125,8 +126,8 @@ export class GameRepositoryCreateService {
         await this.buildChildRelationships(game);
         this.logger.log(`Upserted game ${game.id} and it's relationships`);
 
-        this.statisticsService
-            .create({
+        this.statisticsQueueService
+            .createStatistics({
                 sourceId: game.id,
                 sourceType: StatisticsSourceType.GAME,
             })

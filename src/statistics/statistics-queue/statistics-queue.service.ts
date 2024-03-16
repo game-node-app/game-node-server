@@ -16,6 +16,10 @@ export class StatisticsQueueService {
         private readonly statisticsQueue: Queue,
     ) {}
 
+    createStatistics(data: StatisticsActionDto) {
+        return this.statisticsQueue.add("create", data);
+    }
+
     registerLike(
         userId: string,
         dto: StatisticsActionDto,

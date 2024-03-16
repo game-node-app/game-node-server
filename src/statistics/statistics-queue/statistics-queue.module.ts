@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { StatisticsQueueService } from "./statistics-queue.service";
 import { StatisticsQueueController } from "./statistics-queue.controller";
 import { BullModule } from "@nestjs/bullmq";
@@ -19,9 +19,10 @@ import { StatisticsQueueProcessor } from "./statistics-queue.processor";
                 removeOnComplete: true,
             },
         }),
-        StatisticsModule,
+        forwardRef(() => StatisticsModule),
     ],
     providers: [StatisticsQueueService, StatisticsQueueProcessor],
     controllers: [StatisticsQueueController],
+    exports: [StatisticsQueueService],
 })
 export class StatisticsQueueModule {}

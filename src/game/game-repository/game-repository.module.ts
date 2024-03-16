@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { GameRepositoryService } from "./game-repository.service";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
@@ -24,6 +24,7 @@ import { GameCompanyLogo } from "./entities/game-company-logo.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryCreateService } from "./game-repository-create.service";
 import { StatisticsModule } from "../../statistics/statistics.module";
+import { StatisticsQueueModule } from "../../statistics/statistics-queue/statistics-queue.module";
 
 /**
  * This is a pretty big module, with lots of dependencies.
@@ -52,7 +53,7 @@ import { StatisticsModule } from "../../statistics/statistics.module";
             GameEngineLogo,
             GamePlayerPerspective,
         ]),
-        StatisticsModule,
+        StatisticsQueueModule,
     ],
     providers: [GameRepositoryService, GameRepositoryCreateService],
     exports: [GameRepositoryService, GameRepositoryCreateService],

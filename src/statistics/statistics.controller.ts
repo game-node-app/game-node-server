@@ -32,6 +32,7 @@ export class StatisticsController {
 
     @Post()
     @HttpCode(HttpStatus.OK)
+    @Public()
     async findOneBySourceIdAndType(@Body() dto: FindOneStatisticsDto) {
         return this.statisticsService.findOneBySourceIdAndType(
             dto.sourceId,
@@ -42,8 +43,8 @@ export class StatisticsController {
     @Post("trending/games")
     @Public()
     @UseInterceptors(PaginationInterceptor)
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(600)
+    // @UseInterceptors(CacheInterceptor)
+    // @CacheTTL(600)
     @ApiResponse({
         status: 200,
         type: StatisticsPaginatedResponseDto,
@@ -58,8 +59,8 @@ export class StatisticsController {
 
     @Post("trending/reviews")
     @UseInterceptors(PaginationInterceptor)
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(600)
+    // @UseInterceptors(CacheInterceptor)
+    // @CacheTTL(600)
     @ApiResponse({
         status: 200,
         type: StatisticsPaginatedResponseDto,
