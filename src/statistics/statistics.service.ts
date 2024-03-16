@@ -9,6 +9,7 @@ import {
     Between,
     FindManyOptions,
     FindOptionsWhere,
+    MoreThanOrEqual,
     Repository,
 } from "typeorm";
 import { Statistics } from "./entity/statistics.entity";
@@ -274,13 +275,13 @@ export class StatisticsService {
                 {
                     ...extraFindOptionsWhere,
                     views: {
-                        createdAt: Between(periodDate, tomorrow),
+                        createdAt: MoreThanOrEqual(periodDate),
                     },
                 },
                 {
                     ...extraFindOptionsWhere,
                     likes: {
-                        createdAt: Between(periodDate, tomorrow),
+                        createdAt: MoreThanOrEqual(periodDate),
                     },
                 },
                 {
