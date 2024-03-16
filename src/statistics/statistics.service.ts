@@ -277,7 +277,6 @@ export class StatisticsService {
         const periodMinusDays = StatisticsPeriodToMinusDays[period];
         const periodDate = this.getPreviousDate(periodMinusDays);
 
-        console.time("statistics");
         const items = await this.statisticsRepository.findAndCount({
             ...baseFindOptions,
             where: [
@@ -305,7 +304,6 @@ export class StatisticsService {
             },
             cache: minutes(5),
         });
-        console.timeEnd("statistics");
         return items;
     }
 

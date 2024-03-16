@@ -167,24 +167,22 @@ export class NotificationsService {
     ): Promise<TPaginationData<NotificationAggregateDto>> {
         const offset = dto.offset || 0;
         const limit = dto.limit || 20;
+        console.time("notifications");
         const [notifications, total] =
             await this.notificationRepository.findAndCount({
                 skip: offset,
                 take: limit,
-                where: [
-                    {
-                        targetProfileUserId: userId,
-                    },
-                    {
-                        targetProfileUserId: IsNull(),
-                    },
-                ],
+                where: {
+                    targetProfileUserId: userId,
+                },
                 order: {
                     createdAt: "DESC",
                 },
                 relations: this.relations,
             });
         const aggregations = this.aggregate(notifications);
+        console.timeEnd("notifications");
+
         return [aggregations, total];
     }
 
