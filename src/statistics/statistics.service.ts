@@ -287,7 +287,6 @@ export class StatisticsService {
                     },
                 },
                 {
-                    ...extraFindOptionsWhere,
                     likes: {
                         createdAt: MoreThanOrEqual(periodDate),
                     },
@@ -314,7 +313,7 @@ export class StatisticsService {
         const [trendingItems] = await this.findTrendingItems(
             {
                 skip: 0,
-                take: 2500,
+                take: 1000,
             },
             findOptionsWhere,
             dto.period,

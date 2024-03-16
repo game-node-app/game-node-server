@@ -30,7 +30,5 @@ export function buildFilterFindOptions(
         }
     }
 
-    console.log("Options", options);
-
     return options;
 }

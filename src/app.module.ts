@@ -77,8 +77,8 @@ function getRedisConfig() {
                     autoLoadEntities: true,
                     // Never turn this on. Use migrations instead.
                     synchronize: false,
-                    // logging: process.env.NODE_ENV === "development",
-                    logging: false,
+                    logging: process.env.NODE_ENV === "development",
+                    // logging: false,
                     debug: false,
                     /**
                      * Allows us to cache select queries using ioredis
