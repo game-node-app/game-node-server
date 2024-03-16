@@ -42,12 +42,11 @@ export class GameRepositoryService {
 
     /**
      * @param dataSource
+     * @param cacheManager
      * @param gameRepository
      */
     constructor(
         private readonly dataSource: DataSource,
-        @Inject(CACHE_MANAGER)
-        private readonly cacheManager: Cache,
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
     ) {}
@@ -76,31 +75,31 @@ export class GameRepositoryService {
     ): Promise<Game> {
         this.validateMaximumRelations(dto?.relations);
 
-        let cacheKey = `gr-find-one-${id}`;
-        if (dto) {
-            cacheKey = `${cacheKey}-${JSON.stringify(dto)}`;
-        }
-        try {
-            const gameInCache = await this.cacheManager.get<Game>(cacheKey);
-            if (gameInCache) return gameInCache;
-        } catch (err) {}
-
         const game = await this.gameRepository.findOne({
             where: {
                 id,
             },
             relations: dto?.relations,
+            cache: minutes(5),
         });
         if (!game) {
             throw new HttpException("Game not found.", HttpStatus.NOT_FOUND);
         }
 
-        this.cacheManager
-            .set(cacheKey, game, minutes(5))
-            .then()
-            .catch((err) => this.logger.error(err));
-
         return game;
+    }
+
+    private reOrderByIds(originalIds: number[], games: Game[]) {
+        const gamesMap = games.reduce((acc, current) => {
+            acc.set(current.id, current);
+            return acc;
+        }, new Map<number, Game>());
+
+        return originalIds
+            .map((id) => {
+                return gamesMap.get(id);
+            })
+            .filter((game) => game != undefined) as Game[];
     }
 
     async findAllByIds(dto: GameRepositoryFindAllDto) {
@@ -113,17 +112,12 @@ export class GameRepositoryService {
         }
         this.validateMaximumRelations(dto?.relations);
 
-        const cacheKey = JSON.stringify(dto);
-        try {
-            const gamesInCache = await this.cacheManager.get<Game[]>(cacheKey);
-            if (gamesInCache) return gamesInCache;
-        } catch (err) {}
-
         const games = await this.gameRepository.find({
             where: {
                 id: In(dto?.gameIds),
             },
             relations: dto.relations,
+            cache: minutes(5),
         });
 
         if (games.length === 0) {
@@ -133,28 +127,37 @@ export class GameRepositoryService {
             );
         }
 
-        const gamesMap = games.reduce((acc, current) => {
-            acc.set(current.id, current);
-            return acc;
-        }, new Map<number, Game>());
+        const reorderedGames = this.reOrderByIds(dto.gameIds, games);
 
-        const filteredGames = dto.gameIds
-            .map((id) => {
-                return gamesMap.get(id);
-            })
-            .filter((game) => game != undefined) as Game[];
-
-        this.cacheManager
-            .set(cacheKey, filteredGames, minutes(10))
-            .then()
-            .catch((err) => this.logger.error(err));
-
-        return filteredGames;
+        return reorderedGames;
     }
 
     async findAll(dto: BaseFindDto<Game>): Promise<TPaginationData<Game>> {
         const findOptions = buildBaseFindOptions(dto);
         return this.gameRepository.findAndCount(findOptions);
+    }
+
+    async findAllByIdsInWithFilter(
+        gameIds: number[],
+        filterDto?: GameRepositoryFilterDto,
+    ): Promise<TPaginationData<Game>> {
+        const whereOptions = buildFilterFindOptions(filterDto);
+        /**
+         * Do not use 'skip' and 'take' here, because the order of returned elements will be lost.
+         */
+        const [games, totalGames] = await this.gameRepository.findAndCount({
+            where: {
+                ...whereOptions,
+                id: In(gameIds),
+            },
+            cache: minutes(5),
+        });
+        const reOrderedGames = this.reOrderByIds(gameIds, games);
+
+        const offset = filterDto?.offset || 0;
+        const limit = filterDto?.limit || 20;
+        const slicedGames = reOrderedGames.slice(offset, offset + limit);
+        return [slicedGames, totalGames];
     }
 
     async findAllWithFilter(filterDto: GameRepositoryFilterDto) {

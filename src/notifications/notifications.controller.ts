@@ -23,8 +23,10 @@ import { MessageEvent } from "@nestjs/common";
 import { fromPromise } from "rxjs/internal/observable/innerFrom";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { PaginatedNotificationAggregationDto } from "./dto/paginated-notification-aggregation.dto";
+import { minutes, seconds, ThrottlerGuard } from "@nestjs/throttler";
+import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 
-const NOTIFICATIONS_CHECK_INTERVAL = 20000;
+const NOTIFICATIONS_CHECK_INTERVAL = 60000;
 
 @Controller("notifications")
 @ApiTags("notifications")
@@ -34,6 +36,7 @@ export class NotificationsController {
 
     @Get()
     @UseInterceptors(PaginationInterceptor)
+    @UseGuards(ThrottlerGuard)
     @ApiOkResponse({
         status: 200,
         type: PaginatedNotificationAggregationDto,
@@ -49,6 +52,7 @@ export class NotificationsController {
     }
 
     @Put(":id/view")
+    @UseGuards(ThrottlerGuard)
     @HttpCode(HttpStatus.OK)
     async updateViewedStatus(
         @Session() session: SessionContainer,

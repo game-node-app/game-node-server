@@ -1,5 +1,5 @@
 import { EGameCategory, EGameStatus } from "../game-repository.constants";
-import { IsEnum, IsNumber, IsOptional } from "class-validator";
+import { IsArray, IsEnum, IsNumber, IsOptional } from "class-validator";
 import { BaseFindDto } from "../../../utils/base-find.dto";
 import { Game } from "../entities/game.entity";
 

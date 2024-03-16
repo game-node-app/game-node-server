@@ -10,7 +10,6 @@ services:
       MYSQL_PASSWORD: gamenode
       MYSQL_DATABASE: gamenode
 
-
     ports:
       - "3306:3306"
 

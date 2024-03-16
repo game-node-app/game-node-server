@@ -1,8 +1,8 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import {
-    Between,
     FindManyOptions,
     FindOptionsWhere,
+    MoreThanOrEqual,
     Repository,
 } from "typeorm";
 import { Statistics } from "./entity/statistics.entity";
@@ -23,7 +23,6 @@ import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
-import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-options";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { Review } from "../reviews/entities/review.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
@@ -32,9 +31,13 @@ import {
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
+import { GameRepositoryService } from "../game/game-repository/game-repository.service";
+import { minutes } from "@nestjs/throttler";
 
 @Injectable()
 export class StatisticsService {
+    private readonly logger = new Logger(StatisticsService.name);
+
     constructor(
         @InjectRepository(Statistics)
         private readonly statisticsRepository: Repository<Statistics>,
@@ -43,6 +46,7 @@ export class StatisticsService {
         @InjectRepository(UserView)
         private readonly userViewRepository: Repository<UserView>,
         private readonly notificationsQueueService: NotificationsQueueService,
+        private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
     public async create(data: StatisticsActionDto) {
@@ -225,6 +229,28 @@ export class StatisticsService {
         });
     }
 
+    async handleDelete(
+        sourceId: number | string,
+        sourceType: StatisticsSourceType,
+    ) {
+        const statistics = await this.findOneBySourceIdAndType(
+            sourceId,
+            sourceType,
+        );
+        if (!statistics) {
+            return;
+        }
+        await this.userLikeRepository.delete({
+            statistics: statistics,
+        });
+        await this.userViewRepository.delete({
+            statistics: statistics,
+        });
+        await this.statisticsRepository.delete({
+            id: statistics.id,
+        });
+    }
+
     private sourceTypeToNotificationSourceType(
         sourceType: StatisticsSourceType,
     ) {
@@ -245,32 +271,29 @@ export class StatisticsService {
 
     private async findTrendingItems(
         baseFindOptions: FindManyOptions<Statistics>,
+        extraFindOptionsWhere: FindOptionsWhere<Statistics>,
         period: StatisticsPeriod = StatisticsPeriod.WEEK,
-        findWhereOptions?: FindOptionsWhere<Statistics>,
     ): Promise<TPaginationData<Statistics>> {
-        // Avoids timezone-related issues
-        // Just trust me
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
         const periodMinusDays = StatisticsPeriodToMinusDays[period];
         const periodDate = this.getPreviousDate(periodMinusDays);
-        return await this.statisticsRepository.findAndCount({
+
+        const items = await this.statisticsRepository.findAndCount({
             ...baseFindOptions,
             where: [
                 {
-                    ...findWhereOptions,
+                    ...extraFindOptionsWhere,
                     views: {
-                        createdAt: Between(periodDate, tomorrow),
+                        createdAt: MoreThanOrEqual(periodDate),
                     },
                 },
                 {
-                    ...findWhereOptions,
+                    ...extraFindOptionsWhere,
                     likes: {
-                        createdAt: Between(periodDate, tomorrow),
+                        createdAt: MoreThanOrEqual(periodDate),
                     },
                 },
                 {
-                    ...findWhereOptions,
+                    ...extraFindOptionsWhere,
                     likesCount: 0,
                     viewsCount: 0,
                 },
@@ -279,22 +302,35 @@ export class StatisticsService {
                 likesCount: "DESC",
                 viewsCount: "DESC",
             },
-            relationLoadStrategy: "query",
+            cache: minutes(5),
         });
+        return items;
     }
 
     async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
-        const findOptions = buildBaseFindOptions(dto);
-        const findOptionsGameWhere = buildFilterFindOptions(dto.criteria);
         const findOptionsWhere: FindOptionsWhere<Statistics> = {
             sourceType: StatisticsSourceType.GAME,
-            game: findOptionsGameWhere,
         };
-        return await this.findTrendingItems(
-            findOptions,
-            dto.period,
+        const [trendingItems] = await this.findTrendingItems(
+            {
+                skip: 0,
+                take: 2500,
+            },
             findOptionsWhere,
+            dto.period,
         );
+        const gameIds = trendingItems.map((tI) => tI.gameId!);
+        const [games, totalGames] =
+            await this.gameRepositoryService.findAllByIdsInWithFilter(gameIds, {
+                ...dto.criteria,
+                offset: dto.offset,
+                limit: dto.limit,
+            });
+        const filteredGameIds = games.map((game) => game.id);
+        const filteredStatistics = trendingItems.filter((trendingItem) => {
+            return filteredGameIds.includes(trendingItem.gameId!);
+        });
+        return [filteredStatistics, totalGames];
     }
 
     async findTrendingReviews(dto: FindStatisticsTrendingReviewsDto) {
@@ -311,8 +347,8 @@ export class StatisticsService {
         };
         return await this.findTrendingItems(
             baseFindOptions,
-            dto.period,
             findOptionsWhere,
+            dto.period,
         );
     }
 

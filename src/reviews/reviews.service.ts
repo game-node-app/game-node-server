@@ -236,6 +236,11 @@ export class ReviewsService {
             throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
         }
 
+        await this.statisticsService.handleDelete(
+            review.id,
+            StatisticsSourceType.REVIEW,
+        );
+
         await this.reviewsRepository.delete({
             id: reviewId,
             profile: {

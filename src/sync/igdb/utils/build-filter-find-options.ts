@@ -16,14 +16,21 @@ export function buildFilterFindOptions(
                 [key]: value,
             };
         } else if (Array.isArray(value) && value.length > 0) {
+            const validElements = value.filter((v) => {
+                return v != undefined && typeof v === "number";
+            });
+            if (validElements.length === 0) continue;
+
             options = {
                 ...options,
                 [key]: {
-                    id: In(value),
+                    id: In(validElements),
                 },
             };
         }
     }
+
+    console.log("Options", options);
 
     return options;
 }

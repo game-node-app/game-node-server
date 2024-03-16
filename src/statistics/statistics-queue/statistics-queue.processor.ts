@@ -7,6 +7,7 @@ import {
 } from "./statistics-queue.types";
 import { STATISTICS_QUEUE_NAME } from "./statistics-queue.constants";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
+import { StatisticsActionDto } from "./dto/statistics-action.dto";
 
 @Processor(STATISTICS_QUEUE_NAME)
 export class StatisticsQueueProcessor extends WorkerHostProcessor {
@@ -27,6 +28,14 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
             try {
                 await this.statisticsService.handleView(
                     job.data as StatisticsViewAction,
+                );
+            } catch (e) {
+                console.error(e);
+            }
+        } else if (job.name === "create") {
+            try {
+                await this.statisticsService.create(
+                    job.data as StatisticsActionDto,
                 );
             } catch (e) {
                 console.error(e);
