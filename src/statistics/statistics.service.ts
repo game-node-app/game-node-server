@@ -1,12 +1,5 @@
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import {
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-    Logger,
-} from "@nestjs/common";
-import {
-    Between,
     FindManyOptions,
     FindOptionsWhere,
     MoreThanOrEqual,
@@ -30,7 +23,6 @@ import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { StatisticsActionDto } from "./statistics-queue/dto/statistics-action.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
-import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-options";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { Review } from "../reviews/entities/review.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
@@ -40,7 +32,6 @@ import {
 } from "../notifications/notifications.constants";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
-import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 import { minutes } from "@nestjs/throttler";
 
 @Injectable()
@@ -235,6 +226,28 @@ export class StatisticsService {
                 userId,
             },
             statistics: statisticsEntity,
+        });
+    }
+
+    async handleDelete(
+        sourceId: number | string,
+        sourceType: StatisticsSourceType,
+    ) {
+        const statistics = await this.findOneBySourceIdAndType(
+            sourceId,
+            sourceType,
+        );
+        if (!statistics) {
+            return;
+        }
+        await this.userLikeRepository.delete({
+            statistics: statistics,
+        });
+        await this.userViewRepository.delete({
+            statistics: statistics,
+        });
+        await this.statisticsRepository.delete({
+            id: statistics.id,
         });
     }
 

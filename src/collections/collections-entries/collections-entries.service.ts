@@ -276,12 +276,12 @@ export class CollectionsEntriesService {
             throw new HttpException("Entry not found.", HttpStatus.NOT_FOUND);
         }
 
-        // This also deletes entries in the many-to-many tables.
-        await this.collectionEntriesRepository.delete(entry.id);
-
         if (entry.review) {
             await this.reviewsService.delete(userId, entry.review.id);
         }
+
+        // This also deletes entries in the many-to-many tables.
+        await this.collectionEntriesRepository.delete(entry.id);
 
         this.activitiesQueueService.deleteActivity(entry.id);
     }
