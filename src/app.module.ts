@@ -22,7 +22,7 @@ import { AchievementsModule } from "./achievements/achievements.module";
 import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -57,36 +57,41 @@ function getRedisConfig() {
         GlobalModule,
         AuthModule,
         HealthModule,
-        TypeOrmModule.forRoot({
-            // Fixes Bigint values being returned as string
-            // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
-            // This will cause issues if you actually use huge numbers (not our case)
-            bigNumberStrings: false,
-            type: "mysql",
-            retryAttempts: 999999,
-            host: process.env.DB_HOST,
-            port: parseInt(process.env.DB_PORT as string) as any,
-            timezone: "Z",
-            username: process.env.DB_USER,
-            password: process.env.DB_PASS,
-            database: process.env.DB_DATABASE,
-            autoLoadEntities: true,
-            // Never turn this on. Use migrations instead.
-            synchronize: false,
-            // logging: process.env.NODE_ENV === "development",
-            logging: false,
-            debug: false,
-            /**
-             * Allows us to cache select queries using ioredis
-             * https://orkhan.gitbook.io/typeorm/docs/caching
-             * TODO: Check if this is actually working
-             */
-            cache: {
-                type: "ioredis",
-                options: {
-                    host: getRedisConfig().host,
-                    port: getRedisConfig().port,
-                },
+        TypeOrmModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: () => {
+                return {
+                    // Fixes Bigint values being returned as string
+                    // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
+                    // This will cause issues if you actually use huge numbers (not our case)
+                    bigNumberStrings: false,
+                    type: "mysql",
+                    retryAttempts: 999999,
+                    host: process.env.DB_HOST,
+                    port: parseInt(process.env.DB_PORT as string) as any,
+                    timezone: "Z",
+                    username: process.env.DB_USER,
+                    password: process.env.DB_PASS,
+                    database: process.env.DB_DATABASE,
+                    autoLoadEntities: true,
+                    // Never turn this on. Use migrations instead.
+                    synchronize: false,
+                    // logging: process.env.NODE_ENV === "development",
+                    logging: false,
+                    debug: false,
+                    /**
+                     * Allows us to cache select queries using ioredis
+                     * https://orkhan.gitbook.io/typeorm/docs/caching
+                     * TODO: Check if this is actually working
+                     */
+                    cache: {
+                        type: "ioredis",
+                        options: {
+                            host: getRedisConfig().host,
+                            port: getRedisConfig().port,
+                        },
+                    },
+                };
             },
         }),
 
