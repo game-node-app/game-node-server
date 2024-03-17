@@ -287,6 +287,7 @@ export class StatisticsService {
                     },
                 },
                 {
+                    ...extraFindOptionsWhere,
                     likes: {
                         createdAt: MoreThanOrEqual(periodDate),
                     },
@@ -301,7 +302,7 @@ export class StatisticsService {
                 likesCount: "DESC",
                 viewsCount: "DESC",
             },
-            cache: minutes(5),
+            cache: minutes(10),
         });
         return items;
     }
@@ -334,12 +335,9 @@ export class StatisticsService {
 
     async findTrendingReviews(dto: FindStatisticsTrendingReviewsDto) {
         const baseFindOptions = buildBaseFindOptions(dto);
-        const reviewFindOptionsWhere: FindOptionsWhere<Review> | undefined =
-            dto.gameId
-                ? {
-                      gameId: dto.gameId,
-                  }
-                : undefined;
+        const reviewFindOptionsWhere: FindOptionsWhere<Review> = {
+              gameId: dto?.gameId 
+              };
         const findOptionsWhere: FindOptionsWhere<Statistics> = {
             sourceType: StatisticsSourceType.REVIEW,
             review: reviewFindOptionsWhere,
