@@ -58,6 +58,9 @@ services:
 
     restart: always
 
+    deploy:
+      replicas: 2
+
     healthcheck:
       test: rabbitmq-diagnostics -q ping
       interval: 30s
