@@ -143,7 +143,7 @@ services:
     restart: always
 
     deploy:
-      replicas: 3
+      replicas: 4
 
     command: "yarn start:prod"
 
@@ -152,9 +152,12 @@ services:
 
     networks:
       - game_node_app
+      - game_node_app_public
 
 networks:
   game_node_app:
+    external: true
+  game_node_app_public:
     external: true
 
 volumes:
