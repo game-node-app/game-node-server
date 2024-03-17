@@ -20,6 +20,7 @@ import {
 } from "./notifications.constants";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
 import { MessageEvent } from "@nestjs/common";
+import { hours, minutes } from "@nestjs/throttler";
 
 @Injectable()
 @UseGuards(AuthGuard)
@@ -56,6 +57,7 @@ export class NotificationsService {
         return this.cacheManager.set(
             this.getCheckedDateKey(userId),
             date.toISOString(),
+            hours(6),
         );
     }
 
@@ -137,22 +139,12 @@ export class NotificationsService {
                 },
             );
 
-            if (similarNotifications.length === 0) {
-                aggregations.push({
-                    category: notification.category,
-                    sourceId:
-                        notification.reviewId! ||
-                        notification.activityId! ||
-                        notification.profileUserId!,
-                    sourceType: notification.sourceType,
-                    notifications: [notification],
-                });
-                continue;
-            }
-
             aggregations.push({
                 category: notification.category,
-                sourceId: notification.reviewId! || notification.activityId!,
+                sourceId:
+                    notification.reviewId! ||
+                    notification.activityId! ||
+                    notification.profileUserId!,
                 sourceType: notification.sourceType,
                 notifications: similarNotifications,
             });
