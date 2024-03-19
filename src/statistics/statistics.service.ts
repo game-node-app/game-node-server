@@ -32,7 +32,7 @@ import {
 } from "../notifications/notifications.constants";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
-import { minutes } from "@nestjs/throttler";
+import { days, minutes } from "@nestjs/throttler";
 import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-options";
 
 @Injectable()
@@ -313,6 +313,7 @@ export class StatisticsService {
      */
     async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
         const baseFindOptions = buildBaseFindOptions(dto);
+        baseFindOptions.cache = days(1);
 
         const gameFindOptionsWhere = buildFilterFindOptions(dto.criteria);
 
