@@ -150,7 +150,6 @@ export class GameRepositoryService {
                 ...whereOptions,
                 id: In(gameIds),
             },
-            cache: minutes(5),
         });
         const reOrderedGames = this.reOrderByIds(gameIds, games);
 

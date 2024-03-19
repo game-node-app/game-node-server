@@ -33,6 +33,7 @@ import {
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 import { minutes } from "@nestjs/throttler";
+import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-options";
 
 @Injectable()
 export class StatisticsService {
@@ -302,42 +303,36 @@ export class StatisticsService {
                 likesCount: "DESC",
                 viewsCount: "DESC",
             },
-            cache: minutes(10),
         });
         return items;
     }
 
+    /**
+     * This is slow, make sure it's cached with a big overhead.
+     * @param dto
+     */
     async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
+        const baseFindOptions = buildBaseFindOptions(dto);
+
+        const gameFindOptionsWhere = buildFilterFindOptions(dto.criteria);
+
         const findOptionsWhere: FindOptionsWhere<Statistics> = {
             sourceType: StatisticsSourceType.GAME,
+            game: gameFindOptionsWhere,
         };
-        const [trendingItems] = await this.findTrendingItems(
-            {
-                skip: 0,
-                take: 1000,
-            },
+
+        return await this.findTrendingItems(
+            baseFindOptions,
             findOptionsWhere,
             dto.period,
         );
-        const gameIds = trendingItems.map((tI) => tI.gameId!);
-        const [games, totalGames] =
-            await this.gameRepositoryService.findAllByIdsInWithFilter(gameIds, {
-                ...dto.criteria,
-                offset: dto.offset,
-                limit: dto.limit,
-            });
-        const filteredGameIds = games.map((game) => game.id);
-        const filteredStatistics = trendingItems.filter((trendingItem) => {
-            return filteredGameIds.includes(trendingItem.gameId!);
-        });
-        return [filteredStatistics, totalGames];
     }
 
     async findTrendingReviews(dto: FindStatisticsTrendingReviewsDto) {
         const baseFindOptions = buildBaseFindOptions(dto);
         const reviewFindOptionsWhere: FindOptionsWhere<Review> = {
-              gameId: dto?.gameId 
-              };
+            gameId: dto?.gameId,
+        };
         const findOptionsWhere: FindOptionsWhere<Statistics> = {
             sourceType: StatisticsSourceType.REVIEW,
             review: reviewFindOptionsWhere,
