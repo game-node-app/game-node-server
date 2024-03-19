@@ -154,7 +154,7 @@ export class ProfileService {
                 const thirtyDaysAgo = new Date();
                 thirtyDaysAgo.setDate(-30);
                 if (
-                    profile.usernameLastUpdatedAt.getTime() <
+                    profile.usernameLastUpdatedAt.getTime() >
                     thirtyDaysAgo.getTime()
                 ) {
                     throw new HttpException(

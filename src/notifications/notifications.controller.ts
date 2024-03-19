@@ -35,7 +35,6 @@ export class NotificationsController {
 
     @Get()
     @UseInterceptors(PaginationInterceptor)
-    @UseGuards(ThrottlerGuard)
     @ApiOkResponse({
         status: 200,
         type: PaginatedNotificationAggregationDto,
@@ -65,19 +64,20 @@ export class NotificationsController {
         );
     }
 
-    @Sse("stream")
-    async stream(
-        @Session() session: SessionContainer,
-    ): Promise<Observable<MessageEvent>> {
-        return interval(NOTIFICATIONS_CHECK_INTERVAL).pipe(
-            flatMap((num, index) => {
-                return fromPromise(
-                    this.notificationsService.findNewNotifications(
-                        session.getUserId(),
-                        index === 0,
-                    ),
-                );
-            }),
-        );
-    }
+    // TODO: Check if this is causing troubles (infinite requests)
+    // @Sse("stream")
+    // async stream(
+    //     @Session() session: SessionContainer,
+    // ): Promise<Observable<MessageEvent>> {
+    //     return interval(NOTIFICATIONS_CHECK_INTERVAL).pipe(
+    //         flatMap((num, index) => {
+    //             return fromPromise(
+    //                 this.notificationsService.findNewNotifications(
+    //                     session.getUserId(),
+    //                     index === 0,
+    //                 ),
+    //             );
+    //         }),
+    //     );
+    // }
 }

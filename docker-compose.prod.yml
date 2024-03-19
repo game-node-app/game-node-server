@@ -58,6 +58,9 @@ services:
 
     restart: always
 
+    deploy:
+      replicas: 1
+
     healthcheck:
       test: rabbitmq-diagnostics -q ping
       interval: 30s
@@ -66,6 +69,7 @@ services:
 
     networks:
       - game_node_app
+      - game_node_app_public
 
   db:
     image: mysql:8.3
@@ -143,7 +147,7 @@ services:
     restart: always
 
     deploy:
-      replicas: 3
+      replicas: 4
 
     command: "yarn start:prod"
 
@@ -152,9 +156,12 @@ services:
 
     networks:
       - game_node_app
+      - game_node_app_public
 
 networks:
   game_node_app:
+    external: true
+  game_node_app_public:
     external: true
 
 volumes:
