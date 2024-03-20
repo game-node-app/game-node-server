@@ -288,8 +288,10 @@ export class StatisticsService {
      * @param dto
      */
     async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
+        console.time("trending/games");
         const baseFindOptions = buildBaseFindOptions(dto);
         baseFindOptions.cache = days(1);
+        baseFindOptions.relationLoadStrategy = "query";
 
         const gameFindOptionsWhere = buildFilterFindOptions(dto.criteria);
 
@@ -298,11 +300,13 @@ export class StatisticsService {
             game: gameFindOptionsWhere,
         };
 
-        return await this.findTrendingItems(
+        const result = await this.findTrendingItems(
             baseFindOptions,
             findOptionsWhere,
             dto.period,
         );
+        console.timeEnd("trending/games");
+        return result;
     }
 
     async findTrendingReviews(dto: FindStatisticsTrendingReviewsDto) {

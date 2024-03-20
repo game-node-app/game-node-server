@@ -1,6 +1,7 @@
 import {
     CreateDateColumn,
     Entity,
+    Index,
     ManyToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
@@ -29,6 +30,7 @@ export class UserView {
     @CreateDateColumn({
         type: "timestamp",
     })
+    @Index()
     createdAt: Date;
     @UpdateDateColumn({
         type: "timestamp",

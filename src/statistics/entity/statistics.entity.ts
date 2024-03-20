@@ -28,12 +28,14 @@ export class Statistics {
         nullable: false,
         default: 0,
     })
+    @Index()
     viewsCount: number;
     @Column({
         type: "bigint",
         nullable: false,
         default: 0,
     })
+    @Index()
     likesCount: number;
     @OneToMany(() => UserView, (uv) => uv.statistics)
     views: UserView[];
