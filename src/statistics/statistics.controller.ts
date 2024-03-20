@@ -53,9 +53,12 @@ export class StatisticsController {
     @HttpCode(HttpStatus.OK)
     @Public()
     async findTrendingGames(@Body() dto: FindStatisticsTrendingGamesDto) {
-        return (await this.statisticsService.findTrendingGames(
+        console.time("trending/games");
+        const result = (await this.statisticsService.findTrendingGames(
             dto,
         )) as unknown as StatisticsPaginatedResponseDto;
+        console.timeEnd("trending/games");
+        return result;
     }
 
     @Post("trending/reviews")

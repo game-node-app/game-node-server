@@ -16,16 +16,11 @@ import { NotificationsService } from "./notifications.service";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
-import { flatMap, interval, Observable } from "rxjs";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
 import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
-import { MessageEvent } from "@nestjs/common";
-import { fromPromise } from "rxjs/internal/observable/innerFrom";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { PaginatedNotificationAggregationDto } from "./dto/paginated-notification-aggregation.dto";
 import { ThrottlerGuard } from "@nestjs/throttler";
-
-const NOTIFICATIONS_CHECK_INTERVAL = 60000;
 
 @Controller("notifications")
 @ApiTags("notifications")
@@ -63,21 +58,4 @@ export class NotificationsController {
             dto.isViewed,
         );
     }
-
-    // TODO: Check if this is causing troubles (infinite requests)
-    // @Sse("stream")
-    // async stream(
-    //     @Session() session: SessionContainer,
-    // ): Promise<Observable<MessageEvent>> {
-    //     return interval(NOTIFICATIONS_CHECK_INTERVAL).pipe(
-    //         flatMap((num, index) => {
-    //             return fromPromise(
-    //                 this.notificationsService.findNewNotifications(
-    //                     session.getUserId(),
-    //                     index === 0,
-    //                 ),
-    //             );
-    //         }),
-    //     );
-    // }
 }

@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+    Logger,
+} from "@nestjs/common";
 import {
     FindManyOptions,
     FindOptionsWhere,
@@ -33,12 +39,15 @@ import {
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import { days } from "@nestjs/throttler";
 import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-options";
+import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 
 @Injectable()
 export class StatisticsService {
     private readonly logger = new Logger(StatisticsService.name);
 
     constructor(
+        @Inject(CACHE_MANAGER)
+        private readonly cacheManager: Cache,
         @InjectRepository(Statistics)
         private readonly statisticsRepository: Repository<Statistics>,
         @InjectRepository(UserLike)
@@ -285,12 +294,11 @@ export class StatisticsService {
 
     /**
      * This is slow, make sure it's cached with a big overhead.
+     * NestJS and TypeORM's
      * @param dto
      */
     async findTrendingGames(dto: FindStatisticsTrendingGamesDto) {
-        console.time("trending/games");
         const baseFindOptions = buildBaseFindOptions(dto);
-        baseFindOptions.cache = days(1);
         baseFindOptions.relationLoadStrategy = "query";
 
         const gameFindOptionsWhere = buildFilterFindOptions(dto.criteria);
@@ -300,12 +308,29 @@ export class StatisticsService {
             game: gameFindOptionsWhere,
         };
 
+        // It's better to use 'buildFilterFindOptions' as cache key because it removes unnecessary or empty parameters
+        // from the dto.
+        const cacheKey = `trending-games-${dto.period}-${JSON.stringify(gameFindOptionsWhere)}`;
+        const resultInCache =
+            await this.cacheManager.get<TPaginationData<Statistics>>(cacheKey);
+
+        if (resultInCache) {
+            return resultInCache;
+        }
         const result = await this.findTrendingItems(
             baseFindOptions,
             findOptionsWhere,
             dto.period,
         );
+
         console.timeEnd("trending/games");
+
+        this.cacheManager
+            .set(cacheKey, result, days(1))
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
         return result;
     }
 
