@@ -208,6 +208,7 @@ export class CollectionsService {
                     collections: true,
                 },
             },
+            relationLoadStrategy: "query",
         });
         if (!collection) {
             throw new HttpException(

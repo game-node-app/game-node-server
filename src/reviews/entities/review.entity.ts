@@ -16,18 +16,20 @@ import { CollectionEntry } from "../../collections/collections-entries/entities/
 export class Review {
     @PrimaryGeneratedColumn("uuid")
     id: string;
-    @Column({ nullable: false, type: "longtext" })
-    content: string;
+    @Column({ nullable: true, type: "longtext" })
+    content: string | null;
     @Column({ nullable: false })
     rating: number;
     @ManyToOne(() => Game, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     game: Game;
     @Column({ nullable: false })
     gameId: number;
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @Column({
@@ -39,6 +41,7 @@ export class Review {
 
     @OneToOne(() => CollectionEntry, (entry) => entry.review, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     @JoinColumn()
     collectionEntry: CollectionEntry;

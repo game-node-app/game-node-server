@@ -32,6 +32,7 @@ export class Notification {
     category: ENotificationCategory;
     @ManyToOne(() => Review, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     review: Review | null;
     @Column({
@@ -40,6 +41,7 @@ export class Notification {
     reviewId: string | null;
     @ManyToOne(() => Game, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     game: Game | null;
     @Column({
@@ -48,6 +50,7 @@ export class Notification {
     gameId: number | null;
     @ManyToOne(() => Activity, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     activity: Activity | null;
     @Column({
@@ -59,6 +62,7 @@ export class Notification {
      */
     @ManyToOne(() => Profile, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     profile: Profile | null;
     /**
@@ -81,6 +85,7 @@ export class Notification {
      */
     @ManyToOne(() => Profile, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     targetProfile: Profile | null;
     /**

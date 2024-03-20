@@ -18,10 +18,12 @@ export class UserView {
 
     @ManyToOne(() => Profile, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     profile?: Profile;
     @ManyToOne(() => Statistics, (s) => s.views, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     statistics: Statistics;
     @CreateDateColumn({

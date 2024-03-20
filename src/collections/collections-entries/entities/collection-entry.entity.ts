@@ -25,6 +25,7 @@ export class CollectionEntry {
 
     @ManyToMany(() => Collection, (collection) => collection.entries, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     @JoinTable()
     collections: Collection[];

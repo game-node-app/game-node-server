@@ -56,7 +56,7 @@ export class GameRepositoryCreateService {
      * @param gamePlayerPerspectiveRepository
      * @param gameEngineRepository
      * @param gameEngineLogoRepository
-     * @param statisticsService
+     * @param statisticsQueueService
      */
     constructor(
         @InjectRepository(Game)
@@ -126,18 +126,10 @@ export class GameRepositoryCreateService {
         await this.buildChildRelationships(game);
         this.logger.log(`Upserted game ${game.id} and it's relationships`);
 
-        this.statisticsQueueService
-            .createStatistics({
-                sourceId: game.id,
-                sourceType: StatisticsSourceType.GAME,
-            })
-            .then()
-            .catch((err) => {
-                this.logger.error(
-                    "Error while inserting game statistics: ",
-                    err,
-                );
-            });
+        this.statisticsQueueService.createStatistics({
+            sourceId: game.id,
+            sourceType: StatisticsSourceType.GAME,
+        });
     }
 
     /**

@@ -29,8 +29,6 @@ export class CollectionsEntriesService {
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
         private activitiesQueueService: ActivitiesQueueService,
-        @Inject(forwardRef(() => ReviewsService))
-        private reviewsService: ReviewsService,
         private achievementsQueueService: AchievementsQueueService,
     ) {}
 
@@ -276,11 +274,7 @@ export class CollectionsEntriesService {
             throw new HttpException("Entry not found.", HttpStatus.NOT_FOUND);
         }
 
-        if (entry.review) {
-            await this.reviewsService.delete(userId, entry.review.id);
-        }
-
-        // This also deletes entries in the many-to-many tables.
+        // This removes both the associated review (if any) and the entries in the join-tables.
         await this.collectionEntriesRepository.delete(entry.id);
 
         this.activitiesQueueService.deleteActivity(entry.id);
