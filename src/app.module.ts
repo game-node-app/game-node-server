@@ -79,11 +79,9 @@ function getRedisConfig() {
                     synchronize: false,
                     logging: process.env.NODE_ENV === "development",
                     // logging: false,
-                    debug: false,
                     /**
-                     * Allows us to cache select queries using ioredis
+                     * Allows us to cache select queries using ioredis. Default duration of 1000ms.
                      * https://orkhan.gitbook.io/typeorm/docs/caching
-                     * TODO: Check if this is actually working
                      */
                     cache: {
                         type: "ioredis",

@@ -103,6 +103,7 @@ export class GameRepositoryCreateService {
     ) {}
 
     /**
+     * Creates or updates a game in our database. <br>
      * ManyToMany models can't be easily upserted, since the junction table is not inserted/updated automatically (without .save).
      * To both fix this and circumvent the .save() bug, use the QueryBuilder with the .relation() method.
      * Bug info: https://github.com/typeorm/typeorm/issues/1754
