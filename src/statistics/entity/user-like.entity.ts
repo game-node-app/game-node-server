@@ -5,6 +5,7 @@ import {
     Unique,
     CreateDateColumn,
     UpdateDateColumn,
+    Index,
 } from "typeorm";
 import { Statistics } from "./statistics.entity";
 import { Profile } from "../../profile/entities/profile.entity";
@@ -27,6 +28,7 @@ export class UserLike {
     @CreateDateColumn({
         type: "timestamp",
     })
+    @Index()
     createdAt: Date;
     @UpdateDateColumn({
         type: "timestamp",

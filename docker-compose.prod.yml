@@ -146,6 +146,8 @@ services:
     restart: always
 
     deploy:
+      # For some reason, increasing this gives us 'permission denied for user x'
+      # Probably related to hitting some limit on concurrent connections or file reads, dunno.
       replicas: 3
 
     command: "yarn start:prod"
