@@ -23,6 +23,7 @@ import {
     ReviewScoreDistribution,
     ReviewScoreResponseDto,
 } from "./dto/review-score-response.dto";
+import { StatisticsQueueService } from "../statistics/statistics-queue/statistics-queue.service";
 
 export class ReviewsService {
     private readonly logger = new Logger(ReviewsService.name);
@@ -31,10 +32,9 @@ export class ReviewsService {
     constructor(
         @InjectRepository(Review) private reviewsRepository: Repository<Review>,
         private activitiesQueue: ActivitiesQueueService,
-        @Inject(forwardRef(() => CollectionsEntriesService))
         private collectionsEntriesService: CollectionsEntriesService,
         private readonly achievementsQueueService: AchievementsQueueService,
-        private readonly statisticsService: StatisticsService,
+        private readonly statisticsQueueService: StatisticsQueueService,
     ) {}
 
     async findOneById(id: string) {
@@ -151,7 +151,6 @@ export class ReviewsService {
         });
         const median = this.getScoresMedian(scores);
         const distribution = this.getReviewsScoreDistribution(reviews);
-        console.log(scores, median, distribution);
         return {
             median,
             distribution,
@@ -206,18 +205,10 @@ export class ReviewsService {
             category: AchievementCategory.REVIEWS,
         });
 
-        this.statisticsService
-            .create({
-                sourceType: StatisticsSourceType.REVIEW,
-                sourceId: insertedEntry.id,
-            })
-            .then()
-            .catch((err) => {
-                this.logger.error(
-                    "Error while inserting review statistics: ",
-                    err,
-                );
-            });
+        this.statisticsQueueService.createStatistics({
+            sourceType: StatisticsSourceType.REVIEW,
+            sourceId: insertedEntry.id,
+        });
     }
 
     async delete(userId: string, reviewId: string) {
@@ -235,11 +226,6 @@ export class ReviewsService {
         if (review == undefined) {
             throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
         }
-
-        await this.statisticsService.handleDelete(
-            review.id,
-            StatisticsSourceType.REVIEW,
-        );
 
         await this.reviewsRepository.delete({
             id: reviewId,

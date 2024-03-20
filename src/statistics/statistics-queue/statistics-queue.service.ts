@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { StatisticsActionType } from "../statistics.constants";
 import { STATISTICS_QUEUE_NAME } from "./statistics-queue.constants";
 import { Queue } from "bullmq";
@@ -11,13 +11,19 @@ import { InjectQueue } from "@nestjs/bullmq";
 
 @Injectable()
 export class StatisticsQueueService {
+    private logger = new Logger(StatisticsQueueService.name);
     constructor(
         @InjectQueue(STATISTICS_QUEUE_NAME)
         private readonly statisticsQueue: Queue,
     ) {}
 
     createStatistics(data: StatisticsActionDto) {
-        return this.statisticsQueue.add("create", data);
+        this.statisticsQueue
+            .add("create", data)
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
     }
 
     registerLike(
@@ -32,7 +38,12 @@ export class StatisticsQueueService {
             userId,
             targetUserId: dto.targetUserId,
         };
-        return this.statisticsQueue.add("like", likeAction);
+        this.statisticsQueue
+            .add("like", likeAction)
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
     }
 
     registerView(dto: StatisticsActionDto, userId?: string) {
@@ -42,6 +53,12 @@ export class StatisticsQueueService {
             sourceType: dto.sourceType,
             sourceId: dto.sourceId,
         };
-        return this.statisticsQueue.add("view", viewAction);
+
+        this.statisticsQueue
+            .add("view", viewAction)
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
     }
 }

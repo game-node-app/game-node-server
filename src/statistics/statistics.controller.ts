@@ -45,7 +45,7 @@ export class StatisticsController {
     @Public()
     @UseInterceptors(PaginationInterceptor)
     @UseInterceptors(CacheInterceptor)
-    @CacheTTL(days(1))
+    @CacheTTL(600)
     @ApiResponse({
         status: 200,
         type: StatisticsPaginatedResponseDto,
@@ -79,6 +79,7 @@ export class StatisticsController {
         status: 200,
         type: StatisticsStatus,
     })
+    @Public()
     async getStatus(
         @Session() session: SessionContainer,
         @Query() dto: StatisticsStatusRequestDto,

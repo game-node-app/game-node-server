@@ -41,6 +41,7 @@ export class Statistics {
     likes: UserLike[];
     @OneToOne(() => Game, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     @JoinColumn()
     game?: Game;
@@ -50,6 +51,7 @@ export class Statistics {
     gameId?: number;
     @OneToOne(() => Review, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     @JoinColumn()
     review?: Review;

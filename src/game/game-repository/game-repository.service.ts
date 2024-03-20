@@ -1,10 +1,4 @@
-import {
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-    Logger,
-} from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
 import { DataSource, FindOptionsRelations, In, Repository } from "typeorm";
@@ -21,8 +15,6 @@ import { GamePlayerPerspective } from "./entities/game-player-perspective.entity
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
 import { buildFilterFindOptions } from "../../sync/igdb/utils/build-filter-find-options";
 import { platformAbbreviationToIconMap } from "./game-repository.utils";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
 import { minutes } from "@nestjs/throttler";
 
 const resourceToEntityMap = {
@@ -81,6 +73,7 @@ export class GameRepositoryService {
             },
             relations: dto?.relations,
             cache: minutes(5),
+            relationLoadStrategy: "query",
         });
         if (!game) {
             throw new HttpException("Game not found.", HttpStatus.NOT_FOUND);
@@ -118,6 +111,7 @@ export class GameRepositoryService {
             },
             relations: dto.relations,
             cache: minutes(5),
+            relationLoadStrategy: "query",
         });
 
         if (games.length === 0) {
@@ -127,36 +121,12 @@ export class GameRepositoryService {
             );
         }
 
-        const reorderedGames = this.reOrderByIds(dto.gameIds, games);
-
-        return reorderedGames;
+        return this.reOrderByIds(dto.gameIds, games);
     }
 
     async findAll(dto: BaseFindDto<Game>): Promise<TPaginationData<Game>> {
         const findOptions = buildBaseFindOptions(dto);
         return this.gameRepository.findAndCount(findOptions);
-    }
-
-    async findAllByIdsInWithFilter(
-        gameIds: number[],
-        filterDto?: GameRepositoryFilterDto,
-    ): Promise<TPaginationData<Game>> {
-        const whereOptions = buildFilterFindOptions(filterDto);
-        /**
-         * Do not use 'skip' and 'take' here, because the order of returned elements will be lost.
-         */
-        const [games, totalGames] = await this.gameRepository.findAndCount({
-            where: {
-                ...whereOptions,
-                id: In(gameIds),
-            },
-        });
-        const reOrderedGames = this.reOrderByIds(gameIds, games);
-
-        const offset = filterDto?.offset || 0;
-        const limit = filterDto?.limit || 20;
-        const slicedGames = reOrderedGames.slice(offset, offset + limit);
-        return [slicedGames, totalGames];
     }
 
     async findAllWithFilter(filterDto: GameRepositoryFilterDto) {
@@ -165,6 +135,7 @@ export class GameRepositoryService {
         return await this.gameRepository.findAndCount({
             ...findOptions,
             where: whereOptions,
+            cache: minutes(5),
         });
     }
 

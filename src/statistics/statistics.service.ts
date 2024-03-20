@@ -31,8 +31,7 @@ import {
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
-import { GameRepositoryService } from "../game/game-repository/game-repository.service";
-import { days, minutes } from "@nestjs/throttler";
+import { days } from "@nestjs/throttler";
 import { buildFilterFindOptions } from "../sync/igdb/utils/build-filter-find-options";
 
 @Injectable()
@@ -47,7 +46,6 @@ export class StatisticsService {
         @InjectRepository(UserView)
         private readonly userViewRepository: Repository<UserView>,
         private readonly notificationsQueueService: NotificationsQueueService,
-        private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
     public async create(data: StatisticsActionDto) {
@@ -230,28 +228,6 @@ export class StatisticsService {
         });
     }
 
-    async handleDelete(
-        sourceId: number | string,
-        sourceType: StatisticsSourceType,
-    ) {
-        const statistics = await this.findOneBySourceIdAndType(
-            sourceId,
-            sourceType,
-        );
-        if (!statistics) {
-            return;
-        }
-        await this.userLikeRepository.delete({
-            statistics: statistics,
-        });
-        await this.userViewRepository.delete({
-            statistics: statistics,
-        });
-        await this.statisticsRepository.delete({
-            id: statistics.id,
-        });
-    }
-
     private sourceTypeToNotificationSourceType(
         sourceType: StatisticsSourceType,
     ) {
@@ -350,7 +326,7 @@ export class StatisticsService {
         userId?: string,
     ): Promise<StatisticsStatus> {
         if (userId) {
-            const isLikedQuery = this.userLikeRepository.exist({
+            const isLikedQuery = this.userLikeRepository.exists({
                 where: {
                     statistics: {
                         id: statisticsId,
@@ -360,7 +336,7 @@ export class StatisticsService {
                     },
                 },
             });
-            const isViewedQuery = this.userViewRepository.exist({
+            const isViewedQuery = this.userViewRepository.exists({
                 where: {
                     statistics: {
                         id: statisticsId,

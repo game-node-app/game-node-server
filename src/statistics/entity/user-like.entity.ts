@@ -16,10 +16,12 @@ export class UserLike {
     id: number;
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @ManyToOne(() => Statistics, (s) => s.likes, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     statistics: Statistics;
     @CreateDateColumn({

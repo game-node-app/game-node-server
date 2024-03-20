@@ -33,6 +33,7 @@ export class Activity {
      */
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @Column({ nullable: false })
