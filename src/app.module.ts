@@ -23,6 +23,8 @@ import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { HltbModule } from './sync/hltb/hltb.module';
+import { HltbQueueService } from './sync/hltb-queue.service';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -154,7 +156,9 @@ function getRedisConfig() {
         AchievementsModule,
         FollowModule,
         NotificationsModule,
+        HltbModule,
     ],
+    providers: [HltbQueueService],
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
