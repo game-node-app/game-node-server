@@ -141,6 +141,7 @@ export class GameRepositoryService {
         const games = await this.gameRepository.find({
             ...findOptions,
             where: whereOptions,
+            cache: minutes(5),
         });
         if (filterDto.id) {
             const reorderedGames = this.reOrderByIds(filterDto.id, games);
