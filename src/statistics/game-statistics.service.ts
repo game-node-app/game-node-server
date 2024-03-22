@@ -165,7 +165,7 @@ export class GameStatisticsService implements StatisticsService {
             .skip(0)
             .take(1000)
             .printSql()
-            .cache(days(1))
+            // .cache(days(1))
             .getMany();
         console.timeEnd("game-trending-statistics");
 

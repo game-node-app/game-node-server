@@ -20,7 +20,6 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
     }
 
     async process(job: Job<StatisticsLikeAction | StatisticsViewAction>) {
-        console.log(job.name, job.data);
         if (job.name === "like") {
             try {
                 switch (job.data.sourceType) {

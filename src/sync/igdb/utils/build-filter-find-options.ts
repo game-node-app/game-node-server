@@ -27,6 +27,14 @@ export function buildFilterFindOptions(
             });
             if (validElements.length === 0) continue;
 
+            if (key === "id") {
+                options = {
+                    ...options,
+                    id: In(validElements),
+                };
+                continue;
+            }
+
             options = {
                 ...options,
                 [key]: {
