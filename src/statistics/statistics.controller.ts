@@ -3,6 +3,7 @@ import {
     Controller,
     Get,
     HttpCode,
+    HttpException,
     HttpStatus,
     Post,
     Query,
@@ -10,7 +11,6 @@ import {
     UseInterceptors,
 } from "@nestjs/common";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
-import { StatisticsService } from "./statistics.service";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { StatisticsPaginatedResponseDto } from "./dto/statistics-paginated-response.dto";
 import { AuthGuard } from "../auth/auth.guard";
@@ -23,22 +23,38 @@ import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-g
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { FindOneStatisticsDto } from "./dto/find-one-statistics.dto";
 import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
-import { days } from "@nestjs/throttler";
+import { GameStatisticsService } from "./game-statistics.service";
+import { ReviewStatisticsService } from "./review-statistics.service";
+import { StatisticsSourceType } from "./statistics.constants";
 
 @Controller("statistics")
 @ApiTags("statistics")
 @UseGuards(AuthGuard)
 export class StatisticsController {
-    constructor(private readonly statisticsService: StatisticsService) {}
+    constructor(
+        private readonly gameStatisticsService: GameStatisticsService,
+        private readonly reviewStatisticsService: ReviewStatisticsService,
+    ) {}
 
     @Post()
     @HttpCode(HttpStatus.OK)
     @Public()
     async findOneBySourceIdAndType(@Body() dto: FindOneStatisticsDto) {
-        return this.statisticsService.findOneBySourceIdAndType(
-            dto.sourceId,
-            dto.sourceType,
-        );
+        switch (dto.sourceType) {
+            case StatisticsSourceType.GAME:
+                return this.gameStatisticsService.findOne(
+                    dto.sourceId as number,
+                );
+            case StatisticsSourceType.REVIEW:
+                return this.reviewStatisticsService.findOne(
+                    dto.sourceId as string,
+                );
+            default:
+                throw new HttpException(
+                    "Invalid source type",
+                    HttpStatus.BAD_REQUEST,
+                );
+        }
     }
 
     @Post("trending/games")
@@ -52,7 +68,7 @@ export class StatisticsController {
     @Public()
     async findTrendingGames(@Body() dto: FindStatisticsTrendingGamesDto) {
         console.time("trending/games");
-        const result = (await this.statisticsService.findTrendingGames(
+        const result = (await this.gameStatisticsService.findTrending(
             dto,
         )) as unknown as StatisticsPaginatedResponseDto;
         console.timeEnd("trending/games");
@@ -70,7 +86,7 @@ export class StatisticsController {
     @HttpCode(HttpStatus.OK)
     @Public()
     async findTrendingReviews(@Body() dto: FindStatisticsTrendingReviewsDto) {
-        return (await this.statisticsService.findTrendingReviews(
+        return (await this.reviewStatisticsService.findTrending(
             dto,
         )) as unknown as StatisticsPaginatedResponseDto;
     }
@@ -85,9 +101,22 @@ export class StatisticsController {
         @Session() session: SessionContainer,
         @Query() dto: StatisticsStatusRequestDto,
     ) {
-        return this.statisticsService.findStatus(
-            dto.statisticsId,
-            session?.getUserId(),
-        );
+        switch (dto.sourceType) {
+            case StatisticsSourceType.GAME:
+                return this.gameStatisticsService.getStatus(
+                    dto.statisticsId,
+                    session?.getUserId(),
+                );
+            case StatisticsSourceType.REVIEW:
+                return this.reviewStatisticsService.getStatus(
+                    dto.statisticsId,
+                    session.getUserId(),
+                );
+            default:
+                throw new HttpException(
+                    "Invalid source type",
+                    HttpStatus.BAD_REQUEST,
+                );
+        }
     }
 }

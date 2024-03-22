@@ -6,6 +6,18 @@ import { Transform } from "class-transformer";
 
 export class GameRepositoryFilterDto extends BaseFindDto<Game> {
     @IsOptional()
+    @IsArray()
+    @IsNumber(
+        {
+            allowNaN: false,
+            allowInfinity: false,
+        },
+        {
+            each: true,
+        },
+    )
+    id?: number[];
+    @IsOptional()
     @IsEnum(EGameStatus)
     status?: EGameStatus;
     @IsOptional()

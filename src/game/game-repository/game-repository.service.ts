@@ -129,14 +129,29 @@ export class GameRepositoryService {
         return this.gameRepository.findAndCount(findOptions);
     }
 
-    async findAllWithFilter(filterDto: GameRepositoryFilterDto) {
+    /**
+     * Only returns ids for optimization purposes.
+     * @param filterDto
+     */
+    async findAllIdsWithFilters(
+        filterDto: GameRepositoryFilterDto,
+    ): Promise<number[]> {
         const findOptions = buildBaseFindOptions(filterDto);
         const whereOptions = buildFilterFindOptions(filterDto);
-        return await this.gameRepository.findAndCount({
+        const games = await this.gameRepository.find({
             ...findOptions,
             where: whereOptions,
-            cache: minutes(5),
+            select: {
+                id: true,
+            },
+            cache: minutes(10),
         });
+        if (filterDto.id) {
+            const reorderedGames = this.reOrderByIds(filterDto.id, games);
+            return reorderedGames.map((game) => game.id);
+        }
+
+        return games.map((game) => game.id);
     }
 
     async getResource(resource: TAllowedResource): Promise<any> {

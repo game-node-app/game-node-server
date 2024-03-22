@@ -20,7 +20,7 @@ export function buildFilterFindOptions(
                 [key]: value,
             };
         } else if (Array.isArray(value) && value.length > 0) {
-            const validElements = value.filter((v) => {
+            const validElements: number[] = value.filter((v) => {
                 return (
                     v != undefined && typeof v === "number" && !Number.isNaN(v)
                 );

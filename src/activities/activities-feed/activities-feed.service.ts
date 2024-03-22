@@ -5,7 +5,6 @@ import { ActivitiesRepositoryService } from "../activities-repository/activities
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
-import { StatisticsService } from "../../statistics/statistics.service";
 import { ProfileService } from "../../profile/profile.service";
 import { ReviewsService } from "../../reviews/reviews.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
@@ -39,7 +38,6 @@ export class ActivitiesFeedService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         private activitiesRepositoryService: ActivitiesRepositoryService,
         private profileService: ProfileService,
-        private statisticsService: StatisticsService,
         private reviewsService: ReviewsService,
         private collectionEntriesService: CollectionsEntriesService,
     ) {

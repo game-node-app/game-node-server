@@ -14,4 +14,4 @@ export enum ENotificationSourceType {
 
 export const NOTIFICATIONS_QUEUE_NAME = "notifications-queue";
 
-export const NOTIFICATIONS_REGISTER_JOB_NAME = "notifications-register-job";
+export const NOTIFICATIONS_REGISTER_JOB_NAME = "notifications-register";

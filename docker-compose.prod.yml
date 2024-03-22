@@ -100,7 +100,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
 
     deploy:
-      replicas: 2
+      replicas: 1
 
     volumes:
       - redis:/var/lib/redis
@@ -146,8 +146,6 @@ services:
     restart: always
 
     deploy:
-      # For some reason, increasing this gives us 'permission denied for user x'
-      # Probably related to hitting some limit on concurrent connections or file reads, dunno.
       replicas: 3
 
     command: "yarn start:prod"

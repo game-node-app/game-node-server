@@ -17,7 +17,6 @@ import { CollectionsEntriesService } from "../collections/collections-entries/co
 import { filterBadWords } from "../utils/filterBadWords";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../achievements/achievements.constants";
-import { StatisticsService } from "../statistics/statistics.service";
 import { StatisticsSourceType } from "../statistics/statistics.constants";
 import {
     ReviewScoreDistribution,
