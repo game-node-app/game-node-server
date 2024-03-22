@@ -1,6 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { StatisticsQueueController } from "./statistics-queue.controller";
-import { StatisticsService } from "../statistics.service";
 import { StatisticsQueueService } from "./statistics-queue.service";
 
 describe("StatisticsQueueController", () => {

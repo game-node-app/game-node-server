@@ -21,10 +21,11 @@ import { GameTheme } from "./entities/game-theme.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameEngine } from "./entities/game-engine.entity";
 import { GameEngineLogo } from "./entities/game-engine-logo.entity";
-import { PartialGame } from "./game-repository.types";
-import { StatisticsService } from "../../statistics/statistics.service";
+import { GameSyncObject, PartialGame } from "./game-repository.types";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
 import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
+import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
+import { GAME_SYNC_RABBITMQ_QUEUE_CONFIG } from "./game-repository.constants";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -99,6 +100,7 @@ export class GameRepositoryCreateService {
         private readonly gameEngineRepository: Repository<GameEngine>,
         @InjectRepository(GameEngineLogo)
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
+        private readonly amqpConnection: AmqpConnection,
         private readonly statisticsQueueService: StatisticsQueueService,
     ) {}
 
@@ -131,6 +133,35 @@ export class GameRepositoryCreateService {
             sourceId: game.id,
             sourceType: StatisticsSourceType.GAME,
         });
+
+        this.dispatchCreateUpdateEvent(game);
+    }
+
+    private dispatchCreateUpdateEvent(game: PartialGame) {
+        const syncObject: GameSyncObject = {
+            id: game.id,
+            name: game.name!,
+            status: game.status!,
+            category: game.category!,
+            createdAt: game.createdAt as Date,
+            updatedAt: game.updatedAt! as Date,
+        };
+
+        const { exchange, routingKey } = GAME_SYNC_RABBITMQ_QUEUE_CONFIG;
+
+        this.amqpConnection
+            .publish(exchange!, routingKey as string, syncObject)
+            .then(() => {
+                this.logger.log(
+                    `Dispatched game create/update event for id '${game.id}' to ${exchange} - ${routingKey}`,
+                );
+            })
+            .catch((err) => {
+                this.logger.error(
+                    `Error while dispatching create/update event for id ${game.id}`,
+                );
+                this.logger.error(err);
+            });
     }
 
     /**

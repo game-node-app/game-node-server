@@ -1,4 +1,5 @@
 import {
+    Column,
     CreateDateColumn,
     Entity,
     Index,
@@ -8,6 +9,8 @@ import {
 } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
 import { Statistics } from "./statistics.entity";
+import { GameStatistics } from "./game-statistics.entity";
+import { ReviewStatistics } from "./review-statistics.entity";
 
 /**
  * While it's called UserView, it also contains anonymous views (profile is set to null).
@@ -16,17 +19,15 @@ import { Statistics } from "./statistics.entity";
 export class UserView {
     @PrimaryGeneratedColumn()
     id: number;
-
     @ManyToOne(() => Profile, {
         nullable: true,
         onDelete: "CASCADE",
     })
     profile?: Profile;
-    @ManyToOne(() => Statistics, (s) => s.views, {
-        nullable: false,
-        onDelete: "CASCADE",
+    @Column({
+        nullable: true,
     })
-    statistics: Statistics;
+    profileUserId: string | null;
     @CreateDateColumn({
         type: "timestamp",
     })
@@ -36,4 +37,14 @@ export class UserView {
         type: "timestamp",
     })
     updatedAt: Date;
+    @ManyToOne(() => GameStatistics, (gs) => gs.views, {
+        onDelete: "CASCADE",
+        nullable: true,
+    })
+    gameStatistics: GameStatistics | null;
+    @ManyToOne(() => ReviewStatistics, (rs) => rs.views, {
+        onDelete: "CASCADE",
+        nullable: true,
+    })
+    reviewStatistics: ReviewStatistics | null;
 }

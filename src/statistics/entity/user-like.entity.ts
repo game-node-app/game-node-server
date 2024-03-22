@@ -6,12 +6,15 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
     Index,
+    Column,
 } from "typeorm";
-import { Statistics } from "./statistics.entity";
 import { Profile } from "../../profile/entities/profile.entity";
+import { GameStatistics } from "./game-statistics.entity";
+import { ReviewStatistics } from "./review-statistics.entity";
 
 @Entity()
-@Unique(["profile", "statistics"])
+@Unique(["profile", "gameStatistics"])
+@Unique(["profile", "reviewStatistics"])
 export class UserLike {
     @PrimaryGeneratedColumn()
     id: number;
@@ -20,11 +23,10 @@ export class UserLike {
         onDelete: "CASCADE",
     })
     profile: Profile;
-    @ManyToOne(() => Statistics, (s) => s.likes, {
+    @Column({
         nullable: false,
-        onDelete: "CASCADE",
     })
-    statistics: Statistics;
+    profileUserId: string;
     @CreateDateColumn({
         type: "timestamp",
     })
@@ -34,4 +36,14 @@ export class UserLike {
         type: "timestamp",
     })
     updatedAt: Date;
+    @ManyToOne(() => GameStatistics, (gs) => gs.likes, {
+        onDelete: "CASCADE",
+        nullable: true,
+    })
+    gameStatistics: GameStatistics | null;
+    @ManyToOne(() => ReviewStatistics, (rs) => rs.likes, {
+        onDelete: "CASCADE",
+        nullable: true,
+    })
+    reviewStatistics: ReviewStatistics | null;
 }

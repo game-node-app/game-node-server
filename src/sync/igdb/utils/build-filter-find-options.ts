@@ -10,14 +10,20 @@ export function buildFilterFindOptions(
     let options: FindOptionsWhere<Game> = {};
     if (dto == undefined) return options;
     for (const [key, value] of Object.entries(dto)) {
-        if (singleValueProperties.includes(key) && typeof value === "number") {
+        if (
+            singleValueProperties.includes(key) &&
+            typeof value === "number" &&
+            !Number.isNaN(value)
+        ) {
             options = {
                 ...options,
                 [key]: value,
             };
         } else if (Array.isArray(value) && value.length > 0) {
-            const validElements = value.filter((v) => {
-                return v != undefined && typeof v === "number";
+            const validElements: number[] = value.filter((v) => {
+                return (
+                    v != undefined && typeof v === "number" && !Number.isNaN(v)
+                );
             });
             if (validElements.length === 0) continue;
 

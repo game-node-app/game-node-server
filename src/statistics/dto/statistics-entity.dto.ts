@@ -5,8 +5,3 @@ export class StatisticsStatus {
     isLiked: boolean;
     isViewed: boolean;
 }
-
-export class StatisticsEntityDto extends IntersectionType(
-    OmitType(Statistics, ["views", "likes"]),
-    StatisticsStatus,
-) {}

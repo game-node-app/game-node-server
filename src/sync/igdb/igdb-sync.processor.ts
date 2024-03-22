@@ -1,6 +1,6 @@
 import { Processor } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
-import { Job, WorkerOptions } from "bullmq";
+import { Job } from "bullmq";
 import {
     IGDB_SYNC_JOB_NAME,
     IGDB_SYNC_QUEUE_NAME,
@@ -62,7 +62,7 @@ function normalizeIgdbResults(results: any[]) {
     // Keep in mind that this involves processing operations in batches of 10 entities.
     limiter: {
         max: 1,
-        duration: 3000,
+        duration: 500,
     },
 })
 export class IgdbSyncProcessor extends WorkerHostProcessor {

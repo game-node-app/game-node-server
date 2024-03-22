@@ -12,7 +12,7 @@ export class CreateReviewDto {
     @IsNotEmpty()
     gameId: number;
     @IsString()
-    @MinLength(3)
+    @MinLength(20)
     content: string;
     @IsNumber()
     @Min(0)
