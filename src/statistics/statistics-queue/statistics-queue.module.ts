@@ -17,6 +17,8 @@ import { StatisticsQueueProcessor } from "./statistics-queue.processor";
             name: STATISTICS_QUEUE_NAME,
             defaultJobOptions: {
                 removeOnComplete: true,
+                removeOnFail: true,
+                backoff: 3000,
             },
         }),
         forwardRef(() => StatisticsModule),

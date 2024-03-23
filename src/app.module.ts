@@ -23,8 +23,8 @@ import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { HltbModule } from './sync/hltb/hltb.module';
-import { HltbQueueService } from './sync/hltb-queue.service';
+import { HltbModule } from "./sync/hltb/hltb.module";
+import { HltbQueueService } from "./sync/hltb-queue.service";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -79,8 +79,7 @@ function getRedisConfig() {
                     autoLoadEntities: true,
                     // Never turn this on. Use migrations instead.
                     synchronize: false,
-                    logging: process.env.NODE_ENV === "development",
-                    // logging: false,
+                    logging: false,
                     /**
                      * Allows us to cache select queries using ioredis. Default duration of 1000ms.
                      * https://orkhan.gitbook.io/typeorm/docs/caching
