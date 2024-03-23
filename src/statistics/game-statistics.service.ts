@@ -17,8 +17,9 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
 import { getPreviousDate } from "./statistics.utils";
-import { days } from "@nestjs/throttler";
+import { days, hours } from "@nestjs/throttler";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
+import { Interval } from "@nestjs/schedule";
 
 @Injectable()
 export class GameStatisticsService implements StatisticsService {
@@ -139,6 +140,11 @@ export class GameStatisticsService implements StatisticsService {
         );
     }
 
+    @Interval(hours(6))
+    async preCacheTrendingGames() {
+        // Call logic here, forcing a cache to be populated again.
+    }
+
     async findTrending(
         data: FindStatisticsTrendingGamesDto,
     ): Promise<TPaginationData<GameStatistics>> {
@@ -151,6 +157,7 @@ export class GameStatisticsService implements StatisticsService {
         console.time("game-trending-statistics");
         const queryBuilder =
             this.gameStatisticsRepository.createQueryBuilder("s");
+
         /**
          * Made with query builder, so we can further optimize the query
          */
@@ -164,9 +171,9 @@ export class GameStatisticsService implements StatisticsService {
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(1000)
-            .printSql()
-            // .cache(days(1))
+            .cache(days(1))
             .getMany();
+
         console.timeEnd("game-trending-statistics");
 
         console.time("game-trending-filter");
