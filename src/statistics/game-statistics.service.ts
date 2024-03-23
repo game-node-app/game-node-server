@@ -158,6 +158,7 @@ export class GameStatisticsService implements StatisticsService {
         const queryBuilder =
             this.gameStatisticsRepository.createQueryBuilder("s");
 
+        console.log(hours(6));
         /**
          * Made with query builder, so we can further optimize the query
          */
@@ -171,7 +172,7 @@ export class GameStatisticsService implements StatisticsService {
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(1000)
-            .cache(days(1))
+            .cache(`trending-games-statistics`, hours(6))
             .getMany();
 
         console.timeEnd("game-trending-statistics");
