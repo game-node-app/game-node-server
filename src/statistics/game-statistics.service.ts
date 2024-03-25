@@ -158,7 +158,6 @@ export class GameStatisticsService implements StatisticsService {
         const queryBuilder =
             this.gameStatisticsRepository.createQueryBuilder("s");
 
-        console.log(hours(6));
         /**
          * Made with query builder, so we can further optimize the query
          */
