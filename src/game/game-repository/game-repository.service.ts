@@ -23,6 +23,7 @@ const resourceToEntityMap = {
     themes: GameTheme,
     gameModes: GameMode,
     playerPerspectives: GamePlayerPerspective,
+    dlcOf: Game,
 };
 
 export type TAllowedResource = keyof typeof resourceToEntityMap;
