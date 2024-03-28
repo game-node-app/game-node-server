@@ -3,8 +3,8 @@ import {
     HLTB_SYNC_QUEUE_JOB_NAME,
     HLTB_SYNC_QUEUE_NAME,
 } from "./hltb.constants";
-import { HltbService } from "./hltb.service";
-import { HltbSearchService } from "./hltb-search.service";
+import { HltbSyncService } from "./hltb-sync.service";
+import { HltbSyncSearchService } from "./hltb-sync-search.service";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { Job } from "bullmq";
 import { HLTBJobData, HLTBResponseItem } from "./hltb.types";
@@ -32,14 +32,14 @@ function parseResponse(
 @Processor(HLTB_SYNC_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: 20000,
+        duration: 8000,
     },
 })
-export class HltbProcessor extends WorkerHostProcessor {
-    logger = new Logger(HltbProcessor.name);
+export class HltbSyncProcessor extends WorkerHostProcessor {
+    logger = new Logger(HltbSyncProcessor.name);
     constructor(
-        private readonly hltbService: HltbService,
-        private readonly hltbSearchService: HltbSearchService,
+        private readonly hltbService: HltbSyncService,
+        private readonly hltbSearchService: HltbSyncSearchService,
     ) {
         super();
     }

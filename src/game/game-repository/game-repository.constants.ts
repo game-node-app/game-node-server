@@ -1,5 +1,3 @@
-import { RabbitMQQueueConfig } from "@golevelup/nestjs-rabbitmq";
-
 /**
  * This SHOULD follow the order of the enum in the API
  * See: https://api-docs.igdb.com/#game-enums
@@ -83,19 +81,6 @@ enum EGameStorageSource {
     MANTICORE = "MANTICORE",
 }
 
-/**
- * Queue responsible for announcing games' creation/update event.
- */
-const GAME_SYNC_RABBITMQ_QUEUE_CONFIG: RabbitMQQueueConfig = {
-    name: "sync-game",
-    exchange: "sync",
-    routingKey: "sync-game",
-    createQueueIfNotExists: true,
-    options: {
-        durable: true,
-    },
-};
-
 export {
     EGameCategory,
     EGameStatus,
@@ -103,5 +88,4 @@ export {
     EGameExternalGameCategory,
     EGamePlatformCategory,
     EGameStorageSource,
-    GAME_SYNC_RABBITMQ_QUEUE_CONFIG,
 };

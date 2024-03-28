@@ -4,7 +4,7 @@ import axios from "axios";
 import { HLTBResponseItem } from "./hltb.types";
 import { SearchDto } from "./dto/search.dto";
 @Injectable()
-export class HltbSearchService {
+export class HltbSyncSearchService {
     private readonly BASE_URL = "https://howlongtobeat.com";
     private readonly SEARCH_URL = `${this.BASE_URL}/api/search`;
 
