@@ -2,21 +2,31 @@ import { EGameCategory, EGameStatus } from "../game-repository.constants";
 import { IsArray, IsEnum, IsNumber, IsOptional } from "class-validator";
 import { BaseFindDto } from "../../../utils/base-find.dto";
 import { Game } from "../entities/game.entity";
-import { Transform } from "class-transformer";
+import { Transform, Type } from "class-transformer";
+import { OmitType } from "@nestjs/swagger";
 
-export class GameRepositoryFilterDto extends BaseFindDto<Game> {
+export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
+    "search",
+    "orderBy",
+]) {
+    /**
+     * If this is supplied, filtering will be done only for entities specified here. <br>
+     * Useful to filter data received from entities which hold game ids (like GameStatistics, Reviews, etc.)
+     */
     @IsOptional()
+    // @Type(() => Number)
     @IsArray()
     @IsNumber(
         {
             allowNaN: false,
             allowInfinity: false,
+            maxDecimalPlaces: 1,
         },
         {
             each: true,
         },
     )
-    id?: number[];
+    ids?: number[];
     @IsOptional()
     @IsEnum(EGameStatus)
     status?: EGameStatus;

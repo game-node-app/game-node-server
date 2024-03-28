@@ -143,8 +143,8 @@ export class GameRepositoryService {
             where: whereOptions,
             cache: minutes(5),
         });
-        if (filterDto.id) {
-            const reorderedGames = this.reOrderByIds(filterDto.id, games);
+        if (filterDto.ids) {
+            const reorderedGames = this.reOrderByIds(filterDto.ids, games);
             return reorderedGames.map((game) => game.id);
         }
 

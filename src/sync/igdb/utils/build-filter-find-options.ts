@@ -7,6 +7,7 @@ const singleValueProperties = ["category", "status"];
 export function buildFilterFindOptions(
     dto?: GameRepositoryFilterDto,
 ): FindOptionsWhere<Game> {
+    console.log("DTO: ", dto);
     let options: FindOptionsWhere<Game> = {};
     if (dto == undefined) return options;
     for (const [key, value] of Object.entries(dto)) {
@@ -27,7 +28,7 @@ export function buildFilterFindOptions(
             });
             if (validElements.length === 0) continue;
 
-            if (key === "id") {
+            if (key === "ids") {
                 options = {
                     ...options,
                     id: In(validElements),
