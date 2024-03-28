@@ -89,7 +89,6 @@ describe("NotificationsService", () => {
             mockUserId,
             { offset: 0 },
         );
-        console.log(aggregations);
 
         const firstAggregation = aggregations[0];
         expect(aggregations.length).toEqual(2);

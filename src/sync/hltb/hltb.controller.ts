@@ -1,4 +1,14 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get, Param } from "@nestjs/common";
+import { HltbService } from "./hltb.service";
+import { ApiTags } from "@nestjs/swagger";
 
-@Controller('hltb')
-export class HltbController {}
+@Controller("sync/hltb")
+@ApiTags("sync-hltb")
+export class HltbController {
+    constructor(private hltbService: HltbService) {}
+
+    @Get(":gameId")
+    async findPlaytimeForGameId(@Param("gameId") gameId: number) {
+        return await this.hltbService.findOneByGameIdOrFail(gameId);
+    }
+}

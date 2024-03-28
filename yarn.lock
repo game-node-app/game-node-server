@@ -1324,6 +1324,11 @@
   dependencies:
     "@types/superagent" "*"
 
+"@types/user-agents@^1.0.4":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@types/user-agents/-/user-agents-1.0.4.tgz#49bf6760d9ca3858d91e6258835bf2c329b87cf0"
+  integrity sha512-AjeFc4oX5WPPflgKfRWWJfkEk7Wu82fnj1rROPsiqFt6yElpdGFg8Srtm/4PU4rA9UiDUZlruGPgcwTMQlwq4w==
+
 "@types/validator@^13.11.8":
   version "13.11.9"
   resolved "https://registry.yarnpkg.com/@types/validator/-/validator-13.11.9.tgz#adfe96520b437a0eaa798a475877bf2f75ee402d"
@@ -5890,6 +5895,13 @@ url-parse@^1.5.9, url-parse@~1.5.10:
   dependencies:
     querystringify "^2.1.1"
     requires-port "^1.0.0"
+
+user-agents@^1.1.153:
+  version "1.1.153"
+  resolved "https://registry.yarnpkg.com/user-agents/-/user-agents-1.1.153.tgz#aa43b7aeb217e3a37a8db12eef89875b545c781a"
+  integrity sha512-bmamrkbdwcDlnjYp46I8CCbThitxaiaLHu7spXkM2Abg6/IioBarFe6F6R0YpRdN/2JKRTrRGZENXyV4Qay9qw==
+  dependencies:
+    lodash.clonedeep "^4.5.0"
 
 util-deprecate@^1.0.1, util-deprecate@~1.0.1:
   version "1.0.2"

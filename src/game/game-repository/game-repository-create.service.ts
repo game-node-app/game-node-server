@@ -102,7 +102,12 @@ export class GameRepositoryCreateService {
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
         private readonly amqpConnection: AmqpConnection,
         private readonly statisticsQueueService: StatisticsQueueService,
-    ) {}
+    ) {
+        const { exchange, routingKey } = GAME_SYNC_RABBITMQ_QUEUE_CONFIG;
+        this.amqpConnection.publish(exchange!, routingKey as string, {
+            date: new Date(),
+        });
+    }
 
     /**
      * Creates or updates a game in our database. <br>
