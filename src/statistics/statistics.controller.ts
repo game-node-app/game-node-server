@@ -12,7 +12,10 @@ import {
 } from "@nestjs/common";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
-import { StatisticsPaginatedResponseDto } from "./dto/statistics-paginated-response.dto";
+import {
+    GameStatisticsPaginatedResponseDto,
+    ReviewStatisticsPaginatedResponseDto,
+} from "./dto/statistics-paginated-response.dto";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
@@ -62,7 +65,7 @@ export class StatisticsController {
     @UseInterceptors(PaginationInterceptor)
     @ApiResponse({
         status: 200,
-        type: StatisticsPaginatedResponseDto,
+        type: GameStatisticsPaginatedResponseDto,
     })
     @HttpCode(HttpStatus.OK)
     @Public()
@@ -70,7 +73,7 @@ export class StatisticsController {
         console.time("trending/games");
         const result = (await this.gameStatisticsService.findTrending(
             dto,
-        )) as unknown as StatisticsPaginatedResponseDto;
+        )) as unknown as GameStatisticsPaginatedResponseDto;
         console.timeEnd("trending/games");
         return result;
     }
@@ -81,14 +84,14 @@ export class StatisticsController {
     @CacheTTL(600)
     @ApiResponse({
         status: 200,
-        type: StatisticsPaginatedResponseDto,
+        type: ReviewStatisticsPaginatedResponseDto,
     })
     @HttpCode(HttpStatus.OK)
     @Public()
     async findTrendingReviews(@Body() dto: FindStatisticsTrendingReviewsDto) {
         return (await this.reviewStatisticsService.findTrending(
             dto,
-        )) as unknown as StatisticsPaginatedResponseDto;
+        )) as unknown as ReviewStatisticsPaginatedResponseDto;
     }
 
     @Get("status")

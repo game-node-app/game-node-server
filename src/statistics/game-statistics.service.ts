@@ -150,6 +150,9 @@ export class GameStatisticsService implements StatisticsService {
     ): Promise<TPaginationData<GameStatistics>> {
         const { period, criteria, offset, limit } = data;
         const offsetToUse = offset || 0;
+        // We save up to this N statistics entities on cache to improve load performance.
+        const fixedStatisticsLimit = 2500;
+        // User supplied limit
         const limitToUse = limit || 20;
         const minusDays = StatisticsPeriodToMinusDays[period];
         const periodDate = getPreviousDate(minusDays);
@@ -170,7 +173,7 @@ export class GameStatisticsService implements StatisticsService {
             .orWhere(`(s.viewsCount = 0 AND s.likesCount = 0)`)
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
-            .take(1000)
+            .take(fixedStatisticsLimit)
             .cache(`trending-games-statistics`, hours(6))
             .getMany();
 
@@ -180,9 +183,9 @@ export class GameStatisticsService implements StatisticsService {
         const gameIds = statistics.map((s) => s.gameId);
         const games = await this.gameRepositoryService.findAllIdsWithFilters({
             ...criteria,
-            id: gameIds,
+            ids: gameIds,
             // We need to return all entities to maintain pagination order
-            limit: 1000,
+            limit: fixedStatisticsLimit,
             offset: 0,
         });
         const totalAvailableGames = games.length;

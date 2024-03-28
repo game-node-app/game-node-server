@@ -27,7 +27,7 @@ export function buildFilterFindOptions(
             });
             if (validElements.length === 0) continue;
 
-            if (key === "id") {
+            if (key === "ids") {
                 options = {
                     ...options,
                     id: In(validElements),
