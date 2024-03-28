@@ -74,22 +74,6 @@ enum EGameStatus {
     Delisted = 8,
 }
 
-// Quick access to the platform IDs
-enum EGamePlatformIds {
-    PC = 6,
-    PS1 = 7,
-    PS2 = 8,
-    PS3 = 9,
-    PS4 = 48,
-    PS5 = 167,
-    Xbox = 11,
-    Xbox360 = 12,
-    XboxOne = 49,
-    XboxSeriesX = 169,
-    NintendoSwitch = 130,
-    Stadia = 170,
-}
-
 /**
  * Where the game data is stored in the GameNode system.
  * Helps the clients determine the source of the data.
@@ -100,7 +84,7 @@ enum EGameStorageSource {
 }
 
 /**
- * Queue responsible for announcing games' creation/update event to sync systems. (e.g. sync-hltb)
+ * Queue responsible for announcing games' creation/update event.
  */
 const GAME_SYNC_RABBITMQ_QUEUE_CONFIG: RabbitMQQueueConfig = {
     name: "sync-game",
@@ -118,7 +102,6 @@ export {
     EGameExternalGameMedia,
     EGameExternalGameCategory,
     EGamePlatformCategory,
-    EGamePlatformIds,
     EGameStorageSource,
     GAME_SYNC_RABBITMQ_QUEUE_CONFIG,
 };

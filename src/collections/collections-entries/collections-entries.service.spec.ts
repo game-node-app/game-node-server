@@ -7,7 +7,6 @@ import { ReviewsService } from "../../reviews/reviews.service";
 import { Repository } from "typeorm";
 import { Review } from "../../reviews/entities/review.entity";
 import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
-import { EGamePlatformIds } from "../../game/game-repository/game-repository.constants";
 import { getMockRepositoryProvider } from "../../../test/mocks/repositoryMocks";
 import Mocked = jest.Mocked;
 import { ActivitiesQueueMock } from "../../../test/mocks/queue/activities-mocks";
@@ -83,7 +82,7 @@ describe("CollectionsEntriesService", () => {
             isFavorite: true,
             gameId: 1942,
             collectionIds: ["111111"],
-            platformIds: [EGamePlatformIds.PC.valueOf()],
+            platformIds: [6],
         };
         jest.spyOn(
             reviewService,

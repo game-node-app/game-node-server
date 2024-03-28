@@ -5,7 +5,6 @@ import {
     IsNumber,
     IsString,
 } from "class-validator";
-import { EGamePlatformIds } from "../../../game/game-repository/game-repository.constants";
 
 export class CreateCollectionEntryDto {
     @IsNotEmpty()
@@ -18,7 +17,7 @@ export class CreateCollectionEntryDto {
     @IsArray()
     @IsNotEmpty()
     @IsNumber({}, { each: true })
-    platformIds: EGamePlatformIds[];
+    platformIds: number[];
     @IsBoolean()
     isFavorite: boolean = false;
 }
