@@ -6,12 +6,3 @@ export type PartialGame = DeepPartial<Game> & {
     id: number;
     [key: string]: any;
 };
-
-export class GameSyncObject extends PickType(Game, [
-    "id",
-    "name",
-    "status",
-    "category",
-    "createdAt",
-    "updatedAt",
-]) {}

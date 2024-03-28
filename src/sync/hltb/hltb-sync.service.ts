@@ -9,7 +9,7 @@ const MINIMUM_UPDATE_INTERVAL_MS = days(30);
 const FAILED_ATTEMPT_TTL_MS = days(7);
 
 @Injectable()
-export class HltbService {
+export class HltbSyncService {
     constructor(
         @InjectRepository(GamePlaytime)
         private gamePlaytimeRepository: Repository<GamePlaytime>,

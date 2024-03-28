@@ -1,13 +1,13 @@
 import { Module } from "@nestjs/common";
-import { HltbService } from "./hltb.service";
+import { HltbSyncService } from "./hltb-sync.service";
 import { HltbController } from "./hltb.controller";
-import { HltbQueueService } from "./hltb-queue.service";
-import { HltbSearchService } from "./hltb-search.service";
+import { HltbSyncQueueService } from "./hltb-sync-queue.service";
+import { HltbSyncSearchService } from "./hltb-sync-search.service";
 import { BullModule } from "@nestjs/bullmq";
 import { HLTB_SYNC_QUEUE_NAME } from "./hltb.constants";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { GamePlaytime } from "./entity/game-playtime.entity";
-import { HltbProcessor } from "./hltb.processor";
+import { HltbSyncProcessor } from "./hltb-sync.processor";
 
 @Module({
     imports: [
@@ -17,11 +17,12 @@ import { HltbProcessor } from "./hltb.processor";
         }),
     ],
     providers: [
-        HltbService,
-        HltbQueueService,
-        HltbSearchService,
-        HltbProcessor,
+        HltbSyncService,
+        HltbSyncQueueService,
+        HltbSyncSearchService,
+        HltbSyncProcessor,
     ],
     controllers: [HltbController],
+    exports: [HltbSyncQueueService],
 })
-export class HltbModule {}
+export class HltbSyncModule {}
