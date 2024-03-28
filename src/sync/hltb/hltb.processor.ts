@@ -32,7 +32,7 @@ function parseResponse(
 @Processor(HLTB_SYNC_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: 8000,
+        duration: 20000,
     },
 })
 export class HltbProcessor extends WorkerHostProcessor {
@@ -53,6 +53,7 @@ export class HltbProcessor extends WorkerHostProcessor {
                 );
             } catch (err) {
                 this.logger.warn(`${job.data.gameId} - ${err}`);
+                this.hltbService.registerFailedAttempt(job.data.gameId);
                 return;
             }
 
