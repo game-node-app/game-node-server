@@ -56,7 +56,7 @@ export class HltbSyncService {
             const now = new Date();
             const lastUpdate = playtime.updatedAt;
             return (
-                lastUpdate.getTime() - now.getTime() >
+                now.getTime() - lastUpdate.getTime() >
                 MINIMUM_UPDATE_INTERVAL_MS
             );
         } else if (failedAttempt) {
