@@ -56,6 +56,7 @@ export class ReviewStatisticsService implements StatisticsService {
         const entry = await this.create(sourceId);
 
         const isLiked = await this.userLikeRepository.existsBy({
+            profileUserId: userId,
             reviewStatistics: entry,
         });
 

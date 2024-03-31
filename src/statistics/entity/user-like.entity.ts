@@ -41,9 +41,17 @@ export class UserLike {
         nullable: true,
     })
     gameStatistics: GameStatistics | null;
+    @Column({
+        nullable: true,
+    })
+    gameStatisticsId: number;
     @ManyToOne(() => ReviewStatistics, (rs) => rs.likes, {
         onDelete: "CASCADE",
         nullable: true,
     })
     reviewStatistics: ReviewStatistics | null;
+    @Column({
+        nullable: true,
+    })
+    reviewStatisticsId: number;
 }
