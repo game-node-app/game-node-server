@@ -63,6 +63,7 @@ export class GameStatisticsService implements StatisticsService {
         const entry = await this.create(sourceId);
 
         const isLiked = await this.userLikeRepository.existsBy({
+            profileUserId: userId,
             gameStatistics: entry,
         });
 

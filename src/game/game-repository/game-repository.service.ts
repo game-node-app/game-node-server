@@ -35,13 +35,14 @@ export class GameRepositoryService {
 
     /**
      * @param dataSource
-     * @param cacheManager
      * @param gameRepository
      */
     constructor(
         private readonly dataSource: DataSource,
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
+        @InjectRepository(GamePlatform)
+        private readonly gamePlatformRepository: Repository<GamePlatform>,
     ) {}
 
     private validateMaximumRelations(
@@ -163,7 +164,18 @@ export class GameRepositoryService {
         return await resourceRepository.find();
     }
 
-    getIconNamesForPlatformAbbreviations(platformAbbreviations: string[]) {
+    async getIconsNamesForPlatforms(gameId: number) {
+        const platforms = await this.gamePlatformRepository.find({
+            where: {
+                games: {
+                    id: gameId,
+                },
+            },
+        });
+        if (platforms.length === 0) return [];
+        const platformAbbreviations = platforms.map(
+            (platform) => platform.abbreviation,
+        );
         const iconsNames: string[] = [];
         for (const [iconName, platforms] of Object.entries(
             platformAbbreviationToIconMap,

@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+    Logger,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GamePlaytime } from "./entity/game-playtime.entity";
 import { DeepPartial, Repository } from "typeorm";
@@ -10,6 +16,7 @@ const FAILED_ATTEMPT_TTL_MS = days(7);
 
 @Injectable()
 export class HltbSyncService {
+    private logger = new Logger(HltbSyncService.name);
     constructor(
         @InjectRepository(GamePlaytime)
         private gamePlaytimeRepository: Repository<GamePlaytime>,
@@ -49,7 +56,7 @@ export class HltbSyncService {
             const now = new Date();
             const lastUpdate = playtime.updatedAt;
             return (
-                lastUpdate.getTime() - now.getTime() >
+                now.getTime() - lastUpdate.getTime() >
                 MINIMUM_UPDATE_INTERVAL_MS
             );
         } else if (failedAttempt) {
@@ -67,7 +74,11 @@ export class HltbSyncService {
     public registerFailedAttempt(gameId: number) {
         this.cacheManager
             .set(`hltb-failed-attempt-${gameId}`, true, FAILED_ATTEMPT_TTL_MS)
-            .then()
+            .then(() => {
+                this.logger.error(
+                    `Registered failed attempt at HLTB Sync for gameId: ${gameId}`,
+                );
+            })
             .catch(console.error);
     }
 }

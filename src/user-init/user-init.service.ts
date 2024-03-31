@@ -7,11 +7,6 @@ import { EUserRoles } from "../utils/constants";
 import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 import { LevelService } from "../level/level.service";
 import { Timeout } from "@nestjs/schedule";
-import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
-import {
-    USER_INIT_RABBITMQ_EXCHANGE,
-    USER_INIT_RABBITMQ_ROUTING_KEY,
-} from "./user-init.constants";
 import { AUTH_ERRORS } from "../auth/auth.constants";
 
 /**
@@ -29,7 +24,7 @@ export class UserInitService {
         private userLevelService: LevelService,
     ) {}
 
-    @Timeout(2000)
+    @Timeout(5000)
     private createUserRoles() {
         this.logger.log("Starting user role creation routine.");
         for (const role of Object.values(EUserRoles)) {
@@ -107,11 +102,9 @@ export class UserInitService {
 
         await this.librariesService.create(userId);
         this.logger.log(`Created library for user ${userId} at signup`);
-        const defaultCollectionsCreatePromises = DEFAULT_COLLECTIONS.map(
-            (collectionSpec) =>
-                this.collectionsService.create(userId, collectionSpec),
-        );
-        await Promise.all(defaultCollectionsCreatePromises);
+        for (const collectionSpec of DEFAULT_COLLECTIONS) {
+            await this.collectionsService.create(userId, collectionSpec);
+        }
         this.logger.log(
             `Created default collections for user ${userId} at signup`,
         );

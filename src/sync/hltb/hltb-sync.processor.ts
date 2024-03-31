@@ -29,10 +29,16 @@ function parseResponse(
     };
 }
 
+/**
+ * Attempt to improve the chances of succesfully finding a game by removing non-essential words (e.g. 'Complete Edition').
+ * @param gameName
+ */
+function parseGameName(gameName: string) {}
+
 @Processor(HLTB_SYNC_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: 8000,
+        duration: 2000,
     },
 })
 export class HltbSyncProcessor extends WorkerHostProcessor {
