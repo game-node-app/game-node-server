@@ -14,7 +14,6 @@ import {
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
 import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 import { ApiTags } from "@nestjs/swagger";
-import { IconNamesForPlatformRequestDto } from "./dto/icon-names-for-platform-request.dto";
 
 @Controller("game/repository")
 @ApiTags("game-repository")
@@ -28,14 +27,10 @@ export class GameRepositoryController {
         return await this.gameRepositoryService.getResource(resourceName);
     }
 
-    @Post("platforms/icon")
+    @Get(":id/platforms/icon")
     @HttpCode(200)
-    getIconNamesForPlatformAbbreviations(
-        @Body() dto: IconNamesForPlatformRequestDto,
-    ) {
-        return this.gameRepositoryService.getIconNamesForPlatformAbbreviations(
-            dto.platformAbbreviations,
-        );
+    getIconNamesForPlatformAbbreviations(@Param("id") gameId: number) {
+        return this.gameRepositoryService.getIconsNamesForPlatforms(gameId);
     }
 
     @Post(":id")
