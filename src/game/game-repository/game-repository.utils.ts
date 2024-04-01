@@ -61,18 +61,3 @@ export function getStoreNameForExternalGameCategory(
 
     return null;
 }
-
-/**
- * Store uid is the id for a game used on the target store. <br>
- * See game-external-game.entity.ts for reference.
- * @param category
- * @param storeUid
- */
-export function getStoreUrlForCategory(category: number, storeUid: string) {
-    switch (category) {
-        case EGameExternalGameCategory.Steam:
-            return `https://store.steampowered.com/app/${storeUid}`;
-    }
-
-    return null;
-}
