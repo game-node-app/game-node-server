@@ -230,7 +230,7 @@ export class Game {
         nullable: true,
     })
     platforms?: GamePlatform[];
-    @ManyToMany(
+    @OneToMany(
         () => GameExternalGame,
         (gameExternalGame) => gameExternalGame.game,
         {

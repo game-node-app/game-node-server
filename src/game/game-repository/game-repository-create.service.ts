@@ -215,18 +215,16 @@ export class GameRepositoryCreateService {
          * Many-To-Many relationships are not automatically updated, so we need to do it manually.
          * Use the QueryBuilder with the .relation() method.
          */
-
         if (game.externalGames) {
             for (const externalGame of game.externalGames) {
                 try {
-                    await this.gameExternalGameRepository.upsert(externalGame, [
-                        "id",
-                    ]);
-                    await this.gameExternalGameRepository
-                        .createQueryBuilder()
-                        .relation(Game, "externalGames")
-                        .of(game)
-                        .add(externalGame);
+                    const externalGameEntity =
+                        this.gameExternalGameRepository.create(externalGame);
+                    externalGameEntity.gameId = game.id;
+                    await this.gameExternalGameRepository.upsert(
+                        externalGameEntity,
+                        ["id"],
+                    );
                 } catch (e) {}
             }
         }
@@ -248,7 +246,7 @@ export class GameRepositoryCreateService {
             for (const platform of game.platforms) {
                 await this.gamePlatformRepository.upsert(platform, ["id"]);
                 try {
-                    await this.gameExternalGameRepository
+                    await this.gamePlatformRepository
                         .createQueryBuilder()
                         .relation(Game, "platforms")
                         .of(game)
