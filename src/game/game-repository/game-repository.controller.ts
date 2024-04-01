@@ -33,6 +33,12 @@ export class GameRepositoryController {
         return this.gameRepositoryService.getIconsNamesForPlatforms(gameId);
     }
 
+    @Get(":id/external-stores")
+    @HttpCode(200)
+    getExternalStoresForGameId(@Param("id") gameId: number) {
+        return this.gameRepositoryService.findGameExternalStores(gameId);
+    }
+
     @Post(":id")
     @HttpCode(200)
     async findOneById(

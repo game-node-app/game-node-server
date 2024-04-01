@@ -70,6 +70,12 @@ export class CollectionsEntriesController {
         );
     }
 
+    @Get(":id/platforms/icons")
+    async getIconsForOwnedPlatforms(@Param("id") collectionEntryId: string) {
+        return this.collectionsEntriesService.findIconsForOwnedPlatforms(
+            collectionEntryId,
+        );
+    }
     @Delete(":id")
     @HttpCode(HttpStatus.NO_CONTENT)
     async deleteOwnEntry(

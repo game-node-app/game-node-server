@@ -87,7 +87,7 @@ export class CollectionsService {
     /**
      * Shorthand method that fails with a HttpException.
      * @param id {string}
-     * @param dto
+     * @param relations
      */
     async findOneByIdOrFail(
         id: string,

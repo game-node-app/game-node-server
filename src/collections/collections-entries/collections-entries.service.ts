@@ -1,10 +1,4 @@
-import {
-    forwardRef,
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-} from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { FindOptionsRelations, In, Repository } from "typeorm";
@@ -13,9 +7,9 @@ import { ActivitiesQueueService } from "../../activities/activities-queue/activi
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { ActivityType } from "../../activities/activities-queue/activities-queue.constants";
-import { ReviewsService } from "../../reviews/reviews.service";
 import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../../achievements/achievements.constants";
+import { getIconNamesForPlatformAbbreviations } from "../../game/game-repository/game-repository.utils";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -38,6 +32,14 @@ export class CollectionsEntriesService {
                 id,
             },
         });
+    }
+
+    async findOneByIdOrFail(id: string) {
+        const entry = await this.findOneById(id);
+        if (!entry) {
+            throw new HttpException("No entry found.", HttpStatus.NOT_FOUND);
+        }
+        return entry;
     }
 
     /**
@@ -290,5 +292,15 @@ export class CollectionsEntriesService {
                 },
             },
         });
+    }
+
+    async findIconsForOwnedPlatforms(entryId: string) {
+        const entry = await this.findOneByIdOrFail(entryId);
+        const ownedPlatforms = entry.ownedPlatforms;
+        if (ownedPlatforms.length === 0) return [];
+        const abbreviations = ownedPlatforms.map(
+            (platform) => platform.abbreviation,
+        );
+        return getIconNamesForPlatformAbbreviations(abbreviations);
     }
 }

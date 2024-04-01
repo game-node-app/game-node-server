@@ -49,7 +49,7 @@ export class CollectionEntry {
     @OneToOne(() => Review, (review) => review.collectionEntry, {
         nullable: true,
     })
-    review: Review;
+    review: Review | null;
 
     @Column({
         default: false,

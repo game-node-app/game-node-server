@@ -31,10 +31,4 @@ export const DEFAULT_COLLECTIONS: CreateCollectionDto[] = [
         isPublic: true,
         isFeatured: false,
     },
-    {
-        name: "Favorites",
-        description: "My favorite games",
-        isPublic: true,
-        isFeatured: true,
-    },
 ];

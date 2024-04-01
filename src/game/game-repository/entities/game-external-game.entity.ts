@@ -13,7 +13,6 @@ import {
     EGameExternalGameMedia,
 } from "../game-repository.constants";
 import { Game } from "./game.entity";
-import { GamePlatform } from "./game-platform.entity";
 
 @Entity()
 export class GameExternalGame {
@@ -58,9 +57,13 @@ export class GameExternalGame {
     createdAt: Date;
     @UpdateDateColumn()
     updatedAt: Date;
-
     // Relationships
-    @ManyToMany(() => Game, (game) => game.externalGames, {})
-    @JoinTable()
-    games: Game[];
+    @ManyToOne(() => Game, (game) => game.externalGames, {
+        nullable: false,
+    })
+    game: Game;
+    @Column({
+        nullable: false,
+    })
+    gameId: number;
 }

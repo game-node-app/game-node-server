@@ -14,8 +14,14 @@ import { GameMode } from "./entities/game-mode.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
 import { buildFilterFindOptions } from "../../sync/igdb/utils/build-filter-find-options";
-import { platformAbbreviationToIconMap } from "./game-repository.utils";
 import { minutes } from "@nestjs/throttler";
+import { GameExternalGame } from "./entities/game-external-game.entity";
+import { platformAbbreviationToIconMap } from "./game-repository.constants";
+import { GameExternalStoreDto } from "./dto/game-external-store.dto";
+import {
+    getIconNameForExternalGameCategory,
+    getStoreNameForExternalGameCategory,
+} from "./game-repository.utils";
 
 const resourceToEntityMap = {
     platforms: GamePlatform,
@@ -36,6 +42,8 @@ export class GameRepositoryService {
     /**
      * @param dataSource
      * @param gameRepository
+     * @param gamePlatformRepository
+     * @param gameExternalGameRepository
      */
     constructor(
         private readonly dataSource: DataSource,
@@ -43,6 +51,8 @@ export class GameRepositoryService {
         private readonly gameRepository: Repository<Game>,
         @InjectRepository(GamePlatform)
         private readonly gamePlatformRepository: Repository<GamePlatform>,
+        @InjectRepository(GameExternalGame)
+        private readonly gameExternalGameRepository: Repository<GameExternalGame>,
     ) {}
 
     private validateMaximumRelations(
@@ -151,6 +161,35 @@ export class GameRepositoryService {
         }
 
         return games.map((game) => game.id);
+    }
+
+    async findGameExternalStores(gameId: number) {
+        const externalGames = await this.gameExternalGameRepository.findBy({
+            gameId,
+        });
+        if (externalGames.length === 0) {
+            throw new HttpException(
+                "Game has no external stores registered",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+        const externalStoreDtos = externalGames.map((externalGame) => {
+            const icon = getIconNameForExternalGameCategory(
+                externalGame.category?.valueOf(),
+            );
+            const storeName = getStoreNameForExternalGameCategory(
+                externalGame.category?.valueOf(),
+            );
+            const storeDto: GameExternalStoreDto = {
+                ...externalGame,
+                icon,
+                storeName,
+            };
+
+            return storeDto;
+        });
+
+        return externalStoreDtos;
     }
 
     async getResource(resource: TAllowedResource): Promise<any> {

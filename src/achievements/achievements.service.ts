@@ -68,7 +68,7 @@ export class AchievementsService {
         achievement: Achievement,
     ): Promise<void> {
         const shouldSkipAchievement =
-            await this.obtainedAchievementsRepository.exist({
+            await this.obtainedAchievementsRepository.exists({
                 where: {
                     id: achievement.id,
                     profile: {
@@ -86,15 +86,15 @@ export class AchievementsService {
 
         if (!isEligible) return;
 
-        const obtainedAchivementEntity =
+        const obtainedAchievementEntity =
             this.obtainedAchievementsRepository.create();
-        obtainedAchivementEntity.id = achievement.id;
-        obtainedAchivementEntity.profile = {
+        obtainedAchievementEntity.id = achievement.id;
+        obtainedAchievementEntity.profile = {
             userId: targetUserId,
         } as Profile;
 
         await this.obtainedAchievementsRepository.save(
-            obtainedAchivementEntity,
+            obtainedAchievementEntity,
         );
 
         await this.userLevelService.increaseExp(
