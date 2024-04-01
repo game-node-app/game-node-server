@@ -295,7 +295,14 @@ export class CollectionsEntriesService {
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {
-        const entry = await this.findOneByIdOrFail(entryId);
+        const entry = await this.collectionEntriesRepository.findOneOrFail({
+            where: {
+                id: entryId,
+            },
+            relations: {
+                ownedPlatforms: true,
+            },
+        });
         const ownedPlatforms = entry.ownedPlatforms;
         if (ownedPlatforms.length === 0) return [];
         const abbreviations = ownedPlatforms.map(
