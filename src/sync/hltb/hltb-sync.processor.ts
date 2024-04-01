@@ -38,7 +38,7 @@ function parseGameName(gameName: string) {}
 @Processor(HLTB_SYNC_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: 2000,
+        duration: 3000,
     },
 })
 export class HltbSyncProcessor extends WorkerHostProcessor {
