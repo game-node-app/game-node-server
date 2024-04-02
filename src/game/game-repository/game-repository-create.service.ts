@@ -57,6 +57,7 @@ export class GameRepositoryCreateService {
      * @param gameEngineRepository
      * @param gameEngineLogoRepository
      * @param statisticsQueueService
+     * @param hltbSyncQueueService
      */
     constructor(
         @InjectRepository(Game)

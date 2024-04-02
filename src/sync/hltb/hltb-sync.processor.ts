@@ -33,12 +33,27 @@ function parseResponse(
  * Attempt to improve the chances of succesfully finding a game by removing non-essential words (e.g. 'Complete Edition').
  * @param gameName
  */
-function parseGameName(gameName: string) {}
+function parseGameName(gameName: string) {
+    if (gameName.includes(" -")) {
+        const breakPoint = gameName.indexOf(" -");
+        return gameName.slice(0, breakPoint);
+    } else if (gameName.includes(": ")) {
+        const breakPoint = gameName.indexOf(": ");
+        return gameName.slice(0, breakPoint);
+    }
+
+    if (gameName.split(" ").length >= 3) {
+        const subStrings = gameName.split(" ");
+        return subStrings.slice(0, 4).join(" ");
+    }
+
+    return gameName;
+}
 
 @Processor(HLTB_SYNC_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: 3000,
+        duration: 2000,
     },
 })
 export class HltbSyncProcessor extends WorkerHostProcessor {
@@ -54,9 +69,11 @@ export class HltbSyncProcessor extends WorkerHostProcessor {
         if (job.name === HLTB_SYNC_QUEUE_JOB_NAME) {
             let searchResponse: HLTBResponseItem;
             try {
-                searchResponse = await this.hltbSearchService.getFirst(
-                    job.data.name,
-                );
+                const parsedGameName = parseGameName(job.data.name);
+                console.log(`Original game name: ${job.data.name}`);
+                console.log(`Parsed game name: ${parsedGameName}`);
+                searchResponse =
+                    await this.hltbSearchService.getFirst(parsedGameName);
             } catch (err) {
                 this.logger.warn(`${job.data.gameId} - ${err}`);
                 this.hltbService.registerFailedAttempt(job.data.gameId);
