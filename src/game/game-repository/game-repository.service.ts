@@ -173,7 +173,15 @@ export class GameRepositoryService {
                 HttpStatus.NOT_FOUND,
             );
         }
-        const externalStoreDtos = externalGames.map((externalGame) => {
+
+        const uniqueExternalGamesMap = externalGames.reduce((acc, current) => {
+            if (current.category) {
+                acc.set(current.category, current);
+            }
+            return acc;
+        }, new Map<number, GameExternalGame>());
+        const uniqueExternalGames = Array.from(uniqueExternalGamesMap.values());
+        const externalStoreDtos = uniqueExternalGames.map((externalGame) => {
             const icon = getIconNameForExternalGameCategory(
                 externalGame.category?.valueOf(),
             );
