@@ -120,14 +120,15 @@ const platformAbbreviationToIconMap: { [p: string]: string[] } = {
 
 const externalGameCategoryToIconMap: { [p: string]: number[] } = {
     xbox: [
-        EGameExternalGameCategory.XboxMarketplace.valueOf(),
-        EGameExternalGameCategory.XboxGamePassUltimateCloud.valueOf(),
-        EGameExternalGameCategory.Microsoft.valueOf(),
+        EGameExternalGameCategory.XboxMarketplace,
+        EGameExternalGameCategory.XboxGamePassUltimateCloud,
+        EGameExternalGameCategory.Microsoft,
     ],
-    steam: [EGameExternalGameCategory.Steam.valueOf()],
-    epicgames: [EGameExternalGameCategory.EpicGamesStore.valueOf()],
-    android: [EGameExternalGameCategory.Android.valueOf()],
-    playstation: [EGameExternalGameCategory.PlaystationStoreUs.valueOf()],
+    steam: [EGameExternalGameCategory.Steam],
+    epicgames: [EGameExternalGameCategory.EpicGamesStore],
+    android: [EGameExternalGameCategory.Android],
+    playstation: [EGameExternalGameCategory.PlaystationStoreUs],
+    twitch: [EGameExternalGameCategory.Twitch],
 };
 
 export {
