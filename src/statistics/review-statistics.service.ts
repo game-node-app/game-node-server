@@ -218,6 +218,9 @@ export class ReviewStatisticsService implements StatisticsService {
                     likesCount: In(reviewsMinimumLikeCounts),
                 },
             ],
+            order: {
+                likesCount: "DESC",
+            },
             cache: {
                 id: `review-statistics-${JSON.stringify(findOptionsWhere)}`,
                 milliseconds: minutes(5),

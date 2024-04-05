@@ -141,18 +141,13 @@ export class GameStatisticsService implements StatisticsService {
         );
     }
 
-    @Interval(hours(6))
-    async preCacheTrendingGames() {
-        // Call logic here, forcing a cache to be populated again.
-    }
-
     async findTrending(
         data: FindStatisticsTrendingGamesDto,
     ): Promise<TPaginationData<GameStatistics>> {
         const { period, criteria, offset, limit } = data;
         const offsetToUse = offset || 0;
         // We save up to this N statistics entities on cache to improve load performance.
-        const fixedStatisticsLimit = 2500;
+        const fixedStatisticsLimit = 3000;
         // User supplied limit
         const limitToUse = limit || 20;
         const minusDays = StatisticsPeriodToMinusDays[period];
