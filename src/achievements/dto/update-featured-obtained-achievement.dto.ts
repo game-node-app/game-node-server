@@ -1,7 +1,7 @@
-import { PickType } from "@nestjs/swagger";
-import { ObtainedAchievement } from "../entities/obtained-achievement.entity";
+import { IsBoolean, IsNotEmpty } from "class-validator";
 
-export class UpdateFeaturedObtainedAchievementDto extends PickType(
-    ObtainedAchievement,
-    ["id", "isFeatured"],
-) {}
+export class UpdateFeaturedObtainedAchievementDto {
+    @IsNotEmpty()
+    @IsBoolean()
+    isFeatured: boolean;
+}

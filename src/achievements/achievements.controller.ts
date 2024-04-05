@@ -43,7 +43,7 @@ export class AchievementsController {
         @Param("id") achievementId: string,
         @Query() queryDto: GetObtainedAchievementRequestDto,
     ) {
-        return this.achievementsService.getObtainedAchievementById(
+        return this.achievementsService.getObtainedAchievementByAchievementId(
             queryDto.targetUserId,
             achievementId,
         );
@@ -59,13 +59,15 @@ export class AchievementsController {
         );
     }
 
-    @Put("featured")
+    @Put("obtained/:id/featured")
     public updateFeaturedObtainedAchievement(
         @Session() session: SessionContainer,
+        @Param("id") achievementId: string,
         @Body() dto: UpdateFeaturedObtainedAchievementDto,
     ) {
         return this.achievementsService.updateFeaturedObtainedAchievement(
             session.getUserId(),
+            achievementId,
             dto,
         );
     }
