@@ -57,6 +57,8 @@ export function getStoreNameForExternalGameCategory(
             return "Microsoft Store";
         case EGameExternalGameCategory.PlaystationStoreUs:
             return "Playstation Store";
+        case EGameExternalGameCategory.Twitch:
+            return "Twitch";
     }
 
     return null;

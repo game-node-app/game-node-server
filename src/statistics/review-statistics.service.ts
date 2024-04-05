@@ -7,11 +7,14 @@ import {
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindOptionsWhere, Repository } from "typeorm";
+import { FindOptionsWhere, In, MoreThanOrEqual, Repository } from "typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
-import { StatisticsActionType } from "./statistics.constants";
+import {
+    StatisticsActionType,
+    StatisticsPeriodToMinusDays,
+} from "./statistics.constants";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { Review } from "../reviews/entities/review.entity";
@@ -20,6 +23,8 @@ import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
+import { getPreviousDate } from "./statistics.utils";
+import { minutes } from "@nestjs/throttler";
 
 @Injectable()
 export class ReviewStatisticsService implements StatisticsService {
@@ -189,15 +194,34 @@ export class ReviewStatisticsService implements StatisticsService {
         const baseFindOptions = buildBaseFindOptions(dto);
         const reviewFindOptionsWhere: FindOptionsWhere<Review> = {
             gameId: dto?.gameId,
+            profileUserId: dto?.userId,
+            id: dto?.reviewId,
         };
         const findOptionsWhere: FindOptionsWhere<ReviewStatistics> = {
             review: reviewFindOptionsWhere,
         };
+        const periodMinusDays = StatisticsPeriodToMinusDays[dto.period];
+        const periodDate = getPreviousDate(periodMinusDays);
+        // Includes reviews liked by no one, or by the user itself.
+        const reviewsMinimumLikeCounts = [0, 1];
         return await this.reviewStatisticsRepository.findAndCount({
             ...baseFindOptions,
-            where: findOptionsWhere,
-            skip: dto.offset || 0,
-            take: dto.limit || 20,
+            where: [
+                {
+                    ...findOptionsWhere,
+                    likes: {
+                        createdAt: MoreThanOrEqual(periodDate),
+                    },
+                },
+                {
+                    ...findOptionsWhere,
+                    likesCount: In(reviewsMinimumLikeCounts),
+                },
+            ],
+            cache: {
+                id: `review-statistics-${JSON.stringify(findOptionsWhere)}`,
+                milliseconds: minutes(5),
+            },
         });
     }
 }

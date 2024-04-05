@@ -70,7 +70,7 @@ export class AchievementsService {
         const shouldSkipAchievement =
             await this.obtainedAchievementsRepository.exists({
                 where: {
-                    id: achievement.id,
+                    achievementId: achievement.id,
                     profile: {
                         userId: targetUserId,
                     },
@@ -87,12 +87,12 @@ export class AchievementsService {
         if (!isEligible) return;
 
         const obtainedAchievementEntity =
-            this.obtainedAchievementsRepository.create();
-        obtainedAchievementEntity.id = achievement.id;
-        obtainedAchievementEntity.profile = {
-            userId: targetUserId,
-        } as Profile;
-
+            this.obtainedAchievementsRepository.create({
+                achievementId: achievement.id,
+                profile: {
+                    userId: targetUserId,
+                } as Profile,
+            });
         await this.obtainedAchievementsRepository.save(
             obtainedAchievementEntity,
         );
@@ -121,7 +121,7 @@ export class AchievementsService {
         }
     }
 
-    async getObtainedAchievementById(
+    async getObtainedAchievementByAchievementId(
         targetUserId: string,
         achievementId: string,
     ) {
@@ -133,13 +133,13 @@ export class AchievementsService {
                 profile: {
                     userId: targetUserId,
                 },
-                id: achievementId,
+                achievementId: achievementId,
             },
         );
 
         if (achievement) return achievement;
 
-        throw new HttpException("", 404);
+        throw new HttpException("User has not obtained this achievement.", 404);
     }
 
     async getObtainedAchievementsByUserId(targetUserId: string) {
@@ -152,14 +152,22 @@ export class AchievementsService {
 
     async updateFeaturedObtainedAchievement(
         userId: string,
+        achievementId: string,
         dto: UpdateFeaturedObtainedAchievementDto,
     ) {
-        const entity = await this.getObtainedAchievementById(userId, dto.id);
-        const updatedEntity = this.obtainedAchievementsRepository.merge(
-            entity,
-            dto,
+        const entity = await this.getObtainedAchievementByAchievementId(
+            userId,
+            achievementId,
         );
-        await this.obtainedAchievementsRepository.save(updatedEntity);
+        await this.obtainedAchievementsRepository.update(
+            {
+                achievementId: entity.achievementId,
+                profileUserId: userId,
+            },
+            {
+                isFeatured: dto.isFeatured,
+            },
+        );
         /**
          * Disables isFeatured flag of any other obtained achievement
          */
@@ -167,9 +175,7 @@ export class AchievementsService {
             await this.obtainedAchievementsRepository.update(
                 {
                     id: Not(entity.id),
-                    profile: {
-                        userId,
-                    },
+                    profileUserId: userId,
                     isFeatured: true,
                 },
                 {

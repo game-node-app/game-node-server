@@ -9,6 +9,7 @@ import { CollectionEntry } from "../collections/collections-entries/entities/col
 import { CollectionsEntriesModule } from "../collections/collections-entries/collections-entries.module";
 import { AchievementsModule } from "../achievements/achievements.module";
 import { StatisticsQueueModule } from "../statistics/statistics-queue/statistics-queue.module";
+import { LevelModule } from "../level/level.module";
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { StatisticsQueueModule } from "../statistics/statistics-queue/statistics
         AchievementsModule,
         CollectionsEntriesModule,
         StatisticsQueueModule,
+        LevelModule,
     ],
     controllers: [ReviewsController],
     providers: [ReviewsService],

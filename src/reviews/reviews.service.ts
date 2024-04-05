@@ -1,10 +1,4 @@
-import {
-    forwardRef,
-    HttpException,
-    HttpStatus,
-    Inject,
-    Logger,
-} from "@nestjs/common";
+import { HttpException, HttpStatus, Logger } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Review } from "./entities/review.entity";
@@ -23,6 +17,8 @@ import {
     ReviewScoreResponseDto,
 } from "./dto/review-score-response.dto";
 import { StatisticsQueueService } from "../statistics/statistics-queue/statistics-queue.service";
+import { LevelService } from "../level/level.service";
+import { LevelIncreaseActivities } from "../level/level.constants";
 
 export class ReviewsService {
     private readonly logger = new Logger(ReviewsService.name);
@@ -34,6 +30,7 @@ export class ReviewsService {
         private collectionsEntriesService: CollectionsEntriesService,
         private readonly achievementsQueueService: AchievementsQueueService,
         private readonly statisticsQueueService: StatisticsQueueService,
+        private readonly levelService: LevelService,
     ) {}
 
     async findOneById(id: string) {
@@ -208,6 +205,11 @@ export class ReviewsService {
             sourceType: StatisticsSourceType.REVIEW,
             sourceId: insertedEntry.id,
         });
+
+        this.levelService.registerLevelExpIncreaseActivity(
+            userId,
+            LevelIncreaseActivities.REVIEW_CREATED,
+        );
     }
 
     async delete(userId: string, reviewId: string) {
