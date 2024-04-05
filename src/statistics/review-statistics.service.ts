@@ -219,7 +219,7 @@ export class ReviewStatisticsService implements StatisticsService {
                 },
             ],
             cache: {
-                id: `review-statistics-${dto?.gameId}`,
+                id: `review-statistics-${JSON.stringify(findOptionsWhere)}`,
                 milliseconds: minutes(5),
             },
         });
