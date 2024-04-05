@@ -1,11 +1,16 @@
-import { HttpException, Injectable } from "@nestjs/common";
+import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLevel } from "./entities/user-level.entity";
 import { Repository } from "typeorm";
-import { BASE_LEVEL_UP_COST } from "./level.constants";
+import {
+    BASE_LEVEL_UP_COST,
+    LevelActivitiesToIncreaseAmountMap,
+    LevelIncreaseActivities,
+} from "./level.constants";
 
 @Injectable()
 export class LevelService {
+    private readonly logger = new Logger(LevelService.name);
     private readonly currentMaximumLevel = 50;
     /**
      * The base amount to multiply the current user-level requirement when a user levels up
@@ -77,6 +82,23 @@ export class LevelService {
         }
 
         await this.userLevelRepository.save(updatedUserLevelEntity);
+    }
+
+    registerLevelExpIncreaseActivity(
+        userId: string,
+        activity: LevelIncreaseActivities,
+    ) {
+        const activityIncreaseAmount =
+            LevelActivitiesToIncreaseAmountMap[activity];
+        if (activityIncreaseAmount == undefined) {
+            throw new Error("Invalid activity when registering level increase");
+        }
+
+        this.increaseExp(userId, activityIncreaseAmount)
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
     }
 
     /**
