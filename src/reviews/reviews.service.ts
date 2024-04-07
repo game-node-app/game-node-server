@@ -65,7 +65,7 @@ export class ReviewsService {
         return review;
     }
 
-    async findAllByUserId(userId: string, dto: FindReviewDto | undefined) {
+    async findAllByUserId(userId: string, dto?: FindReviewDto) {
         const findOptions = buildBaseFindOptions(dto);
         return await this.reviewsRepository.findAndCount({
             ...findOptions,
