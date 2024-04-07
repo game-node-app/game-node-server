@@ -1,4 +1,5 @@
 import {
+    Column,
     CreateDateColumn,
     Entity,
     ManyToOne,
@@ -15,8 +16,12 @@ export class UserFollow {
     id: number;
     @ManyToOne(() => Profile)
     follower: Profile;
+    @Column()
+    followerUserId: string;
     @ManyToOne(() => Profile)
     followed: Profile;
+    @Column()
+    followedUserId: string;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

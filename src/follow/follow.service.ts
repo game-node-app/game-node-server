@@ -1,13 +1,16 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserFollow } from "./entity/user-follow.entity";
-import { Repository } from "typeorm";
+import { FindOptionsWhere, Repository } from "typeorm";
 import { FollowStatusDto } from "./dto/follow-status.dto";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
+import { FollowInfoRequestDto } from "./dto/follow-info-request.dto";
+import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
+import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 
 @Injectable()
 export class FollowService {
@@ -75,7 +78,7 @@ export class FollowService {
             };
         }
 
-        const exist = await this.userFollowRepository.exist({
+        const exist = await this.userFollowRepository.exists({
             where: {
                 follower: {
                     userId: followerUserId,
@@ -97,6 +100,36 @@ export class FollowService {
                 userId,
             },
         });
+    }
+
+    /**
+     * Gets followers or followed user ids with pagination data.
+     * @param dto
+     */
+    public async getFollowerData(
+        dto: FollowInfoRequestDto,
+    ): Promise<TPaginationData<string>> {
+        const baseFindOptions = buildBaseFindOptions(dto);
+        const findOptionsWhere: FindOptionsWhere<UserFollow> = {};
+        if (dto.criteria === "followers") {
+            findOptionsWhere.followedUserId = dto.targetUserId;
+        } else {
+            findOptionsWhere.followerUserId = dto.targetUserId;
+        }
+
+        const [items, count] = await this.userFollowRepository.findAndCount({
+            ...baseFindOptions,
+            where: findOptionsWhere,
+            cache: true,
+        });
+        const userIds = items.map((userFollow) => {
+            if (dto.criteria === "followers") {
+                return userFollow.followerUserId;
+            }
+            return userFollow.followedUserId;
+        });
+
+        return [userIds, count];
     }
 
     async removeFollow(followerUserId: string, followedUserId: string) {

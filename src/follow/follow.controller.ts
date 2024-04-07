@@ -3,9 +3,12 @@ import {
     Controller,
     Delete,
     Get,
+    HttpCode,
+    HttpStatus,
     Post,
     Query,
     UseGuards,
+    UseInterceptors,
 } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
 import { FollowService } from "./follow.service";
@@ -16,6 +19,9 @@ import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { FollowStatusDto } from "./dto/follow-status.dto";
 import { FollowRemoveDto } from "./dto/follow-remove.dto";
 import { Public } from "../auth/public.decorator";
+import { FollowInfoRequestDto } from "./dto/follow-info-request.dto";
+import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
+import { FollowInfoResponseDto } from "./dto/follow-info-response.dto";
 
 @Controller("follow")
 @ApiTags("follow")
@@ -40,6 +46,17 @@ export class FollowController {
     @Public()
     async getFollowersCount(@Query("targetUserId") targetUserId: string) {
         return await this.followService.getFollowersCount(targetUserId);
+    }
+
+    @Post("info")
+    @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponse({
+        type: FollowInfoResponseDto,
+    })
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    async getFollowInfo(@Body() dto: FollowInfoRequestDto) {
+        return await this.followService.getFollowerData(dto);
     }
 
     @Post()
