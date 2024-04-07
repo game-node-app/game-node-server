@@ -94,14 +94,6 @@ export class FollowService {
         };
     }
 
-    public async getFollowersCount(userId: string) {
-        return await this.userFollowRepository.countBy({
-            followed: {
-                userId,
-            },
-        });
-    }
-
     /**
      * Gets followers or followed user ids with pagination data.
      * @param dto

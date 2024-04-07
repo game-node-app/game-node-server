@@ -42,12 +42,6 @@ export class FollowController {
         return this.followService.getStatus(followerUserId, followedUserId);
     }
 
-    @Get("count")
-    @Public()
-    async getFollowersCount(@Query("targetUserId") targetUserId: string) {
-        return await this.followService.getFollowersCount(targetUserId);
-    }
-
     @Post("info")
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
