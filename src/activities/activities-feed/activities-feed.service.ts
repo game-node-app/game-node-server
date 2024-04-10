@@ -5,13 +5,7 @@ import { ActivitiesRepositoryService } from "../activities-repository/activities
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
-import { ProfileService } from "../../profile/profile.service";
-import { ReviewsService } from "../../reviews/reviews.service";
-import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
-import {
-    ActivityCriteria,
-    ActivityType,
-} from "../activities-queue/activities-queue.constants";
+import { ActivityType } from "../activities-queue/activities-queue.constants";
 
 export const ACTIVITY_FEED_CACHE_KEY = "queue-feed";
 
@@ -28,26 +22,14 @@ export class ActivitiesFeedService {
         [ActivityType.REVIEW]: 0.7,
     };
 
-    private readonly activitiesCriteriaChances = {
-        [ActivityCriteria.RECENCY]: 0.25,
-        [ActivityCriteria.POPULARITY]: 0.5,
-        [ActivityCriteria.FOLLOWING]: 0.25,
-    };
-
     constructor(
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         private activitiesRepositoryService: ActivitiesRepositoryService,
-        private profileService: ProfileService,
-        private reviewsService: ReviewsService,
-        private collectionEntriesService: CollectionsEntriesService,
     ) {
         const sumOfTypeChances = Object.values(
             this.activitiesTypeChances,
         ).reduce((a, b) => a + b, 0);
-        const sumOfCriteriaChances = Object.values(
-            this.activitiesCriteriaChances,
-        ).reduce((a, b) => a + b);
-        if (sumOfTypeChances !== 1 || sumOfCriteriaChances !== 1) {
+        if (sumOfTypeChances !== 1) {
             throw new Error(
                 "The sum of all values in activitiesFeedChances and activitiesCriteriaChances must be equal to 1.",
             );
@@ -72,27 +54,6 @@ export class ActivitiesFeedService {
             cumulative += chance / sum;
             if (random < cumulative) {
                 return ActivityType[activityType as keyof typeof ActivityType];
-            }
-        }
-
-        throw new Error("This should never happen.");
-    }
-
-    private getWeightedRandomActivityCriteria() {
-        const sum = Object.values(this.activitiesCriteriaChances).reduce(
-            (a, b) => a + b,
-            0,
-        );
-        const random = Math.random();
-        let cumulative = 0;
-        for (const [activityCriteria, chance] of Object.entries(
-            this.activitiesCriteriaChances,
-        )) {
-            cumulative += chance / sum;
-            if (random < cumulative) {
-                return ActivityCriteria[
-                    activityCriteria as keyof typeof ActivityCriteria
-                ];
             }
         }
 

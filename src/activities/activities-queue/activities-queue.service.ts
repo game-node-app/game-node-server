@@ -11,7 +11,7 @@ export class ActivitiesQueueService {
         @InjectQueue("activities") private readonly activitiesQueue: Queue,
     ) {}
 
-    addActivity(activity: ActivityCreate) {
+    register(activity: ActivityCreate) {
         if (activity.profileUserId == null) {
             this.logger.error("An activity must have an associated profile");
             throw new Error("An activity must have an associated profile.");
@@ -23,19 +23,8 @@ export class ActivitiesQueueService {
             throw new Error("Activity must have a valid sourceId.");
         }
         this.activitiesQueue
-            .add("addActivity", activity)
+            .add("register", activity)
             .then()
             .catch((e) => this.logger.error(e));
-    }
-
-    deleteActivity(sourceId: string) {
-        try {
-            this.activitiesQueue
-                .add("deleteActivity", sourceId)
-                .then()
-                .catch((e) => this.logger.error(e));
-        } catch (e) {
-            console.error(e);
-        }
     }
 }

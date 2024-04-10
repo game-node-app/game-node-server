@@ -4,12 +4,10 @@ import { BaseFindDto } from "../../../utils/base-find.dto";
 
 export enum ActivityFeedCriteria {
     FOLLOWING = "following",
-    TRENDING = "trending",
-    LATEST = "latest",
+    ALL = "all",
 }
 
 export class ActivitiesFeedRequestDto extends OmitType(BaseFindDto, [
-    "orderBy",
     "search",
 ]) {
     @IsString()

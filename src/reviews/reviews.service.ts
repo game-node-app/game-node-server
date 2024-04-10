@@ -189,11 +189,10 @@ export class ReviewsService {
 
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
 
-        this.activitiesQueue.addActivity({
+        this.activitiesQueue.register({
             type: ActivityType.REVIEW,
             sourceId: insertedEntry.id,
             profileUserId: userId,
-            metadata: null,
         });
 
         this.achievementsQueueService.addTrackingJob({
@@ -234,7 +233,5 @@ export class ReviewsService {
                 userId,
             },
         });
-
-        this.activitiesQueue.deleteActivity(review.id);
     }
 }

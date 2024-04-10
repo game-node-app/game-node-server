@@ -7,6 +7,10 @@ import {
     FindOneOptions,
     Repository,
 } from "typeorm";
+import {
+    ActivityCreate,
+    ActivityType,
+} from "../activities-queue/activities-queue.constants";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -17,23 +21,56 @@ export class ActivitiesRepositoryService {
         private activitiesRepository: Repository<Activity>,
     ) {}
 
-    async create(activityLike: DeepPartial<Activity>) {
+    async create(dto: ActivityCreate) {
+        const { type, sourceId, profileUserId } = dto;
+
+        const activity = this.activitiesRepository.create({
+            type,
+            profileUserId,
+        });
+
+        switch (dto.type) {
+            case ActivityType.COLLECTION_ENTRY:
+                if (typeof sourceId !== "string") {
+                    throw new Error(
+                        "Collection Entry activities should have a string sourceId",
+                    );
+                }
+                activity.collectionEntryId = sourceId;
+                break;
+            case ActivityType.REVIEW:
+                if (typeof sourceId !== "string") {
+                    throw new Error(
+                        "Review activities should have a string sourceId",
+                    );
+                }
+                activity.reviewId = sourceId;
+                break;
+            case ActivityType.FOLLOW:
+                if (typeof sourceId !== "number") {
+                    throw new Error(
+                        "Collection Entry activities should have a number sourceId",
+                    );
+                }
+                activity.userFollowId = sourceId;
+                break;
+            default:
+                this.logger.error(
+                    `Invalid activity type: ${JSON.stringify(dto)}`,
+                );
+                throw new Error(
+                    `Invalid activity type: ${JSON.stringify(dto)}`,
+                );
+        }
+
         try {
-            return await this.activitiesRepository.save(activityLike);
+            return await this.activitiesRepository.save(activity);
         } catch (e) {
             this.logger.error(
-                "Invalid activity: " +
-                    JSON.stringify(activityLike) +
-                    "Aborting.",
+                "Invalid activity: " + JSON.stringify(dto) + "Aborting.",
             );
             this.logger.error(e);
         }
-    }
-
-    async deleteBySourceId(sourceId: string) {
-        return await this.activitiesRepository.delete({
-            sourceId,
-        });
     }
 
     async findLatestBy(by: FindManyOptions<Activity>) {
@@ -45,9 +82,11 @@ export class ActivitiesRepositoryService {
         });
     }
 
+    async findAllBy(by: FindManyOptions<Activity>) {
+        return await this.activitiesRepository.findAndCount(by);
+    }
+
     async findOneBy(by: FindOneOptions<Activity>) {
-        return await this.activitiesRepository.findOne({
-            ...by,
-        });
+        return await this.activitiesRepository.findOne(by);
     }
 }

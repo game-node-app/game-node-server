@@ -2,13 +2,15 @@ import {
     Column,
     CreateDateColumn,
     Entity,
-    Index,
     ManyToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { ActivityType } from "../../activities-queue/activities-queue.constants";
 import { Profile } from "../../../profile/entities/profile.entity";
+import { CollectionEntry } from "../../../collections/collections-entries/entities/collection-entry.entity";
+import { Review } from "../../../reviews/entities/review.entity";
+import { UserFollow } from "../../../follow/entity/user-follow.entity";
 
 @Entity()
 export class Activity {
@@ -18,18 +20,8 @@ export class Activity {
         nullable: false,
     })
     type: ActivityType;
-    @Index()
-    @Column({
-        nullable: false,
-    })
-    sourceId: string;
-    @Column({
-        type: "simple-json",
-        nullable: true,
-    })
-    metadata: object | null;
     /**
-     * The associated profile with this Activity
+     * The associated profile with this Activity (e.g. user who performed an action)
      */
     @ManyToOne(() => Profile, {
         nullable: false,
@@ -38,6 +30,33 @@ export class Activity {
     profile: Profile;
     @Column({ nullable: false })
     profileUserId: string;
+    @ManyToOne(() => CollectionEntry, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    collectionEntry: CollectionEntry | null;
+    @Column({
+        nullable: true,
+    })
+    collectionEntryId: string | null;
+    @ManyToOne(() => Review, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    review: Review | null;
+    @Column({
+        nullable: true,
+    })
+    reviewId: string | null;
+    @ManyToOne(() => UserFollow, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    userFollow: UserFollow | null;
+    @Column({
+        nullable: true,
+    })
+    userFollowId: number | null;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()
