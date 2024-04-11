@@ -16,11 +16,17 @@ export class UserFollow {
     id: number;
     @ManyToOne(() => Profile)
     follower: Profile;
-    @Column()
+    @Column({
+        nullable: false,
+        length: 36,
+    })
     followerUserId: string;
     @ManyToOne(() => Profile)
     followed: Profile;
-    @Column()
+    @Column({
+        nullable: false,
+        length: 36,
+    })
     followedUserId: string;
     @CreateDateColumn()
     createdAt: Date;
