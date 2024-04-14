@@ -29,7 +29,6 @@ export class ActivitiesFeedService {
     };
 
     constructor(
-        @Inject(CACHE_MANAGER) private cacheManager: Cache,
         private activitiesRepositoryService: ActivitiesRepositoryService,
         private followService: FollowService,
     ) {
@@ -114,7 +113,7 @@ export class ActivitiesFeedService {
             case ActivityFeedCriteria.FOLLOWING:
                 if (userId == undefined) {
                     throw new HttpException(
-                        "User must be logged-in to see following activities.",
+                        "User must be logged-in to see following user activities.",
                         HttpStatus.UNAUTHORIZED,
                     );
                 }

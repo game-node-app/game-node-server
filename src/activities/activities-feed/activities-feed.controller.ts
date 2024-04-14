@@ -8,6 +8,7 @@ import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { minutes } from "@nestjs/throttler";
+import { Public } from "../../auth/public.decorator";
 
 @ApiTags("activities-feed")
 @Controller("activities/feed")
@@ -23,6 +24,7 @@ export class ActivitiesFeedController {
     @ApiOkResponse({
         type: ActivitiesFeedPaginatedResponseDto,
     })
+    @Public()
     async buildActivitiesFeed(
         @Query() dto: ActivitiesFeedRequestDto,
         @Session() session?: SessionContainer,

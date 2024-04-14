@@ -11,6 +11,7 @@ import {
 import { Profile } from "../../profile/entities/profile.entity";
 import { GameStatistics } from "./game-statistics.entity";
 import { ReviewStatistics } from "./review-statistics.entity";
+import { ActivityStatistics } from "./activity-statistics.entity";
 
 @Entity()
 @Unique(["profile", "gameStatistics"])
@@ -44,7 +45,7 @@ export class UserLike {
     @Column({
         nullable: true,
     })
-    gameStatisticsId: number;
+    gameStatisticsId: number | null;
     @ManyToOne(() => ReviewStatistics, (rs) => rs.likes, {
         onDelete: "CASCADE",
         nullable: true,
@@ -53,5 +54,14 @@ export class UserLike {
     @Column({
         nullable: true,
     })
-    reviewStatisticsId: number;
+    reviewStatisticsId: number | null;
+    @ManyToOne(() => ActivityStatistics, (as) => as.likes, {
+        onDelete: "CASCADE",
+        nullable: true,
+    })
+    activityStatistics: ActivityStatistics | null;
+    @Column({
+        nullable: true,
+    })
+    activityStatisticsId: number | null;
 }

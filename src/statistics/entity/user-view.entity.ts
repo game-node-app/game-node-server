@@ -11,6 +11,7 @@ import { Profile } from "../../profile/entities/profile.entity";
 import { Statistics } from "./statistics.entity";
 import { GameStatistics } from "./game-statistics.entity";
 import { ReviewStatistics } from "./review-statistics.entity";
+import { ActivityStatistics } from "./activity-statistics.entity";
 
 /**
  * While it's called UserView, it also contains anonymous views (profile is set to null).
@@ -47,4 +48,9 @@ export class UserView {
         nullable: true,
     })
     reviewStatistics: ReviewStatistics | null;
+    @ManyToOne(() => ActivityStatistics, (as) => as.likes, {
+        onDelete: "CASCADE",
+        nullable: true,
+    })
+    activityStatistics: ActivityStatistics | null;
 }

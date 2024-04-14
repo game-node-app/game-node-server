@@ -6,17 +6,22 @@ import {
 } from "./statistics-queue/statistics-queue.types";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
+import { ActivityStatistics } from "./entity/activity-statistics.entity";
 
 export interface StatisticsService {
     create: (
         sourceId: string | number,
-    ) => Promise<GameStatistics | ReviewStatistics>;
+    ) => Promise<GameStatistics | ReviewStatistics | ActivityStatistics>;
     findOne: (
         sourceId: string | number,
-    ) => Promise<GameStatistics | ReviewStatistics | null>;
+    ) => Promise<GameStatistics | ReviewStatistics | ActivityStatistics | null>;
     handleLike: (data: StatisticsLikeAction) => void;
     handleView: (data: StatisticsViewAction) => void;
-    findTrending: (data: any) => Promise<TPaginationData<any>>;
+    findTrending: (
+        data: any,
+    ) => Promise<
+        TPaginationData<GameStatistics | ReviewStatistics | ActivityStatistics>
+    >;
     getStatus: (
         statisticsId: number,
         userId?: string,
