@@ -1,7 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { StatisticsService } from "./statistics.types";
-import { GameStatistics } from "./entity/game-statistics.entity";
-import { ReviewStatistics } from "./entity/review-statistics.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import {
@@ -12,13 +10,21 @@ import { ActivityStatistics } from "./entity/activity-statistics.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { FindOptionsWhere, In, MoreThanOrEqual, Repository } from "typeorm";
 import { FindStatisticsTrendingActivitiesDto } from "./dto/find-statistics-trending-activities.dto";
-import { StatisticsPeriodToMinusDays } from "./statistics.constants";
+import {
+    StatisticsActionType,
+    StatisticsPeriodToMinusDays,
+} from "./statistics.constants";
 import { getPreviousDate } from "./statistics.utils";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { Activity } from "../activities/activities-repository/entities/activity.entity";
 import { minutes } from "@nestjs/throttler";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
+import { NotificationsQueueService } from "../notifications/notifications-queue.service";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "../notifications/notifications.constants";
 
 @Injectable()
 export class ActivityStatisticsService implements StatisticsService {
@@ -29,6 +35,7 @@ export class ActivityStatisticsService implements StatisticsService {
         private userLikeRepository: Repository<UserLike>,
         @InjectRepository(UserView)
         private userViewRepository: Repository<UserView>,
+        private notificationsQueueService: NotificationsQueueService,
     ) {}
 
     async create(sourceId: string): Promise<ActivityStatistics> {
@@ -130,7 +137,97 @@ export class ActivityStatisticsService implements StatisticsService {
         };
     }
 
-    handleLike(data: StatisticsLikeAction): void {}
+    async handleLike(data: StatisticsLikeAction) {
+        const { sourceId, userId, targetUserId, action } = data;
+        if (typeof sourceId !== "string") {
+            throw new Error("Invalid type for review-statistics like");
+        }
 
-    handleView(data: StatisticsViewAction): void {}
+        const entry = await this.create(sourceId);
+
+        const isLiked = await this.userLikeRepository.existsBy({
+            profileUserId: userId,
+            activityStatistics: entry,
+        });
+
+        const invalidIncrement =
+            action === StatisticsActionType.INCREMENT && isLiked;
+        const invalidDecrement =
+            action === StatisticsActionType.DECREMENT && !isLiked;
+
+        if (invalidIncrement || invalidDecrement) {
+            return;
+        }
+
+        if (action === StatisticsActionType.DECREMENT) {
+            await this.userLikeRepository.delete({
+                profile: {
+                    userId,
+                },
+                activityStatistics: entry,
+            });
+
+            if (entry.likesCount > 0) {
+                await this.activityStatisticsRepository.decrement(
+                    {
+                        id: entry.id,
+                    },
+                    "likesCount",
+                    1,
+                );
+            }
+
+            return;
+        }
+
+        // This will fail if the user doesn't have a profile.
+        await this.userLikeRepository.save({
+            profile: {
+                userId,
+            },
+            reviewStatistics: entry,
+        });
+
+        await this.activityStatisticsRepository.increment(
+            {
+                id: entry.id,
+            },
+            "likesCount",
+            1,
+        );
+
+        if (targetUserId) {
+            this.notificationsQueueService.registerNotification({
+                targetUserId,
+                userId,
+                sourceId: sourceId,
+                sourceType: ENotificationSourceType.ACTIVITY,
+                category: ENotificationCategory.LIKE,
+            });
+        }
+    }
+
+    async handleView(data: StatisticsViewAction) {
+        const { userId, sourceId } = data;
+        if (typeof sourceId !== "string") {
+            throw new Error("Invalid type for activity-statistics view");
+        }
+
+        const entry = await this.create(sourceId);
+
+        await this.userViewRepository.save({
+            profile: {
+                userId: userId,
+            },
+            reviewStatistics: entry,
+        });
+
+        await this.activityStatisticsRepository.increment(
+            {
+                activityId: sourceId,
+            },
+            "viewsCount",
+            1,
+        );
+    }
 }
