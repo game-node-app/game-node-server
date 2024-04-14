@@ -18,7 +18,7 @@ export class Review {
     id: string;
     @Column({ nullable: true, type: "longtext" })
     content: string | null;
-    @Column({ nullable: false })
+    @Column({ nullable: false, type: "float" })
     rating: number;
     @ManyToOne(() => Game, {
         nullable: false,

@@ -112,9 +112,10 @@ export class ReviewsService {
             total: reviews.length,
         };
         for (const num of [1, 2, 3, 4, 5] as const) {
-            const items = reviews.filter(
-                (review) => review != undefined && review.rating === num,
-            );
+            const items = reviews.filter((review) => {
+                const trucRating = Math.trunc(review.rating);
+                return review != undefined && trucRating === num;
+            });
             distribution[`${num}`] = items.length;
         }
 

@@ -62,7 +62,7 @@ function normalizeIgdbResults(results: any[]) {
     // Keep in mind that this involves processing operations in batches of 10 entities.
     limiter: {
         max: 1,
-        duration: 500,
+        duration: 750,
     },
 })
 export class IgdbSyncProcessor extends WorkerHostProcessor {
@@ -80,15 +80,9 @@ export class IgdbSyncProcessor extends WorkerHostProcessor {
 
             const normalizedResults = normalizeIgdbResults(results);
 
-            const tasks: Promise<void>[] = [];
-
             for (const result of normalizedResults) {
-                tasks.push(
-                    this.gameRepositoryCreateService.createOrUpdate(result),
-                );
+                await this.gameRepositoryCreateService.createOrUpdate(result);
             }
-
-            await Promise.all(tasks);
         }
     }
 }
