@@ -56,15 +56,15 @@ export class ActivityStatisticsService implements StatisticsService {
     }
 
     findTrending(
-        data: FindStatisticsTrendingActivitiesDto,
+        dto: FindStatisticsTrendingActivitiesDto,
     ): Promise<TPaginationData<ActivityStatistics>> {
-        const periodMinusDays = StatisticsPeriodToMinusDays[data.period];
+        const periodMinusDays = StatisticsPeriodToMinusDays[dto.period];
         const periodDate = getPreviousDate(periodMinusDays);
-        const baseFindOptions = buildBaseFindOptions<ActivityStatistics>(data);
+        const baseFindOptions = buildBaseFindOptions<ActivityStatistics>(dto);
         const activityFindOptionsWhere: FindOptionsWhere<Activity> = {
-            id: data.activityId,
-            profileUserId: data.userId,
-            type: data.activityType,
+            id: dto.activityId,
+            profileUserId: dto.userId,
+            type: dto.activityType,
         };
         const baseFindOptionsWhere: FindOptionsWhere<ActivityStatistics> = {
             activity: activityFindOptionsWhere,
