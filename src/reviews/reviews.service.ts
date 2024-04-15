@@ -112,9 +112,10 @@ export class ReviewsService {
             total: reviews.length,
         };
         for (const num of [1, 2, 3, 4, 5] as const) {
-            const items = reviews.filter(
-                (review) => review != undefined && review.rating === num,
-            );
+            const items = reviews.filter((review) => {
+                const trucRating = Math.trunc(review.rating);
+                return trucRating === num;
+            });
             distribution[`${num}`] = items.length;
         }
 
@@ -189,11 +190,10 @@ export class ReviewsService {
 
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
 
-        this.activitiesQueue.addActivity({
+        this.activitiesQueue.register({
             type: ActivityType.REVIEW,
             sourceId: insertedEntry.id,
             profileUserId: userId,
-            metadata: null,
         });
 
         this.achievementsQueueService.addTrackingJob({
@@ -234,7 +234,5 @@ export class ReviewsService {
                 userId,
             },
         });
-
-        this.activitiesQueue.deleteActivity(review.id);
     }
 }

@@ -218,11 +218,10 @@ export class CollectionsEntriesService {
             ownedPlatforms,
         });
 
-        this.activitiesQueueService.addActivity({
+        this.activitiesQueueService.register({
             sourceId: upsertedEntry.id,
             type: ActivityType.COLLECTION_ENTRY,
             profileUserId: userId,
-            metadata: null,
         });
 
         this.achievementsQueueService.addTrackingJob({
@@ -278,8 +277,6 @@ export class CollectionsEntriesService {
 
         // This removes both the associated review (if any) and the entries in the join-tables.
         await this.collectionEntriesRepository.delete(entry.id);
-
-        this.activitiesQueueService.deleteActivity(entry.id);
     }
 
     async countEntriesForUserId(targetUserId: string) {

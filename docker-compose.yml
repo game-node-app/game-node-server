@@ -22,9 +22,9 @@ services:
       timeout: 20s
       retries: 10
 
-  # This is provided by game-node-infra in production.
+
   supertokens:
-    image: registry.supertokens.io/supertokens/supertokens-mysql:7.0
+    image: registry.supertokens.io/supertokens/supertokens-mysql:9.0
     depends_on:
       db:
         condition: service_healthy

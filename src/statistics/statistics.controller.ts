@@ -29,6 +29,8 @@ import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { GameStatisticsService } from "./game-statistics.service";
 import { ReviewStatisticsService } from "./review-statistics.service";
 import { StatisticsSourceType } from "./statistics.constants";
+import { FindStatisticsTrendingActivitiesDto } from "./dto/find-statistics-trending-activities.dto";
+import { ActivityStatisticsService } from "./activity-statistics.service";
 
 @Controller("statistics")
 @ApiTags("statistics")
@@ -37,6 +39,7 @@ export class StatisticsController {
     constructor(
         private readonly gameStatisticsService: GameStatisticsService,
         private readonly reviewStatisticsService: ReviewStatisticsService,
+        private readonly activityStatisticsService: ActivityStatisticsService,
     ) {}
 
     @Post()
@@ -50,6 +53,10 @@ export class StatisticsController {
                 );
             case StatisticsSourceType.REVIEW:
                 return this.reviewStatisticsService.findOne(
+                    dto.sourceId as string,
+                );
+            case StatisticsSourceType.ACTIVITY:
+                return this.activityStatisticsService.findOne(
                     dto.sourceId as string,
                 );
             default:
@@ -94,6 +101,22 @@ export class StatisticsController {
         )) as unknown as ReviewStatisticsPaginatedResponseDto;
     }
 
+    @Post("trending/activities")
+    @UseInterceptors(PaginationInterceptor)
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(600)
+    @ApiResponse({
+        status: 200,
+        type: ReviewStatisticsPaginatedResponseDto,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Public()
+    async findTrendingActivities(
+        @Body() dto: FindStatisticsTrendingActivitiesDto,
+    ) {
+        return await this.activityStatisticsService.findTrending(dto);
+    }
+
     @Get("status")
     @ApiResponse({
         status: 200,
@@ -101,7 +124,7 @@ export class StatisticsController {
     })
     @Public()
     async getStatus(
-        @Session() session: SessionContainer,
+        @Session() session: SessionContainer | undefined,
         @Query() dto: StatisticsStatusRequestDto,
     ) {
         switch (dto.sourceType) {
@@ -113,7 +136,12 @@ export class StatisticsController {
             case StatisticsSourceType.REVIEW:
                 return this.reviewStatisticsService.getStatus(
                     dto.statisticsId,
-                    session.getUserId(),
+                    session?.getUserId(),
+                );
+            case StatisticsSourceType.ACTIVITY:
+                return this.activityStatisticsService.getStatus(
+                    dto.statisticsId,
+                    session?.getUserId(),
                 );
             default:
                 throw new HttpException(
