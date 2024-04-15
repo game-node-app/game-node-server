@@ -185,7 +185,7 @@ export class ActivityStatisticsService implements StatisticsService {
             profile: {
                 userId,
             },
-            reviewStatistics: entry,
+            activityStatistics: entry,
         });
 
         await this.activityStatisticsRepository.increment(
@@ -219,7 +219,7 @@ export class ActivityStatisticsService implements StatisticsService {
             profile: {
                 userId: userId,
             },
-            reviewStatistics: entry,
+            activityStatistics: entry,
         });
 
         await this.activityStatisticsRepository.increment(

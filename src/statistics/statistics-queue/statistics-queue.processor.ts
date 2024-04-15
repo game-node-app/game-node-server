@@ -9,12 +9,14 @@ import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { GameStatisticsService } from "../game-statistics.service";
 import { StatisticsSourceType } from "../statistics.constants";
 import { ReviewStatisticsService } from "../review-statistics.service";
+import { ActivityStatisticsService } from "../activity-statistics.service";
 
 @Processor(STATISTICS_QUEUE_NAME)
 export class StatisticsQueueProcessor extends WorkerHostProcessor {
     constructor(
         private readonly gameStatisticsService: GameStatisticsService,
-        private readonly reviewStatisticsRepository: ReviewStatisticsService,
+        private readonly reviewStatisticsService: ReviewStatisticsService,
+        private readonly activityStatisticsService: ActivityStatisticsService,
     ) {
         super();
     }
@@ -29,7 +31,12 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
                         );
                         break;
                     case StatisticsSourceType.REVIEW:
-                        await this.reviewStatisticsRepository.handleLike(
+                        await this.reviewStatisticsService.handleLike(
+                            job.data as StatisticsLikeAction,
+                        );
+                        break;
+                    case StatisticsSourceType.ACTIVITY:
+                        await this.activityStatisticsService.handleLike(
                             job.data as StatisticsLikeAction,
                         );
                 }
@@ -43,9 +50,7 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
                         await this.gameStatisticsService.handleView(job.data);
                         break;
                     case StatisticsSourceType.REVIEW:
-                        await this.reviewStatisticsRepository.handleView(
-                            job.data,
-                        );
+                        await this.reviewStatisticsService.handleView(job.data);
                 }
             } catch (e) {
                 console.error(e);
@@ -59,7 +64,7 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
                         );
                         break;
                     case StatisticsSourceType.REVIEW:
-                        await this.reviewStatisticsRepository.create(
+                        await this.reviewStatisticsService.create(
                             job.data.sourceId as string,
                         );
                         break;
