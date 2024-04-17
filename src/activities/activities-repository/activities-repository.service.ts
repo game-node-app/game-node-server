@@ -1,16 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Activity } from "./entities/activity.entity";
-import {
-    DeepPartial,
-    FindManyOptions,
-    FindOneOptions,
-    Repository,
-} from "typeorm";
+import { FindManyOptions, FindOneOptions, Repository } from "typeorm";
 import {
     ActivityCreate,
     ActivityType,
 } from "../activities-queue/activities-queue.constants";
+import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
+import { StatisticsSourceType } from "../../statistics/statistics.constants";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -19,6 +16,7 @@ export class ActivitiesRepositoryService {
     constructor(
         @InjectRepository(Activity)
         private activitiesRepository: Repository<Activity>,
+        private readonly statisticsQueueService: StatisticsQueueService,
     ) {}
 
     async create(dto: ActivityCreate) {
@@ -64,11 +62,14 @@ export class ActivitiesRepositoryService {
         }
 
         try {
-            return await this.activitiesRepository.save(activity);
+            const persistedActivity =
+                await this.activitiesRepository.save(activity);
+
+            this.statisticsQueueService.createStatistics({
+                sourceId: persistedActivity.id,
+                sourceType: StatisticsSourceType.ACTIVITY,
+            });
         } catch (e) {
-            this.logger.error(
-                "Invalid activity: " + JSON.stringify(dto) + "Aborting.",
-            );
             this.logger.error(e);
         }
     }

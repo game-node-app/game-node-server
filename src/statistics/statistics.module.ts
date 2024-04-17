@@ -30,6 +30,10 @@ import { ActivityStatistics } from "./entity/activity-statistics.entity";
         ActivityStatisticsService,
     ],
     controllers: [StatisticsController],
-    exports: [GameStatisticsService, ReviewStatisticsService],
+    exports: [
+        GameStatisticsService,
+        ReviewStatisticsService,
+        ActivityStatisticsService,
+    ],
 })
 export class StatisticsModule {}
