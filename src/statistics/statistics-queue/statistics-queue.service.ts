@@ -3,6 +3,7 @@ import { StatisticsActionType } from "../statistics.constants";
 import { STATISTICS_QUEUE_NAME } from "./statistics-queue.constants";
 import { Queue } from "bullmq";
 import {
+    StatisticsCreateAction,
     StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue.types";
@@ -17,7 +18,7 @@ export class StatisticsQueueService {
         private readonly statisticsQueue: Queue,
     ) {}
 
-    createStatistics(data: StatisticsActionDto) {
+    createStatistics(data: StatisticsCreateAction) {
         this.statisticsQueue
             .add("create", data)
             .then()

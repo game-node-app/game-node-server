@@ -1,6 +1,7 @@
 import { Processor } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import {
+    StatisticsCreateAction,
     StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue.types";
@@ -10,9 +11,12 @@ import { GameStatisticsService } from "../game-statistics.service";
 import { StatisticsSourceType } from "../statistics.constants";
 import { ReviewStatisticsService } from "../review-statistics.service";
 import { ActivityStatisticsService } from "../activity-statistics.service";
+import { Logger } from "@nestjs/common";
+import { StatisticsQueueService } from "./statistics-queue.service";
 
 @Processor(STATISTICS_QUEUE_NAME)
 export class StatisticsQueueProcessor extends WorkerHostProcessor {
+    logger = new Logger(StatisticsQueueService.name);
     constructor(
         private readonly gameStatisticsService: GameStatisticsService,
         private readonly reviewStatisticsService: ReviewStatisticsService,
@@ -21,7 +25,11 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
         super();
     }
 
-    async process(job: Job<StatisticsLikeAction | StatisticsViewAction>) {
+    async process(
+        job: Job<
+            StatisticsLikeAction | StatisticsViewAction | StatisticsCreateAction
+        >,
+    ) {
         if (job.name === "like") {
             try {
                 switch (job.data.sourceType) {
@@ -41,7 +49,7 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
                         );
                 }
             } catch (e) {
-                console.error(e);
+                this.logger.error(e);
             }
         } else if (job.name === "view") {
             try {
@@ -51,9 +59,14 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
                         break;
                     case StatisticsSourceType.REVIEW:
                         await this.reviewStatisticsService.handleView(job.data);
+                        break;
+                    case StatisticsSourceType.ACTIVITY:
+                        await this.activityStatisticsService.handleView(
+                            job.data,
+                        );
                 }
             } catch (e) {
-                console.error(e);
+                this.logger.error(e);
             }
         } else if (job.name === "create") {
             try {
@@ -68,9 +81,14 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
                             job.data.sourceId as string,
                         );
                         break;
+                    case StatisticsSourceType.ACTIVITY:
+                        await this.activityStatisticsService.create(
+                            job.data.sourceId as string,
+                        );
+                        break;
                 }
             } catch (e) {
-                console.error(e);
+                this.logger.error(e);
             }
         }
     }
