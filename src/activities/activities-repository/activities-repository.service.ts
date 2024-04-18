@@ -1,7 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Activity } from "./entities/activity.entity";
-import { FindManyOptions, FindOneOptions, Repository } from "typeorm";
+import {
+    FindManyOptions,
+    FindOneOptions,
+    QueryFailedError,
+    Repository,
+} from "typeorm";
 import {
     ActivityCreate,
     ActivityType,
@@ -70,6 +75,12 @@ export class ActivitiesRepositoryService {
                 sourceType: StatisticsSourceType.ACTIVITY,
             });
         } catch (e) {
+            /**
+             * One of the unique constraints likely failed
+             */
+            if (e instanceof QueryFailedError) {
+                this.logger.warn(`Skipping attempt to re-insert activity`);
+            }
             this.logger.error(e);
         }
     }

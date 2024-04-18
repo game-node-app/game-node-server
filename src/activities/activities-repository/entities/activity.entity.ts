@@ -4,6 +4,7 @@ import {
     Entity,
     ManyToOne,
     PrimaryGeneratedColumn,
+    Unique,
     UpdateDateColumn,
 } from "typeorm";
 import { ActivityType } from "../../activities-queue/activities-queue.constants";
@@ -13,6 +14,9 @@ import { Review } from "../../../reviews/entities/review.entity";
 import { UserFollow } from "../../../follow/entity/user-follow.entity";
 
 @Entity()
+@Unique(["profile", "collectionEntry"])
+@Unique(["profile", "userFollow"])
+@Unique(["profile", "review"])
 export class Activity {
     @PrimaryGeneratedColumn("uuid")
     id: string;
