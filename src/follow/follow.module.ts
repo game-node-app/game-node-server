@@ -4,9 +4,14 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { UserFollow } from "./entity/user-follow.entity";
 import { FollowController } from "./follow.controller";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { ActivitiesQueueModule } from "../activities/activities-queue/activities-queue.module";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([UserFollow]), NotificationsModule],
+    imports: [
+        TypeOrmModule.forFeature([UserFollow]),
+        NotificationsModule,
+        ActivitiesQueueModule,
+    ],
     providers: [FollowService],
     controllers: [FollowController],
     exports: [FollowService],

@@ -5,6 +5,7 @@ import {
     Get,
     HttpCode,
     HttpStatus,
+    Param,
     Post,
     Query,
     UseGuards,
@@ -22,6 +23,7 @@ import { Public } from "../auth/public.decorator";
 import { FollowInfoRequestDto } from "./dto/follow-info-request.dto";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { FollowInfoResponseDto } from "./dto/follow-info-response.dto";
+import { UserFollow } from "./entity/user-follow.entity";
 
 @Controller("follow")
 @ApiTags("follow")
@@ -40,6 +42,15 @@ export class FollowController {
         @Query("followedUserId") followedUserId: string,
     ) {
         return this.followService.getStatus(followerUserId, followedUserId);
+    }
+
+    @Get(":id")
+    @ApiOkResponse({
+        status: 200,
+        type: UserFollow,
+    })
+    async getUserFollowById(@Param("id") userFollowId: number) {
+        return this.followService.findOneByIdOrFail(userFollowId);
     }
 
     @Post("info")
