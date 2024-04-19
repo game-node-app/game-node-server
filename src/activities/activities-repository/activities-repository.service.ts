@@ -25,7 +25,7 @@ export class ActivitiesRepositoryService {
     ) {}
 
     async create(dto: ActivityCreate) {
-        const { type, sourceId, profileUserId } = dto;
+        const { type, sourceId, complementarySourceId, profileUserId } = dto;
 
         const activity = this.activitiesRepository.create({
             type,
@@ -36,10 +36,16 @@ export class ActivitiesRepositoryService {
             case ActivityType.COLLECTION_ENTRY:
                 if (typeof sourceId !== "string") {
                     throw new Error(
-                        "Collection Entry activities should have a string sourceId",
+                        "CollectionEntry activities should have a string sourceId",
+                    );
+                }
+                if (typeof complementarySourceId !== "string") {
+                    throw new Error(
+                        "A string complementarySourceId must be specified for CollectionEntry activities",
                     );
                 }
                 activity.collectionEntryId = sourceId;
+                activity.collectionId = complementarySourceId;
                 break;
             case ActivityType.REVIEW:
                 if (typeof sourceId !== "string") {

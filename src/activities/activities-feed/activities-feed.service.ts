@@ -90,6 +90,7 @@ export class ActivitiesFeedService {
             offset: 0,
             limit: 9999999,
         });
+        console.log(followedUsersIds);
 
         const baseFindOptions = buildBaseFindOptions(dto);
 
@@ -114,7 +115,7 @@ export class ActivitiesFeedService {
                 if (userId == undefined) {
                     throw new HttpException(
                         "User must be logged-in to see following user activities.",
-                        HttpStatus.UNAUTHORIZED,
+                        HttpStatus.BAD_REQUEST,
                     );
                 }
                 return this.buildFollowingActivitiesFeed(userId, dto);

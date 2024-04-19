@@ -10,6 +10,8 @@ import { ActivityType } from "../../activities/activities-queue/activities-queue
 import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../../achievements/achievements.constants";
 import { getIconNamesForPlatformAbbreviations } from "../../game/game-repository/game-repository.utils";
+import { LevelService } from "../../level/level.service";
+import { LevelIncreaseActivities } from "../../level/level.constants";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -24,6 +26,7 @@ export class CollectionsEntriesService {
         private collectionEntriesRepository: Repository<CollectionEntry>,
         private activitiesQueueService: ActivitiesQueueService,
         private achievementsQueueService: AchievementsQueueService,
+        private levelService: LevelService,
     ) {}
 
     async findOneById(id: string) {
@@ -219,9 +222,13 @@ export class CollectionsEntriesService {
             id: id,
         }));
 
-        const entry = await this.findOneByUserIdAndGameId(userId, gameId);
+        const possibleExistingEntry = await this.findOneByUserIdAndGameId(
+            userId,
+            gameId,
+        );
+
         const upsertedEntry = await this.collectionEntriesRepository.save({
-            ...entry,
+            ...possibleExistingEntry,
             isFavorite,
             collections,
             game: {
@@ -230,11 +237,21 @@ export class CollectionsEntriesService {
             ownedPlatforms,
         });
 
-        this.activitiesQueueService.register({
-            sourceId: upsertedEntry.id,
-            type: ActivityType.COLLECTION_ENTRY,
-            profileUserId: userId,
-        });
+        if (!possibleExistingEntry) {
+            this.levelService.registerLevelExpIncreaseActivity(
+                userId,
+                LevelIncreaseActivities.COLLECTION_ENTRY_CREATED,
+            );
+        }
+
+        for (const uniqueCollectionId of uniqueCollectionIds) {
+            this.activitiesQueueService.register({
+                sourceId: upsertedEntry.id,
+                complementarySourceId: uniqueCollectionId,
+                type: ActivityType.COLLECTION_ENTRY,
+                profileUserId: userId,
+            });
+        }
 
         this.achievementsQueueService.addTrackingJob({
             targetUserId: userId,

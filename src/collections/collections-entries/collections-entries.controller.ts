@@ -44,6 +44,13 @@ export class CollectionsEntriesController {
         );
     }
 
+    @Get(":id")
+    async findEntryById(@Param("id") collectionEntryId: string) {
+        return await this.collectionsEntriesService.findOneByIdOrFail(
+            collectionEntryId,
+        );
+    }
+
     /**
      * Returns a specific collection entry based on game ID
      * @param session
@@ -76,6 +83,7 @@ export class CollectionsEntriesController {
             collectionEntryId,
         );
     }
+
     @Delete(":id")
     @HttpCode(HttpStatus.NO_CONTENT)
     async deleteOwnEntry(

@@ -1,4 +1,10 @@
-import { Controller, Get, Query, UseInterceptors } from "@nestjs/common";
+import {
+    Controller,
+    Get,
+    Query,
+    UseGuards,
+    UseInterceptors,
+} from "@nestjs/common";
 import { ActivitiesFeedService } from "./activities-feed.service";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { ActivitiesFeedRequestDto } from "./dto/activities-feed-request.dto";
@@ -9,9 +15,11 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { minutes } from "@nestjs/throttler";
 import { Public } from "../../auth/public.decorator";
+import { AuthGuard } from "../../auth/auth.guard";
 
 @ApiTags("activities-feed")
 @Controller("activities/feed")
+@UseGuards(AuthGuard)
 export class ActivitiesFeedController {
     constructor(
         private readonly activitiesFeedService: ActivitiesFeedService,
@@ -27,7 +35,7 @@ export class ActivitiesFeedController {
     @Public()
     async buildActivitiesFeed(
         @Query() dto: ActivitiesFeedRequestDto,
-        @Session() session?: SessionContainer,
+        @Session() session: SessionContainer | undefined,
     ) {
         return this.activitiesFeedService.buildActivitiesFeed(
             session?.getUserId(),
