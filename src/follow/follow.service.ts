@@ -11,6 +11,8 @@ import {
 import { FollowInfoRequestDto } from "./dto/follow-info-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
+import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
+import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 
 @Injectable()
 export class FollowService {
@@ -20,7 +22,27 @@ export class FollowService {
         @InjectRepository(UserFollow)
         private userFollowRepository: Repository<UserFollow>,
         private readonly notificationsQueue: NotificationsQueueService,
+        private readonly activitiesQueueService: ActivitiesQueueService,
     ) {}
+
+    public async findOneById(id: number) {
+        return this.userFollowRepository.findOne({
+            where: {
+                id,
+            },
+        });
+    }
+
+    public async findOneByIdOrFail(id: number) {
+        const entity = await this.findOneById(id);
+        if (!entity) {
+            throw new HttpException(
+                "No user follow matches specified id",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+        return entity;
+    }
 
     public async registerFollow(
         followerUserId: string,
@@ -33,7 +55,7 @@ export class FollowService {
             );
         }
         try {
-            await this.userFollowRepository.save({
+            const persistedEntry = await this.userFollowRepository.save({
                 follower: {
                     userId: followerUserId,
                 },
@@ -41,12 +63,19 @@ export class FollowService {
                     userId: followedUserId,
                 },
             });
+
             this.notificationsQueue.registerNotification({
                 userId: followerUserId,
                 targetUserId: followedUserId,
                 category: ENotificationCategory.FOLLOW,
                 sourceType: ENotificationSourceType.PROFILE,
                 sourceId: followerUserId,
+            });
+
+            this.activitiesQueueService.register({
+                type: ActivityType.FOLLOW,
+                sourceId: persistedEntry.id,
+                profileUserId: followerUserId,
             });
         } catch (e) {
             this.logger.error(e);
@@ -98,7 +127,7 @@ export class FollowService {
      * Gets followers or followed user ids with pagination data.
      * @param dto
      */
-    public async getFollowerData(
+    public async getFollowerInfo(
         dto: FollowInfoRequestDto,
     ): Promise<TPaginationData<string>> {
         const baseFindOptions = buildBaseFindOptions(dto);

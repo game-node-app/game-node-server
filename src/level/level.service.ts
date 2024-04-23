@@ -91,7 +91,9 @@ export class LevelService {
         const activityIncreaseAmount =
             LevelActivitiesToIncreaseAmountMap[activity];
         if (activityIncreaseAmount == undefined) {
-            throw new Error("Invalid activity when registering level increase");
+            throw new Error(
+                `Invalid activity when registering level increase: '${activity}' not valid.`,
+            );
         }
 
         this.increaseExp(userId, activityIncreaseAmount)

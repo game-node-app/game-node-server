@@ -13,6 +13,8 @@ import {
 } from "../activities-queue/activities-queue.constants";
 import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
+import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
+import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -25,7 +27,7 @@ export class ActivitiesRepositoryService {
     ) {}
 
     async create(dto: ActivityCreate) {
-        const { type, sourceId, profileUserId } = dto;
+        const { type, sourceId, complementarySourceId, profileUserId } = dto;
 
         const activity = this.activitiesRepository.create({
             type,
@@ -36,10 +38,16 @@ export class ActivitiesRepositoryService {
             case ActivityType.COLLECTION_ENTRY:
                 if (typeof sourceId !== "string") {
                     throw new Error(
-                        "Collection Entry activities should have a string sourceId",
+                        "CollectionEntry activities should have a string sourceId",
+                    );
+                }
+                if (typeof complementarySourceId !== "string") {
+                    throw new Error(
+                        "A string complementarySourceId must be specified for CollectionEntry activities",
                     );
                 }
                 activity.collectionEntryId = sourceId;
+                activity.collectionId = complementarySourceId;
                 break;
             case ActivityType.REVIEW:
                 if (typeof sourceId !== "string") {
@@ -100,5 +108,15 @@ export class ActivitiesRepositoryService {
 
     async findOneBy(by: FindOneOptions<Activity>) {
         return await this.activitiesRepository.findOne(by);
+    }
+
+    async findLatest(dto: FindLatestActivitiesDto) {
+        const baseFindOptions = buildBaseFindOptions(dto);
+        return await this.findLatestBy({
+            ...baseFindOptions,
+            where: {
+                profileUserId: dto.userId,
+            },
+        });
     }
 }

@@ -170,6 +170,7 @@ export class GameStatisticsService implements StatisticsService {
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(fixedStatisticsLimit)
+            .printSql()
             .cache(`trending-games-statistics`, hours(6))
             .getMany();
 

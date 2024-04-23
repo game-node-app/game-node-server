@@ -78,7 +78,7 @@ function getRedisConfig() {
                     autoLoadEntities: true,
                     // Never turn this on. Use migrations instead.
                     synchronize: false,
-                    logging: false,
+
                     /**
                      * Allows us to cache select queries using ioredis. Default duration of 1000ms.
                      * https://orkhan.gitbook.io/typeorm/docs/caching

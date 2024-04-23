@@ -6,12 +6,14 @@ import { CollectionsEntriesController } from "./collections-entries.controller";
 import { CollectionsEntriesService } from "./collections-entries.service";
 import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
 import { AchievementsModule } from "../../achievements/achievements.module";
+import { LevelModule } from "../../level/level.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([CollectionEntry, GamePlatform]),
         ActivitiesQueueModule,
         AchievementsModule,
+        LevelModule,
     ],
     controllers: [CollectionsEntriesController],
     providers: [CollectionsEntriesService],
