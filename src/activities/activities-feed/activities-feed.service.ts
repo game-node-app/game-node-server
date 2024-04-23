@@ -1,12 +1,10 @@
-import { HttpException, HttpStatus, Inject, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { Activity } from "../activities-repository/entities/activity.entity";
 import {
     ActivitiesFeedRequestDto,
     ActivityFeedCriteria,
 } from "./dto/activities-feed-request.dto";
 import { ActivitiesRepositoryService } from "../activities-repository/activities-repository.service";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { ActivityType } from "../activities-queue/activities-queue.constants";
 import { FollowService } from "../../follow/follow.service";
@@ -84,7 +82,7 @@ export class ActivitiesFeedService {
         userId: string,
         dto: ActivitiesFeedRequestDto,
     ): Promise<TPaginationData<Activity>> {
-        const [followedUsersIds] = await this.followService.getFollowerData({
+        const [followedUsersIds] = await this.followService.getFollowerInfo({
             targetUserId: userId,
             criteria: "followers",
             offset: 0,

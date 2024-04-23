@@ -127,7 +127,7 @@ export class FollowService {
      * Gets followers or followed user ids with pagination data.
      * @param dto
      */
-    public async getFollowerData(
+    public async getFollowerInfo(
         dto: FollowInfoRequestDto,
     ): Promise<TPaginationData<string>> {
         const baseFindOptions = buildBaseFindOptions(dto);

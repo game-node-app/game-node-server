@@ -13,6 +13,8 @@ import {
 } from "../activities-queue/activities-queue.constants";
 import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
+import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
+import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -106,5 +108,15 @@ export class ActivitiesRepositoryService {
 
     async findOneBy(by: FindOneOptions<Activity>) {
         return await this.activitiesRepository.findOne(by);
+    }
+
+    async findLatest(dto: FindLatestActivitiesDto) {
+        const baseFindOptions = buildBaseFindOptions(dto);
+        return await this.findLatestBy({
+            ...baseFindOptions,
+            where: {
+                profileUserId: dto.userId,
+            },
+        });
     }
 }

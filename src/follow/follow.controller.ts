@@ -61,7 +61,7 @@ export class FollowController {
     @Public()
     @HttpCode(HttpStatus.OK)
     async getFollowInfo(@Body() dto: FollowInfoRequestDto) {
-        return await this.followService.getFollowerData(dto);
+        return await this.followService.getFollowerInfo(dto);
     }
 
     @Post()
