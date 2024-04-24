@@ -262,6 +262,8 @@ export class CollectionsEntriesService {
 
     /**
      * TODO: Add logic to handle "finished games" collections
+     * @param userId
+     * @param collectionEntryId
      * @param dto
      */
     async update(
