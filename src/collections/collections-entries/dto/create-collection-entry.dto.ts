@@ -7,6 +7,7 @@ import {
     IsOptional,
     IsString,
 } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateCollectionEntryDto {
     @IsNotEmpty()
@@ -25,5 +26,8 @@ export class CreateCollectionEntryDto {
     isFavorite: boolean = false;
     @IsOptional()
     @IsDate()
+    @ApiProperty({
+        type: "date-time",
+    })
     finishedAt?: Date;
 }
