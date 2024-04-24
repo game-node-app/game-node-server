@@ -286,7 +286,7 @@ export class NotificationsService {
         notificationId: number,
         isViewed: boolean,
     ) {
-        return this.notificationRepository.update(
+        await this.notificationRepository.update(
             {
                 id: notificationId,
                 targetProfileUserId: userId,

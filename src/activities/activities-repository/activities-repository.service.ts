@@ -60,7 +60,7 @@ export class ActivitiesRepositoryService {
             case ActivityType.FOLLOW:
                 if (typeof sourceId !== "number") {
                     throw new Error(
-                        "Collection Entry activities should have a number sourceId",
+                        "Follow activities should have a number sourceId",
                     );
                 }
                 activity.userFollowId = sourceId;
