@@ -23,6 +23,12 @@ export class CollectionEntry {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
+    @Column({
+        nullable: true,
+        type: "timestamp",
+    })
+    finishedAt: Date | null;
+
     @ManyToMany(() => Collection, (collection) => collection.entries, {
         nullable: false,
         onDelete: "CASCADE",

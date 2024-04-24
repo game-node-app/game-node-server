@@ -189,6 +189,7 @@ export class CollectionsEntriesService {
 
     /**
      * Create or update a user's Collection Entry
+     * TODO: Add logic to handle "finished games" collections
      * @param userId
      * @param createEntryDto
      */
@@ -196,7 +197,7 @@ export class CollectionsEntriesService {
         userId: string,
         createEntryDto: CreateCollectionEntryDto,
     ) {
-        const { collectionIds, gameId, platformIds, isFavorite } =
+        const { collectionIds, gameId, platformIds, isFavorite, finishedAt } =
             createEntryDto;
 
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
@@ -230,6 +231,7 @@ export class CollectionsEntriesService {
         const upsertedEntry = await this.collectionEntriesRepository.save({
             ...possibleExistingEntry,
             isFavorite,
+            finishedAt,
             collections,
             game: {
                 id: gameId,

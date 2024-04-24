@@ -1,10 +1,13 @@
 import {
     IsArray,
     IsBoolean,
+    IsDate,
     IsNotEmpty,
     IsNumber,
+    IsOptional,
     IsString,
 } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateCollectionEntryDto {
     @IsNotEmpty()
@@ -18,6 +21,13 @@ export class CreateCollectionEntryDto {
     @IsNotEmpty()
     @IsNumber({}, { each: true })
     platformIds: number[];
+    @IsOptional()
     @IsBoolean()
     isFavorite: boolean = false;
+    @IsOptional()
+    @IsDate()
+    @ApiProperty({
+        type: "date-time",
+    })
+    finishedAt?: Date;
 }
