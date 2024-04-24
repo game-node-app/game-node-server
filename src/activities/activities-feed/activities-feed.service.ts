@@ -84,11 +84,10 @@ export class ActivitiesFeedService {
     ): Promise<TPaginationData<Activity>> {
         const [followedUsersIds] = await this.followService.getFollowerInfo({
             targetUserId: userId,
-            criteria: "followers",
+            criteria: "following",
             offset: 0,
             limit: 9999999,
         });
-        console.log(followedUsersIds);
 
         const baseFindOptions = buildBaseFindOptions(dto);
 
