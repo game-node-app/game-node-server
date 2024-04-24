@@ -7,8 +7,7 @@ import {
     HttpException,
     HttpStatus,
     Param,
-    Post,
-    Put,
+    Post, Put,
     Query,
     UseGuards,
     UseInterceptors,
@@ -26,7 +25,6 @@ import { PaginationInterceptor } from "../../interceptor/pagination.interceptor"
 
 import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-paginated-response.dto";
 import { Public } from "../../auth/public.decorator";
-import { UpdateCollectionEntryDto } from "./dto/update-collection-entry.dto";
 
 @Controller("collections-entries")
 @ApiTags("collections-entries")
@@ -53,18 +51,8 @@ export class CollectionsEntriesController {
         );
     }
 
-    @Put(":id")
-    async updateEntry(
-        @Session() session: SessionContainer,
-        @Param("id") collectionEntryId: string,
-        @Body() dto: UpdateCollectionEntryDto,
-    ) {
-        return this.collectionsEntriesService.update(
-            session.getUserId(),
-            collectionEntryId,
-            dto,
-        );
-    }
+    @Put()
+    async updateEntry(@Body())
 
     /**
      * Returns a specific collection entry based on game ID
@@ -107,6 +95,21 @@ export class CollectionsEntriesController {
     ) {
         const userId = session.getUserId();
         return await this.collectionsEntriesService.delete(userId, entryId);
+    }
+
+    @Post("/game/:id/favorite")
+    @HttpCode(HttpStatus.NO_CONTENT)
+    async changeFavoriteStatus(
+        @Session() session: SessionContainer,
+        @Param("id") gameId: number,
+        @Body() dto: CreateFavoriteStatusCollectionEntryDto,
+    ) {
+        const userId = session.getUserId();
+        return await this.collectionsEntriesService.changeFavoriteStatus(
+            userId,
+            gameId,
+            dto.isFavorite,
+        );
     }
 
     @Get("/library/:id")

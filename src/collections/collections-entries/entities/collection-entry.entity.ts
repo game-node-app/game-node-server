@@ -28,7 +28,6 @@ export class CollectionEntry {
      */
     @Column({
         nullable: true,
-        type: "timestamp",
     })
     finishedAt: Date | null;
 
