@@ -227,7 +227,7 @@ export class NotificationsService {
                 break;
         }
 
-        return await this.notificationRepository.exist({
+        return await this.notificationRepository.exists({
             where: whereOptions,
         });
     }
@@ -286,9 +286,14 @@ export class NotificationsService {
         notificationId: number,
         isViewed: boolean,
     ) {
-        return this.notificationRepository.update(notificationId, {
-            isViewed,
-            targetProfileUserId: userId,
-        });
+        return this.notificationRepository.update(
+            {
+                id: notificationId,
+                targetProfileUserId: userId,
+            },
+            {
+                isViewed,
+            },
+        );
     }
 }
