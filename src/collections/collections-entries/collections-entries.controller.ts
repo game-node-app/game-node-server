@@ -7,7 +7,7 @@ import {
     HttpException,
     HttpStatus,
     Param,
-    Post, Put,
+    Post,
     Query,
     UseGuards,
     UseInterceptors,
@@ -50,9 +50,6 @@ export class CollectionsEntriesController {
             collectionEntryId,
         );
     }
-
-    @Put()
-    async updateEntry(@Body())
 
     /**
      * Returns a specific collection entry based on game ID
