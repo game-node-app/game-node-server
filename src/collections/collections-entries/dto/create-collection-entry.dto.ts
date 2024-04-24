@@ -1,8 +1,10 @@
 import {
     IsArray,
     IsBoolean,
+    IsDate,
     IsNotEmpty,
     IsNumber,
+    IsOptional,
     IsString,
 } from "class-validator";
 
@@ -18,6 +20,10 @@ export class CreateCollectionEntryDto {
     @IsNotEmpty()
     @IsNumber({}, { each: true })
     platformIds: number[];
+    @IsOptional()
     @IsBoolean()
     isFavorite: boolean = false;
+    @IsOptional()
+    @IsDate()
+    finishedAt?: Date;
 }
