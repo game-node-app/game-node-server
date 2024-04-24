@@ -1,8 +1,10 @@
 import {
     IsArray,
     IsBoolean,
+    IsDate,
     IsNotEmpty,
     IsNumber,
+    IsOptional,
     IsString,
 } from "class-validator";
 
@@ -16,8 +18,11 @@ export class CreateCollectionEntryDto {
     gameId: number;
     @IsArray()
     @IsNotEmpty()
-    @IsNumber({}, { each: true })
+    @IsNumber(undefined, { each: true })
     platformIds: number[];
     @IsBoolean()
     isFavorite: boolean = false;
+    @IsOptional()
+    @IsDate()
+    finishedAt?: Date;
 }

@@ -12,6 +12,7 @@ import { AchievementCategory } from "../../achievements/achievements.constants";
 import { getIconNamesForPlatformAbbreviations } from "../../game/game-repository/game-repository.utils";
 import { LevelService } from "../../level/level.service";
 import { LevelIncreaseActivities } from "../../level/level.constants";
+import { UpdateCollectionEntryDto } from "./dto/update-collection-entry.dto";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -257,6 +258,32 @@ export class CollectionsEntriesService {
             targetUserId: userId,
             category: AchievementCategory.COLLECTIONS,
         });
+    }
+
+    /**
+     * TODO: Add logic to handle "finished games" collections
+     * @param dto
+     */
+    async update(
+        userId: string,
+        collectionEntryId: string,
+        dto: UpdateCollectionEntryDto,
+    ) {
+        const { isFavorite, finishedAt } = dto;
+        await this.collectionEntriesRepository.update(
+            {
+                id: collectionEntryId,
+                collections: {
+                    library: {
+                        userId,
+                    },
+                },
+            },
+            {
+                isFavorite,
+                finishedAt,
+            },
+        );
     }
 
     async changeFavoriteStatus(
