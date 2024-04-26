@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { FindOptionsRelations, In, Repository } from "typeorm";
-import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
+import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
 import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
@@ -195,10 +195,16 @@ export class CollectionsEntriesService {
      */
     async createOrUpdate(
         userId: string,
-        createEntryDto: CreateCollectionEntryDto,
+        createEntryDto: CreateUpdateCollectionEntryDto,
     ) {
-        const { collectionIds, gameId, platformIds, isFavorite, finishedAt } =
-            createEntryDto;
+        const {
+            collectionIds,
+            gameId,
+            platformIds,
+            isFavorite,
+            finishedAt,
+            droppedAt,
+        } = createEntryDto;
 
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
         const uniquePlatformIds = Array.from(new Set(platformIds));
@@ -232,10 +238,9 @@ export class CollectionsEntriesService {
             ...possibleExistingEntry,
             isFavorite,
             finishedAt,
+            droppedAt,
             collections,
-            game: {
-                id: gameId,
-            },
+            gameId,
             ownedPlatforms,
         });
 

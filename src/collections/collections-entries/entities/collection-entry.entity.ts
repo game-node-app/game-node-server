@@ -29,6 +29,12 @@ export class CollectionEntry {
     })
     finishedAt: Date | null;
 
+    @Column({
+        nullable: true,
+        type: "timestamp",
+    })
+    droppedAt: Date | null;
+
     @ManyToMany(() => Collection, (collection) => collection.entries, {
         nullable: false,
         onDelete: "CASCADE",

@@ -9,7 +9,7 @@ import {
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
-export class CreateCollectionEntryDto {
+export class CreateUpdateCollectionEntryDto {
     @IsNotEmpty()
     @IsArray()
     @IsString({ each: true })
@@ -30,4 +30,10 @@ export class CreateCollectionEntryDto {
         type: "date-time",
     })
     finishedAt?: Date;
+    @IsOptional()
+    @IsDate()
+    @ApiProperty({
+        type: "date-time",
+    })
+    droppedAt?: Date;
 }
