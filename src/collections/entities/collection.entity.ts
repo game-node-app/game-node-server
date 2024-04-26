@@ -43,6 +43,16 @@ export class Collection {
         default: false,
     })
     isFeatured: boolean;
+    @Column({
+        nullable: false,
+        default: false,
+    })
+    isFinished: boolean;
+    @Column({
+        nullable: false,
+        default: false,
+    })
+    isDropped: boolean;
 
     @CreateDateColumn()
     createdAt: Date;

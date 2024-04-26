@@ -23,18 +23,6 @@ export class CollectionEntry {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @Column({
-        nullable: true,
-        type: "timestamp",
-    })
-    finishedAt: Date | null;
-
-    @Column({
-        nullable: true,
-        type: "timestamp",
-    })
-    droppedAt: Date | null;
-
     @ManyToMany(() => Collection, (collection) => collection.entries, {
         nullable: false,
         onDelete: "CASCADE",
@@ -67,6 +55,18 @@ export class CollectionEntry {
         default: false,
     })
     isFavorite: boolean;
+
+    @Column({
+        nullable: true,
+        type: "timestamp",
+    })
+    finishedAt: Date | null;
+
+    @Column({
+        nullable: true,
+        type: "timestamp",
+    })
+    droppedAt: Date | null;
 
     @CreateDateColumn()
     createdAt: Date;

@@ -13,4 +13,10 @@ export class CreateCollectionDto {
     @IsOptional()
     @IsBoolean()
     isFeatured: boolean = false;
+    @IsOptional()
+    @IsBoolean()
+    isFinished: boolean = false;
+    @IsOptional()
+    @IsBoolean()
+    isDropped: boolean = false;
 }

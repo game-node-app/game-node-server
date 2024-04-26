@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindOptionsRelations, In, Repository } from "typeorm";
+import { DeepPartial, FindOptionsRelations, In, Repository } from "typeorm";
 import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
 import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
@@ -189,7 +189,6 @@ export class CollectionsEntriesService {
 
     /**
      * Create or update a user's Collection Entry
-     * TODO: Add logic to handle "finished games" collections
      * @param userId
      * @param createEntryDto
      */
@@ -234,7 +233,25 @@ export class CollectionsEntriesService {
             gameId,
         );
 
-        const upsertedEntry = await this.collectionEntriesRepository.save({
+        const isInFinishedGamesCollection =
+            possibleExistingEntry != undefined &&
+            possibleExistingEntry.collections.some(
+                (collection) => collection.isFinished,
+            );
+        const isInDroppedGamesCollection =
+            possibleExistingEntry != undefined &&
+            possibleExistingEntry.collections.some(
+                (collection) => collection.isDropped,
+            );
+
+        if (isInDroppedGamesCollection && isInFinishedGamesCollection) {
+            throw new HttpException(
+                "Game can't be finished and dropped at the same time.",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        const updatedPartialEntity: DeepPartial<CollectionEntry> = {
             ...possibleExistingEntry,
             isFavorite,
             finishedAt,
@@ -242,7 +259,24 @@ export class CollectionsEntriesService {
             collections,
             gameId,
             ownedPlatforms,
-        });
+        };
+
+        if (
+            isInFinishedGamesCollection &&
+            updatedPartialEntity.finishedAt == undefined
+        ) {
+            updatedPartialEntity.finishedAt = new Date();
+        }
+
+        if (
+            isInDroppedGamesCollection &&
+            updatedPartialEntity.droppedAt == undefined
+        ) {
+            updatedPartialEntity.droppedAt = new Date();
+        }
+
+        const upsertedEntry =
+            await this.collectionEntriesRepository.save(updatedPartialEntity);
 
         if (!possibleExistingEntry) {
             this.levelService.registerLevelExpIncreaseActivity(
@@ -313,18 +347,6 @@ export class CollectionsEntriesService {
 
         // This removes both the associated review (if any) and the entries in the join-tables.
         await this.collectionEntriesRepository.delete(entry.id);
-    }
-
-    async countEntriesForUserId(targetUserId: string) {
-        return await this.collectionEntriesRepository.count({
-            where: {
-                collections: {
-                    library: {
-                        userId: targetUserId,
-                    },
-                },
-            },
-        });
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {

@@ -12,7 +12,6 @@ import { AchievementCategory } from "../achievements/achievements.constants";
 @Injectable()
 export class CollectionsService {
     private relations: FindOptionsRelations<Collection> = {
-        entries: true,
         library: true,
     };
 
@@ -219,13 +218,15 @@ export class CollectionsService {
 
         if (collection.entries.length > 0) {
             // Only delete entries that are only in this collection
-            const entriesToRemove = collection.entries.filter(
-                (entry) => entry.collections && entry.collections.length <= 1,
-            );
+            const entriesToRemove = collection.entries.filter((entry) => {
+                return entry.collections && entry.collections.length <= 1;
+            });
+
             for (const collectionEntry of entriesToRemove) {
                 try {
                     /**
-                     * This needs to be awaited because 'delete' checks if the entry actually belongs to the user.
+                     * This needs to be awaited because 'delete' checks if the entry actually belongs to the user, and will fail
+                     * if the code below this for loop executes.
                      */
                     await this.collectionEntriesService.delete(
                         userId,
