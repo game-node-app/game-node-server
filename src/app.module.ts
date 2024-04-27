@@ -24,8 +24,8 @@ import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { HltbSyncModule } from "./sync/hltb/hltb-sync.module";
-import { SteamModule } from './sync/steam/steam.module';
-import { ImporterModule } from './importer/importer.module';
+import { SteamSyncModule } from "./sync/steam/steam-sync.module";
+import { ImporterModule } from "./importer/importer.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -157,7 +157,7 @@ function getRedisConfig() {
         FollowModule,
         NotificationsModule,
         HltbSyncModule,
-        SteamModule,
+        SteamSyncModule,
         ImporterModule,
     ],
 })

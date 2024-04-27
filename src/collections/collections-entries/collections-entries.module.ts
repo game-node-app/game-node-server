@@ -7,7 +7,6 @@ import { CollectionsEntriesService } from "./collections-entries.service";
 import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
 import { AchievementsModule } from "../../achievements/achievements.module";
 import { LevelModule } from "../../level/level.module";
-import { CollectionsModule } from "../collections.module";
 
 @Module({
     imports: [
@@ -15,7 +14,6 @@ import { CollectionsModule } from "../collections.module";
         ActivitiesQueueModule,
         AchievementsModule,
         LevelModule,
-        CollectionsModule,
     ],
     controllers: [CollectionsEntriesController],
     providers: [CollectionsEntriesService],

@@ -11,11 +11,12 @@ import { Library } from "../../libraries/entities/library.entity";
 import { EGameExternalGameCategory } from "../../game/game-repository/game-repository.constants";
 
 /**
- * Table to keep track of external games which have already been imported.
+ * Table representing external games which have been 'ignored' by the user, and thus
+ * won't trigger new notifications when checking for updates on their library.
  */
 @Entity()
 @Unique(["game", "gameExternalGame", "library"])
-export class ImporterProcessedEntry {
+export class ImporterIgnoredEntry {
     @PrimaryGeneratedColumn()
     id: number;
     @ManyToOne(() => Game, {

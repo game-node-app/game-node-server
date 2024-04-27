@@ -95,7 +95,7 @@ export class CollectionsEntriesService {
     ) {
         const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
 
-        const results = await this.collectionEntriesRepository.findAndCount({
+        return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 collections: [
@@ -113,7 +113,6 @@ export class CollectionsEntriesService {
             },
             relations: this.relations,
         });
-        return results;
     }
 
     async findAllByUserIdWithPermissions(

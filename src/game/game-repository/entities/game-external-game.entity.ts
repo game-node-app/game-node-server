@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     JoinTable,
     ManyToMany,
     ManyToOne,
@@ -15,6 +16,9 @@ import {
 import { Game } from "./game.entity";
 
 @Entity()
+// This index avoids table scan in 'importer' services.
+// e.g.: SELECT * FROM game_external_game geg WHERE geg.category = 1 AND geg.uid = '604140';
+@Index(["uid", "category"])
 export class GameExternalGame {
     @PrimaryColumn("bigint")
     id: number;

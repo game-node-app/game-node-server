@@ -1,15 +1,15 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { SteamService } from "./steam.service";
+import { SteamSyncService } from "./steam-sync.service";
 
 describe("SteamService", () => {
-    let service: SteamService;
+    let service: SteamSyncService;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [SteamService],
+            providers: [SteamSyncService],
         }).compile();
 
-        service = module.get<SteamService>(SteamService);
+        service = module.get<SteamSyncService>(SteamSyncService);
     });
 
     it("should be defined", () => {
