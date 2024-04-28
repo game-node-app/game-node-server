@@ -30,10 +30,4 @@ export class CreateUpdateCollectionEntryDto {
         type: "date-time",
     })
     finishedAt?: Date;
-    @IsOptional()
-    @IsDate()
-    @ApiProperty({
-        type: "date-time",
-    })
-    droppedAt?: Date;
 }

@@ -62,12 +62,6 @@ export class CollectionEntry {
     })
     finishedAt: Date | null;
 
-    @Column({
-        nullable: true,
-        type: "timestamp",
-    })
-    droppedAt: Date | null;
-
     @CreateDateColumn()
     createdAt: Date;
 

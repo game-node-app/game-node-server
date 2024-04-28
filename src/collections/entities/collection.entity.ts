@@ -48,11 +48,6 @@ export class Collection {
         default: false,
     })
     isFinished: boolean;
-    @Column({
-        nullable: false,
-        default: false,
-    })
-    isDropped: boolean;
 
     @CreateDateColumn()
     createdAt: Date;

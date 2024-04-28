@@ -8,5 +8,6 @@ import { SteamUserMap } from "./entity/steam-user-map.entity";
     imports: [TypeOrmModule.forFeature([SteamUserMap])],
     controllers: [SteamSyncController],
     providers: [SteamSyncService],
+    exports: [SteamSyncService],
 })
 export class SteamSyncModule {}

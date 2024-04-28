@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { ActivitiesQueueModule } from "../../activities/activities-queue/activities-queue.module";
@@ -7,6 +7,7 @@ import { CollectionsEntriesService } from "./collections-entries.service";
 import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
 import { AchievementsModule } from "../../achievements/achievements.module";
 import { LevelModule } from "../../level/level.module";
+import { CollectionsModule } from "../collections.module";
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { LevelModule } from "../../level/level.module";
         ActivitiesQueueModule,
         AchievementsModule,
         LevelModule,
+        forwardRef(() => CollectionsModule),
     ],
     controllers: [CollectionsEntriesController],
     providers: [CollectionsEntriesService],

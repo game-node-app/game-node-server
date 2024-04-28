@@ -147,7 +147,7 @@ export class CollectionsEntriesController {
         );
     }
 
-    @Get("/collection/:id")
+    @Post("/collection/:id")
     @HttpCode(HttpStatus.OK)
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
@@ -157,7 +157,7 @@ export class CollectionsEntriesController {
     async findAllByCollectionId(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
-        @Query() dto?: FindCollectionEntriesDto,
+        @Body() dto?: FindCollectionEntriesDto,
     ): Promise<CollectionEntriesPaginatedResponseDto> {
         return (await this.collectionsEntriesService.findAllByCollectionId(
             session?.getUserId(),

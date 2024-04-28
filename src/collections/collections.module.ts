@@ -13,7 +13,7 @@ import { AchievementsModule } from "../achievements/achievements.module";
         TypeOrmModule.forFeature([Collection]),
         LibrariesModule,
         ReviewsModule,
-        CollectionsEntriesModule,
+        forwardRef(() => CollectionsEntriesModule),
         AchievementsModule,
     ],
     controllers: [CollectionsController],

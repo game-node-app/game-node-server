@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import {
+    forwardRef,
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+} from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DeepPartial, FindOptionsRelations, In, Repository } from "typeorm";
@@ -12,6 +18,7 @@ import { AchievementCategory } from "../../achievements/achievements.constants";
 import { getIconNamesForPlatformAbbreviations } from "../../game/game-repository/game-repository.utils";
 import { LevelService } from "../../level/level.service";
 import { LevelIncreaseActivities } from "../../level/level.constants";
+import { CollectionsService } from "../collections.service";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -27,6 +34,8 @@ export class CollectionsEntriesService {
         private activitiesQueueService: ActivitiesQueueService,
         private achievementsQueueService: AchievementsQueueService,
         private levelService: LevelService,
+        @Inject(forwardRef(() => CollectionsService))
+        private collectionsService: CollectionsService,
     ) {}
 
     async findOneById(id: string) {
@@ -195,14 +204,8 @@ export class CollectionsEntriesService {
         userId: string,
         createEntryDto: CreateUpdateCollectionEntryDto,
     ) {
-        const {
-            collectionIds,
-            gameId,
-            platformIds,
-            isFavorite,
-            finishedAt,
-            droppedAt,
-        } = createEntryDto;
+        const { collectionIds, gameId, platformIds, isFavorite, finishedAt } =
+            createEntryDto;
 
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
         const uniquePlatformIds = Array.from(new Set(platformIds));
@@ -232,29 +235,17 @@ export class CollectionsEntriesService {
             gameId,
         );
 
-        const isInFinishedGamesCollection =
-            possibleExistingEntry != undefined &&
-            possibleExistingEntry.collections.some(
-                (collection) => collection.isFinished,
-            );
-        const isInDroppedGamesCollection =
-            possibleExistingEntry != undefined &&
-            possibleExistingEntry.collections.some(
-                (collection) => collection.isDropped,
-            );
+        const collectionEntities =
+            await this.collectionsService.findAllByIds(uniqueCollectionIds);
 
-        if (isInDroppedGamesCollection && isInFinishedGamesCollection) {
-            throw new HttpException(
-                "Game can't be finished and dropped at the same time.",
-                HttpStatus.BAD_REQUEST,
-            );
-        }
+        const isInFinishedGamesCollection = collectionEntities.some(
+            (collection) => collection.isFinished,
+        );
 
         const updatedPartialEntity: DeepPartial<CollectionEntry> = {
             ...possibleExistingEntry,
             isFavorite,
             finishedAt,
-            droppedAt,
             collections,
             gameId,
             ownedPlatforms,
@@ -265,13 +256,6 @@ export class CollectionsEntriesService {
             updatedPartialEntity.finishedAt == undefined
         ) {
             updatedPartialEntity.finishedAt = new Date();
-        }
-
-        if (
-            isInDroppedGamesCollection &&
-            updatedPartialEntity.droppedAt == undefined
-        ) {
-            updatedPartialEntity.droppedAt = new Date();
         }
 
         const upsertedEntry =
@@ -320,7 +304,7 @@ export class CollectionsEntriesService {
     }
 
     /**
-     * Removes a collection entry, and detaches it's dependencies (like collections, platforms and review).
+     * Removes a collection entry. Will also remove any entity that references it and has the DELETE cascade on.
      * @param userId
      * @param entryId
      */

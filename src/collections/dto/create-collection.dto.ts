@@ -9,14 +9,11 @@ export class CreateCollectionDto {
     description?: string;
     @IsOptional()
     @IsBoolean()
-    isPublic: boolean = true;
+    isPublic: boolean;
     @IsOptional()
     @IsBoolean()
-    isFeatured: boolean = false;
+    isFeatured: boolean;
     @IsOptional()
     @IsBoolean()
-    isFinished: boolean = false;
-    @IsOptional()
-    @IsBoolean()
-    isDropped: boolean = false;
+    isFinished: boolean;
 }
