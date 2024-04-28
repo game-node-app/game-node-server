@@ -9,7 +9,7 @@ import {
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
-export class CreateCollectionEntryDto {
+export class CreateUpdateCollectionEntryDto {
     @IsNotEmpty()
     @IsArray()
     @IsString({ each: true })

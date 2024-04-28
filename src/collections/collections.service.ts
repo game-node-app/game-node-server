@@ -1,7 +1,13 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import {
+    forwardRef,
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Collection } from "./entities/collection.entity";
-import { FindOptionsRelations, Repository } from "typeorm";
+import { FindOptionsRelations, In, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
@@ -12,7 +18,6 @@ import { AchievementCategory } from "../achievements/achievements.constants";
 @Injectable()
 export class CollectionsService {
     private relations: FindOptionsRelations<Collection> = {
-        entries: true,
         library: true,
     };
 
@@ -20,6 +25,7 @@ export class CollectionsService {
         @InjectRepository(Collection)
         private collectionsRepository: Repository<Collection>,
         private readonly librariesService: LibrariesService,
+        @Inject(forwardRef(() => CollectionsEntriesService))
         private readonly collectionEntriesService: CollectionsEntriesService,
         private readonly achievementsQueueService: AchievementsQueueService,
     ) {}
@@ -106,6 +112,14 @@ export class CollectionsService {
             );
         }
         return collection;
+    }
+
+    async findAllByIds(ids: string[]) {
+        return this.collectionsRepository.find({
+            where: {
+                id: In(ids),
+            },
+        });
     }
 
     async create(userId: string, createCollectionDto: CreateCollectionDto) {
@@ -219,13 +233,15 @@ export class CollectionsService {
 
         if (collection.entries.length > 0) {
             // Only delete entries that are only in this collection
-            const entriesToRemove = collection.entries.filter(
-                (entry) => entry.collections && entry.collections.length <= 1,
-            );
+            const entriesToRemove = collection.entries.filter((entry) => {
+                return entry.collections && entry.collections.length <= 1;
+            });
+
             for (const collectionEntry of entriesToRemove) {
                 try {
                     /**
-                     * This needs to be awaited because 'delete' checks if the entry actually belongs to the user.
+                     * This needs to be awaited because 'delete' checks if the entry actually belongs to the user, and will fail
+                     * if the code below this for loop executes.
                      */
                     await this.collectionEntriesService.delete(
                         userId,

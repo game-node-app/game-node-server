@@ -16,7 +16,7 @@ import { CollectionsEntriesService } from "./collections-entries.service";
 import { ApiBadRequestResponse, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
-import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
+import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
 import { AuthGuard } from "../../auth/auth.guard";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { CollectionEntry } from "./entities/collection-entry.entity";
@@ -36,7 +36,7 @@ export class CollectionsEntriesController {
     @HttpCode(201)
     async createOrUpdate(
         @Session() session: SessionContainer,
-        @Body() createCollectionEntryDto: CreateCollectionEntryDto,
+        @Body() createCollectionEntryDto: CreateUpdateCollectionEntryDto,
     ) {
         return await this.collectionsEntriesService.createOrUpdate(
             session.getUserId(),
@@ -147,7 +147,7 @@ export class CollectionsEntriesController {
         );
     }
 
-    @Get("/collection/:id")
+    @Post("/collection/:id")
     @HttpCode(HttpStatus.OK)
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
@@ -157,7 +157,7 @@ export class CollectionsEntriesController {
     async findAllByCollectionId(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
-        @Query() dto?: FindCollectionEntriesDto,
+        @Body() dto?: FindCollectionEntriesDto,
     ): Promise<CollectionEntriesPaginatedResponseDto> {
         return (await this.collectionsEntriesService.findAllByCollectionId(
             session?.getUserId(),

@@ -6,7 +6,7 @@ import { ActivitiesQueueService } from "../../activities/activities-queue/activi
 import { ReviewsService } from "../../reviews/reviews.service";
 import { Repository } from "typeorm";
 import { Review } from "../../reviews/entities/review.entity";
-import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
+import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
 import { getMockRepositoryProvider } from "../../../test/mocks/repositoryMocks";
 import Mocked = jest.Mocked;
 import { ActivitiesQueueMock } from "../../../test/mocks/queue/activities-mocks";
@@ -78,7 +78,7 @@ describe("CollectionsEntriesService", () => {
 
     it("should keep favorite parameter when re-creating entry", async () => {
         const userId = "1";
-        const dto: CreateCollectionEntryDto = {
+        const dto: CreateUpdateCollectionEntryDto = {
             isFavorite: true,
             gameId: 1942,
             collectionIds: ["111111"],

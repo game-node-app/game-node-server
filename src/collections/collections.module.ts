@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import { CollectionsController } from "./collections.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
@@ -13,7 +13,7 @@ import { AchievementsModule } from "../achievements/achievements.module";
         TypeOrmModule.forFeature([Collection]),
         LibrariesModule,
         ReviewsModule,
-        CollectionsEntriesModule,
+        forwardRef(() => CollectionsEntriesModule),
         AchievementsModule,
     ],
     controllers: [CollectionsController],

@@ -1,8 +1,14 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import {
+    forwardRef,
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+} from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindOptionsRelations, In, Repository } from "typeorm";
-import { CreateCollectionEntryDto } from "./dto/create-collection-entry.dto";
+import { DeepPartial, FindOptionsRelations, In, Repository } from "typeorm";
+import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
 import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
@@ -12,6 +18,7 @@ import { AchievementCategory } from "../../achievements/achievements.constants";
 import { getIconNamesForPlatformAbbreviations } from "../../game/game-repository/game-repository.utils";
 import { LevelService } from "../../level/level.service";
 import { LevelIncreaseActivities } from "../../level/level.constants";
+import { CollectionsService } from "../collections.service";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -27,6 +34,8 @@ export class CollectionsEntriesService {
         private activitiesQueueService: ActivitiesQueueService,
         private achievementsQueueService: AchievementsQueueService,
         private levelService: LevelService,
+        @Inject(forwardRef(() => CollectionsService))
+        private collectionsService: CollectionsService,
     ) {}
 
     async findOneById(id: string) {
@@ -95,7 +104,7 @@ export class CollectionsEntriesService {
     ) {
         const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
 
-        const results = await this.collectionEntriesRepository.findAndCount({
+        return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 collections: [
@@ -113,7 +122,6 @@ export class CollectionsEntriesService {
             },
             relations: this.relations,
         });
-        return results;
     }
 
     async findAllByUserIdWithPermissions(
@@ -189,13 +197,12 @@ export class CollectionsEntriesService {
 
     /**
      * Create or update a user's Collection Entry
-     * TODO: Add logic to handle "finished games" collections
      * @param userId
      * @param createEntryDto
      */
     async createOrUpdate(
         userId: string,
-        createEntryDto: CreateCollectionEntryDto,
+        createEntryDto: CreateUpdateCollectionEntryDto,
     ) {
         const { collectionIds, gameId, platformIds, isFavorite, finishedAt } =
             createEntryDto;
@@ -228,16 +235,31 @@ export class CollectionsEntriesService {
             gameId,
         );
 
-        const upsertedEntry = await this.collectionEntriesRepository.save({
+        const collectionEntities =
+            await this.collectionsService.findAllByIds(uniqueCollectionIds);
+
+        const isInFinishedGamesCollection = collectionEntities.some(
+            (collection) => collection.isFinished,
+        );
+
+        const updatedPartialEntity: DeepPartial<CollectionEntry> = {
             ...possibleExistingEntry,
             isFavorite,
             finishedAt,
             collections,
-            game: {
-                id: gameId,
-            },
+            gameId,
             ownedPlatforms,
-        });
+        };
+
+        if (
+            isInFinishedGamesCollection &&
+            updatedPartialEntity.finishedAt == undefined
+        ) {
+            updatedPartialEntity.finishedAt = new Date();
+        }
+
+        const upsertedEntry =
+            await this.collectionEntriesRepository.save(updatedPartialEntity);
 
         if (!possibleExistingEntry) {
             this.levelService.registerLevelExpIncreaseActivity(
@@ -282,7 +304,7 @@ export class CollectionsEntriesService {
     }
 
     /**
-     * Removes a collection entry, and detaches it's dependencies (like collections, platforms and review).
+     * Removes a collection entry. Will also remove any entity that references it and has the DELETE cascade on.
      * @param userId
      * @param entryId
      */
@@ -308,18 +330,6 @@ export class CollectionsEntriesService {
 
         // This removes both the associated review (if any) and the entries in the join-tables.
         await this.collectionEntriesRepository.delete(entry.id);
-    }
-
-    async countEntriesForUserId(targetUserId: string) {
-        return await this.collectionEntriesRepository.count({
-            where: {
-                collections: {
-                    library: {
-                        userId: targetUserId,
-                    },
-                },
-            },
-        });
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {
