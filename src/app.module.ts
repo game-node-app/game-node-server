@@ -26,6 +26,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { HltbSyncModule } from "./sync/hltb/hltb-sync.module";
 import { SteamSyncModule } from "./sync/steam/steam-sync.module";
 import { ImporterModule } from "./importer/importer.module";
+import { ConnectionsModule } from './connections/connections.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -159,6 +160,7 @@ function getRedisConfig() {
         HltbSyncModule,
         SteamSyncModule,
         ImporterModule,
+        ConnectionsModule,
     ],
 })
 export class AppModule implements NestModule {
