@@ -1,14 +1,25 @@
 import { EConnectionType } from "../connections.constants";
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import {
+    IsBoolean,
+    IsEnum,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    MinLength,
+} from "class-validator";
 
 export class ConnectionCreateDto {
     @IsNotEmpty()
     @IsEnum(EConnectionType)
     type: EConnectionType;
-    @IsOptional()
+    /**
+     * A string representing a username, user id or profile URL for the target connection <br>
+     * e.g. a Steam's profile URL
+     */
     @IsString()
-    sourceUserId: string;
+    @MinLength(1)
+    userIdentifier: string;
+    @IsBoolean()
     @IsOptional()
-    @IsString()
-    sourceUsername: string;
+    isImporterEnabled: boolean = false;
 }

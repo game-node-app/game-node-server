@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 // @ts-expect-error ESModule import in CommonJS file, breaks if used
 // without 'import()'
-import SteamAPI, { UserSummary } from "steamapi";
+import SteamAPI, { GameInfo, UserPlaytime, UserSummary } from "steamapi";
 import { SteamUserIdResolveResponseDto } from "./dto/steam-user-id-resolve-response.dto";
 
 @Injectable()

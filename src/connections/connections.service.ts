@@ -2,14 +2,20 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserConnection } from "./entity/user-connection.entity";
 import { Repository } from "typeorm";
-import { EConnectionType } from "./connections.constants";
+import {
+    EConnectionType,
+    IMPORTER_VIABLE_CONNECTIONS,
+} from "./connections.constants";
 import { ConnectionCreateDto } from "./dto/connection-create.dto";
+import { SteamSyncService } from "../sync/steam/steam-sync.service";
+import { FindAvailableConnectionsResponseDto } from "./dto/find-available-connections-response.dto";
 
 @Injectable()
 export class ConnectionsService {
     constructor(
         @InjectRepository(UserConnection)
         private readonly userConnectionRepository: Repository<UserConnection>,
+        private readonly steamSyncService: SteamSyncService,
     ) {}
 
     public findOneById(id: number) {
@@ -40,22 +46,57 @@ export class ConnectionsService {
         return entity;
     }
 
+    public async findAllByUserId(userId: string) {
+        return this.userConnectionRepository.findBy({
+            profileUserId: userId,
+        });
+    }
+
+    public async findAvailableConnections(): Promise<
+        FindAvailableConnectionsResponseDto[]
+    > {
+        return Object.values(EConnectionType).map(
+            (type): FindAvailableConnectionsResponseDto => {
+                return {
+                    type: type,
+                    isImporterViable:
+                        IMPORTER_VIABLE_CONNECTIONS.includes(type),
+                    name: type.valueOf(),
+                    iconName: type.valueOf(),
+                };
+            },
+        );
+    }
+
     public async createOrUpdate(userId: string, dto: ConnectionCreateDto) {
-        const { type, sourceUsername, sourceUserId } = dto;
-        if (
-            (sourceUsername == undefined && sourceUserId == undefined) ||
-            (sourceUsername.length === 0 && sourceUserId.length === 0)
-        ) {
-            throw new HttpException(
-                "sourceUsername and sourceUserId can't both be empty.",
-                HttpStatus.BAD_REQUEST,
-            );
-        }
+        const { type, userIdentifier, isImporterEnabled } = dto;
 
         const possibleExistingConnection = await this.findOneByUserIdAndType(
             userId,
             type,
         );
+
+        let sourceUserId: string;
+        let sourceUsername: string;
+
+        switch (type) {
+            case EConnectionType.Steam:
+                const steamUserInfo =
+                    await this.steamSyncService.resolveUserInfo(userIdentifier);
+                sourceUserId = steamUserInfo.userId;
+                sourceUsername = steamUserInfo.username;
+                break;
+            default:
+                throw new HttpException(
+                    "Invalid connection type",
+                    HttpStatus.BAD_REQUEST,
+                );
+        }
+
+        const isImporterViable = IMPORTER_VIABLE_CONNECTIONS.includes(type);
+        const finalIsImporterEnabled = isImporterViable
+            ? isImporterEnabled
+            : false;
 
         await this.userConnectionRepository.save({
             ...possibleExistingConnection,
@@ -63,6 +104,8 @@ export class ConnectionsService {
             profileUserId: userId,
             sourceUserId,
             sourceUsername: sourceUsername,
+            isImporterViable,
+            isImporterEnabled: finalIsImporterEnabled,
         });
     }
 

@@ -14,9 +14,12 @@ import { GameMode } from "./entities/game-mode.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
 import { buildFilterFindOptions } from "../../sync/igdb/utils/build-filter-find-options";
-import { minutes } from "@nestjs/throttler";
+import { days, minutes } from "@nestjs/throttler";
 import { GameExternalGame } from "./entities/game-external-game.entity";
-import { platformAbbreviationToIconMap } from "./game-repository.constants";
+import {
+    EGameExternalGameCategory,
+    platformAbbreviationToIconMap,
+} from "./game-repository.constants";
 import { GameExternalStoreDto } from "./dto/game-external-store.dto";
 import {
     getIconNameForExternalGameCategory,
@@ -236,5 +239,34 @@ export class GameRepositoryService {
         }
 
         return iconsNames;
+    }
+
+    async getExternalGamesForGameIds(gameIds: number[]) {
+        return this.gameExternalGameRepository.find({
+            where: {
+                gameId: In(gameIds),
+            },
+            cache: {
+                id: `external-games-ids-${gameIds}`,
+                milliseconds: days(1),
+            },
+        });
+    }
+
+    /**
+     *
+     * @param sourceIds
+     * @param category
+     */
+    async getExternalGamesForSourceIds(
+        sourceIds: string[],
+        category: EGameExternalGameCategory,
+    ) {
+        return this.gameExternalGameRepository.find({
+            where: {
+                uid: In(sourceIds),
+                category,
+            },
+        });
     }
 }

@@ -36,4 +36,17 @@ export class UserConnection {
         nullable: false,
     })
     sourceUsername: string;
+    /**
+     * If this connection can be used by the 'importer' system.
+     */
+    @Column({
+        nullable: false,
+        default: false,
+    })
+    isImporterViable: boolean;
+    @Column({
+        nullable: false,
+        default: false,
+    })
+    isImporterEnabled: boolean;
 }
