@@ -14,7 +14,7 @@ import { LibrariesModule } from "./libraries/libraries.module";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
-import { seconds, ThrottlerModule } from "@nestjs/throttler";
+import { minutes, seconds, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { LevelModule } from "./level/level.module";
 import { HealthModule } from "./health/health.module";
@@ -26,7 +26,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { HltbSyncModule } from "./sync/hltb/hltb-sync.module";
 import { SteamSyncModule } from "./sync/steam/steam-sync.module";
 import { ImporterModule } from "./importer/importer.module";
-import { ConnectionsModule } from './connections/connections.module';
+import { ConnectionsModule } from "./connections/connections.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -122,8 +122,11 @@ function getRedisConfig() {
                     defaultJobOptions: {
                         removeOnComplete: true,
                         removeOnFail: true,
-                        attempts: 3,
-                        backoff: 10000,
+                        attempts: 5,
+                        backoff: {
+                            type: "fixed",
+                            delay: minutes(2),
+                        },
                     },
                 };
             },

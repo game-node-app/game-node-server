@@ -57,14 +57,7 @@ function normalizeIgdbResults(results: any[]) {
     return normalizedResults;
 }
 
-@Processor(IGDB_SYNC_QUEUE_NAME, {
-    // Makes the process slower, but allows us to keep functioning while it's working.
-    // Keep in mind that this involves processing operations in batches of 10 entities.
-    limiter: {
-        max: 1,
-        duration: 750,
-    },
-})
+@Processor(IGDB_SYNC_QUEUE_NAME)
 export class IgdbSyncProcessor extends WorkerHostProcessor {
     logger = new Logger(IgdbSyncProcessor.name);
 

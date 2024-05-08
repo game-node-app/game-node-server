@@ -18,7 +18,7 @@ import { StatisticsQueueProcessor } from "./statistics-queue.processor";
             defaultJobOptions: {
                 removeOnComplete: true,
                 removeOnFail: true,
-                backoff: 3000,
+                attempts: 5,
             },
         }),
         forwardRef(() => StatisticsModule),
