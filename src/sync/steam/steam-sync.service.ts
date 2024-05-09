@@ -1,16 +1,24 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-// @ts-expect-error ESModule import in CommonJS file, breaks if used
-// without 'import()'
-import SteamAPI, { GameInfo, UserPlaytime, UserSummary } from "steamapi";
+
+import SteamAPI, {
+    UserSummary,
+    // @ts-expect-error ESModule import in CommonJS file, breaks if used
+    // without 'import()'
+} from "steamapi";
 import { SteamUserIdResolveResponseDto } from "./dto/steam-user-id-resolve-response.dto";
+import { Cache } from "@nestjs/cache-manager";
+import { minutes } from "@nestjs/throttler";
 
 @Injectable()
 export class SteamSyncService {
     private logger = new Logger(SteamSyncService.name);
     private client: SteamAPI;
 
-    constructor(private readonly configService: ConfigService) {
+    constructor(
+        private readonly configService: ConfigService,
+        private readonly cacheManager: Cache,
+    ) {
         const steamKey = this.configService.get("STEAM_API_KEY");
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
@@ -50,11 +58,26 @@ export class SteamSyncService {
         };
     }
 
-    public async getAllGames(steamUserId: string) {
-        return this.client.getUserOwnedGames(steamUserId, {
+    public async getAllGames(
+        steamUserId: string,
+    ): Promise<ReturnType<typeof this.client.getUserOwnedGames>> {
+        const possibleCachedGames = await this.cacheManager.get<any>(
+            `steam-sync-games-${steamUserId}`,
+        );
+        if (possibleCachedGames) {
+            return possibleCachedGames;
+        }
+        const games = await this.client.getUserOwnedGames(steamUserId, {
             includeAppInfo: false,
             includeFreeGames: true,
             language: "english",
         });
+
+        this.cacheManager
+            .set(`steam-sync-games-${steamUserId}`, games, minutes(10))
+            .then()
+            .catch();
+
+        return games;
     }
 }
