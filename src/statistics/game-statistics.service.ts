@@ -147,7 +147,7 @@ export class GameStatisticsService implements StatisticsService {
         const { period, criteria, offset, limit } = data;
         const offsetToUse = offset || 0;
         // We save up to this N statistics entities on cache to improve load performance.
-        const fixedStatisticsLimit = 3000;
+        const fixedStatisticsLimit = 10000;
         // User supplied limit
         const limitToUse = limit || 20;
         const minusDays = StatisticsPeriodToMinusDays[period];
@@ -170,8 +170,7 @@ export class GameStatisticsService implements StatisticsService {
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(fixedStatisticsLimit)
-            .printSql()
-            .cache(`trending-games-statistics`, hours(6))
+            .cache(`trending-games-statistics-${period}`, hours(6))
             .getMany();
 
         console.timeEnd("game-trending-statistics");
