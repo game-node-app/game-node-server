@@ -70,8 +70,6 @@ export class HltbSyncProcessor extends WorkerHostProcessor {
             let searchResponse: HLTBResponseItem;
             try {
                 const parsedGameName = parseGameName(job.data.name);
-                console.log(`Original game name: ${job.data.name}`);
-                console.log(`Parsed game name: ${parsedGameName}`);
                 searchResponse =
                     await this.hltbSearchService.getFirst(parsedGameName);
             } catch (err) {
