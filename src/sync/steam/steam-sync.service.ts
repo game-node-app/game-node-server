@@ -43,6 +43,7 @@ export class SteamSyncService {
         try {
             steamUserId = await this.client.resolve(query);
         } catch (err) {
+            this.logger.error(err);
             throw new HttpException(
                 "Invalid or non-existent profile URL",
                 HttpStatus.BAD_REQUEST,
