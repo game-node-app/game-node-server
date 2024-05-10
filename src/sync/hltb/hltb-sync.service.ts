@@ -64,7 +64,7 @@ export class HltbSyncService {
         this.cacheManager
             .set(`hltb-failed-attempt-${gameId}`, true, FAILED_ATTEMPT_TTL_MS)
             .then(() => {
-                this.logger.error(
+                this.logger.log(
                     `Registered failed attempt at HLTB Sync for gameId: ${gameId}`,
                 );
             })
