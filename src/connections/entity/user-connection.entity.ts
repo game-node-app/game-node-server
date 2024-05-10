@@ -10,7 +10,6 @@ import { EConnectionType } from "../connections.constants";
 import { Profile } from "../../profile/entities/profile.entity";
 
 @Entity()
-@Index(["type", "profile"])
 @Unique(["profile", "type"])
 export class UserConnection {
     @PrimaryGeneratedColumn()
