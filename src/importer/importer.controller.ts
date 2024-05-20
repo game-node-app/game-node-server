@@ -18,6 +18,8 @@ import { EImporterSource } from "./importer.constants";
 import { ImporterUnprocessedRequestDto } from "./dto/importer-unprocessed-request.dto";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { ImporterPaginatedResponseDto } from "./dto/importer-paginated-response.dto";
+import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
+import { minutes } from "@nestjs/throttler";
 
 @Controller("importer")
 @ApiTags("importer")
@@ -27,6 +29,8 @@ export class ImporterController {
 
     @Get(":source")
     @UseInterceptors(PaginationInterceptor)
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(minutes(5))
     @ApiOkResponse({
         type: ImporterPaginatedResponseDto,
     })
