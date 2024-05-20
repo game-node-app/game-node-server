@@ -14,6 +14,7 @@ import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { GameExternalGame } from "../game/game-repository/entities/game-external-game.entity";
 import { ImporterUnprocessedRequestDto } from "./dto/importer-unprocessed-request.dto";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
+import { ImporterEntry } from "./entity/importer-entry.entity";
 
 @Injectable()
 export class ImporterService {
@@ -29,7 +30,9 @@ export class ImporterService {
         private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
-    private async getProcessedEntries(userId: string) {
+    private async getProcessedEntries(
+        userId: string,
+    ): Promise<ImporterEntry[]> {
         const [processedEntries, ignoredEntries] = await Promise.all([
             this.processedEntryRepository.findBy({
                 libraryUserId: userId,
@@ -132,7 +135,7 @@ export class ImporterService {
         });
         if (alreadyExists) {
             throw new HttpException(
-                "Item is already on user's ignored list",
+                `Item is already on user's ${dto.status} list`,
                 HttpStatus.BAD_REQUEST,
             );
         }

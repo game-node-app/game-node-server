@@ -1,7 +1,8 @@
-import { Column, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
 import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
 import { Library } from "../../libraries/entities/library.entity";
 
+@Unique(["gameExternalGame", "library"])
 export abstract class ImporterEntry {
     @PrimaryGeneratedColumn()
     id: number;

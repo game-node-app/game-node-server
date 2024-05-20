@@ -15,8 +15,8 @@ export interface StatisticsService {
     findOne: (
         sourceId: string | number,
     ) => Promise<GameStatistics | ReviewStatistics | ActivityStatistics | null>;
-    handleLike: (data: StatisticsLikeAction) => void;
-    handleView: (data: StatisticsViewAction) => void;
+    handleLike: (data: StatisticsLikeAction) => Promise<void>;
+    handleView: (data: StatisticsViewAction) => Promise<void>;
     findTrending: (
         data: any,
     ) => Promise<
