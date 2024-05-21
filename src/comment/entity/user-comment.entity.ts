@@ -1,4 +1,10 @@
-import { Column, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {
+    Column,
+    CreateDateColumn,
+    ManyToOne,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
+} from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
 
 /**
@@ -36,4 +42,9 @@ export abstract class UserComment {
         length: 36,
     })
     profileUserId: string;
+
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
 }

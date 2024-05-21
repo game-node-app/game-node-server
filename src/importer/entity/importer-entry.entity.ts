@@ -1,4 +1,11 @@
-import { Column, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
+import {
+    Column,
+    CreateDateColumn,
+    ManyToOne,
+    PrimaryGeneratedColumn,
+    Unique,
+    UpdateDateColumn,
+} from "typeorm";
 import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
 import { Library } from "../../libraries/entities/library.entity";
 
@@ -25,4 +32,8 @@ export abstract class ImporterEntry {
         nullable: false,
     })
     libraryUserId: string;
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
 }

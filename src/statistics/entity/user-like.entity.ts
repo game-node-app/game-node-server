@@ -12,10 +12,13 @@ import { Profile } from "../../profile/entities/profile.entity";
 import { GameStatistics } from "./game-statistics.entity";
 import { ReviewStatistics } from "./review-statistics.entity";
 import { ActivityStatistics } from "./activity-statistics.entity";
+import { CommentStatistics } from "./comment-statistics.entity";
 
 @Entity()
 @Unique(["profile", "gameStatistics"])
 @Unique(["profile", "reviewStatistics"])
+@Unique(["profile", "activityStatistics"])
+@Unique(["profile", "commentStatistics"])
 export class UserLike {
     @PrimaryGeneratedColumn()
     id: number;
@@ -64,4 +67,14 @@ export class UserLike {
         nullable: true,
     })
     activityStatisticsId: number | null;
+
+    @ManyToOne(() => CommentStatistics, (cs) => cs.likes, {
+        onDelete: "CASCADE",
+        nullable: true,
+    })
+    commentStatistics: CommentStatistics | null;
+    @Column({
+        nullable: true,
+    })
+    commentStatisticsId: number | null;
 }

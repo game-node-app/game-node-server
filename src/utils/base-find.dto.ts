@@ -1,6 +1,12 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 import { Transform } from "class-transformer";
 import { FindOptionsOrder } from "typeorm";
+import { FindOptionsOrderValue } from "typeorm/find-options/FindOptionsOrder";
+
+export class BaseFindOptionsOrder {
+    createdAt: FindOptionsOrderValue;
+    updatedAt: FindOptionsOrderValue;
+}
 
 /**
  * Base find options for all models.
