@@ -8,6 +8,10 @@ import { UserComment } from "./entity/user-comment.entity";
 import { minutes } from "@nestjs/throttler";
 import { StatisticsQueueService } from "../statistics/statistics-queue/statistics-queue.service";
 import { StatisticsSourceType } from "../statistics/statistics.constants";
+import { FindAllCommentsDto } from "./dto/find-all-comments.dto";
+import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
+import { TPaginationData } from "../utils/pagination/pagination-response.dto";
+import { UpdateCommentDto } from "./dto/update-comment.dto";
 
 const MIN_COMMENT_CREATE_WAIT_TIME = minutes(1);
 
@@ -18,6 +22,33 @@ export class CommentService {
         private readonly reviewCommentRepository: Repository<ReviewComment>,
         private readonly statisticsQueueService: StatisticsQueueService,
     ) {}
+
+    private getTargetRepository(commentSourceType: CommentSourceType) {
+        switch (commentSourceType) {
+            case CommentSourceType.REVIEW:
+                return this.reviewCommentRepository;
+        }
+    }
+
+    async findAll(
+        dto: FindAllCommentsDto,
+    ): Promise<TPaginationData<ReviewComment>> {
+        const baseFindOptions = buildBaseFindOptions(dto);
+        switch (dto.sourceType) {
+            case CommentSourceType.REVIEW:
+                return this.reviewCommentRepository.findAndCount({
+                    ...baseFindOptions,
+                    where: {
+                        reviewId: dto.sourceId,
+                    },
+                });
+            default:
+                throw new HttpException(
+                    "Invalid source type for comment",
+                    HttpStatus.BAD_REQUEST,
+                );
+        }
+    }
 
     private async checkForCreateSpam(userId: string, dto: CreateCommentDto) {
         let targetComment: UserComment | null = null;
@@ -68,5 +99,19 @@ export class CommentService {
             sourceType: StatisticsSourceType.REVIEW_COMMENT,
             sourceId: insertedEntryId,
         });
+    }
+
+    async update(userId: string, commentId: string, dto: UpdateCommentDto) {
+        const targetRepository = this.getTargetRepository(dto.sourceType);
+
+        await targetRepository.update(
+            {
+                profileUserId: userId,
+                id: commentId,
+            },
+            {
+                content: dto.content,
+            },
+        );
     }
 }

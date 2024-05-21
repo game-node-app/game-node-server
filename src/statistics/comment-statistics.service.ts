@@ -2,9 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { CommentStatistics } from "./entity/comment-statistics.entity";
 import { StatisticsService } from "./statistics.types";
-import { GameStatistics } from "./entity/game-statistics.entity";
-import { ReviewStatistics } from "./entity/review-statistics.entity";
-import { ActivityStatistics } from "./entity/activity-statistics.entity";
+
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import {
@@ -20,10 +18,6 @@ import {
     StatisticsActionType,
     StatisticsSourceType,
 } from "./statistics.constants";
-import {
-    ENotificationCategory,
-    ENotificationSourceType,
-} from "../notifications/notifications.constants";
 
 type CommentEntityKeys = keyof CommentStatistics;
 
@@ -82,6 +76,12 @@ export class CommentStatisticsService implements StatisticsService {
         });
     }
 
+    /**
+     * For now, there's no need for a trending comments query. <br>
+     * Use the CommentService#findAll method instead.
+     * @param data
+     * @see CommentService#findAll
+     */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     findTrending(data: any): Promise<TPaginationData<CommentStatistics>> {
         return Promise.resolve([[], 0]);
@@ -175,7 +175,6 @@ export class CommentStatisticsService implements StatisticsService {
             return;
         }
 
-        // This will fail if the user doesn't have a profile.
         await this.userLikeRepository.save({
             profile: {
                 userId,

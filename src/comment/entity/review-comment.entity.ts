@@ -7,6 +7,7 @@ import { Review } from "../../reviews/entities/review.entity";
 export class ReviewComment extends UserComment {
     @ManyToOne(() => Review, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     review: Review;
     @Column({

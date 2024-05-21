@@ -12,6 +12,7 @@ export class CommentStatistics extends Statistics {
     likes: UserLike[];
     @OneToOne(() => ReviewComment, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     @JoinColumn()
     reviewComment: ReviewComment;
