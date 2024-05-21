@@ -234,7 +234,7 @@ export class ActivityStatisticsService implements StatisticsService {
 
         await this.activityStatisticsRepository.increment(
             {
-                activityId: sourceId,
+                id: entry.id,
             },
             "viewsCount",
             1,

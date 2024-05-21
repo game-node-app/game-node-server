@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { CommentStatistics } from "./entity/comment-statistics.entity";
 import { StatisticsService } from "./statistics.types";
@@ -12,13 +12,20 @@ import {
     StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
-import { FindOptionsWhere, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
-import { StatisticsSourceType } from "./statistics.constants";
+import {
+    StatisticsActionType,
+    StatisticsSourceType,
+} from "./statistics.constants";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "../notifications/notifications.constants";
 
-type CommentEntityKeys = keyof (typeof CommentStatistics)["prototype"];
+type CommentEntityKeys = keyof CommentStatistics;
 
 @Injectable()
 export class CommentStatisticsService implements StatisticsService {
@@ -32,59 +39,194 @@ export class CommentStatisticsService implements StatisticsService {
         private notificationsQueueService: NotificationsQueueService,
     ) {}
 
+    private getTargetRelationProperty(
+        sourceType: StatisticsSourceType,
+    ): CommentEntityKeys {
+        switch (sourceType) {
+            case StatisticsSourceType.REVIEW_COMMENT:
+                return "reviewCommentId";
+
+            default:
+                throw new Error("Invalid source type for comment statistics");
+        }
+    }
+
     async create(data: StatisticsCreateAction): Promise<CommentStatistics> {
         const { sourceId, sourceType } = data;
         if (typeof sourceId !== "string") {
             throw new Error("Invalid sourceId type for comment statistics");
         }
-        let targetRelationProperty: CommentEntityKeys;
-        switch (sourceType) {
-            case StatisticsSourceType.REVIEW_COMMENT:
-                targetRelationProperty = "reviewCommentId";
-                break;
-            default:
-                throw new Error("Invalid source type for comment statistics");
-        }
 
-        const existingEntry = await this.commentStatisticsRepository.findOneBy({
-            [targetRelationProperty]: sourceId,
-        });
-
+        const existingEntry = await this.findOne(sourceId, sourceType);
         if (existingEntry) {
             return existingEntry;
         }
+
+        const targetRelationProperty =
+            this.getTargetRelationProperty(sourceType);
 
         return await this.commentStatisticsRepository.save({
             [targetRelationProperty]: sourceId,
         });
     }
 
-    findOne(
-        sourceId: string | number,
-    ): Promise<GameStatistics | ReviewStatistics | ActivityStatistics | null> {
-        return Promise.resolve(undefined);
+    async findOne(
+        sourceId: string,
+        sourceType: StatisticsSourceType,
+    ): Promise<CommentStatistics | null> {
+        const targetRelationProperty =
+            this.getTargetRelationProperty(sourceType);
+
+        return this.commentStatisticsRepository.findOneBy({
+            [targetRelationProperty]: sourceId,
+        });
     }
 
-    findTrending(
-        data: any,
-    ): Promise<
-        TPaginationData<GameStatistics | ReviewStatistics | ActivityStatistics>
-    > {
-        return Promise.resolve(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    findTrending(data: any): Promise<TPaginationData<CommentStatistics>> {
+        return Promise.resolve([[], 0]);
     }
 
-    getStatus(
+    async getStatus(
         statisticsId: number,
         userId: string | undefined,
     ): Promise<StatisticsStatus> {
-        return Promise.resolve(undefined);
+        if (userId) {
+            const isLikedQuery = this.userLikeRepository.exists({
+                where: {
+                    commentStatistics: {
+                        id: statisticsId,
+                    },
+                    profile: {
+                        userId,
+                    },
+                },
+            });
+            const isViewedQuery = this.userViewRepository.exists({
+                where: {
+                    commentStatistics: {
+                        id: statisticsId,
+                    },
+                    profile: {
+                        userId,
+                    },
+                },
+            });
+            const [isLiked, isViewed] = await Promise.all([
+                isLikedQuery,
+                isViewedQuery,
+            ]);
+
+            return {
+                isLiked,
+                isViewed,
+            };
+        }
+
+        return {
+            isLiked: false,
+            isViewed: false,
+        };
     }
 
-    handleLike(data: StatisticsLikeAction): Promise<void> {
-        return Promise.resolve(undefined);
+    async handleLike(data: StatisticsLikeAction): Promise<void> {
+        const { sourceId, userId, targetUserId, action, sourceType } = data;
+        if (typeof sourceId !== "string") {
+            throw new Error("Invalid type for review-statistics like");
+        }
+
+        const entry = await this.create({
+            sourceId,
+            sourceType: sourceType,
+        });
+
+        const isLiked = await this.userLikeRepository.existsBy({
+            profileUserId: userId,
+            commentStatistics: entry,
+        });
+
+        const invalidIncrement =
+            action === StatisticsActionType.INCREMENT && isLiked;
+        const invalidDecrement =
+            action === StatisticsActionType.DECREMENT && !isLiked;
+
+        if (invalidIncrement || invalidDecrement) {
+            return;
+        }
+
+        if (action === StatisticsActionType.DECREMENT) {
+            await this.userLikeRepository.delete({
+                profile: {
+                    userId,
+                },
+                commentStatistics: entry,
+            });
+
+            if (entry.likesCount > 0) {
+                await this.commentStatisticsRepository.decrement(
+                    {
+                        id: entry.id,
+                    },
+                    "likesCount",
+                    1,
+                );
+            }
+
+            return;
+        }
+
+        // This will fail if the user doesn't have a profile.
+        await this.userLikeRepository.save({
+            profile: {
+                userId,
+            },
+            commentStatistics: entry,
+        });
+
+        await this.commentStatisticsRepository.increment(
+            {
+                id: entry.id,
+            },
+            "likesCount",
+            1,
+        );
+
+        if (targetUserId) {
+            // TODO: Handle notifications
+            // this.notificationsQueueService.registerNotification({
+            //     targetUserId,
+            //     userId,
+            //     sourceId: sourceId,
+            //     sourceType: ENotificationSourceType.ACTIVITY,
+            //     category: ENotificationCategory.LIKE,
+            // });
+        }
     }
 
-    handleView(data: StatisticsViewAction): Promise<void> {
-        return Promise.resolve(undefined);
+    async handleView(data: StatisticsViewAction): Promise<void> {
+        const { userId, sourceId, sourceType } = data;
+        if (typeof sourceId !== "string") {
+            throw new Error("Invalid type for activity-statistics view");
+        }
+
+        const entry = await this.create({
+            sourceId,
+            sourceType: sourceType,
+        });
+
+        await this.userViewRepository.save({
+            profile: {
+                userId: userId,
+            },
+            commentStatistics: entry.id,
+        });
+
+        await this.commentStatisticsRepository.increment(
+            {
+                id: entry.id,
+            },
+            "viewsCount",
+            1,
+        );
     }
 }
