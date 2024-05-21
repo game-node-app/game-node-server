@@ -11,6 +11,8 @@ import { ReviewStatistics } from "./entity/review-statistics.entity";
 import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
 import { ActivityStatisticsService } from "./activity-statistics.service";
 import { ActivityStatistics } from "./entity/activity-statistics.entity";
+import { CommentStatisticsService } from "./comment-statistics.service";
+import { CommentStatistics } from "./entity/comment-statistics.entity";
 
 @Module({
     imports: [
@@ -20,6 +22,7 @@ import { ActivityStatistics } from "./entity/activity-statistics.entity";
             GameStatistics,
             ReviewStatistics,
             ActivityStatistics,
+            CommentStatistics,
         ]),
         NotificationsModule,
         forwardRef(() => GameRepositoryModule),
@@ -28,6 +31,7 @@ import { ActivityStatistics } from "./entity/activity-statistics.entity";
         GameStatisticsService,
         ReviewStatisticsService,
         ActivityStatisticsService,
+        CommentStatisticsService,
     ],
     controllers: [StatisticsController],
     exports: [
