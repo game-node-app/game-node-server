@@ -2,7 +2,7 @@ export enum StatisticsSourceType {
     GAME = "game",
     REVIEW = "review",
     ACTIVITY = "activity",
-    // COLLECTION = "collection",
+    REVIEW_COMMENT = "review_comment",
 }
 
 export enum StatisticsActionType {
