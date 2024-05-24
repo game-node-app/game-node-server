@@ -38,6 +38,7 @@ import { CommentStatistics } from "./entity/comment-statistics.entity";
         GameStatisticsService,
         ReviewStatisticsService,
         ActivityStatisticsService,
+        CommentStatisticsService,
     ],
 })
 export class StatisticsModule {}

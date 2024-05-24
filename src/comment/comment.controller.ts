@@ -9,6 +9,7 @@ import {
     Post,
     Query,
     UseGuards,
+    UseInterceptors,
 } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { CommentService } from "./comment.service";
@@ -20,6 +21,8 @@ import { FindAllCommentsDto } from "./dto/find-all-comments.dto";
 import { Public } from "../auth/public.decorator";
 import { FindCommentsPaginatedResponseDto } from "./dto/find-comments-paginated-response.dto";
 import { UpdateCommentDto } from "./dto/update-comment.dto";
+import { CommentSourceType } from "./comment.constants";
+import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 
 @Controller("comment")
 @ApiTags("comment")
@@ -27,16 +30,27 @@ import { UpdateCommentDto } from "./dto/update-comment.dto";
 export class CommentController {
     constructor(private readonly commentService: CommentService) {}
 
-    @Get()
+    @Post()
     @Public()
     @ApiOkResponse({
         type: FindCommentsPaginatedResponseDto,
     })
-    async findAll(@Query() dto: FindAllCommentsDto) {
+    @UseInterceptors(PaginationInterceptor)
+    @HttpCode(HttpStatus.OK)
+    async findAll(@Body() dto: FindAllCommentsDto) {
         return this.commentService.findAll(dto);
     }
 
-    @Post()
+    @Get(":sourceType/:id")
+    @Public()
+    async findOneById(
+        @Param("sourceType") sourceType: CommentSourceType,
+        @Param("id") commentId: string,
+    ) {
+        return this.commentService.findOneById(sourceType, commentId);
+    }
+
+    @Post("create")
     @HttpCode(HttpStatus.CREATED)
     async create(
         @Session() session: SessionContainer,
