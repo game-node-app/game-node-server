@@ -1,13 +1,13 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
     HttpCode,
     HttpStatus,
     Param,
     Patch,
     Post,
-    Query,
     UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
@@ -23,6 +23,7 @@ import { FindCommentsPaginatedResponseDto } from "./dto/find-comments-paginated-
 import { UpdateCommentDto } from "./dto/update-comment.dto";
 import { CommentSourceType } from "./comment.constants";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
+import { DeleteCommentDto } from "./dto/delete-comment.dto";
 
 @Controller("comment")
 @ApiTags("comment")
@@ -67,5 +68,14 @@ export class CommentController {
         @Body() dto: UpdateCommentDto,
     ) {
         return this.commentService.update(session.getUserId(), commentId, dto);
+    }
+
+    @Delete(":id")
+    async delete(
+        @Session() session: SessionContainer,
+        @Param("id") commentId: string,
+        @Body() dto: DeleteCommentDto,
+    ) {
+        return this.commentService.delete(session.getUserId(), commentId, dto);
     }
 }

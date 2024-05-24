@@ -12,6 +12,7 @@ import { FindAllCommentsDto } from "./dto/find-all-comments.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { UpdateCommentDto } from "./dto/update-comment.dto";
+import { DeleteCommentDto } from "./dto/delete-comment.dto";
 
 const MIN_COMMENT_CREATE_WAIT_TIME = minutes(1);
 
@@ -133,5 +134,14 @@ export class CommentService {
                 content: dto.content,
             },
         );
+    }
+
+    async delete(userId: string, commentId: string, dto: DeleteCommentDto) {
+        const targetRepository = this.getTargetRepository(dto.sourceType);
+
+        await targetRepository.delete({
+            profileUserId: userId,
+            id: commentId,
+        });
     }
 }
