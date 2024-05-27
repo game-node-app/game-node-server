@@ -45,33 +45,20 @@ export class CommentService {
         dto: FindAllCommentsDto,
     ): Promise<TPaginationData<ReviewComment>> {
         const baseFindOptions = buildBaseFindOptions(dto);
-        let items: any[];
-        let total = 0;
         switch (dto.sourceType) {
             case CommentSourceType.REVIEW:
-                [items, total] =
-                    await this.reviewCommentRepository.findAndCount({
-                        ...baseFindOptions,
-                        where: {
-                            reviewId: dto.sourceId,
-                        },
-                    });
-                break;
+                return await this.reviewCommentRepository.findAndCount({
+                    ...baseFindOptions,
+                    where: {
+                        reviewId: dto.sourceId,
+                    },
+                });
             default:
                 throw new HttpException(
                     "Invalid source type for comment",
                     HttpStatus.BAD_REQUEST,
                 );
         }
-
-        if (total === 0) {
-            throw new HttpException(
-                "No comments found for given criteria.",
-                HttpStatus.NOT_FOUND,
-            );
-        }
-
-        return [items, total];
     }
 
     async findOneById(sourceType: CommentSourceType, commentId: string) {
