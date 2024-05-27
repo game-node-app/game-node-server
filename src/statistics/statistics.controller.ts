@@ -31,6 +31,7 @@ import { ReviewStatisticsService } from "./review-statistics.service";
 import { StatisticsSourceType } from "./statistics.constants";
 import { FindStatisticsTrendingActivitiesDto } from "./dto/find-statistics-trending-activities.dto";
 import { ActivityStatisticsService } from "./activity-statistics.service";
+import { CommentStatisticsService } from "./comment-statistics.service";
 
 @Controller("statistics")
 @ApiTags("statistics")
@@ -40,6 +41,7 @@ export class StatisticsController {
         private readonly gameStatisticsService: GameStatisticsService,
         private readonly reviewStatisticsService: ReviewStatisticsService,
         private readonly activityStatisticsService: ActivityStatisticsService,
+        private readonly commentStatisticsService: CommentStatisticsService,
     ) {}
 
     @Post()
@@ -58,6 +60,11 @@ export class StatisticsController {
             case StatisticsSourceType.ACTIVITY:
                 return this.activityStatisticsService.findOne(
                     dto.sourceId as string,
+                );
+            case StatisticsSourceType.REVIEW_COMMENT:
+                return this.commentStatisticsService.findOne(
+                    dto.sourceId as string,
+                    dto.sourceType,
                 );
             default:
                 throw new HttpException(
@@ -140,6 +147,11 @@ export class StatisticsController {
                 );
             case StatisticsSourceType.ACTIVITY:
                 return this.activityStatisticsService.getStatus(
+                    dto.statisticsId,
+                    session?.getUserId(),
+                );
+            case StatisticsSourceType.REVIEW_COMMENT:
+                return this.commentStatisticsService.getStatus(
                     dto.statisticsId,
                     session?.getUserId(),
                 );

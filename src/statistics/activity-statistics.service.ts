@@ -3,6 +3,7 @@ import { StatisticsService } from "./statistics.types";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import {
+    StatisticsCreateAction,
     StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
@@ -13,6 +14,7 @@ import { FindStatisticsTrendingActivitiesDto } from "./dto/find-statistics-trend
 import {
     StatisticsActionType,
     StatisticsPeriodToMinusDays,
+    StatisticsSourceType,
 } from "./statistics.constants";
 import { getPreviousDate } from "./statistics.utils";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
@@ -38,7 +40,9 @@ export class ActivityStatisticsService implements StatisticsService {
         private notificationsQueueService: NotificationsQueueService,
     ) {}
 
-    async create(sourceId: string): Promise<ActivityStatistics> {
+    async create(data: StatisticsCreateAction): Promise<ActivityStatistics> {
+        const sourceId = data.sourceId as string;
+
         const existingEntity = await this.findOne(sourceId);
         if (existingEntity) return existingEntity;
 
@@ -143,7 +147,10 @@ export class ActivityStatisticsService implements StatisticsService {
             throw new Error("Invalid type for review-statistics like");
         }
 
-        const entry = await this.create(sourceId);
+        const entry = await this.create({
+            sourceId,
+            sourceType: StatisticsSourceType.ACTIVITY,
+        });
 
         const isLiked = await this.userLikeRepository.existsBy({
             profileUserId: userId,
@@ -213,7 +220,10 @@ export class ActivityStatisticsService implements StatisticsService {
             throw new Error("Invalid type for activity-statistics view");
         }
 
-        const entry = await this.create(sourceId);
+        const entry = await this.create({
+            sourceId,
+            sourceType: StatisticsSourceType.ACTIVITY,
+        });
 
         await this.userViewRepository.save({
             profile: {
@@ -224,7 +234,7 @@ export class ActivityStatisticsService implements StatisticsService {
 
         await this.activityStatisticsRepository.increment(
             {
-                activityId: sourceId,
+                id: entry.id,
             },
             "viewsCount",
             1,

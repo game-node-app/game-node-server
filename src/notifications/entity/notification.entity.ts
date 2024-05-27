@@ -14,6 +14,7 @@ import {
 import { Review } from "../../reviews/entities/review.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
 import { Activity } from "../../activities/activities-repository/entities/activity.entity";
+import { ReviewComment } from "../../comment/entity/review-comment.entity";
 
 @Entity()
 export class Notification {

@@ -5,21 +5,22 @@ import { Repository } from "typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import {
+    StatisticsCreateAction,
     StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
 import {
     StatisticsActionType,
     StatisticsPeriodToMinusDays,
+    StatisticsSourceType,
 } from "./statistics.constants";
 import { StatisticsService } from "./statistics.types";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
 import { getPreviousDate } from "./statistics.utils";
-import { days, hours } from "@nestjs/throttler";
+import { hours } from "@nestjs/throttler";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
-import { Interval } from "@nestjs/schedule";
 
 @Injectable()
 export class GameStatisticsService implements StatisticsService {
@@ -36,9 +37,10 @@ export class GameStatisticsService implements StatisticsService {
     /**
      * Creates a new GameStatistics. <br>
      * Returns previous one if it already exists.
-     * @param gameId
+     * @param data
      */
-    public async create(gameId: number) {
+    public async create(data: StatisticsCreateAction) {
+        const gameId = data.sourceId as number;
         const existingEntity = await this.findOne(gameId);
 
         if (existingEntity) return existingEntity;
@@ -60,7 +62,10 @@ export class GameStatisticsService implements StatisticsService {
             throw new Error("Invalid type for game-statistics like");
         }
 
-        const entry = await this.create(sourceId);
+        const entry = await this.create({
+            sourceId,
+            sourceType: StatisticsSourceType.GAME,
+        });
 
         const isLiked = await this.userLikeRepository.existsBy({
             profileUserId: userId,
@@ -123,7 +128,10 @@ export class GameStatisticsService implements StatisticsService {
             idToUse = sourceId;
         }
 
-        const entry = await this.create(idToUse);
+        const entry = await this.create({
+            sourceId: idToUse,
+            sourceType: StatisticsSourceType.GAME,
+        });
 
         await this.userViewRepository.save({
             profile: {

@@ -3,8 +3,6 @@ import {
     StatisticsSourceType,
 } from "../statistics.constants";
 import { StatisticsActionDto } from "./dto/statistics-action.dto";
-import { IsEnum, IsNotEmpty } from "class-validator";
-import { ApiProperty } from "@nestjs/swagger";
 
 export class StatisticsLikeAction extends StatisticsActionDto {
     userId: string;

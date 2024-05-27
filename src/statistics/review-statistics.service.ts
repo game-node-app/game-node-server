@@ -3,6 +3,7 @@ import { StatisticsService } from "./statistics.types";
 import { ReviewStatistics } from "./entity/review-statistics.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import {
+    StatisticsCreateAction,
     StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
@@ -14,6 +15,7 @@ import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import {
     StatisticsActionType,
     StatisticsPeriodToMinusDays,
+    StatisticsSourceType,
 } from "./statistics.constants";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
@@ -37,7 +39,8 @@ export class ReviewStatisticsService implements StatisticsService {
         private readonly userViewRepository: Repository<UserView>,
         private readonly notificationsQueueService: NotificationsQueueService,
     ) {}
-    public async create(sourceId: string) {
+    public async create(data: StatisticsCreateAction) {
+        const sourceId = data.sourceId as string;
         const entry = await this.findOne(sourceId);
         if (entry) return entry;
 
@@ -58,7 +61,10 @@ export class ReviewStatisticsService implements StatisticsService {
             throw new Error("Invalid type for review-statistics like");
         }
 
-        const entry = await this.create(sourceId);
+        const entry = await this.create({
+            sourceId: sourceId as string,
+            sourceType: StatisticsSourceType.REVIEW,
+        });
 
         const isLiked = await this.userLikeRepository.existsBy({
             profileUserId: userId,
@@ -128,7 +134,10 @@ export class ReviewStatisticsService implements StatisticsService {
             throw new Error("Invalid type for review-statistics view");
         }
 
-        const entry = await this.create(sourceId);
+        const entry = await this.create({
+            sourceId,
+            sourceType: StatisticsSourceType.REVIEW,
+        });
 
         await this.userViewRepository.save({
             profile: {

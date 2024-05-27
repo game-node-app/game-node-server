@@ -41,10 +41,11 @@ export default function buildPaginationResponse<T>(
             },
         };
     }
-    // Does nothing
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    return data;
+
+    throw new Error(
+        `Pagination data must be an tuple of an array and a number. 
+        Got: ${JSON.stringify(data)} for DTO: ${JSON.stringify(dto)}`,
+    );
 }
 
 /**

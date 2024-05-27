@@ -14,6 +14,7 @@ import { ActivityStatisticsService } from "../activity-statistics.service";
 import { Logger } from "@nestjs/common";
 import { StatisticsQueueService } from "./statistics-queue.service";
 import { StatisticsService } from "../statistics.types";
+import { CommentStatisticsService } from "../comment-statistics.service";
 
 @Processor(STATISTICS_QUEUE_NAME)
 export class StatisticsQueueProcessor extends WorkerHostProcessor {
@@ -22,6 +23,7 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
         private readonly gameStatisticsService: GameStatisticsService,
         private readonly reviewStatisticsService: ReviewStatisticsService,
         private readonly activityStatisticsService: ActivityStatisticsService,
+        private readonly commentStatisticsService: CommentStatisticsService,
     ) {
         super();
     }
@@ -42,6 +44,13 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
             case StatisticsSourceType.ACTIVITY:
                 targetService = this.activityStatisticsService;
                 break;
+            case StatisticsSourceType.REVIEW_COMMENT:
+                targetService = this.commentStatisticsService;
+                break;
+            default:
+                throw new Error(
+                    `Invalid sourceType for job: ${job.id} - ${JSON.stringify(job.data)}`,
+                );
         }
 
         if (job.name === "like") {
@@ -49,7 +58,7 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
         } else if (job.name === "view") {
             await targetService.handleView(job.data as StatisticsViewAction);
         } else if (job.name === "create") {
-            await targetService.create(job.data.sourceId);
+            await targetService.create(job.data);
         }
     }
 }
