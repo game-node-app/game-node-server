@@ -16,11 +16,7 @@ export class NotificationsQueueProcessor extends WorkerHostProcessor {
 
     async process(job: Job<CreateNotificationDto>) {
         if (job.name === NOTIFICATIONS_REGISTER_JOB_NAME) {
-            try {
-                await this.notificationsService.create(job.data);
-            } catch (e) {
-                console.error(e);
-            }
+            await this.notificationsService.create(job.data);
         }
     }
 }

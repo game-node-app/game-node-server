@@ -1,9 +1,14 @@
-import { Inject, Injectable, Logger, UseGuards } from "@nestjs/common";
+import {
+    Inject,
+    Injectable,
+    Logger,
+    MessageEvent,
+    UseGuards,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindOptionsRelations,
     FindOptionsWhere,
-    IsNull,
     MoreThanOrEqual,
     Repository,
 } from "typeorm";
@@ -19,8 +24,7 @@ import {
     ENotificationSourceType,
 } from "./notifications.constants";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
-import { MessageEvent } from "@nestjs/common";
-import { hours, minutes } from "@nestjs/throttler";
+import { hours } from "@nestjs/throttler";
 
 @Injectable()
 @UseGuards(AuthGuard)
@@ -40,7 +44,7 @@ export class NotificationsService {
     ) {}
 
     private getCheckedDateKey(userId: string) {
-        return `${userId}-last-checked-date`;
+        return `notification-${userId}-last-checked-date`;
     }
 
     private async getLastCheckedDate(
@@ -79,10 +83,7 @@ export class NotificationsService {
     /**
      * Creates groups of related notifications
      * @param notifications - notifications to aggregate
-     * @param aggregationLimit - maximum numer of aggregated objects
-     * @returns [Array, number] - Tuple with aggregated entities and number of processed notifications <br>
-     * (e.g. notifications which were processed before reaching aggregationLimit) <br>
-     * While similar, doesn't represent pagination data, so it shouldn't be used for that.
+     * @returns Array - Array with aggregated entities. <br>
      * @private
      */
     private aggregate(
@@ -141,6 +142,7 @@ export class NotificationsService {
 
             aggregations.push({
                 category: notification.category,
+                // Matches any relation property that's not null
                 sourceId:
                     notification.reviewId! ||
                     notification.activityId! ||
@@ -244,7 +246,8 @@ export class NotificationsService {
             this.logger.warn(
                 `Skipping attempt to make user notify itself: ${dto.userId} -> ${dto.targetUserId}`,
             );
-            return;
+            this.logger.warn(`On DTO: ${JSON.stringify(dto)}}`);
+            // return;
         } else if (await this.isPossibleSpam(dto)) {
             this.logger.warn(
                 `Skipping attempt to create repeated notification: ${JSON.stringify(
@@ -274,10 +277,11 @@ export class NotificationsService {
 
         if (entity.targetProfileUserId == undefined) {
             throw new Error(
-                "Common notifications can't be targeted at all users (targetProfile is null): " +
+                "Common notifications can't be targeted at all users (targetProfileUserId is null): " +
                     JSON.stringify(dto),
             );
         }
+
         await this.notificationRepository.save(entity);
     }
 

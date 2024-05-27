@@ -1,3 +1,6 @@
+/**
+ * The action a notification represents (e.g. a new like, a new comment)
+ */
 export enum ENotificationCategory {
     FOLLOW = "follow",
     LIKE = "like",
@@ -9,6 +12,9 @@ export enum ENotificationSourceType {
     GAME = "game",
     REVIEW = "review",
     ACTIVITY = "activity",
+    /**
+     * Generally used for followers related notifications
+     */
     PROFILE = "profile",
 }
 

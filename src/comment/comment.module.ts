@@ -4,12 +4,19 @@ import { CommentController } from "./comment.controller";
 import { StatisticsQueueModule } from "../statistics/statistics-queue/statistics-queue.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ReviewComment } from "./entity/review-comment.entity";
+import { NotificationsModule } from "../notifications/notifications.module";
+import { ReviewsModule } from "../reviews/reviews.module";
 
 /**
  * Module responsible for handling user comments.
  */
 @Module({
-    imports: [TypeOrmModule.forFeature([ReviewComment]), StatisticsQueueModule],
+    imports: [
+        TypeOrmModule.forFeature([ReviewComment]),
+        StatisticsQueueModule,
+        NotificationsModule,
+        ReviewsModule,
+    ],
     providers: [CommentService],
     controllers: [CommentController],
 })

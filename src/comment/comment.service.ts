@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ReviewComment } from "./entity/review-comment.entity";
 import { Repository } from "typeorm";
@@ -13,15 +13,25 @@ import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { UpdateCommentDto } from "./dto/update-comment.dto";
 import { DeleteCommentDto } from "./dto/delete-comment.dto";
+import { NotificationsQueueService } from "../notifications/notifications-queue.service";
+import { ReviewsService } from "../reviews/reviews.service";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "../notifications/notifications.constants";
 
 const MIN_COMMENT_CREATE_WAIT_TIME = minutes(1);
 
 @Injectable()
 export class CommentService {
+    private logger = new Logger(CommentService.name);
+
     constructor(
         @InjectRepository(ReviewComment)
         private readonly reviewCommentRepository: Repository<ReviewComment>,
         private readonly statisticsQueueService: StatisticsQueueService,
+        private readonly notificationsQueueService: NotificationsQueueService,
+        private readonly reviewsService: ReviewsService,
     ) {}
 
     private getTargetRepository(commentSourceType: CommentSourceType) {
@@ -69,6 +79,18 @@ export class CommentService {
         return targetRepository.findOneBy({
             id: commentId,
         });
+    }
+
+    async findOneByIdOrFail(sourceType: CommentSourceType, commentId: string) {
+        const comment = await this.findOneById(sourceType, commentId);
+        if (!comment) {
+            throw new HttpException(
+                "No comment found for given criteria",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        return comment;
     }
 
     private async checkForCreateSpam(userId: string, dto: CreateCommentDto) {
@@ -119,6 +141,40 @@ export class CommentService {
         this.statisticsQueueService.createStatistics({
             sourceType: StatisticsSourceType.REVIEW_COMMENT,
             sourceId: insertedEntryId,
+        });
+
+        this.createNotification(insertedEntryId, sourceType)
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
+    }
+
+    /**
+     * Registers notification for target entity (e.g. review) when a new comment is inserted.
+     * @param commentId
+     * @param sourceType
+     */
+    async createNotification(commentId: string, sourceType: CommentSourceType) {
+        const comment = await this.findOneByIdOrFail(sourceType, commentId);
+        let targetUserId: string;
+        let sourceId: string;
+        switch (sourceType) {
+            case CommentSourceType.REVIEW:
+                const review = await this.reviewsService.findOneByIdOrFail(
+                    comment.reviewId,
+                );
+                targetUserId = review.profileUserId;
+                sourceId = review.id;
+                break;
+        }
+
+        this.notificationsQueueService.registerNotification({
+            userId: comment.profileUserId,
+            sourceId: sourceId,
+            sourceType: ENotificationSourceType.REVIEW,
+            targetUserId: targetUserId,
+            category: ENotificationCategory.COMMENT,
         });
     }
 

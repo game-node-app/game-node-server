@@ -36,8 +36,8 @@ export class CommentController {
     @ApiOkResponse({
         type: FindCommentsPaginatedResponseDto,
     })
-    @UseInterceptors(PaginationInterceptor)
     @HttpCode(HttpStatus.OK)
+    @UseInterceptors(PaginationInterceptor)
     async findAll(@Body() dto: FindAllCommentsDto) {
         return this.commentService.findAll(dto);
     }
@@ -48,7 +48,7 @@ export class CommentController {
         @Param("sourceType") sourceType: CommentSourceType,
         @Param("id") commentId: string,
     ) {
-        return this.commentService.findOneById(sourceType, commentId);
+        return this.commentService.findOneByIdOrFail(sourceType, commentId);
     }
 
     @Post("create")

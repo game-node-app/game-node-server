@@ -15,16 +15,20 @@ import {
  * so Typescript won't know if it's being used on the wrong data type.
  */
 export class PaginationInterceptor<T>
-    implements NestInterceptor<TPaginationData<T>, PaginationResponseDto<T>>
+    implements
+        NestInterceptor<
+            TPaginationData<T>,
+            PaginationResponseDto<T> | TPaginationData<T>
+        >
 {
     /**
      * Builds a simplified DTO for pagination data based on query params.
      * The actual DTO received by the controller is not available in this context.
-     * @param request
+     * @param requestObject
      * @private
      */
-    private buildSimplifiedDto(request: any): BaseFindDto<T> {
-        let { offset, limit } = request.query;
+    private buildSimplifiedDto(requestObject: any): BaseFindDto<T> {
+        let { offset, limit } = requestObject;
         if (offset == undefined || offset === "") {
             offset = 0;
         } else {
@@ -44,14 +48,23 @@ export class PaginationInterceptor<T>
     intercept(
         context: ExecutionContext,
         next: CallHandler<TPaginationData<T>>,
-    ):
-        | Observable<PaginationResponseDto<T>>
-        | Promise<Observable<PaginationResponseDto<T>>> {
+    ) {
         const request = context.switchToHttp().getRequest();
-        const simplifiedDto = this.buildSimplifiedDto(request);
+        const method = request.method;
+        const requestObject = method === "GET" ? request.query : request.body;
+
+        const simplifiedDto = this.buildSimplifiedDto(requestObject);
         return next.handle().pipe(
             map((data) => {
-                return buildPaginationResponse<T>(data, simplifiedDto);
+                if (!["GET", "POST"].includes(method)) {
+                    // Does nothing for non GET and POST methods
+                    return data;
+                }
+                const response = buildPaginationResponse<T>(
+                    data,
+                    simplifiedDto,
+                );
+                return response;
             }),
         );
     }
