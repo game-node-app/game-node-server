@@ -77,12 +77,10 @@ export class ImporterService {
                 EGameExternalGameCategory.Steam,
             );
 
-        const unprocessedExternalGames = externalGames.filter(
+        return externalGames.filter(
             (externalGame) =>
                 !ignoredExternalGamesIds.includes(externalGame.id),
         );
-
-        return unprocessedExternalGames;
     }
 
     public async findUnprocessedEntries(

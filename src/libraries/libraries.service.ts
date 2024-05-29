@@ -78,6 +78,10 @@ export class LibrariesService {
         return library;
     }
 
+    public async findAllLibraries() {
+        return this.libraryRepository.find();
+    }
+
     async create(userId: string) {
         const possibleLibrary = await this.libraryRepository.findOneBy({
             userId: userId,

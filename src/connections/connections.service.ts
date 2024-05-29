@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserConnection } from "./entity/user-connection.entity";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import {
     EConnectionType,
     IMPORTER_VIABLE_CONNECTIONS,
@@ -49,6 +49,12 @@ export class ConnectionsService {
     public async findAllByUserId(userId: string) {
         return this.userConnectionRepository.findBy({
             profileUserId: userId,
+        });
+    }
+
+    public async findAllByUserIdIn(userIds: string[]) {
+        return this.userConnectionRepository.findBy({
+            profileUserId: In(userIds),
         });
     }
 

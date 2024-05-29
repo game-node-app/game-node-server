@@ -27,7 +27,8 @@ import { HltbSyncModule } from "./sync/hltb/hltb-sync.module";
 import { SteamSyncModule } from "./sync/steam/steam-sync.module";
 import { ImporterModule } from "./importer/importer.module";
 import { ConnectionsModule } from "./connections/connections.module";
-import { CommentModule } from './comment/comment.module';
+import { CommentModule } from "./comment/comment.module";
+import { ImporterWatchModule } from "./importer/importer-watch/importer-watch.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -163,7 +164,7 @@ function getRedisConfig() {
         NotificationsModule,
         HltbSyncModule,
         SteamSyncModule,
-        ImporterModule,
+        ImporterWatchModule,
         ConnectionsModule,
         CommentModule,
     ],
