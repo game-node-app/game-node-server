@@ -1,3 +1,3 @@
 export enum EImporterSource {
-    Steam = "steam",
+    STEAM = "steam",
 }

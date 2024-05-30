@@ -7,7 +7,6 @@ import {
     Param,
     Put,
     Query,
-    Sse,
     UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
@@ -44,18 +43,16 @@ export class NotificationsController {
         );
     }
 
-    @Put(":id/view")
+    @Put("view")
     @UseGuards(ThrottlerGuard)
     @HttpCode(HttpStatus.OK)
     async updateViewedStatus(
         @Session() session: SessionContainer,
-        @Param("id") notificationId: number,
         @Body() dto: NotificationViewUpdateDto,
     ) {
         await this.notificationsService.updateViewedStatus(
             session.getUserId(),
-            notificationId,
-            dto.isViewed,
+            dto,
         );
     }
 }

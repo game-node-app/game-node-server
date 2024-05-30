@@ -15,6 +15,7 @@ import { Review } from "../../reviews/entities/review.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
 import { Activity } from "../../activities/activities-repository/entities/activity.entity";
 import { ReviewComment } from "../../comment/entity/review-comment.entity";
+import { ImporterWatchNotification } from "../../importer/entity/importer-notification.entity";
 
 @Entity()
 export class Notification {
@@ -74,6 +75,16 @@ export class Notification {
         nullable: true,
     })
     profileUserId: string | null;
+
+    @ManyToOne(() => ImporterWatchNotification, {
+        nullable: true,
+    })
+    importerNotification: ImporterWatchNotification | null;
+
+    @Column({
+        nullable: true,
+    })
+    importerNotificationId: number;
 
     @Column({
         default: false,

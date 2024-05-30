@@ -7,7 +7,7 @@ export class CreateNotificationDto {
     /**
      * User responsible for action (e.g. user that liked a review)
      */
-    userId: string;
+    userId: string | undefined;
     /**
      * User owner of the target entity (e.g. user that made a review)
      */
