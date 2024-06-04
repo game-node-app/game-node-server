@@ -58,11 +58,11 @@ export class AuthGuard implements CanActivate {
                  * Override Supertokens validators to use UserRole validation logic.
                  */
                 if (requiredRoles && requiredRoles.length > 0) {
-                    for (const role of requiredRoles) {
-                        validators.push(
-                            UserRoles.UserRoleClaim.validators.includes(role),
-                        );
-                    }
+                    validators.push(
+                        UserRoles.UserRoleClaim.validators.includesAny(
+                            requiredRoles,
+                        ),
+                    );
                 }
 
                 return validators;
