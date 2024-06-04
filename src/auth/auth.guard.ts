@@ -52,12 +52,11 @@ export class AuthGuard implements CanActivate {
         // You can create an optional version of this by passing {sessionRequired: false} to verifySession
         await verifySession({
             sessionRequired: !isPublic,
-            /**
-             * Override Supertokens validators to use UserRole validation logic.
-             * @param globalClaimValidators
-             */
             overrideGlobalClaimValidators: (globalClaimValidators) => {
                 const validators = [...globalClaimValidators];
+                /**
+                 * Override Supertokens validators to use UserRole validation logic.
+                 */
                 if (requiredRoles && requiredRoles.length > 0) {
                     for (const role of requiredRoles) {
                         validators.push(

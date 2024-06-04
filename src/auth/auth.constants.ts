@@ -3,3 +3,8 @@ export const AUTH_ERRORS = {
     DUPLICATE_ACCOUNT_ERROR: "AUTH_DUP_ACC_ERR",
     USER_INIT_ERROR: "AUTH_USER_INIT_ERR",
 } as const;
+
+/**
+ * Supertokens' default tenant id
+ */
+export const DEFAULT_TENANT_ID = "public";
