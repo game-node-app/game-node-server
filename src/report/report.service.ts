@@ -4,6 +4,8 @@ import { Report } from "./entity/report.entity";
 import { Repository } from "typeorm";
 import { CreateReportRequestDto } from "./dto/create-report-request.dto";
 import { ReportSourceType } from "./report.constants";
+import { FindLatestReportRequestDto } from "./dto/find-report-request.dto";
+import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 
 @Injectable()
 export class ReportService {
@@ -13,6 +15,25 @@ export class ReportService {
         @InjectRepository(Report)
         private readonly reportRepository: Repository<Report>,
     ) {}
+
+    findOneById(reportId: number) {
+        return this.reportRepository.findOne({
+            where: {
+                id: reportId,
+            },
+        });
+    }
+
+    async findOneByIdOrFail(reportId: number) {
+        const report = await this.findOneById(reportId);
+        if (!report) {
+            throw new HttpException(
+                "No report for given parameters found",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+        return report;
+    }
 
     async create(userId: string, dto: CreateReportRequestDto) {
         const { sourceType, sourceId } = dto;
@@ -40,10 +61,20 @@ export class ReportService {
         }
     }
 
-    async delete(userId: string, reportId: number) {
+    async discard(userId: string, reportId: number) {
         await this.reportRepository.delete({
             id: reportId,
             targetProfileUserId: userId,
+        });
+    }
+
+    async findAllByLatest(dto: FindLatestReportRequestDto) {
+        const baseFindOptions = buildBaseFindOptions<Report>(dto);
+        return this.reportRepository.findAndCount({
+            ...baseFindOptions,
+            order: {
+                createdAt: "DESC",
+            },
         });
     }
 }

@@ -25,7 +25,7 @@ import {
     ENotificationSourceType,
 } from "./notifications.constants";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
-import { hours } from "@nestjs/throttler";
+import { hours, minutes } from "@nestjs/throttler";
 import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
 
 @Injectable()
@@ -63,7 +63,7 @@ export class NotificationsService {
         return this.cacheManager.set(
             this.getCheckedDateKey(userId),
             date.toISOString(),
-            hours(6),
+            minutes(5),
         );
     }
 
@@ -187,29 +187,22 @@ export class NotificationsService {
         return [aggregations, total];
     }
 
-    public async findNewNotifications(
-        userId: string,
-        isInitialConnection: boolean,
-    ): Promise<MessageEvent> {
+    public async findNewNotifications(userId: string): Promise<Notification[]> {
         const now = new Date();
         const lastCheckedDate = await this.getLastCheckedDate(userId);
         /*
-        Avoids notifying users when they first connect to the SSE.
+        Avoids notifying users when they first connect.
          */
-        if (!lastCheckedDate || isInitialConnection) {
+        if (!lastCheckedDate) {
             await this.setLastCheckedDate(userId, now);
-            return {
-                data: JSON.stringify([]),
-            };
+            return [];
         }
         const notifications = await this.findAllAfterDate(
             userId,
             lastCheckedDate,
         );
         await this.setLastCheckedDate(userId, now);
-        return {
-            data: JSON.stringify(notifications),
-        };
+        return notifications;
     }
 
     private async isPossibleSpam(createDto: CreateNotificationDto) {

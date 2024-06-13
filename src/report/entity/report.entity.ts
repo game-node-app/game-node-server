@@ -9,7 +9,7 @@ import {
 } from "typeorm";
 import { Review } from "../../reviews/entities/review.entity";
 import { Profile } from "../../profile/entities/profile.entity";
-import { ReportSourceType } from "../report.constants";
+import { ReportCategory, ReportSourceType } from "../report.constants";
 
 @Entity()
 export class Report {
@@ -24,6 +24,11 @@ export class Report {
     })
     @Index()
     sourceType: ReportSourceType;
+
+    @Column({
+        nullable: false,
+    })
+    category: ReportCategory;
 
     // Relations
     @ManyToOne(() => Review, {
