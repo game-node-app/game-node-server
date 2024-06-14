@@ -39,17 +39,15 @@ export class Report {
         nullable: true,
     })
     targetReviewId: string | null;
-    /**
-     * Should only be filled when sourceType equals 'profile'!
-     */
     @ManyToOne(() => Profile, {
-        nullable: true,
+        nullable: false,
+        onDelete: "CASCADE",
     })
-    targetProfile: Profile | null;
+    targetProfile: Profile;
     @Column({
-        nullable: true,
+        nullable: false,
     })
-    targetProfileUserId: string | null;
+    targetProfileUserId: string;
 
     /**
      * User-submitted reason for report.

@@ -6,6 +6,7 @@ import { CreateReportRequestDto } from "./dto/create-report-request.dto";
 import { ReportSourceType } from "./report.constants";
 import { FindLatestReportRequestDto } from "./dto/find-report-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
+import { ReviewsService } from "../reviews/reviews.service";
 
 @Injectable()
 export class ReportService {
@@ -14,6 +15,7 @@ export class ReportService {
     constructor(
         @InjectRepository(Report)
         private readonly reportRepository: Repository<Report>,
+        private readonly reviewsService: ReviewsService,
     ) {}
 
     findOneById(reportId: number) {
@@ -41,9 +43,13 @@ export class ReportService {
             profileUserId: userId,
             sourceType: sourceType,
         });
+
         switch (dto.sourceType) {
             case ReportSourceType.REVIEW:
-                createdReport.targetReviewId = sourceId;
+                const review =
+                    await this.reviewsService.findOneByIdOrFail(sourceId);
+                createdReport.targetReviewId = review.id;
+                createdReport.targetProfileUserId = review.profileUserId;
                 break;
             case ReportSourceType.PROFILE:
                 createdReport.targetProfileUserId = sourceId;
