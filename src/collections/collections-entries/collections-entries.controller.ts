@@ -45,6 +45,7 @@ export class CollectionsEntriesController {
     }
 
     @Get(":id")
+    @Public()
     async findEntryById(@Param("id") collectionEntryId: string) {
         return await this.collectionsEntriesService.findOneByIdOrFail(
             collectionEntryId,
@@ -78,6 +79,7 @@ export class CollectionsEntriesController {
     }
 
     @Get(":id/platforms/icons")
+    @Public()
     async getIconsForOwnedPlatforms(@Param("id") collectionEntryId: string) {
         return this.collectionsEntriesService.findIconsForOwnedPlatforms(
             collectionEntryId,
