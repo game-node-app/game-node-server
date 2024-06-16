@@ -6,6 +6,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ReviewComment } from "./entity/review-comment.entity";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { ReviewsModule } from "../reviews/reviews.module";
+import { SuspensionModule } from "../suspension/suspension.module";
 
 /**
  * Module responsible for handling user comments.
@@ -16,6 +17,7 @@ import { ReviewsModule } from "../reviews/reviews.module";
         StatisticsQueueModule,
         NotificationsModule,
         ReviewsModule,
+        SuspensionModule,
     ],
     providers: [CommentService],
     controllers: [CommentController],

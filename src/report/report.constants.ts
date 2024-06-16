@@ -4,5 +4,15 @@ export enum ReportSourceType {
 }
 
 export enum ReportCategory {
-    Spam,
+    Spam = "spam",
+}
+
+export enum ReportHandleAction {
+    /**
+     * Discard report
+     */
+    DISCARD = "discard",
+    ALERT = "alert",
+    SUSPEND = "suspend",
+    BAN = "ban",
 }

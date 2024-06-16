@@ -24,6 +24,7 @@ import { UpdateCommentDto } from "./dto/update-comment.dto";
 import { CommentSourceType } from "./comment.constants";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { DeleteCommentDto } from "./dto/delete-comment.dto";
+import { SuspensionGuard } from "../suspension/suspension.guard";
 
 @Controller("comment")
 @ApiTags("comment")
@@ -53,6 +54,7 @@ export class CommentController {
 
     @Post("create")
     @HttpCode(HttpStatus.CREATED)
+    @UseGuards(SuspensionGuard)
     async create(
         @Session() session: SessionContainer,
         @Body() dto: CreateCommentDto,
@@ -62,6 +64,7 @@ export class CommentController {
 
     @Patch(":id")
     @HttpCode(HttpStatus.NO_CONTENT)
+    @UseGuards(SuspensionGuard)
     async update(
         @Session() session: SessionContainer,
         @Param("id") commentId: string,

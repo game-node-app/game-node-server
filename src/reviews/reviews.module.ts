@@ -10,10 +10,12 @@ import { CollectionsEntriesModule } from "../collections/collections-entries/col
 import { AchievementsModule } from "../achievements/achievements.module";
 import { StatisticsQueueModule } from "../statistics/statistics-queue/statistics-queue.module";
 import { LevelModule } from "../level/level.module";
+import { SuspensionModule } from "../suspension/suspension.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Review, CollectionEntry]),
+        SuspensionModule,
         ProfileModule,
         ActivitiesQueueModule,
         AchievementsModule,

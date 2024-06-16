@@ -1,4 +1,4 @@
-import { ReportSourceType } from "../report.constants";
+import { ReportCategory, ReportSourceType } from "../report.constants";
 import { IsEnum, IsNotEmpty, IsString, Length } from "class-validator";
 
 export class CreateReportRequestDto {
@@ -9,4 +9,7 @@ export class CreateReportRequestDto {
     @IsString()
     @Length(36)
     sourceId: string;
+    @IsNotEmpty()
+    @IsEnum(ReportCategory)
+    category: ReportCategory;
 }

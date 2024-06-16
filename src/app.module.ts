@@ -30,6 +30,7 @@ import { ConnectionsModule } from "./connections/connections.module";
 import { CommentModule } from "./comment/comment.module";
 import { ImporterWatchModule } from "./importer/importer-watch/importer-watch.module";
 import { ReportModule } from './report/report.module';
+import { SuspensionModule } from './suspension/suspension.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -169,6 +170,7 @@ function getRedisConfig() {
         ConnectionsModule,
         CommentModule,
         ReportModule,
+        SuspensionModule,
     ],
 })
 export class AppModule implements NestModule {

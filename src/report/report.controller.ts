@@ -19,6 +19,7 @@ import { EUserRoles } from "../utils/constants";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { PaginatedReportResponseDto } from "./dto/paginated-report-response.dto";
 import { FindLatestReportRequestDto } from "./dto/find-report-request.dto";
+import { HandleReportRequestDto } from "./dto/handle-report-request.dto";
 
 @Controller("report")
 @ApiTags("report")
@@ -48,5 +49,14 @@ export class ReportController {
         @Body() dto: CreateReportRequestDto,
     ) {
         await this.reportService.create(session.getUserId(), dto);
+    }
+
+    @Post(":id/handle")
+    async handle(
+        @Session() session: SessionContainer,
+        @Param("id") reportId: number,
+        @Body() dto: HandleReportRequestDto,
+    ) {
+        await this.reportService.handle(session, reportId, dto);
     }
 }

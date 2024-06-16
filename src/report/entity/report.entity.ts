@@ -9,7 +9,11 @@ import {
 } from "typeorm";
 import { Review } from "../../reviews/entities/review.entity";
 import { Profile } from "../../profile/entities/profile.entity";
-import { ReportCategory, ReportSourceType } from "../report.constants";
+import {
+    ReportCategory,
+    ReportHandleAction,
+    ReportSourceType,
+} from "../report.constants";
 
 @Entity()
 export class Report {
@@ -33,6 +37,7 @@ export class Report {
     // Relations
     @ManyToOne(() => Review, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     targetReview: Review | null;
     @Column({
@@ -66,6 +71,33 @@ export class Report {
     profile: Profile;
     @Column()
     profileUserId: string;
+
+    @Column({
+        nullable: false,
+        default: false,
+    })
+    isClosed: boolean;
+
+    /**
+     * Action taken when closing this report
+     */
+    @Column({
+        nullable: true,
+        type: "varchar",
+    })
+    closeHandleAction: ReportHandleAction | null;
+    /**
+     * User responsible for closing this report
+     */
+    @ManyToOne(() => Profile, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    closeProfile: Profile | null;
+    @Column({
+        nullable: true,
+    })
+    closeProfileUserId: string | null;
 
     @CreateDateColumn()
     createdAt: Date;

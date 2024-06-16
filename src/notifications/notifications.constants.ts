@@ -7,6 +7,7 @@ export enum ENotificationCategory {
     COMMENT = "comment",
     // Used by watch services like 'importer-watch'
     WATCH = "watch",
+    ALERT = "alert",
 }
 
 /**
@@ -15,6 +16,7 @@ export enum ENotificationCategory {
  * @example a 'comment' notification on a 'review'
  * @example a 'watch' notification from the 'importer-watch' system, which generated a 'importer-watch-notification' entry.
  * @example a 'follow' notification related to a 'profile'
+ * @example a 'alert' notification related to a 'report'
  */
 export enum ENotificationSourceType {
     GAME = "game",
@@ -26,6 +28,7 @@ export enum ENotificationSourceType {
     PROFILE = "profile",
 
     IMPORTER = "importer",
+    REPORT = "report",
 }
 
 export const NOTIFICATIONS_QUEUE_NAME = "notifications-queue";

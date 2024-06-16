@@ -16,6 +16,7 @@ import { Game } from "../../game/game-repository/entities/game.entity";
 import { Activity } from "../../activities/activities-repository/entities/activity.entity";
 import { ReviewComment } from "../../comment/entity/review-comment.entity";
 import { ImporterWatchNotification } from "../../importer/entity/importer-notification.entity";
+import { Report } from "../../report/entity/report.entity";
 
 @Entity()
 export class Notification {
@@ -78,6 +79,7 @@ export class Notification {
 
     @ManyToOne(() => ImporterWatchNotification, {
         nullable: true,
+        onDelete: "CASCADE",
     })
     importerNotification: ImporterWatchNotification | null;
 
@@ -85,6 +87,16 @@ export class Notification {
         nullable: true,
     })
     importerNotificationId: number;
+
+    @ManyToOne(() => Report, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    report: Report | number;
+    @Column({
+        nullable: true,
+    })
+    reportId: number | null;
 
     @Column({
         default: false,

@@ -3,10 +3,19 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Report } from "./entity/report.entity";
 import { Repository } from "typeorm";
 import { CreateReportRequestDto } from "./dto/create-report-request.dto";
-import { ReportSourceType } from "./report.constants";
+import { ReportHandleAction, ReportSourceType } from "./report.constants";
 import { FindLatestReportRequestDto } from "./dto/find-report-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { ReviewsService } from "../reviews/reviews.service";
+import { SessionContainer } from "supertokens-node/recipe/session";
+import { HandleReportRequestDto } from "./dto/handle-report-request.dto";
+import { UserRoleClaim } from "supertokens-node/lib/build/recipe/userroles";
+import { EUserRoles } from "../utils/constants";
+import { NotificationsQueueService } from "../notifications/notifications-queue.service";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "../notifications/notifications.constants";
 
 @Injectable()
 export class ReportService {
@@ -15,6 +24,7 @@ export class ReportService {
     constructor(
         @InjectRepository(Report)
         private readonly reportRepository: Repository<Report>,
+        private readonly notificationsQueueService: NotificationsQueueService,
         private readonly reviewsService: ReviewsService,
     ) {}
 
@@ -82,5 +92,37 @@ export class ReportService {
                 createdAt: "DESC",
             },
         });
+    }
+
+    async handle(
+        session: SessionContainer,
+        reportId: number,
+        dto: HandleReportRequestDto,
+    ) {
+        const report = await this.findOneByIdOrFail(reportId);
+        const { action, deleteReportedContent } = dto;
+        switch (action) {
+            case ReportHandleAction.ALERT:
+                this.notificationsQueueService.registerNotification({
+                    sourceId: report.id,
+                    userId: undefined,
+                    sourceType: ENotificationSourceType.REPORT,
+                    category: ENotificationCategory.ALERT,
+                    targetUserId: report.targetProfileUserId,
+                });
+                break;
+            case ReportHandleAction.SUSPEND:
+                break;
+            case ReportHandleAction.BAN:
+                break;
+            case ReportHandleAction.DISCARD:
+                break;
+        }
+    }
+
+    async verifyBanPermission(session: SessionContainer) {
+        const roles = await session.getClaimValue(UserRoleClaim);
+        if (roles == undefined || !roles.includes(EUserRoles.ADMIN)) {
+        }
     }
 }
