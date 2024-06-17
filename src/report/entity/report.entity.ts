@@ -67,6 +67,7 @@ export class Report {
      */
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @Column()

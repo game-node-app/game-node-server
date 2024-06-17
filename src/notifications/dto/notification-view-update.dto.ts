@@ -5,7 +5,6 @@ export class NotificationViewUpdateDto {
     @IsBoolean()
     isViewed: boolean;
     @IsArray()
-    @Min(1)
     @IsNotEmpty()
     notificationIds: number[];
 }

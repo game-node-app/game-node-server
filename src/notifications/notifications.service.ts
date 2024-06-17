@@ -155,7 +155,8 @@ export class NotificationsService {
                     notification.reviewId! ||
                     notification.activityId! ||
                     notification.profileUserId! ||
-                    notification.importerNotificationId!,
+                    notification.importerNotificationId! ||
+                    notification.reportId!,
                 sourceType: notification.sourceType,
                 notifications: aggregationNotifications,
             });
@@ -206,8 +207,19 @@ export class NotificationsService {
     }
 
     private async isPossibleSpam(createDto: CreateNotificationDto) {
-        const ignoredCategories = [ENotificationCategory.WATCH];
-        if (ignoredCategories.includes(createDto.category)) {
+        const ignoredCategories = [
+            ENotificationCategory.WATCH,
+            ENotificationCategory.ALERT,
+        ];
+        const ignoredSources = [
+            ENotificationSourceType.REPORT,
+            ENotificationSourceType.IMPORTER,
+        ];
+
+        if (
+            ignoredCategories.includes(createDto.category) ||
+            ignoredSources.includes(createDto.sourceType)
+        ) {
             return false;
         }
 
@@ -234,10 +246,6 @@ export class NotificationsService {
                 break;
             case ENotificationSourceType.ACTIVITY:
                 whereOptions.activityId = createDto.sourceId as string;
-                break;
-            case ENotificationSourceType.IMPORTER:
-                whereOptions.importerNotificationId =
-                    createDto.sourceId as number;
                 break;
             case ENotificationSourceType.PROFILE:
                 whereOptions.profileUserId = createDto.sourceId as string;
@@ -297,6 +305,8 @@ export class NotificationsService {
             case ENotificationSourceType.PROFILE:
                 entity.profileUserId = dto.sourceId as string;
                 break;
+            case ENotificationSourceType.REPORT:
+                entity.reportId = dto.sourceId as number;
         }
 
         await this.notificationRepository.save(entity);

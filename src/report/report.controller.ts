@@ -24,11 +24,11 @@ import { HandleReportRequestDto } from "./dto/handle-report-request.dto";
 @Controller("report")
 @ApiTags("report")
 @UseGuards(AuthGuard)
+@Roles([EUserRoles.MOD, EUserRoles.ADMIN])
 export class ReportController {
     constructor(private readonly reportService: ReportService) {}
 
     @Get()
-    @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
         type: PaginatedReportResponseDto,
@@ -38,12 +38,12 @@ export class ReportController {
     }
 
     @Get(":id")
-    @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
     async findOneById(@Param("id") reportId: number) {
         return this.reportService.findOneByIdOrFail(reportId);
     }
 
     @Post()
+    @Roles([EUserRoles.USER])
     async create(
         @Session() session: SessionContainer,
         @Body() dto: CreateReportRequestDto,
@@ -57,6 +57,6 @@ export class ReportController {
         @Param("id") reportId: number,
         @Body() dto: HandleReportRequestDto,
     ) {
-        await this.reportService.handle(session, reportId, dto);
+        await this.reportService.handle(session.getUserId(), reportId, dto);
     }
 }

@@ -1,21 +1,19 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Report } from "./entity/report.entity";
-import { Repository } from "typeorm";
+import { FindOptionsWhere, Repository } from "typeorm";
 import { CreateReportRequestDto } from "./dto/create-report-request.dto";
 import { ReportHandleAction, ReportSourceType } from "./report.constants";
 import { FindLatestReportRequestDto } from "./dto/find-report-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { ReviewsService } from "../reviews/reviews.service";
-import { SessionContainer } from "supertokens-node/recipe/session";
 import { HandleReportRequestDto } from "./dto/handle-report-request.dto";
-import { UserRoleClaim } from "supertokens-node/lib/build/recipe/userroles";
-import { EUserRoles } from "../utils/constants";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
+import { SuspensionService } from "../suspension/suspension.service";
 
 @Injectable()
 export class ReportService {
@@ -26,6 +24,7 @@ export class ReportService {
         private readonly reportRepository: Repository<Report>,
         private readonly notificationsQueueService: NotificationsQueueService,
         private readonly reviewsService: ReviewsService,
+        private readonly suspensionService: SuspensionService,
     ) {}
 
     findOneById(reportId: number) {
@@ -86,8 +85,13 @@ export class ReportService {
 
     async findAllByLatest(dto: FindLatestReportRequestDto) {
         const baseFindOptions = buildBaseFindOptions<Report>(dto);
+        const whereOptions: FindOptionsWhere<Report> = {};
+        if (!dto.includeClosed) {
+            whereOptions.isClosed = false;
+        }
         return this.reportRepository.findAndCount({
             ...baseFindOptions,
+            where: whereOptions,
             order: {
                 createdAt: "DESC",
             },
@@ -95,34 +99,77 @@ export class ReportService {
     }
 
     async handle(
-        session: SessionContainer,
+        handlerUserId: string,
         reportId: number,
         dto: HandleReportRequestDto,
     ) {
         const report = await this.findOneByIdOrFail(reportId);
         const { action, deleteReportedContent } = dto;
+
+        // In case more user-generated content is added in the future, just add more checks here.
+        const isContentDeletable = report.targetReviewId != undefined;
         switch (action) {
-            case ReportHandleAction.ALERT:
-                this.notificationsQueueService.registerNotification({
-                    sourceId: report.id,
-                    userId: undefined,
-                    sourceType: ENotificationSourceType.REPORT,
-                    category: ENotificationCategory.ALERT,
-                    targetUserId: report.targetProfileUserId,
-                });
-                break;
             case ReportHandleAction.SUSPEND:
+                await this.suspensionService.create(
+                    handlerUserId,
+                    report.targetProfileUserId,
+                    "suspension",
+                );
                 break;
             case ReportHandleAction.BAN:
+                await this.suspensionService.create(
+                    handlerUserId,
+                    report.targetProfileUserId,
+                    "ban",
+                );
+                break;
+            case ReportHandleAction.ALERT:
                 break;
             case ReportHandleAction.DISCARD:
-                break;
+                await this.delete(reportId);
+                return;
         }
+
+        if (isContentDeletable && deleteReportedContent) {
+            if (report.targetReviewId != undefined) {
+                await this.reviewsService.delete(
+                    report.targetProfileUserId,
+                    report.targetReviewId,
+                );
+            }
+        }
+
+        this.notificationsQueueService.registerNotification({
+            sourceId: report.id,
+            userId: undefined,
+            sourceType: ENotificationSourceType.REPORT,
+            category: ENotificationCategory.ALERT,
+            targetUserId: report.targetProfileUserId,
+        });
+
+        await this.close(handlerUserId, reportId, action);
     }
 
-    async verifyBanPermission(session: SessionContainer) {
-        const roles = await session.getClaimValue(UserRoleClaim);
-        if (roles == undefined || !roles.includes(EUserRoles.ADMIN)) {
-        }
+    private async close(
+        handlerUserId: string,
+        reportId: number,
+        action: ReportHandleAction,
+    ) {
+        await this.reportRepository.update(
+            {
+                id: reportId,
+            },
+            {
+                closeProfileUserId: handlerUserId,
+                closeHandleAction: action,
+                isClosed: true,
+            },
+        );
+    }
+
+    async delete(reportId: number) {
+        await this.reportRepository.delete({
+            id: reportId,
+        });
     }
 }

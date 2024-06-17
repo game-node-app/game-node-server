@@ -83,7 +83,8 @@ enum EGameStorageSource {
 
 /**
  * Look-up table that matches a icon file to a set of platform abbreviations. <br>
- * Check /public/icons for reference.
+ * Check /public/icons for reference. <br>
+ * Format: iconName: [platforms]
  */
 const platformAbbreviationToIconMap: { [p: string]: string[] } = {
     windows: ["PC"],
@@ -118,6 +119,11 @@ const platformAbbreviationToIconMap: { [p: string]: string[] } = {
     atari: ["Atari2600", "Atari7800", "Atari-ST", "Atari8bit", "Atari5200"],
 };
 
+/**
+ * Look-up table that matches a icon file to a set of external game categories. <br>
+ * Check /public/icons for reference. <br>
+ * Format: iconName: [category]
+ */
 const externalGameCategoryToIconMap: { [p: string]: number[] } = {
     xbox: [
         EGameExternalGameCategory.XboxMarketplace,
