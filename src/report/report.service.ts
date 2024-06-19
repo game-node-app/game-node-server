@@ -120,6 +120,13 @@ export class ReportService {
         const report = await this.findOneByIdOrFail(reportId);
         const { action, deleteReportedContent } = dto;
 
+        if (report.isClosed) {
+            throw new HttpException(
+                "Report is already closed. No further action needed.",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
         // In case more user-generated content is added in the future, just add more checks here.
         const isContentDeletable = report.targetReviewId != undefined;
         switch (action) {
