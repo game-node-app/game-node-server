@@ -77,12 +77,10 @@ export class ImporterService {
                 EGameExternalGameCategory.Steam,
             );
 
-        const unprocessedExternalGames = externalGames.filter(
+        return externalGames.filter(
             (externalGame) =>
                 !ignoredExternalGamesIds.includes(externalGame.id),
         );
-
-        return unprocessedExternalGames;
     }
 
     public async findUnprocessedEntries(
@@ -92,7 +90,7 @@ export class ImporterService {
     ): Promise<TPaginationData<GameExternalGame>> {
         let entries: GameExternalGame[] = [];
         switch (source) {
-            case EImporterSource.Steam:
+            case EImporterSource.STEAM:
                 entries = await this.findUnprocessedSteamEntries(userId);
                 break;
             default:

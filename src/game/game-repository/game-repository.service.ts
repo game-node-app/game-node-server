@@ -13,7 +13,7 @@ import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 import { GameMode } from "./entities/game-mode.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
-import { buildFilterFindOptions } from "../../sync/igdb/utils/build-filter-find-options";
+import { buildFilterFindOptions } from "./utils/build-filter-find-options";
 import { days, minutes } from "@nestjs/throttler";
 import { GameExternalGame } from "./entities/game-external-game.entity";
 import {

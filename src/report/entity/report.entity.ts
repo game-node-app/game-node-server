@@ -1,0 +1,121 @@
+import {
+    Column,
+    CreateDateColumn,
+    Entity,
+    Index,
+    ManyToOne,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
+} from "typeorm";
+import { Review } from "../../reviews/entities/review.entity";
+import { Profile } from "../../profile/entities/profile.entity";
+import {
+    ReportCategory,
+    ReportHandleAction,
+    ReportSourceType,
+} from "../report.constants";
+import { UserComment } from "../../comment/entity/user-comment.entity";
+import { ReviewComment } from "../../comment/entity/review-comment.entity";
+
+@Entity()
+export class Report {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    /**
+     * Indexed to improve speed when filtering by type.
+     */
+    @Column({
+        nullable: false,
+    })
+    @Index()
+    sourceType: ReportSourceType;
+
+    @Column({
+        nullable: false,
+    })
+    category: ReportCategory;
+
+    // Relations
+    @ManyToOne(() => Review, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    targetReview: Review | null;
+    @Column({
+        nullable: true,
+    })
+    targetReviewId: string | null;
+    @ManyToOne(() => ReviewComment, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    targetReviewComment: ReviewComment | null;
+    @Column({
+        nullable: true,
+    })
+    targetReviewCommentId: string | null;
+    /**
+     * Profile that is being target of a report
+     */
+    @ManyToOne(() => Profile, {
+        nullable: false,
+        onDelete: "CASCADE",
+    })
+    targetProfile: Profile;
+    @Column({
+        nullable: false,
+    })
+    targetProfileUserId: string;
+
+    /**
+     * User-submitted reason for report.
+     */
+    @Column({
+        type: "longtext",
+        nullable: true,
+    })
+    reason: string | null;
+    /**
+     * User responsible for report.
+     */
+    @ManyToOne(() => Profile, {
+        nullable: false,
+        onDelete: "CASCADE",
+    })
+    profile: Profile;
+    @Column()
+    profileUserId: string;
+
+    @Column({
+        nullable: false,
+        default: false,
+    })
+    isClosed: boolean;
+
+    /**
+     * Action taken when closing this report
+     */
+    @Column({
+        nullable: true,
+        type: "varchar",
+    })
+    closeHandleAction: ReportHandleAction | null;
+    /**
+     * User responsible for closing this report
+     */
+    @ManyToOne(() => Profile, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    closeProfile: Profile | null;
+    @Column({
+        nullable: true,
+    })
+    closeProfileUserId: string | null;
+
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
+}

@@ -37,10 +37,7 @@ export class Profile {
     })
     @JoinColumn()
     avatar: ProfileAvatar;
-    @ManyToMany(() => UserFollow, (userFollow) => userFollow.follower)
-    followers: UserFollow[];
-    @ManyToMany(() => UserFollow, (userFollow) => userFollow.follower)
-    following: UserFollow[];
+
     @Column({
         type: "timestamp",
         nullable: true,

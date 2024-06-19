@@ -4,10 +4,8 @@ import {
     Get,
     HttpCode,
     HttpStatus,
-    Param,
     Put,
     Query,
-    Sse,
     UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
@@ -21,6 +19,7 @@ import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { PaginatedNotificationAggregationDto } from "./dto/paginated-notification-aggregation.dto";
 import { ThrottlerGuard } from "@nestjs/throttler";
+import { Notification } from "./entity/notification.entity";
 
 @Controller("notifications")
 @ApiTags("notifications")
@@ -44,18 +43,28 @@ export class NotificationsController {
         );
     }
 
-    @Put(":id/view")
+    /**
+     * Finds new notifications that have been created after last checked time. <br>
+     * Returns an empty array on first connection.
+     * @param session
+     */
+    @Get("new")
+    async getNewNotifications(@Session() session: SessionContainer) {
+        return this.notificationsService.findNewNotifications(
+            session.getUserId(),
+        );
+    }
+
+    @Put("view")
     @UseGuards(ThrottlerGuard)
     @HttpCode(HttpStatus.OK)
     async updateViewedStatus(
         @Session() session: SessionContainer,
-        @Param("id") notificationId: number,
         @Body() dto: NotificationViewUpdateDto,
     ) {
         await this.notificationsService.updateViewedStatus(
             session.getUserId(),
-            notificationId,
-            dto.isViewed,
+            dto,
         );
     }
 }

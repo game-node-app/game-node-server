@@ -22,6 +22,7 @@ import { FindReviewDto } from "./dto/find-review.dto";
 import { Public } from "../auth/public.decorator";
 import { ReviewScoreRequestDto } from "./dto/review-score-request.dto";
 import { FindAllReviewsByIdDto } from "./dto/find-all-reviews-by-id.dto";
+import { SuspensionGuard } from "../suspension/suspension.guard";
 
 @Controller("reviews")
 @ApiTags("reviews")
@@ -30,6 +31,7 @@ export class ReviewsController {
     constructor(private readonly reviewsService: ReviewsService) {}
 
     @Post()
+    @UseGuards(SuspensionGuard)
     createOrUpdate(
         @Session() session: SessionContainer,
         @Body() createReviewDto: CreateReviewDto,

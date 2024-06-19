@@ -9,6 +9,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindOptionsRelations,
     FindOptionsWhere,
+    In,
     MoreThanOrEqual,
     Repository,
 } from "typeorm";
@@ -24,13 +25,14 @@ import {
     ENotificationSourceType,
 } from "./notifications.constants";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
-import { hours } from "@nestjs/throttler";
+import { hours, minutes } from "@nestjs/throttler";
+import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
 
 @Injectable()
 @UseGuards(AuthGuard)
 export class NotificationsService {
     private readonly logger = new Logger(NotificationsService.name);
-    private readonly repeatedNotificationWaitPeriodHours = 1;
+    private readonly repeatedNotificationWaitPeriodMinutes = 5;
 
     private readonly relations: FindOptionsRelations<Notification> = {
         profile: true,
@@ -61,7 +63,7 @@ export class NotificationsService {
         return this.cacheManager.set(
             this.getCheckedDateKey(userId),
             date.toISOString(),
-            hours(6),
+            minutes(5),
         );
     }
 
@@ -140,15 +142,23 @@ export class NotificationsService {
                 },
             );
 
+            // Includes current notification if the list is empty. Usually means the category can not be aggregated.
+            const aggregationNotifications =
+                similarNotifications.length > 0
+                    ? similarNotifications
+                    : [notification];
+
             aggregations.push({
                 category: notification.category,
                 // Matches any relation property that's not null
                 sourceId:
                     notification.reviewId! ||
                     notification.activityId! ||
-                    notification.profileUserId!,
+                    notification.profileUserId! ||
+                    notification.importerNotificationId! ||
+                    notification.reportId!,
                 sourceType: notification.sourceType,
-                notifications: similarNotifications,
+                notifications: aggregationNotifications,
             });
         }
 
@@ -178,37 +188,47 @@ export class NotificationsService {
         return [aggregations, total];
     }
 
-    public async findNewNotifications(
-        userId: string,
-        isInitialConnection: boolean,
-    ): Promise<MessageEvent> {
+    public async findNewNotifications(userId: string): Promise<Notification[]> {
         const now = new Date();
         const lastCheckedDate = await this.getLastCheckedDate(userId);
         /*
-        Avoids notifying users when they first connect to the SSE.
+        Avoids notifying users when they first connect.
          */
-        if (!lastCheckedDate || isInitialConnection) {
+        if (!lastCheckedDate) {
             await this.setLastCheckedDate(userId, now);
-            return {
-                data: JSON.stringify([]),
-            };
+            return [];
         }
         const notifications = await this.findAllAfterDate(
             userId,
             lastCheckedDate,
         );
         await this.setLastCheckedDate(userId, now);
-        return {
-            data: JSON.stringify(notifications),
-        };
+        return notifications;
     }
 
     private async isPossibleSpam(createDto: CreateNotificationDto) {
+        const ignoredCategories = [
+            ENotificationCategory.WATCH,
+            ENotificationCategory.ALERT,
+        ];
+        const ignoredSources = [
+            ENotificationSourceType.REPORT,
+            ENotificationSourceType.IMPORTER,
+        ];
+
+        if (
+            ignoredCategories.includes(createDto.category) ||
+            ignoredSources.includes(createDto.sourceType)
+        ) {
+            return false;
+        }
+
         const minimumRepeatedNotificationDate = new Date();
-        minimumRepeatedNotificationDate.setHours(
-            minimumRepeatedNotificationDate.getHours() -
-                this.repeatedNotificationWaitPeriodHours,
+        minimumRepeatedNotificationDate.setMinutes(
+            minimumRepeatedNotificationDate.getMinutes() -
+                this.repeatedNotificationWaitPeriodMinutes,
         );
+
         const whereOptions: FindOptionsWhere<Notification> = {
             sourceType: createDto.sourceType,
             category: createDto.category,
@@ -227,6 +247,9 @@ export class NotificationsService {
             case ENotificationSourceType.ACTIVITY:
                 whereOptions.activityId = createDto.sourceId as string;
                 break;
+            case ENotificationSourceType.PROFILE:
+                whereOptions.profileUserId = createDto.sourceId as string;
+                break;
         }
 
         return await this.notificationRepository.exists({
@@ -239,15 +262,17 @@ export class NotificationsService {
             throw new Error(
                 "Error while creating a new notification: missing sourceId.",
             );
-        } else if (
-            dto.targetUserId != undefined &&
-            dto.userId === dto.targetUserId
-        ) {
+        } else if (dto.targetUserId == undefined) {
+            throw new Error(
+                "Common notifications can't be targeted at all users (targetProfileUserId is null): " +
+                    JSON.stringify(dto),
+            );
+        } else if (dto.userId === dto.targetUserId) {
             this.logger.warn(
                 `Skipping attempt to make user notify itself: ${dto.userId} -> ${dto.targetUserId}`,
             );
             this.logger.warn(`On DTO: ${JSON.stringify(dto)}}`);
-            // return;
+            return;
         } else if (await this.isPossibleSpam(dto)) {
             this.logger.warn(
                 `Skipping attempt to create repeated notification: ${JSON.stringify(
@@ -256,6 +281,7 @@ export class NotificationsService {
             );
             return;
         }
+
         const entity = this.notificationRepository.create({
             profileUserId: dto.userId,
             targetProfileUserId: dto.targetUserId,
@@ -273,13 +299,14 @@ export class NotificationsService {
             case ENotificationSourceType.ACTIVITY:
                 entity.activityId = dto.sourceId as string;
                 break;
-        }
-
-        if (entity.targetProfileUserId == undefined) {
-            throw new Error(
-                "Common notifications can't be targeted at all users (targetProfileUserId is null): " +
-                    JSON.stringify(dto),
-            );
+            case ENotificationSourceType.IMPORTER:
+                entity.importerNotificationId = dto.sourceId as number;
+                break;
+            case ENotificationSourceType.PROFILE:
+                entity.profileUserId = dto.sourceId as string;
+                break;
+            case ENotificationSourceType.REPORT:
+                entity.reportId = dto.sourceId as number;
         }
 
         await this.notificationRepository.save(entity);
@@ -287,16 +314,15 @@ export class NotificationsService {
 
     public async updateViewedStatus(
         userId: string,
-        notificationId: number,
-        isViewed: boolean,
+        dto: NotificationViewUpdateDto,
     ) {
         await this.notificationRepository.update(
             {
-                id: notificationId,
+                id: In(dto.notificationIds),
                 targetProfileUserId: userId,
             },
             {
-                isViewed,
+                isViewed: dto.isViewed,
             },
         );
     }

@@ -70,10 +70,8 @@ export class UserInitService {
             userId,
         );
         const roles = getRoles.roles;
-        if (
-            roles.includes(EUserRoles.MOD) ||
-            roles.includes(EUserRoles.ADMIN)
-        ) {
+        // If user already has the user role defined
+        if (roles.includes(EUserRoles.USER)) {
             return;
         }
         await UserRoles.addRoleToUser(
