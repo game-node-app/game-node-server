@@ -21,5 +21,6 @@ import { SuspensionModule } from "../suspension/suspension.module";
     ],
     providers: [CommentService],
     controllers: [CommentController],
+    exports: [CommentService],
 })
 export class CommentModule {}

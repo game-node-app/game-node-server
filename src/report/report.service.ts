@@ -14,6 +14,8 @@ import {
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
 import { SuspensionService } from "../suspension/suspension.service";
+import { CommentService } from "../comment/comment.service";
+import { CommentSourceType } from "../comment/comment.constants";
 
 @Injectable()
 export class ReportService {
@@ -24,6 +26,7 @@ export class ReportService {
         private readonly reportRepository: Repository<Report>,
         private readonly notificationsQueueService: NotificationsQueueService,
         private readonly reviewsService: ReviewsService,
+        private readonly commentService: CommentService,
         private readonly suspensionService: SuspensionService,
     ) {}
 
@@ -51,6 +54,8 @@ export class ReportService {
         const createdReport = this.reportRepository.create({
             profileUserId: userId,
             sourceType: sourceType,
+            category: dto.category,
+            reason: dto.reason,
         });
 
         switch (dto.sourceType) {
@@ -60,9 +65,25 @@ export class ReportService {
                 createdReport.targetReviewId = review.id;
                 createdReport.targetProfileUserId = review.profileUserId;
                 break;
+            case ReportSourceType.REVIEW_COMMENT:
+                const comment = await this.commentService.findOneByIdOrFail(
+                    CommentSourceType.REVIEW,
+                    sourceId,
+                );
+                createdReport.targetReviewCommentId = comment.id;
+                createdReport.targetProfileUserId = comment.profileUserId;
+                break;
+
             case ReportSourceType.PROFILE:
                 createdReport.targetProfileUserId = sourceId;
                 break;
+        }
+
+        if (createdReport.targetProfileUserId === userId) {
+            throw new HttpException(
+                "User can't report its own content.",
+                HttpStatus.BAD_REQUEST,
+            );
         }
 
         try {
@@ -76,20 +97,13 @@ export class ReportService {
         }
     }
 
-    async discard(userId: string, reportId: number) {
-        await this.reportRepository.delete({
-            id: reportId,
-            targetProfileUserId: userId,
-        });
-    }
-
     async findAllByLatest(dto: FindLatestReportRequestDto) {
         const baseFindOptions = buildBaseFindOptions<Report>(dto);
         const whereOptions: FindOptionsWhere<Report> = {};
         if (!dto.includeClosed) {
             whereOptions.isClosed = false;
         }
-        return this.reportRepository.findAndCount({
+        return await this.reportRepository.findAndCount({
             ...baseFindOptions,
             where: whereOptions,
             order: {

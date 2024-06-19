@@ -33,7 +33,10 @@ export class ReportController {
     @ApiOkResponse({
         type: PaginatedReportResponseDto,
     })
-    async findAllByLatest(@Query() dto: FindLatestReportRequestDto) {
+    async findAllByLatest(
+        @Session() session: SessionContainer,
+        @Query() dto: FindLatestReportRequestDto,
+    ) {
         return this.reportService.findAllByLatest(dto);
     }
 

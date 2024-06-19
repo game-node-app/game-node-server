@@ -6,6 +6,7 @@ import { Report } from "./entity/report.entity";
 import { ReviewsModule } from "../reviews/reviews.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { SuspensionModule } from "../suspension/suspension.module";
+import { CommentModule } from "../comment/comment.module";
 
 @Module({
     imports: [
@@ -13,6 +14,7 @@ import { SuspensionModule } from "../suspension/suspension.module";
         ReviewsModule,
         NotificationsModule,
         SuspensionModule,
+        CommentModule,
     ],
     providers: [ReportService],
     controllers: [ReportController],

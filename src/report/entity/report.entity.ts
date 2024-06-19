@@ -14,6 +14,8 @@ import {
     ReportHandleAction,
     ReportSourceType,
 } from "../report.constants";
+import { UserComment } from "../../comment/entity/user-comment.entity";
+import { ReviewComment } from "../../comment/entity/review-comment.entity";
 
 @Entity()
 export class Report {
@@ -44,6 +46,18 @@ export class Report {
         nullable: true,
     })
     targetReviewId: string | null;
+    @ManyToOne(() => ReviewComment, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    targetReviewComment: ReviewComment | null;
+    @Column({
+        nullable: true,
+    })
+    targetReviewCommentId: string | null;
+    /**
+     * Profile that is being target of a report
+     */
     @ManyToOne(() => Profile, {
         nullable: false,
         onDelete: "CASCADE",
