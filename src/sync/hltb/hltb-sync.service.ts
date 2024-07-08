@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GamePlaytime } from "./entity/game-playtime.entity";
-import { DeepPartial, Repository } from "typeorm";
+import { DeepPartial, In, Repository } from "typeorm";
 import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 import { days } from "@nestjs/throttler";
 
@@ -40,6 +40,14 @@ export class HltbSyncService {
         }
 
         return entity;
+    }
+
+    public async findAllByGameIds(gameIds: number[]) {
+        return this.gamePlaytimeRepository.find({
+            where: {
+                gameId: In(gameIds),
+            },
+        });
     }
 
     private async hasFailedAttempt(gameId: number) {

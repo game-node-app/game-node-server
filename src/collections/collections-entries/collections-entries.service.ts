@@ -131,6 +131,7 @@ export class CollectionsEntriesService {
     ) {
         const isOwnQuery = userId === targetUserId;
         const findOptions = buildBaseFindOptions(dto);
+
         if (isOwnQuery) {
             return await this.collectionEntriesRepository.findAndCount({
                 ...findOptions,

@@ -29,8 +29,9 @@ import { ImporterModule } from "./importer/importer.module";
 import { ConnectionsModule } from "./connections/connections.module";
 import { CommentModule } from "./comment/comment.module";
 import { ImporterWatchModule } from "./importer/importer-watch/importer-watch.module";
-import { ReportModule } from './report/report.module';
-import { SuspensionModule } from './suspension/suspension.module';
+import { ReportModule } from "./report/report.module";
+import { SuspensionModule } from "./suspension/suspension.module";
+import { ProfileStatisticsModule } from "./statistics/profile-statistics/profile-statistics.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -159,6 +160,7 @@ function getRedisConfig() {
         CollectionsModule,
         StatisticsModule,
         StatisticsQueueModule,
+        ProfileStatisticsModule,
         LevelModule,
         HealthModule,
         AchievementsModule,

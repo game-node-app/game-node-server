@@ -16,7 +16,8 @@ import { Review } from "../../../reviews/entities/review.entity";
 
 @Entity()
 /**
- * Represents an entry in a collection.
+ * Represents an entry in a collection. <br>
+ * Each CollectionEntry corresponds to a single game.
  * @class CollectionEntry
  */
 export class CollectionEntry {

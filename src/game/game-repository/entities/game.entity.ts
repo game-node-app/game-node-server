@@ -2,7 +2,6 @@ import {
     Column,
     CreateDateColumn,
     Entity,
-    JoinColumn,
     JoinTable,
     ManyToMany,
     ManyToOne,
@@ -121,7 +120,7 @@ export class Game {
     @ManyToMany(() => Game, (game) => game.expansionOf, {
         nullable: true,
     })
-    @JoinColumn()
+    @JoinTable()
     expansions?: Game[];
     @ManyToMany(() => Game, (game) => game.expansions, {
         nullable: true,

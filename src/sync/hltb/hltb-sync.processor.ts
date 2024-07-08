@@ -30,7 +30,8 @@ function parseResponse(
 }
 
 /**
- * Attempt to improve the chances of succesfully finding a game by removing non-essential words (e.g. 'Complete Edition').
+ * Attempt to improve the chances of successfully finding a game by removing
+ * non-essential words (e.g. 'Complete Edition').
  * @param gameName
  */
 function parseGameName(gameName: string) {
