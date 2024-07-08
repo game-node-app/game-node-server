@@ -52,7 +52,17 @@ export class HltbSyncService {
     public async isEligibleForUpdate(gameId: number) {
         const playtime = await this.findOneByGameId(gameId);
         const failedAttempt = await this.hasFailedAttempt(gameId);
-        return playtime != undefined || !failedAttempt;
+
+        if (!playtime) {
+            return !failedAttempt;
+        }
+
+        const now = new Date().getTime();
+
+        // How many MS since last update
+        const dateDifference = now - playtime.updatedAt.getTime();
+
+        return dateDifference > MINIMUM_UPDATE_INTERVAL_MS;
     }
 
     public async save(entity: DeepPartial<GamePlaytime>) {
