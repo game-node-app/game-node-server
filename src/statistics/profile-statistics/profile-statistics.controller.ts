@@ -1,10 +1,13 @@
-import { Controller, Get, Param, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { ProfileStatisticsService } from "./profile-statistics.service";
 import { ProfileStatisticsOverviewDto } from "./dto/profile-statistics-overview.dto";
 import { AuthGuard } from "../../auth/auth.guard";
 import { Public } from "../../auth/public.decorator";
-import { ProfileStatisticsDistributionResponseDto } from "./dto/profile-statistics-distribution-request.dto";
+import {
+    ProfileStatisticsDistributionRequestDto,
+    ProfileStatisticsDistributionResponseDto,
+} from "./dto/profile-statistics-distribution-request.dto";
 
 @Controller("profile/statistics")
 @ApiTags("profile-statistics")
@@ -31,7 +34,10 @@ export class ProfileStatisticsController {
     @ApiOkResponse({
         type: ProfileStatisticsDistributionResponseDto,
     })
-    async getStatsDistribution(@Param("userId") userId: string) {
-        return this.profileStatisticsService.getDistribution(userId);
+    async getStatsDistribution(
+        @Param("userId") userId: string,
+        @Query() dto: ProfileStatisticsDistributionRequestDto,
+    ) {
+        return this.profileStatisticsService.getDistribution(userId, dto);
     }
 }
