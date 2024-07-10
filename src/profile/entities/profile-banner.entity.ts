@@ -5,11 +5,11 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
-import { Profile } from "./profile.entity";
 import { PersistedImageDetails } from "../../utils/persisted-image-details.entity";
+import { Profile } from "./profile.entity";
 
 @Entity()
-export class ProfileAvatar extends PersistedImageDetails {
+export class ProfileBanner extends PersistedImageDetails {
     @PrimaryGeneratedColumn()
     id: number;
     @OneToOne(() => Profile, (profile) => profile.avatar)

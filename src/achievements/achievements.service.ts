@@ -150,6 +150,13 @@ export class AchievementsService {
         });
     }
 
+    async getFeaturedAchievement(userId: string) {
+        return await this.obtainedAchievementsRepository.findOneByOrFail({
+            profileUserId: userId,
+            isFeatured: true,
+        });
+    }
+
     async updateFeaturedObtainedAchievement(
         userId: string,
         achievementId: string,

@@ -9,6 +9,7 @@ import {
     FileTypeValidator,
     ParseFilePipe,
     UseGuards,
+    Put,
 } from "@nestjs/common";
 import { ProfileService } from "./profile.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -19,23 +20,32 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
 import { Profile } from "./entities/profile.entity";
 import { Public } from "../auth/public.decorator";
+import { UpdateProfileImageDto } from "./dto/update-profile-image.dto";
 
+// No POST /profile endpoint
 @Controller("profile")
 @ApiTags("profile")
 @UseGuards(AuthGuard)
 export class ProfileController {
     constructor(private readonly profileService: ProfileService) {}
 
-    // No POST /profile endpoint
-    // Profiles are automatically created when a user registers (in the user-init module)
-    // If this fails, the findOneById() method has an uninitialized profile handler.
-
     @Patch()
-    @ApiConsumes("multipart/form-data")
-    @UseInterceptors(FileInterceptor("avatar"))
     async update(
         @Session() session: SessionContainer,
         @Body() updateProfileDto: UpdateProfileDto,
+    ) {
+        return await this.profileService.update(
+            session.getUserId(),
+            updateProfileDto,
+        );
+    }
+
+    @Put("image")
+    @ApiConsumes("multipart/form-data")
+    @UseInterceptors(FileInterceptor("file"))
+    async updateImage(
+        @Session() session: SessionContainer,
+        @Body() updateImageDto: UpdateProfileImageDto,
         @UploadedFile(
             new ParseFilePipe({
                 fileIsRequired: false,
@@ -46,12 +56,12 @@ export class ProfileController {
                 ],
             }),
         )
-        avatarFile?: Express.Multer.File,
+        file: Express.Multer.File,
     ) {
-        return await this.profileService.update(
+        await this.profileService.updateProfileImage(
             session.getUserId(),
-            updateProfileDto,
-            avatarFile,
+            updateImageDto,
+            file,
         );
     }
 
