@@ -11,6 +11,7 @@ import {
 import { GamePlaytime } from "../../sync/hltb/entity/game-playtime.entity";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import { Game } from "../../game/game-repository/entities/game.entity";
+import { toMap } from "../../utils/toMap";
 
 @Injectable()
 export class ProfileMetricsService {
@@ -32,10 +33,7 @@ export class ProfileMetricsService {
     ): Promise<Map<number, GamePlaytime>> {
         const playtimes = await this.htlbService.findAllByGameIds(gameIds);
 
-        return playtimes.reduce((acc, curr) => {
-            acc.set(curr.gameId, curr);
-            return acc;
-        }, new Map<number, GamePlaytime>());
+        return toMap(playtimes, "gameId");
     }
 
     async getStatsOverview(userId: string): Promise<ProfileMetricsOverviewDto> {
@@ -145,10 +143,7 @@ export class ProfileMetricsService {
 
                 const playtimesMap = await this.getPlaytimeForGames(gamesIds);
 
-                const gamesMap = games.reduce((acc, curr) => {
-                    acc.set(curr.id, curr);
-                    return acc;
-                }, new Map<number, Game>());
+                const gamesMap = toMap(games, "id");
 
                 for (const entry of collectionEntries) {
                     const relatedGame = gamesMap.get(entry.gameId);
