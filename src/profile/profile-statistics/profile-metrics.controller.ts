@@ -1,20 +1,20 @@
 import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import { ProfileStatisticsService } from "./profile-statistics.service";
-import { ProfileStatisticsOverviewDto } from "./dto/profile-statistics-overview.dto";
+import { ProfileMetricsService } from "./profile-metrics.service";
+import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
 import { AuthGuard } from "../../auth/auth.guard";
 import { Public } from "../../auth/public.decorator";
 import {
-    ProfileStatisticsDistributionRequestDto,
-    ProfileStatisticsDistributionResponseDto,
-} from "./dto/profile-statistics-distribution-request.dto";
+    ProfileMetricsDistributionRequestDto,
+    ProfileMetricsDistributionResponseDto,
+} from "./dto/profile-metrics-distribution.dto";
 
-@Controller("profile/statistics")
-@ApiTags("profile-statistics")
+@Controller("profile/metrics")
+@ApiTags("profile-metrics")
 @UseGuards(AuthGuard)
-export class ProfileStatisticsController {
+export class ProfileMetricsController {
     constructor(
-        private readonly profileStatisticsService: ProfileStatisticsService,
+        private readonly profileStatisticsService: ProfileMetricsService,
     ) {}
 
     /**
@@ -23,7 +23,7 @@ export class ProfileStatisticsController {
      */
     @Get("overview/:userId")
     @ApiOkResponse({
-        type: ProfileStatisticsOverviewDto,
+        type: ProfileMetricsOverviewDto,
     })
     @Public()
     async getStatsOverview(@Param("userId") userId: string) {
@@ -32,11 +32,11 @@ export class ProfileStatisticsController {
 
     @Get("distribution/:userId")
     @ApiOkResponse({
-        type: ProfileStatisticsDistributionResponseDto,
+        type: ProfileMetricsDistributionResponseDto,
     })
     async getStatsDistribution(
         @Param("userId") userId: string,
-        @Query() dto: ProfileStatisticsDistributionRequestDto,
+        @Query() dto: ProfileMetricsDistributionRequestDto,
     ) {
         return this.profileStatisticsService.getDistribution(userId, dto);
     }

@@ -97,8 +97,8 @@ export class GameRepositoryService {
         return game;
     }
 
-    private reOrderByIds(originalIds: number[], games: Game[]) {
-        const gamesMap = games.reduce((acc, current) => {
+    private reOrderByIds(originalIds: number[], unOrderedGames: Game[]) {
+        const gamesMap = unOrderedGames.reduce((acc, current) => {
             acc.set(current.id, current);
             return acc;
         }, new Map<number, Game>());

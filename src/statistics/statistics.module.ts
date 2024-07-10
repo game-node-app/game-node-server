@@ -13,7 +13,6 @@ import { ActivityStatisticsService } from "./activity-statistics.service";
 import { ActivityStatistics } from "./entity/activity-statistics.entity";
 import { CommentStatisticsService } from "./comment-statistics.service";
 import { CommentStatistics } from "./entity/comment-statistics.entity";
-import { ProfileStatisticsModule } from "./profile-statistics/profile-statistics.module";
 
 @Module({
     imports: [

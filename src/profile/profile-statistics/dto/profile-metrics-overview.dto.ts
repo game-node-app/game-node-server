@@ -1,4 +1,4 @@
-export class ProfileStatisticsOverviewDto {
+export class ProfileMetricsOverviewDto {
     totalGames: number;
     totalCollections: number;
     totalFinishedGames: number;
