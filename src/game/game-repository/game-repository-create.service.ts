@@ -421,7 +421,7 @@ export class GameRepositoryCreateService {
         if (companies == undefined || companies.length === 0) return;
         for (const originalCompany of companies) {
             // Avoids errors where company.id is transformed to "undefined".
-            // Probably TypeORM messing something interanally.
+            // Probably TypeORM messing something internally.
             const company = structuredClone(originalCompany);
             if (company == undefined || typeof company.id !== "number")
                 continue;

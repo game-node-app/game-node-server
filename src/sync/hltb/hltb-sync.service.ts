@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GamePlaytime } from "./entity/game-playtime.entity";
-import { DeepPartial, Repository } from "typeorm";
+import { DeepPartial, In, Repository } from "typeorm";
 import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 import { days } from "@nestjs/throttler";
 
@@ -42,6 +42,14 @@ export class HltbSyncService {
         return entity;
     }
 
+    public async findAllByGameIds(gameIds: number[]) {
+        return this.gamePlaytimeRepository.find({
+            where: {
+                gameId: In(gameIds),
+            },
+        });
+    }
+
     private async hasFailedAttempt(gameId: number) {
         const attempt = await this.cacheManager.get<boolean>(
             `hltb-failed-attempt-${gameId}`,
@@ -52,7 +60,17 @@ export class HltbSyncService {
     public async isEligibleForUpdate(gameId: number) {
         const playtime = await this.findOneByGameId(gameId);
         const failedAttempt = await this.hasFailedAttempt(gameId);
-        return playtime != undefined || !failedAttempt;
+
+        if (!playtime) {
+            return !failedAttempt;
+        }
+
+        const now = new Date().getTime();
+
+        // How many MS since last update
+        const dateDifference = now - playtime.updatedAt.getTime();
+
+        return dateDifference > MINIMUM_UPDATE_INTERVAL_MS;
     }
 
     public async save(entity: DeepPartial<GamePlaytime>) {

@@ -10,20 +10,29 @@ import * as fs from "fs/promises";
 import { generateUsername } from "unique-username-generator";
 import mimetype from "mime-types";
 import { filterBadWords } from "../utils/filterBadWords";
+import {
+    ProfileImageIdentifier,
+    UpdateProfileImageDto,
+} from "./dto/update-profile-image.dto";
+import { ProfileBanner } from "./entities/profile-banner.entity";
+
+const getImageFilePath = (filename: string, extension: string) => {
+    return `${publicImagesDir}/uploads/${filename}.${extension}`;
+};
 
 @Injectable()
 export class ProfileService {
+    private readonly ALLOWED_IMAGE_IDENTIFIERS = ["avatar", "banner"];
+
     private logger = new Logger(ProfileService.name);
     constructor(
         @InjectRepository(Profile)
         private profileRepository: Repository<Profile>,
         @InjectRepository(ProfileAvatar)
         private profileAvatarRepository: Repository<ProfileAvatar>,
+        @InjectRepository(ProfileBanner)
+        private profileBannerRepository: Repository<ProfileBanner>,
     ) {}
-
-    getAvatarFilePath(filename: string, extension: string) {
-        return `${publicImagesDir}/uploads/${filename}.${extension}`;
-    }
 
     /**
      * Called at initial user registration
@@ -44,47 +53,80 @@ export class ProfileService {
         await this.profileRepository.insert(profile);
     }
 
-    async createAvatar(avatarFile: Express.Multer.File) {
+    private async persistImage(
+        type: ProfileImageIdentifier,
+        file: Express.Multer.File,
+    ) {
         const fileName = crypto.randomBytes(16).toString("hex");
-        const fileExt = mimetype.extension(avatarFile.mimetype) || "jpeg";
+        const fileExt = mimetype.extension(file.mimetype) || "jpeg";
 
-        const filePath = this.getAvatarFilePath(fileName, fileExt);
+        const filePath = getImageFilePath(fileName, fileExt);
         try {
-            await fs.writeFile(filePath, avatarFile.buffer);
+            await fs.writeFile(filePath, file.buffer);
         } catch (e) {
             this.logger.error(e);
-            throw new HttpException("Error saving employee picture.", 500);
+            throw new HttpException("Error saving profile image.", 500);
         }
-        const profileAvatar = this.profileAvatarRepository.create({
-            encoding: avatarFile.encoding,
+
+        let targetRepository: Repository<ProfileAvatar | ProfileBanner>;
+        if (type === "avatar") {
+            targetRepository = this.profileAvatarRepository;
+        } else {
+            targetRepository = this.profileBannerRepository;
+        }
+
+        const profileImage = targetRepository.create({
+            encoding: file.encoding,
             filename: fileName,
-            mimetype: avatarFile.mimetype,
+            mimetype: file.mimetype,
             extension: fileExt,
-            size: avatarFile.size,
+            size: file.size,
         });
 
-        return await this.profileAvatarRepository.save(profileAvatar);
+        return await targetRepository.save(profileImage);
     }
 
-    async detachAvatar(userId: string, removeFile = true) {
-        const avatar = await this.profileAvatarRepository.findOneBy({
-            profile: {
-                userId,
-            },
-        });
-        if (!avatar) return;
+    private async detachImage(
+        userId: string,
+        type: ProfileImageIdentifier,
+        removeFile = true,
+    ) {
+        let targetEntity: ProfileAvatar | ProfileBanner;
+        let targetRepository: Repository<ProfileAvatar | ProfileBanner>;
+        if (type === "avatar") {
+            const avatar = await this.profileAvatarRepository.findOneBy({
+                profile: {
+                    userId,
+                },
+            });
+            if (!avatar) return;
+            targetEntity = avatar;
+            targetRepository = this.profileAvatarRepository;
+        } else {
+            const banner = await this.profileBannerRepository.findOneBy({
+                profile: {
+                    userId,
+                },
+            });
+            if (!banner) return;
+            targetEntity = banner;
+            targetRepository = this.profileBannerRepository;
+        }
+
         await this.profileRepository
             .createQueryBuilder()
-            .relation("avatar")
+            .relation(type === "avatar" ? "avatar" : "banner")
             .of({
                 userId: userId,
             })
             .set(null);
-        await this.profileAvatarRepository.delete(avatar.id);
+
+        await targetRepository.delete(targetEntity.id);
+
         if (removeFile) {
-            const filePath = this.getAvatarFilePath(
-                avatar.filename,
-                avatar.extension,
+            const filePath = getImageFilePath(
+                targetEntity.filename,
+                targetEntity.extension,
             );
             try {
                 await fs.access(filePath, fs.constants.F_OK);
@@ -95,20 +137,48 @@ export class ProfileService {
         }
     }
 
+    public async updateProfileImage(
+        userId: string,
+        dto: UpdateProfileImageDto,
+        file: Express.Multer.File,
+    ) {
+        const profile = await this.findOneByIdOrFail(userId);
+
+        if (file) {
+            if (!this.ALLOWED_IMAGE_IDENTIFIERS.includes(dto.type)) {
+                throw new HttpException(
+                    "Invalid image type.",
+                    HttpStatus.BAD_REQUEST,
+                    {
+                        cause: `Allowed values: ${this.ALLOWED_IMAGE_IDENTIFIERS}`,
+                    },
+                );
+            }
+            await this.detachImage(userId, dto.type, true);
+            if (dto.type === "avatar") {
+                profile.avatar = await this.persistImage(dto.type, file);
+            } else {
+                profile.banner = await this.persistImage(dto.type, file);
+            }
+        }
+
+        await this.profileRepository.save(profile);
+    }
+
     async findAll() {
         return await this.profileRepository.find();
     }
 
     async findOneById(userId: string): Promise<Profile | null> {
-        const profile = await this.profileRepository.findOne({
+        return await this.profileRepository.findOne({
             where: {
                 userId,
             },
             relations: {
                 avatar: true,
+                banner: true,
             },
         });
-        return profile;
     }
 
     async findOneByIdOrFail(userId: string) {
@@ -120,18 +190,14 @@ export class ProfileService {
     }
 
     private async existsByUserName(username: string) {
-        return await this.profileRepository.exist({
+        return await this.profileRepository.exists({
             where: {
                 username,
             },
         });
     }
 
-    async update(
-        userId: string,
-        updateProfileDto: UpdateProfileDto,
-        avatarFile?: Express.Multer.File,
-    ) {
+    async update(userId: string, updateProfileDto: UpdateProfileDto) {
         const profile = await this.findOneById(userId);
         if (!profile) {
             throw new HttpException(
@@ -169,11 +235,6 @@ export class ProfileService {
 
         if (updateProfileDto.bio) {
             profile.bio = filterBadWords(updateProfileDto.bio);
-        }
-
-        if (avatarFile) {
-            await this.detachAvatar(userId, true);
-            profile.avatar = await this.createAvatar(avatarFile);
         }
 
         await this.profileRepository.save(profile);

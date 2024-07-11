@@ -205,7 +205,7 @@ export class CollectionsService {
     }
 
     /**
-     * Removes a collection and it's models.
+     * Removes a collection.
      * @param userId
      * @param collectionId
      */

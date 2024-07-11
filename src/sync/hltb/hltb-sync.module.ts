@@ -23,6 +23,6 @@ import { HltbSyncProcessor } from "./hltb-sync.processor";
         HltbSyncProcessor,
     ],
     controllers: [HltbController],
-    exports: [HltbSyncQueueService],
+    exports: [HltbSyncQueueService, HltbSyncService],
 })
 export class HltbSyncModule {}

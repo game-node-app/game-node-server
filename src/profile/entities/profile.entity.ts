@@ -10,7 +10,13 @@ import {
 } from "typeorm";
 import { ProfileAvatar } from "./profile-avatar.entity";
 import { UserFollow } from "../../follow/entity/user-follow.entity";
+import { ProfileBanner } from "./profile-banner.entity";
 
+/**
+ * Profiles represent a user in the community scope. Unlike 'Library', they should be used by tables representing
+ * interactions with the GameNode community (e.g. a user like). <br>
+ * Library's, Profile's and Supertokens' userIds are interchangeable.
+ */
 @Entity()
 export class Profile {
     /**
@@ -36,7 +42,12 @@ export class Profile {
         nullable: true,
     })
     @JoinColumn()
-    avatar: ProfileAvatar;
+    avatar: ProfileAvatar | null;
+    @OneToOne(() => ProfileBanner, (banner) => banner.profile, {
+        nullable: true,
+    })
+    @JoinColumn()
+    banner: ProfileBanner | null;
 
     @Column({
         type: "timestamp",
