@@ -11,6 +11,7 @@ import { generateUsername } from "unique-username-generator";
 import mimetype from "mime-types";
 import { filterBadWords } from "../utils/filterBadWords";
 import {
+    PROFILE_IMAGE_ALLOWED_IDENTIFIERS,
     ProfileImageIdentifier,
     UpdateProfileImageDto,
 } from "./dto/update-profile-image.dto";
@@ -22,8 +23,6 @@ const getImageFilePath = (filename: string, extension: string) => {
 
 @Injectable()
 export class ProfileService {
-    private readonly ALLOWED_IMAGE_IDENTIFIERS = ["avatar", "banner"];
-
     private logger = new Logger(ProfileService.name);
     constructor(
         @InjectRepository(Profile)
@@ -145,12 +144,12 @@ export class ProfileService {
         const profile = await this.findOneByIdOrFail(userId);
 
         if (file) {
-            if (!this.ALLOWED_IMAGE_IDENTIFIERS.includes(dto.type)) {
+            if (!PROFILE_IMAGE_ALLOWED_IDENTIFIERS.includes(dto.type)) {
                 throw new HttpException(
                     "Invalid image type.",
                     HttpStatus.BAD_REQUEST,
                     {
-                        cause: `Allowed values: ${this.ALLOWED_IMAGE_IDENTIFIERS}`,
+                        cause: `Allowed values: ${PROFILE_IMAGE_ALLOWED_IDENTIFIERS}`,
                     },
                 );
             }
@@ -239,4 +238,6 @@ export class ProfileService {
 
         await this.profileRepository.save(profile);
     }
+
+    async removeProfileImage(userId: string, imageId: number) {}
 }

@@ -10,6 +10,7 @@ services:
       MYSQL_PASSWORD: ${SUPERTOKENS_DB_PASS}
       MYSQL_DATABASE: supertokens
 
+
     networks:
       - game_node_app
 
@@ -77,6 +78,7 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASS}
       MYSQL_DATABASE: gamenode
+      MYSQL_ROOT_HOST: '%'
 
     networks:
       - game_node_app
