@@ -215,29 +215,16 @@ export class ReviewStatisticsService implements StatisticsService {
         const findOptionsWhere: FindOptionsWhere<ReviewStatistics> = {
             review: reviewFindOptionsWhere,
         };
-        const periodMinusDays = StatisticsPeriodToMinusDays[dto.period];
-        const periodDate = getPreviousDate(periodMinusDays);
-        const reviewsMinimumLikeCounts = 10;
+
         return await this.reviewStatisticsRepository.findAndCount({
             ...baseFindOptions,
-            where: [
-                {
-                    ...findOptionsWhere,
-                    likes: {
-                        createdAt: MoreThanOrEqual(periodDate),
-                    },
-                },
-                {
-                    ...findOptionsWhere,
-                    likesCount: LessThanOrEqual(reviewsMinimumLikeCounts),
-                },
-            ],
+            where: findOptionsWhere,
             order: {
                 likesCount: "DESC",
             },
             cache: {
                 id: `review-statistics-${JSON.stringify(findOptionsWhere)}`,
-                milliseconds: minutes(5),
+                milliseconds: minutes(2),
             },
         });
     }

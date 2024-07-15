@@ -16,54 +16,10 @@ export const ACTIVITY_FEED_CACHE_KEY = "queue-feed";
 
 @Injectable()
 export class ActivitiesFeedService {
-    /**
-     * Chances of a given activity being selected by the builder, in the form of a percentage.
-     * Make sure this amounts to 1 (100%).
-     */
-    private readonly activitiesTypeChances = {
-        [ActivityType.COLLECTION_ENTRY]: 0.2,
-        [ActivityType.FOLLOW]: 0.2,
-        [ActivityType.REVIEW]: 0.6,
-    };
-
     constructor(
         private activitiesRepositoryService: ActivitiesRepositoryService,
         private followService: FollowService,
-    ) {
-        const sumOfTypeChances = Object.values(
-            this.activitiesTypeChances,
-        ).reduce((a, b) => a + b, 0);
-        if (sumOfTypeChances !== 1) {
-            throw new Error(
-                "The sum of all values in activitiesFeedChances and activitiesCriteriaChances must be equal to 1.",
-            );
-        }
-    }
-
-    /**
-     * Generates a random activity type based on weighted chances.
-     * TODO: Check if this is actually useful
-     * @private
-     * @throws {Error} - If the random activity type cannot be determined.
-     */
-    private getWeightedRandomActivityType() {
-        const sum = Object.values(this.activitiesTypeChances).reduce(
-            (a, b) => a + b,
-            0,
-        );
-        const random = Math.random();
-        let cumulative = 0;
-        for (const [activityType, chance] of Object.entries(
-            this.activitiesTypeChances,
-        )) {
-            cumulative += chance / sum;
-            if (random < cumulative) {
-                return ActivityType[activityType as keyof typeof ActivityType];
-            }
-        }
-
-        throw new Error("This should never happen.");
-    }
+    ) {}
 
     private getCacheKey(
         userId: string | undefined,
