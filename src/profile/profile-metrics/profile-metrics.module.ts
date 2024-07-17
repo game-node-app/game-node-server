@@ -5,6 +5,7 @@ import { CollectionsEntriesModule } from "../../collections/collections-entries/
 import { CollectionsModule } from "../../collections/collections.module";
 import { HltbSyncModule } from "../../sync/hltb/hltb-sync.module";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
+import { ProfileMetricsDistributionService } from './profile-metrics-distribution.service';
 
 @Module({
     imports: [
@@ -14,6 +15,6 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
         GameRepositoryModule,
     ],
     controllers: [ProfileMetricsController],
-    providers: [ProfileMetricsService],
+    providers: [ProfileMetricsService, ProfileMetricsDistributionService],
 })
 export class ProfileMetricsModule {}

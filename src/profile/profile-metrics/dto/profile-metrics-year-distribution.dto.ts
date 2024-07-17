@@ -12,15 +12,15 @@ export class ProfileMetricsYearDistributionRequestDto {
 }
 
 /**
- * Item representing the number of games + estimated playtime for a given year and month.
+ * Item representing the number of games + estimated playtime (if by = finished_year) for a given year.
  */
 export interface ProfileMetricsYearDistributionItem {
     year: number;
     count: number;
     /**
-     * In seconds
+     * In seconds. Only available for the "finish_year" criteria.
      */
-    totalEstimatedPlaytime: number;
+    totalEstimatedPlaytime?: number;
 }
 
 /**
@@ -29,7 +29,7 @@ export interface ProfileMetricsYearDistributionItem {
 export interface ProfileMetricsDistributionYearToData {
     [p: string]: {
         count: number;
-        totalEstimatedPlaytime: number;
+        totalEstimatedPlaytime?: number;
     };
 }
 
