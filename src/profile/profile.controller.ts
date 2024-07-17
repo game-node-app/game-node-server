@@ -10,6 +10,7 @@ import {
     ParseFilePipe,
     UseGuards,
     Put,
+    Delete,
 } from "@nestjs/common";
 import { ProfileService } from "./profile.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -62,6 +63,18 @@ export class ProfileController {
             session.getUserId(),
             updateImageDto,
             file,
+        );
+    }
+
+    @Delete("image/:type/:id")
+    async removeImage(
+        @Session() session: SessionContainer,
+        @Param("imageType") imageType: string,
+        @Param("imageId") imageId: number,
+    ) {
+        await this.profileService.removeProfileImage(
+            session.getUserId(),
+            imageId,
         );
     }
 

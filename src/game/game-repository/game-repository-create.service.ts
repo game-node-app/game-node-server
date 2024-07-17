@@ -303,7 +303,9 @@ export class GameRepositoryCreateService {
                         .relation(Game, "expansions")
                         .of(game)
                         .add(expansion);
-                } catch (e) {}
+                } catch (e) {
+                    this.logger.error(e);
+                }
             }
         }
         if (game.expandedGames) {

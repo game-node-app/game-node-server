@@ -8,7 +8,13 @@ import {
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindOptionsWhere, In, MoreThanOrEqual, Repository } from "typeorm";
+import {
+    FindOptionsWhere,
+    In,
+    LessThanOrEqual,
+    MoreThanOrEqual,
+    Repository,
+} from "typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
@@ -209,30 +215,16 @@ export class ReviewStatisticsService implements StatisticsService {
         const findOptionsWhere: FindOptionsWhere<ReviewStatistics> = {
             review: reviewFindOptionsWhere,
         };
-        const periodMinusDays = StatisticsPeriodToMinusDays[dto.period];
-        const periodDate = getPreviousDate(periodMinusDays);
-        // Includes reviews liked by no one, or by the user itself.
-        const reviewsMinimumLikeCounts = [0, 1];
+
         return await this.reviewStatisticsRepository.findAndCount({
             ...baseFindOptions,
-            where: [
-                {
-                    ...findOptionsWhere,
-                    likes: {
-                        createdAt: MoreThanOrEqual(periodDate),
-                    },
-                },
-                {
-                    ...findOptionsWhere,
-                    likesCount: In(reviewsMinimumLikeCounts),
-                },
-            ],
+            where: findOptionsWhere,
             order: {
                 likesCount: "DESC",
             },
             cache: {
                 id: `review-statistics-${JSON.stringify(findOptionsWhere)}`,
-                milliseconds: minutes(5),
+                milliseconds: minutes(2),
             },
         });
     }
