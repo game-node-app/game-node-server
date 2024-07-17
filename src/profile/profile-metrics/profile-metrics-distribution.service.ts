@@ -4,7 +4,6 @@ import { CollectionsEntriesService } from "../../collections/collections-entries
 import { HltbSyncService } from "../../sync/hltb/hltb-sync.service";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import {
-    ProfileMetricsDistributionYearToData,
     ProfileMetricsYearDistributionBy,
     ProfileMetricsYearDistributionItem,
     ProfileMetricsYearDistributionRequestDto,

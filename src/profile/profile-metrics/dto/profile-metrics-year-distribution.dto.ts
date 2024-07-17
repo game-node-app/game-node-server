@@ -23,16 +23,6 @@ export interface ProfileMetricsYearDistributionItem {
     totalEstimatedPlaytime?: number;
 }
 
-/**
- * Relation between a year (presented as string) and data for said period.
- */
-export interface ProfileMetricsDistributionYearToData {
-    [p: string]: {
-        count: number;
-        totalEstimatedPlaytime?: number;
-    };
-}
-
 export class ProfileMetricsYearDistributionResponseDto {
     distribution: ProfileMetricsYearDistributionItem[];
 }
