@@ -75,14 +75,14 @@ export class HltbSyncService {
 
     public async save(entity: DeepPartial<GamePlaytime>) {
         entity.updatedAt = new Date();
-        return await this.gamePlaytimeRepository.save(entity);
+        return await this.gamePlaytimeRepository.upsert(entity, ["gameId"]);
     }
 
     public registerFailedAttempt(gameId: number) {
         this.cacheManager
             .set(`hltb-failed-attempt-${gameId}`, true, FAILED_ATTEMPT_TTL_MS)
             .then(() => {
-                this.logger.log(
+                this.logger.warn(
                     `Registered failed attempt at HLTB Sync for gameId: ${gameId}`,
                 );
             })

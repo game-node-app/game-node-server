@@ -14,6 +14,9 @@ import { HltbSyncProcessor } from "./hltb-sync.processor";
         TypeOrmModule.forFeature([GamePlaytime]),
         BullModule.registerQueue({
             name: HLTB_SYNC_QUEUE_NAME,
+            defaultJobOptions: {
+                attempts: 1,
+            },
         }),
     ],
     providers: [
