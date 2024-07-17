@@ -25,17 +25,21 @@ import {
     getIconNameForExternalGameCategory,
     getStoreNameForExternalGameCategory,
 } from "./game-repository.utils";
+import { toMap } from "../../utils/toMap";
 
-const resourceToEntityMap = {
+/**
+ * Look-up table between resource names and their respective entities
+ * e.g.: Can be used to quickly retrieve the target repository for a resource
+ */
+const resourceToTargetEntityMap = {
     platforms: GamePlatform,
     genres: GameGenre,
     themes: GameTheme,
     gameModes: GameMode,
     playerPerspectives: GamePlayerPerspective,
-    dlcOf: Game,
 };
 
-export type TAllowedResource = keyof typeof resourceToEntityMap;
+export type TAllowedResource = keyof typeof resourceToTargetEntityMap;
 
 @Injectable()
 export class GameRepositoryService {
@@ -98,10 +102,7 @@ export class GameRepositoryService {
     }
 
     private reOrderByIds(originalIds: number[], unOrderedGames: Game[]) {
-        const gamesMap = unOrderedGames.reduce((acc, current) => {
-            acc.set(current.id, current);
-            return acc;
-        }, new Map<number, Game>());
+        const gamesMap = toMap(unOrderedGames, "id");
 
         return originalIds
             .map((id) => {
@@ -204,7 +205,7 @@ export class GameRepositoryService {
     }
 
     async getResource(resource: TAllowedResource): Promise<any> {
-        const resourceAsEntity = resourceToEntityMap[resource];
+        const resourceAsEntity = resourceToTargetEntityMap[resource];
         if (resourceAsEntity == undefined) {
             throw new HttpException("Resource type not allowed", 400);
         }
