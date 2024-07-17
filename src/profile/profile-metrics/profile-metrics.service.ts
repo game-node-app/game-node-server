@@ -4,7 +4,6 @@ import { CollectionsEntriesService } from "../../collections/collections-entries
 import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
 import { HltbSyncService } from "../../sync/hltb/hltb-sync.service";
 import { GamePlaytime } from "../../sync/hltb/entity/game-playtime.entity";
-import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import { toMap } from "../../utils/toMap";
 
 @Injectable()
@@ -14,20 +13,6 @@ export class ProfileMetricsService {
         private readonly collectionsEntriesService: CollectionsEntriesService,
         private readonly hltbService: HltbSyncService,
     ) {}
-
-    /**
-     * Returns an estimate total playtime for games based on the 'main' HLTB profile.
-     * @param gameIds
-     * @private
-     * @returns Map<number, GamePlaytime> - A map between gameIds and gamePlaytimes
-     */
-    public async getPlaytimeForGames(
-        gameIds: number[],
-    ): Promise<Map<number, GamePlaytime>> {
-        const playtimes = await this.hltbService.findAllByGameIds(gameIds);
-
-        return toMap(playtimes, "gameId");
-    }
 
     async getStatsOverview(userId: string): Promise<ProfileMetricsOverviewDto> {
         const collections =
