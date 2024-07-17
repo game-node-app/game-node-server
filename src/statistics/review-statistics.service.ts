@@ -8,19 +8,12 @@ import {
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
 import { InjectRepository } from "@nestjs/typeorm";
-import {
-    FindOptionsWhere,
-    In,
-    LessThanOrEqual,
-    MoreThanOrEqual,
-    Repository,
-} from "typeorm";
+import { FindOptionsWhere, Repository } from "typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import {
     StatisticsActionType,
-    StatisticsPeriodToMinusDays,
     StatisticsSourceType,
 } from "./statistics.constants";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
@@ -31,7 +24,6 @@ import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
-import { getPreviousDate } from "./statistics.utils";
 import { minutes } from "@nestjs/throttler";
 
 @Injectable()

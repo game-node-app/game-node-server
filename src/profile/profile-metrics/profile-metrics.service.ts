@@ -4,10 +4,12 @@ import { CollectionsEntriesService } from "../../collections/collections-entries
 import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
 import { HltbSyncService } from "../../sync/hltb/hltb-sync.service";
 import {
-    ProfileMetricsDistribution,
-    ProfileMetricsDistributionRequestDto,
+    ProfileMetricsYearDistributionBy,
+    ProfileMetricsYearDistributionRequestDto,
     ProfileMetricsDistributionYearToData,
-} from "./dto/profile-metrics-distribution.dto";
+    ProfileMetricsYearDistributionItem,
+    ProfileMetricsYearDistributionResponseDto,
+} from "./dto/profile-metrics-year-distribution.dto";
 import { GamePlaytime } from "../../sync/hltb/entity/game-playtime.entity";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import { Game } from "../../game/game-repository/entities/game.entity";
@@ -77,10 +79,10 @@ export class ProfileMetricsService {
         };
     }
 
-    async getDistribution(
+    async getYearDistribution(
         userId: string,
-        dto: ProfileMetricsDistributionRequestDto,
-    ) {
+        dto: ProfileMetricsYearDistributionRequestDto,
+    ): Promise<ProfileMetricsYearDistributionResponseDto> {
         const [collectionEntries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
                 undefined,
@@ -91,10 +93,10 @@ export class ProfileMetricsService {
                 },
             );
 
-        const distribution: ProfileMetricsDistributionYearToData = {};
+        const distributionByYearData: ProfileMetricsDistributionYearToData = {};
 
         switch (dto.by) {
-            case ProfileMetricsDistribution.FINISH_YEAR: {
+            case ProfileMetricsYearDistributionBy.FINISH_YEAR: {
                 const finishedGames = collectionEntries.filter(
                     (entry) => entry.finishedAt != undefined,
                 );
@@ -110,10 +112,10 @@ export class ProfileMetricsService {
                     const finishYear = finishDate.getFullYear().toString();
                     const playtime = playtimeMap.get(entry.gameId);
 
-                    if (!Object.hasOwn(distribution, finishYear)) {
+                    if (!Object.hasOwn(distributionByYearData, finishYear)) {
                         const estimatedPlaytime = playtime?.timeMain || 0;
 
-                        distribution[finishYear] = {
+                        distributionByYearData[finishYear] = {
                             count: 1,
                             totalEstimatedPlaytime: estimatedPlaytime,
                         };
@@ -121,21 +123,24 @@ export class ProfileMetricsService {
                         continue;
                     }
 
-                    const count = distribution[finishYear]["count"] + 1;
+                    const count =
+                        distributionByYearData[finishYear]["count"] + 1;
                     let totalPlaytime =
-                        distribution[finishYear]["totalEstimatedPlaytime"] || 0;
+                        distributionByYearData[finishYear][
+                            "totalEstimatedPlaytime"
+                        ] || 0;
                     if (playtime && playtime.timeMain) {
                         totalPlaytime += playtime.timeMain;
                     }
 
-                    distribution[finishYear] = {
+                    distributionByYearData[finishYear] = {
                         count,
                         totalEstimatedPlaytime: totalPlaytime,
                     };
                 }
                 break;
             }
-            case ProfileMetricsDistribution.RELEASE_YEAR: {
+            case ProfileMetricsYearDistributionBy.RELEASE_YEAR: {
                 const gamesIds = collectionEntries.map((entry) => entry.gameId);
                 const games = await this.gameRepositoryService.findAllByIds({
                     gameIds: gamesIds,
@@ -153,10 +158,10 @@ export class ProfileMetricsService {
                     const releaseDate = relatedGame.firstReleaseDate;
                     const releaseYear = releaseDate.getFullYear().toString();
 
-                    if (!Object.hasOwn(distribution, releaseYear)) {
+                    if (!Object.hasOwn(distributionByYearData, releaseYear)) {
                         const estimatedPlaytime = playtime?.timeMain || 0;
 
-                        distribution[releaseYear] = {
+                        distributionByYearData[releaseYear] = {
                             count: 1,
                             totalEstimatedPlaytime: estimatedPlaytime,
                         };
@@ -164,15 +169,17 @@ export class ProfileMetricsService {
                         continue;
                     }
 
-                    const count = distribution[releaseYear]["count"] + 1;
+                    const count =
+                        distributionByYearData[releaseYear]["count"] + 1;
                     let totalPlaytime =
-                        distribution[releaseYear]["totalEstimatedPlaytime"] ||
-                        0;
+                        distributionByYearData[releaseYear][
+                            "totalEstimatedPlaytime"
+                        ] || 0;
                     if (playtime && playtime.timeMain) {
                         totalPlaytime += playtime.timeMain;
                     }
 
-                    distribution[releaseYear] = {
+                    distributionByYearData[releaseYear] = {
                         count,
                         totalEstimatedPlaytime: totalPlaytime,
                     };
@@ -181,5 +188,23 @@ export class ProfileMetricsService {
                 break;
             }
         }
+
+        const distributionItems = Object.entries(distributionByYearData).map(
+            ([year, data]): ProfileMetricsYearDistributionItem => {
+                return {
+                    year: Number.parseInt(year),
+                    count: data.count,
+                    totalEstimatedPlaytime: data.totalEstimatedPlaytime,
+                };
+            },
+        );
+
+        const orderedDistributionItems = distributionItems.toSorted((a, b) => {
+            return a.year - b.year;
+        });
+
+        return {
+            distribution: orderedDistributionItems,
+        };
     }
 }

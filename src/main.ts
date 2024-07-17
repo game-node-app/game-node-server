@@ -10,9 +10,11 @@ import { publicImagesDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
 import * as process from "process";
-import { AuthGuard } from "./auth/auth.guard";
+import { initializeTransactionalContext } from "typeorm-transactional";
 
 async function bootstrap() {
+    initializeTransactionalContext();
+
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
     app.enableVersioning({
         type: VersioningType.URI,
@@ -51,9 +53,7 @@ async function bootstrap() {
         `Generated JSON of Swagger Documentation: ${swaggerFileName} at the project's root dir.`,
     );
 
-    if (process.env.NODE_ENV !== "production") {
-        SwaggerModule.setup("v1/docs", app, swaggerDocument);
-    }
+    SwaggerModule.setup("v1/docs", app, swaggerDocument);
 
     app.useGlobalFilters(new SupertokensExceptionFilter());
 

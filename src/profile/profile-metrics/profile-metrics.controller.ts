@@ -5,9 +5,9 @@ import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
 import { AuthGuard } from "../../auth/auth.guard";
 import { Public } from "../../auth/public.decorator";
 import {
-    ProfileMetricsDistributionRequestDto,
-    ProfileMetricsDistributionResponseDto,
-} from "./dto/profile-metrics-distribution.dto";
+    ProfileMetricsYearDistributionRequestDto,
+    ProfileMetricsYearDistributionResponseDto,
+} from "./dto/profile-metrics-year-distribution.dto";
 
 @Controller("profile/metrics")
 @ApiTags("profile-metrics")
@@ -32,12 +32,12 @@ export class ProfileMetricsController {
 
     @Get("distribution/:userId")
     @ApiOkResponse({
-        type: ProfileMetricsDistributionResponseDto,
+        type: ProfileMetricsYearDistributionResponseDto,
     })
     async getStatsDistribution(
         @Param("userId") userId: string,
-        @Query() dto: ProfileMetricsDistributionRequestDto,
+        @Query() dto: ProfileMetricsYearDistributionRequestDto,
     ) {
-        return this.profileStatisticsService.getDistribution(userId, dto);
+        return this.profileStatisticsService.getYearDistribution(userId, dto);
     }
 }
