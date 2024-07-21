@@ -25,15 +25,12 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { HltbSyncModule } from "./sync/hltb/hltb-sync.module";
 import { SteamSyncModule } from "./sync/steam/steam-sync.module";
-import { ImporterModule } from "./importer/importer.module";
 import { ConnectionsModule } from "./connections/connections.module";
 import { CommentModule } from "./comment/comment.module";
 import { ImporterWatchModule } from "./importer/importer-watch/importer-watch.module";
 import { ReportModule } from "./report/report.module";
 import { SuspensionModule } from "./suspension/suspension.module";
 import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.module";
-import { addTransactionalDataSource } from "typeorm-transactional";
-import { DataSource } from "typeorm";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -101,13 +98,6 @@ function getRedisConfig() {
                         },
                     },
                 };
-            },
-            async dataSourceFactory(options) {
-                if (!options) {
-                    throw new Error("Invalid DataSource options for TypeORM");
-                }
-
-                return addTransactionalDataSource(new DataSource(options));
             },
         }),
 

@@ -10,11 +10,8 @@ import { publicImagesDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
 import * as process from "process";
-import { initializeTransactionalContext } from "typeorm-transactional";
 
 async function bootstrap() {
-    initializeTransactionalContext();
-
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
     app.enableVersioning({
         type: VersioningType.URI,
