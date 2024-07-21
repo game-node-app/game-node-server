@@ -91,6 +91,16 @@ export class ReviewsService {
         });
     }
 
+    async findAllByUserIdAndGameIds(userId: string, gameIds: number[]) {
+        return await this.reviewsRepository.findAndCount({
+            where: {
+                gameId: In(gameIds),
+                profileUserId: userId,
+            },
+            relations: this.relations,
+        });
+    }
+
     async findAllByIdIn(ids: string[]) {
         return await this.reviewsRepository.find({
             where: {

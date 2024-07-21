@@ -44,7 +44,7 @@ export class UserSuspension {
     isBan: boolean;
     /**
      * When the suspension ends.
-     * While 'isBan' entities can have this set, they are permanent.
+     * While 'isBan' entities can have this set, bans are permanent.
      */
     @Column({
         type: "timestamp",

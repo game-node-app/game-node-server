@@ -10,6 +10,7 @@ import { GamePlaytime } from "./entity/game-playtime.entity";
 import { DeepPartial, In, Repository } from "typeorm";
 import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 import { days } from "@nestjs/throttler";
+import { toMap } from "../../utils/toMap";
 
 const MINIMUM_UPDATE_INTERVAL_MS = days(30);
 const FAILED_ATTEMPT_TTL_MS = days(7);
@@ -48,6 +49,17 @@ export class HltbSyncService {
                 gameId: In(gameIds),
             },
         });
+    }
+
+    /**
+     * Shorthand method that transforms the result of 'findAllByGameIds' in a map.
+     * @see HltbSyncService#findAllByGameIds
+     * @param gameIds
+     */
+    public async getPlaytimesMap(gameIds: number[]) {
+        const playtimes = await this.findAllByGameIds(gameIds);
+
+        return toMap(playtimes, "id");
     }
 
     private async hasFailedAttempt(gameId: number) {

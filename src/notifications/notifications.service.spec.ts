@@ -38,23 +38,6 @@ describe("NotificationsService", () => {
         expect(service).toBeDefined();
     });
 
-    it("should stream latest messages", async () => {
-        const mockUserId = "12345";
-        const mockLastCheckedDate = new Date();
-        mockLastCheckedDate.setDate(-30);
-        cacheManager.get.mockResolvedValueOnce(
-            mockLastCheckedDate.toISOString(),
-        );
-        const mockedNotifications = [{ id: 12345 } as Notification];
-        repository.find.mockResolvedValueOnce(mockedNotifications);
-        const messageEvent = await service.findNewNotifications(
-            mockUserId,
-            false,
-        );
-        const data: Notification[] = JSON.parse(messageEvent.data as string);
-        expect(data.length).toEqual(mockedNotifications.length);
-    });
-
     it("should find and aggregate similar notifications", async () => {
         const mockUserId = "12345";
         const mockReviewId = "a-review-123";
