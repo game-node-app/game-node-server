@@ -59,7 +59,7 @@ export class HltbSyncService {
     public async getPlaytimesMap(gameIds: number[]) {
         const playtimes = await this.findAllByGameIds(gameIds);
 
-        return toMap(playtimes, "id");
+        return toMap(playtimes, "gameId");
     }
 
     private async hasFailedAttempt(gameId: number) {
