@@ -9,6 +9,8 @@ import { UserLike } from "../entity/user-like.entity";
 import { UserView } from "../entity/user-view.entity";
 import { Statistics } from "../entity/statistics.entity";
 import { StatisticsQueueProcessor } from "./statistics-queue.processor";
+import { BullBoardModule } from "@bull-board/nestjs";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 
 @Module({
     imports: [
@@ -20,6 +22,10 @@ import { StatisticsQueueProcessor } from "./statistics-queue.processor";
                 removeOnFail: true,
                 attempts: 5,
             },
+        }),
+        BullBoardModule.forFeature({
+            name: STATISTICS_QUEUE_NAME,
+            adapter: BullMQAdapter,
         }),
         forwardRef(() => StatisticsModule),
     ],

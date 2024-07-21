@@ -54,7 +54,7 @@ function parseGameName(gameName: string) {
 @Processor(HLTB_SYNC_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: 2000,
+        duration: 8000,
     },
 })
 export class HltbSyncProcessor extends WorkerHostProcessor {
@@ -68,6 +68,15 @@ export class HltbSyncProcessor extends WorkerHostProcessor {
 
     async process(job: Job<HLTBJobData>) {
         if (job.name === HLTB_SYNC_QUEUE_JOB_NAME) {
+            if (
+                !(await this.hltbService.isEligibleForUpdate(job.data.gameId))
+            ) {
+                this.logger.log(
+                    `Skipping job for game ${job.data.gameId} as it's not eligible for update.`,
+                );
+                return job.data.gameId;
+            }
+
             let searchResponse: HLTBResponseItem;
             try {
                 const parsedGameName = parseGameName(job.data.name);

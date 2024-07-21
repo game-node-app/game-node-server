@@ -8,6 +8,9 @@ import { HLTB_SYNC_QUEUE_NAME } from "./hltb.constants";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { GamePlaytime } from "./entity/game-playtime.entity";
 import { HltbSyncProcessor } from "./hltb-sync.processor";
+import { seconds } from "@nestjs/throttler";
+import { BullBoardModule } from "@bull-board/nestjs";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 
 @Module({
     imports: [
@@ -15,8 +18,18 @@ import { HltbSyncProcessor } from "./hltb-sync.processor";
         BullModule.registerQueue({
             name: HLTB_SYNC_QUEUE_NAME,
             defaultJobOptions: {
-                attempts: 1,
+                attempts: 0,
+                removeOnFail: true,
+                removeOnComplete: true,
+                delay: seconds(8),
             },
+        }),
+        BullBoardModule.forFeature({
+            name: HLTB_SYNC_QUEUE_NAME,
+            options: {
+                description: "HLTB Sync Queue",
+            },
+            adapter: BullMQAdapter,
         }),
     ],
     providers: [
