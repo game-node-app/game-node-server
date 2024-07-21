@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { Processor } from "@nestjs/bullmq";
 import {
     ACHIEVEMENTS_QUEUE_NAME,
     ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME,

@@ -91,9 +91,11 @@ export class ProfileMetricsDistributionService {
                         continue;
                     }
 
-                    let totalPlaytime =
-                        previousData.totalEstimatedPlaytime || 0;
-                    if (playtime && playtime.timeMain) {
+                    let totalPlaytime = previousData.totalEstimatedPlaytime!;
+                    if (
+                        playtime != undefined &&
+                        playtime.timeMain != undefined
+                    ) {
                         totalPlaytime += playtime.timeMain;
                     }
 

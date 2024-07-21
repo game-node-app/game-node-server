@@ -26,6 +26,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@bull-board/api": "^5.21.1",
+    "@bull-board/express": "^5.21.1",
+    "@bull-board/nestjs": "^5.21.1",
     "@golevelup/nestjs-rabbitmq": "^5.1.0",
     "@liaoliaots/nestjs-redis-health": "^9.0.4",
     "@nestjs/axios": "^3.0.0",

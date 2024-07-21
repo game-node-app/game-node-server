@@ -8,6 +8,8 @@ import { AchievementsQueueProcessor } from "./achievements-queue/achievements-qu
 import { BullModule } from "@nestjs/bullmq";
 import { ACHIEVEMENTS_QUEUE_NAME } from "./achievements-queue/achievements-queue.constants";
 import { LevelModule } from "../level/level.module";
+import { BullBoardModule } from "@bull-board/nestjs";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 
 @Module({
     imports: [
@@ -17,6 +19,10 @@ import { LevelModule } from "../level/level.module";
             defaultJobOptions: {
                 removeOnFail: false,
             },
+        }),
+        BullBoardModule.forFeature({
+            name: ACHIEVEMENTS_QUEUE_NAME,
+            adapter: BullMQAdapter,
         }),
         LevelModule,
     ],
