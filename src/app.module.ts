@@ -31,8 +31,6 @@ import { ImporterWatchModule } from "./importer/importer-watch/importer-watch.mo
 import { ReportModule } from "./report/report.module";
 import { SuspensionModule } from "./suspension/suspension.module";
 import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.module";
-import { BullBoardModule } from "@bull-board/nestjs";
-import { ExpressAdapter } from "@bull-board/express";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -136,10 +134,6 @@ function getRedisConfig() {
                     },
                 };
             },
-        }),
-        BullBoardModule.forRoot({
-            adapter: ExpressAdapter,
-            route: "/v1/health/jobs",
         }),
         ThrottlerModule.forRootAsync({
             useFactory: () => {
