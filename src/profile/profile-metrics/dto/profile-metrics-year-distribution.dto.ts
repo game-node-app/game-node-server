@@ -14,9 +14,13 @@ export class ProfileMetricsYearDistributionRequestDto {
 /**
  * Item representing the number of games + estimated playtime (if by = finished_year) for a given year.
  */
-export interface ProfileMetricsYearDistributionItem {
+export class ProfileMetricsYearDistributionItem {
     year: number;
     count: number;
+    /**
+     * Number of items in period that have been reviewed.
+     */
+    reviewedCount: number;
     /**
      * In seconds. Only available for the "finish_year" criteria.
      */

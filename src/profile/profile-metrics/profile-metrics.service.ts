@@ -25,7 +25,7 @@ export class ProfileMetricsService {
                 undefined,
                 userId,
                 {
-                    limit: undefined,
+                    limit: 9999999,
                     offset: 0,
                 },
             );

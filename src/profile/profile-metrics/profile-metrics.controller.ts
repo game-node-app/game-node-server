@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import {
+    Controller,
+    Get,
+    Param,
+    Query,
+    UseGuards,
+    UseInterceptors,
+} from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { ProfileMetricsService } from "./profile-metrics.service";
 import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
@@ -8,13 +15,20 @@ import {
     ProfileMetricsYearDistributionRequestDto,
     ProfileMetricsYearDistributionResponseDto,
 } from "./dto/profile-metrics-year-distribution.dto";
+import { ProfileMetricsDistributionService } from "./profile-metrics-distribution.service";
+import {
+    ProfileMetricsTypeDistributionRequestDto,
+    ProfileMetricsTypeDistributionResponseDto,
+} from "./dto/profile-metrics-type-distribution.dto";
+import { CacheInterceptor } from "@nestjs/cache-manager";
 
 @Controller("profile/metrics")
 @ApiTags("profile-metrics")
 @UseGuards(AuthGuard)
 export class ProfileMetricsController {
     constructor(
-        private readonly profileStatisticsService: ProfileMetricsService,
+        private readonly profileMetricsService: ProfileMetricsService,
+        private readonly profileMetricsDistributionService: ProfileMetricsDistributionService,
     ) {}
 
     /**
@@ -27,17 +41,36 @@ export class ProfileMetricsController {
     })
     @Public()
     async getStatsOverview(@Param("userId") userId: string) {
-        return this.profileStatisticsService.getStatsOverview(userId);
+        return this.profileMetricsService.getStatsOverview(userId);
     }
 
-    @Get("distribution/:userId")
+    @Get("distribution/year/:userId")
     @ApiOkResponse({
         type: ProfileMetricsYearDistributionResponseDto,
     })
-    async getStatsDistribution(
+    @Public()
+    async getYearDistribution(
         @Param("userId") userId: string,
         @Query() dto: ProfileMetricsYearDistributionRequestDto,
     ) {
-        return this.profileStatisticsService.getYearDistribution(userId, dto);
+        return this.profileMetricsDistributionService.getYearDistribution(
+            userId,
+            dto,
+        );
+    }
+
+    @Get("distribution/type/:userId")
+    @ApiOkResponse({
+        type: ProfileMetricsTypeDistributionResponseDto,
+    })
+    @Public()
+    async getTypeDistribution(
+        @Param("userId") userId: string,
+        @Query() dto: ProfileMetricsTypeDistributionRequestDto,
+    ) {
+        return this.profileMetricsDistributionService.getTypeDistribution(
+            userId,
+            dto,
+        );
     }
 }

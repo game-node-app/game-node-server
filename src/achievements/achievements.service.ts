@@ -151,7 +151,7 @@ export class AchievementsService {
     }
 
     async getFeaturedAchievement(userId: string) {
-        return await this.obtainedAchievementsRepository.findOneByOrFail({
+        return await this.obtainedAchievementsRepository.findOneBy({
             profileUserId: userId,
             isFeatured: true,
         });

@@ -3,6 +3,14 @@ import { IsEnum, IsNotEmpty } from "class-validator";
 export enum ProfileMetricsTypeDistributionBy {
     GENRE = "genre",
     CATEGORY = "category",
+    /**
+     * Single-player, multiplayer, etc
+     */
+    MODE = "mode",
+    /**
+     * PSN, Xbox, etc
+     */
+    PLATFORM = "platform",
 }
 
 export class ProfileMetricsTypeDistributionRequestDto {
@@ -11,7 +19,7 @@ export class ProfileMetricsTypeDistributionRequestDto {
     by: ProfileMetricsTypeDistributionBy;
 }
 
-export interface ProfileMetricsTypeDistributionItem {
+export class ProfileMetricsTypeDistributionItem {
     /**
      * Id of the criteria being used.
      * E.g. the id of a 'GameGenre' entity.
@@ -29,5 +37,13 @@ export interface ProfileMetricsTypeDistributionItem {
      */
     count: number;
 
+    /**
+     * Total number of items of this criteria that have been 'finished'.
+     * E.g. finished 'adventure' genre games.
+     */
     finishedCount: number;
+}
+
+export class ProfileMetricsTypeDistributionResponseDto {
+    distribution: ProfileMetricsTypeDistributionItem[];
 }

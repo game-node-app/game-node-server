@@ -5,7 +5,8 @@ import { CollectionsEntriesModule } from "../../collections/collections-entries/
 import { CollectionsModule } from "../../collections/collections.module";
 import { HltbSyncModule } from "../../sync/hltb/hltb-sync.module";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
-import { ProfileMetricsDistributionService } from './profile-metrics-distribution.service';
+import { ProfileMetricsDistributionService } from "./profile-metrics-distribution.service";
+import { ReviewsModule } from "../../reviews/reviews.module";
 
 @Module({
     imports: [
@@ -13,6 +14,7 @@ import { ProfileMetricsDistributionService } from './profile-metrics-distributio
         CollectionsEntriesModule,
         HltbSyncModule,
         GameRepositoryModule,
+        ReviewsModule,
     ],
     controllers: [ProfileMetricsController],
     providers: [ProfileMetricsService, ProfileMetricsDistributionService],

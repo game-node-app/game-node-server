@@ -13,8 +13,10 @@ import {
     ProfileMetricsTypeDistributionBy,
     ProfileMetricsTypeDistributionItem,
     ProfileMetricsTypeDistributionRequestDto,
+    ProfileMetricsTypeDistributionResponseDto,
 } from "./dto/profile-metrics-type-distribution.dto";
-import { EGameCategory } from "../../game/game-repository/game-repository.constants";
+import { getGameCategoryName } from "../../game/game-repository/game-repository.utils";
+import { ReviewsService } from "../../reviews/reviews.service";
 
 @Injectable()
 export class ProfileMetricsDistributionService {
@@ -22,6 +24,7 @@ export class ProfileMetricsDistributionService {
         private readonly collectionsEntriesService: CollectionsEntriesService,
         private readonly hltbService: HltbSyncService,
         private readonly gameRepositoryService: GameRepositoryService,
+        private readonly reviewsService: ReviewsService,
     ) {}
 
     async getYearDistribution(
@@ -33,9 +36,17 @@ export class ProfileMetricsDistributionService {
                 undefined,
                 userId,
                 {
-                    limit: undefined,
+                    limit: 9999999,
                     offset: 0,
                 },
+            );
+
+        const gameIds = collectionEntries.map((entry) => entry.gameId);
+
+        const [reviewedGames] =
+            await this.reviewsService.findAllByUserIdAndGameIds(
+                userId,
+                gameIds,
             );
 
         /**
@@ -59,6 +70,9 @@ export class ProfileMetricsDistributionService {
                     await this.hltbService.getPlaytimesMap(finishedGamesIds);
 
                 for (const entry of finishedGames) {
+                    const isReviewed = reviewedGames.some(
+                        (review) => review.gameId === entry.gameId,
+                    );
                     const finishDate: Date = entry.finishedAt!;
                     const finishYear = finishDate.getFullYear();
                     const playtime = playtimeMap.get(entry.gameId);
@@ -70,6 +84,7 @@ export class ProfileMetricsDistributionService {
                         distributionByYearData.set(finishYear, {
                             year: finishYear,
                             count: 1,
+                            reviewedCount: isReviewed ? 1 : 0,
                             totalEstimatedPlaytime: estimatedPlaytime,
                         });
 
@@ -85,6 +100,9 @@ export class ProfileMetricsDistributionService {
                     const updatedData: ProfileMetricsYearDistributionItem = {
                         ...previousData,
                         count: previousData.count + 1,
+                        reviewedCount: isReviewed
+                            ? previousData.reviewedCount + 1
+                            : previousData.reviewedCount,
                         totalEstimatedPlaytime: totalPlaytime,
                     };
 
@@ -108,6 +126,9 @@ export class ProfileMetricsDistributionService {
                     const relatedGame = gamesMap.get(entry.gameId);
                     // Technically impossible
                     if (!relatedGame) continue;
+                    const isReviewed = reviewedGames.some(
+                        (review) => review.gameId === entry.gameId,
+                    );
 
                     const playtime = playtimesMap.get(entry.gameId);
                     const releaseDate = relatedGame.firstReleaseDate;
@@ -122,6 +143,7 @@ export class ProfileMetricsDistributionService {
                         distributionByYearData.set(releaseYear, {
                             year: releaseYear,
                             count: 1,
+                            reviewedCount: isReviewed ? 1 : 0,
                             totalEstimatedPlaytime: estimatedPlaytime,
                         });
 
@@ -131,6 +153,9 @@ export class ProfileMetricsDistributionService {
                     distributionByYearData.set(releaseYear, {
                         ...previousData,
                         count: previousData.count + 1,
+                        reviewedCount: isReviewed
+                            ? previousData.reviewedCount + 1
+                            : previousData.reviewedCount,
                     });
                 }
 
@@ -152,13 +177,13 @@ export class ProfileMetricsDistributionService {
     async getTypeDistribution(
         userId: string,
         dto: ProfileMetricsTypeDistributionRequestDto,
-    ) {
+    ): Promise<ProfileMetricsTypeDistributionResponseDto> {
         const [collectionEntries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
                 undefined,
                 userId,
                 {
-                    limit: undefined,
+                    limit: 9999999,
                     offset: 0,
                 },
             );
@@ -181,7 +206,7 @@ export class ProfileMetricsDistributionService {
 
                 for (const game of games) {
                     const categoryId = game.category.valueOf();
-                    const categoryName = EGameCategory[game.category];
+                    const categoryName = getGameCategoryName(categoryId);
                     const isFinished = collectionEntries.some((entry) => {
                         return (
                             entry.gameId === game.id &&
@@ -194,7 +219,7 @@ export class ProfileMetricsDistributionService {
                     if (!previousData) {
                         distributionCriteriaIdToData.set(categoryId, {
                             criteriaId: categoryId,
-                            criteriaName: categoryName,
+                            criteriaName: categoryName!,
                             count: 1,
                             finishedCount: isFinished ? 1 : 0,
                         });
@@ -267,6 +292,87 @@ export class ProfileMetricsDistributionService {
 
                 break;
             }
+
+            case ProfileMetricsTypeDistributionBy.MODE: {
+                const games = await this.gameRepositoryService.findAllByIds({
+                    gameIds,
+                    relations: {
+                        gameModes: true,
+                    },
+                });
+
+                for (const game of games) {
+                    const isFinished = collectionEntries.some((entry) => {
+                        return (
+                            entry.gameId === game.id &&
+                            entry.finishedAt != undefined
+                        );
+                    });
+
+                    for (const mode of game.gameModes!) {
+                        if (mode.name == undefined) continue;
+
+                        const previousData = distributionCriteriaIdToData.get(
+                            mode.id,
+                        );
+                        if (!previousData) {
+                            distributionCriteriaIdToData.set(mode.id, {
+                                criteriaId: mode.id,
+                                criteriaName: mode.name,
+                                count: 1,
+                                finishedCount: isFinished ? 1 : 0,
+                            });
+                            continue;
+                        }
+
+                        const totalFinishedCount = isFinished
+                            ? previousData.finishedCount + 1
+                            : previousData.finishedCount;
+
+                        distributionCriteriaIdToData.set(mode.id, {
+                            ...previousData,
+                            count: previousData.count + 1,
+                            finishedCount: totalFinishedCount,
+                        });
+                    }
+                }
+                break;
+            }
+            case ProfileMetricsTypeDistributionBy.PLATFORM: {
+                for (const collectionEntry of collectionEntries) {
+                    const isFinished = collectionEntry.finishedAt != undefined;
+
+                    for (const platform of collectionEntry.ownedPlatforms) {
+                        const platformId = platform.id;
+                        const platformName = platform.name;
+                        const previousData =
+                            distributionCriteriaIdToData.get(platformId);
+
+                        if (!previousData) {
+                            distributionCriteriaIdToData.set(platformId, {
+                                criteriaId: platformId,
+                                criteriaName: platformName,
+                                count: 1,
+                                finishedCount: isFinished ? 1 : 0,
+                            });
+                            continue;
+                        }
+
+                        distributionCriteriaIdToData.set(platformId, {
+                            ...previousData,
+                            count: previousData.count + 1,
+                            finishedCount: isFinished
+                                ? previousData.finishedCount + 1
+                                : previousData.finishedCount,
+                        });
+                    }
+                }
+                break;
+            }
         }
+
+        return {
+            distribution: Array.from(distributionCriteriaIdToData.values()),
+        };
     }
 }
