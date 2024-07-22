@@ -18,7 +18,7 @@ function validateAchievements() {
             achievement.id == undefined || typeof achievement.id !== "string";
         if (achievementWithInvalidId) {
             throw new Error(
-                `Achievement with duplicated ID found: ${achievement.id} - ${achievement.name}`,
+                `Achievement with invalid ID found: ${achievement.id} - ${achievement.name}`,
             );
         }
         if (achievement.checkEligibility == undefined) {

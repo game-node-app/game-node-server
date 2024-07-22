@@ -8,6 +8,8 @@ import { AchievementsQueueProcessor } from "./achievements-queue/achievements-qu
 import { BullModule } from "@nestjs/bullmq";
 import { ACHIEVEMENTS_QUEUE_NAME } from "./achievements-queue/achievements-queue.constants";
 import { LevelModule } from "../level/level.module";
+import { AchievementsCodeService } from './achievements-code.service';
+import { AchievementsCodeController } from './achievements-code.controller';
 
 @Module({
     imports: [
@@ -20,11 +22,12 @@ import { LevelModule } from "../level/level.module";
         }),
         LevelModule,
     ],
-    controllers: [AchievementsController],
+    controllers: [AchievementsController, AchievementsCodeController],
     providers: [
         AchievementsService,
         AchievementsQueueService,
         AchievementsQueueProcessor,
+        AchievementsCodeService,
     ],
     exports: [AchievementsQueueService],
 })

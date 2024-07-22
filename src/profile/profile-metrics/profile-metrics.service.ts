@@ -3,8 +3,6 @@ import { CollectionsService } from "../../collections/collections.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
 import { HltbSyncService } from "../../sync/hltb/hltb-sync.service";
-import { GamePlaytime } from "../../sync/hltb/entity/game-playtime.entity";
-import { toMap } from "../../utils/toMap";
 
 @Injectable()
 export class ProfileMetricsService {
