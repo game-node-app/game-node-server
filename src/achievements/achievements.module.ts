@@ -8,17 +8,14 @@ import { AchievementsQueueProcessor } from "./achievements-queue/achievements-qu
 import { BullModule } from "@nestjs/bullmq";
 import { ACHIEVEMENTS_QUEUE_NAME } from "./achievements-queue/achievements-queue.constants";
 import { LevelModule } from "../level/level.module";
-import { AchievementsCodeService } from './achievements-code.service';
-import { AchievementsCodeController } from './achievements-code.controller';
+import { AchievementsCodeService } from "./achievements-code.service";
+import { AchievementsCodeController } from "./achievements-code.controller";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([ObtainedAchievement]),
         BullModule.registerQueue({
             name: ACHIEVEMENTS_QUEUE_NAME,
-            defaultJobOptions: {
-                removeOnFail: false,
-            },
         }),
         LevelModule,
     ],
