@@ -208,4 +208,13 @@ export class AchievementsService {
             achievement.expGainAmount,
         );
     }
+
+    async grantAchievements(
+        targetUserIds: Array<string>,
+        achievementId: string,
+    ) {
+        for (const targetUserId of targetUserIds) {
+            await this.grantAchievement(targetUserId, achievementId);
+        }
+    }
 }

@@ -3,6 +3,7 @@ import {
     Controller,
     Get,
     Param,
+    Post,
     Put,
     Query,
     UseGuards,
@@ -19,6 +20,9 @@ import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
+import { AchievementGrantRequestDto } from "./dto/achievement-grant.dto";
+import { Roles } from "../auth/roles.decorator";
+import { EUserRoles } from "../utils/constants";
 
 @Controller("achievements")
 @ApiTags("achievements")
@@ -75,6 +79,15 @@ export class AchievementsController {
             session.getUserId(),
             achievementId,
             dto,
+        );
+    }
+
+    @Post("grant")
+    @Roles([EUserRoles.ADMIN])
+    async grantAchievements(@Body() dto: AchievementGrantRequestDto) {
+        return this.achievementsService.grantAchievements(
+            dto.targetUserIds,
+            dto.achievementId,
         );
     }
 }
