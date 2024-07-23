@@ -10,10 +10,11 @@ import { ACHIEVEMENTS_QUEUE_NAME } from "./achievements-queue/achievements-queue
 import { LevelModule } from "../level/level.module";
 import { AchievementsCodeService } from "./achievements-code.service";
 import { AchievementsCodeController } from "./achievements-code.controller";
+import { AchievementCode } from "./entities/achievement-code.entity";
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([ObtainedAchievement]),
+        TypeOrmModule.forFeature([ObtainedAchievement, AchievementCode]),
         BullModule.registerQueue({
             name: ACHIEVEMENTS_QUEUE_NAME,
         }),
