@@ -52,7 +52,8 @@ export class HltbSyncService {
     }
 
     /**
-     * Shorthand method that transforms the result of 'findAllByGameIds' in a map.
+     * Shorthand method that transforms the result of 'findAllByGameIds'
+     * in a map where the 'gameId' is the key.
      * @see HltbSyncService#findAllByGameIds
      * @param gameIds
      */

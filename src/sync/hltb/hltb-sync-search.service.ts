@@ -6,7 +6,7 @@ import { SearchDto } from "./dto/search.dto";
 @Injectable()
 export class HltbSyncSearchService {
     private readonly BASE_URL = "https://howlongtobeat.com";
-    private readonly SEARCH_URL = `${this.BASE_URL}/api/search`;
+    private readonly SEARCH_URL = `${this.BASE_URL}/api/find`;
 
     constructor() {}
 

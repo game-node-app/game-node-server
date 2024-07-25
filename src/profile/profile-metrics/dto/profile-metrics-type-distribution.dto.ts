@@ -8,6 +8,10 @@ export enum ProfileMetricsTypeDistributionBy {
      */
     MODE = "mode",
     /**
+     * Horror, Action, Fantasy etc
+     */
+    THEME = "theme",
+    /**
      * PSN, Xbox, etc
      */
     PLATFORM = "platform",
