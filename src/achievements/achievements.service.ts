@@ -1,4 +1,4 @@
-import { HttpException, Injectable, Logger } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
 import { DataSource, Not, Repository } from "typeorm";
@@ -18,7 +18,7 @@ function validateAchievements() {
             achievement.id == undefined || typeof achievement.id !== "string";
         if (achievementWithInvalidId) {
             throw new Error(
-                `Achievement with duplicated ID found: ${achievement.id} - ${achievement.name}`,
+                `Achievement with invalid ID found: ${achievement.id} - ${achievement.name}`,
             );
         }
         if (achievement.checkEligibility == undefined) {
@@ -49,18 +49,22 @@ export class AchievementsService {
         private dataSource: DataSource,
         private userLevelService: LevelService,
     ) {
+        /**
+         * Validates registered achievements
+         */
         validateAchievements();
     }
-
-    /**
-     * Validates registered achievements
-     * @private
-     */
 
     public getAchievements(
         dto: GetAchievementsRequestDto,
     ): TPaginationData<Achievement> {
         return listToPaginationData(achievementsData, dto?.offset, dto?.limit);
+    }
+
+    public getAchievementById(achievementId: string) {
+        return achievementsData.find(
+            (achievement) => achievement.id === achievementId,
+        );
     }
 
     private async checkAchievementsEligibility(
@@ -86,21 +90,7 @@ export class AchievementsService {
 
         if (!isEligible) return;
 
-        const obtainedAchievementEntity =
-            this.obtainedAchievementsRepository.create({
-                achievementId: achievement.id,
-                profile: {
-                    userId: targetUserId,
-                } as Profile,
-            });
-        await this.obtainedAchievementsRepository.save(
-            obtainedAchievementEntity,
-        );
-
-        await this.userLevelService.increaseExp(
-            targetUserId,
-            achievement.expGainAmount,
-        );
+        await this.grantAchievement(targetUserId, achievement.id);
     }
 
     public trackAchievementsProgress(
@@ -189,6 +179,42 @@ export class AchievementsService {
                     isFeatured: false,
                 },
             );
+        }
+    }
+
+    async grantAchievement(targetUserId: string, achievementId: string) {
+        const achievement = this.getAchievementById(achievementId);
+        if (!achievement) {
+            throw new HttpException(
+                "achievementId doesn't exist. Please check request parameters.",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        const obtainedAchievementEntity =
+            this.obtainedAchievementsRepository.create({
+                achievementId: achievement.id,
+                profile: {
+                    userId: targetUserId,
+                } as Profile,
+            });
+
+        await this.obtainedAchievementsRepository.save(
+            obtainedAchievementEntity,
+        );
+
+        await this.userLevelService.increaseExp(
+            targetUserId,
+            achievement.expGainAmount,
+        );
+    }
+
+    async grantAchievements(
+        targetUserIds: Array<string>,
+        achievementId: string,
+    ) {
+        for (const targetUserId of targetUserIds) {
+            await this.grantAchievement(targetUserId, achievementId);
         }
     }
 }

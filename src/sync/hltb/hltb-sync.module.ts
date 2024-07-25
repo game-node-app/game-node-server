@@ -9,8 +9,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { GamePlaytime } from "./entity/game-playtime.entity";
 import { HltbSyncProcessor } from "./hltb-sync.processor";
 import { seconds } from "@nestjs/throttler";
-import { BullBoardModule } from "@bull-board/nestjs";
-import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 
 @Module({
     imports: [
@@ -23,13 +21,6 @@ import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
                 removeOnComplete: true,
                 delay: seconds(8),
             },
-        }),
-        BullBoardModule.forFeature({
-            name: HLTB_SYNC_QUEUE_NAME,
-            options: {
-                description: "HLTB Sync Queue",
-            },
-            adapter: BullMQAdapter,
         }),
     ],
     providers: [

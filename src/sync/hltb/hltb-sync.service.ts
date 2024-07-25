@@ -52,14 +52,15 @@ export class HltbSyncService {
     }
 
     /**
-     * Shorthand method that transforms the result of 'findAllByGameIds' in a map.
+     * Shorthand method that transforms the result of 'findAllByGameIds'
+     * in a map where the 'gameId' is the key.
      * @see HltbSyncService#findAllByGameIds
      * @param gameIds
      */
     public async getPlaytimesMap(gameIds: number[]) {
         const playtimes = await this.findAllByGameIds(gameIds);
 
-        return toMap(playtimes, "id");
+        return toMap(playtimes, "gameId");
     }
 
     private async hasFailedAttempt(gameId: number) {
