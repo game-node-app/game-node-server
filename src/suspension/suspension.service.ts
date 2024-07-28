@@ -3,8 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { UserSuspension } from "./entity/user-suspension.entity";
 import { MoreThanOrEqual, Repository } from "typeorm";
 import Session from "supertokens-node/recipe/session";
-import { UserRoleClaim } from "supertokens-node/lib/build/recipe/userroles";
 import { EUserRoles } from "../utils/constants";
+import { UserRoleClaim } from "supertokens-node/recipe/userroles";
 
 @Injectable()
 export class SuspensionService {
