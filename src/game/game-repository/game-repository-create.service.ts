@@ -136,7 +136,9 @@ export class GameRepositoryCreateService {
             sourceId: game.id,
             sourceType: StatisticsSourceType.GAME,
         });
-        this.hltbSyncQueueService.createPlaytimeInfo(game.id, game.name!);
+        // Temporarily disabled
+        // TODO: investigate if this is bogging the queue
+        // this.hltbSyncQueueService.createPlaytimeInfo(game.id, game.name!);
     }
 
     /**
