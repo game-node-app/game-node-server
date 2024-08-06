@@ -125,6 +125,77 @@ export class RecommendationService {
         };
     }
 
+    /**
+     * After retrieving the most popular genres in a user's library, retrieves random games
+     * based on one of the 5 most popular genres.
+     * @param userId
+     * @param dto
+     * @private
+     */
+    private async getRecommendationsByGenre(
+        userId: string,
+        dto: GetRecommendationsRequestDto,
+    ): Promise<GetRecommendationsResponseDto> {
+        const [collectionEntries] =
+            await this.collectionsEntriesService.findAllByUserIdWithPermissions(
+                userId,
+                userId,
+                {
+                    offset: 0,
+                    limit: 9999999,
+                },
+            );
+
+        const gameIds = collectionEntries.map((entry) => entry.gameId);
+        const games = await this.gameRepositoryService.findAllByIds({
+            gameIds: gameIds,
+            relations: {
+                genres: true,
+            },
+        });
+
+        // Theme id to number of occurrences ratio
+        const genresCountMap = new Map<number, number>();
+
+        for (const game of games) {
+            if (game.genres == undefined || game.genres.length === 0) {
+                continue;
+            }
+
+            for (const genre of game.genres) {
+                const previousCount = genresCountMap.get(genre.id) ?? 0;
+                genresCountMap.set(genre.id, previousCount + 1);
+            }
+        }
+
+        const orderedGenres = Array.from(genresCountMap.entries()).toSorted(
+            (a, b) => {
+                return a[1] - b[1];
+            },
+        );
+
+        // Retrieves the first 5 most popular genres
+        const priorityGenres = orderedGenres.slice(0, 5);
+
+        const randomGenre = getRandomItem(priorityGenres);
+
+        // This operation is expensive
+        const gamesInGenre =
+            await this.gameRepositoryService.findAllIdsWithFilters({
+                genres: [randomGenre[0]],
+            });
+
+        const randomGamesInTheme = getRandomItems(
+            gamesInGenre,
+            dto.limit || 10,
+        );
+
+        return {
+            gameIds: randomGamesInTheme,
+            criteriaId: randomGenre[0],
+        };
+    }
+
     async getRecommendations(
         userId: string,
         criteria: RecommendationCriteria,
@@ -135,6 +206,8 @@ export class RecommendationService {
                 return this.getRecommendationsByFinished(userId, dto);
             case RecommendationCriteria.THEME:
                 return this.getRecommendationsByTheme(userId, dto);
+            case RecommendationCriteria.GENRE:
+                return this.getRecommendationsByGenre(userId, dto);
         }
     }
 }
