@@ -32,4 +32,7 @@ export class GetRecommendationsRequestDto extends PickType(BaseFindDto<any>, [
     criteria: RecommendationCriteria;
 }
 
-export class GetRecommendationsResponseDto {}
+export class GetRecommendationsResponseDto {
+    gameIds: number[];
+    criteriaId?: number;
+}

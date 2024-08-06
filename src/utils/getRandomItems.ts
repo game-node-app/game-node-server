@@ -1,6 +1,6 @@
 /**
  * Retrieves a single random item from an array.
- * For multiple items, use 'getRandomitems'.
+ * For multiple items, use 'getRandomItems'.
  * @param items
  * @see getRandomItems
  */
