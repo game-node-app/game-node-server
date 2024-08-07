@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
 import {
@@ -27,16 +27,27 @@ export class RecommendationService {
                 {
                     offset: 0,
                     limit: 9999999,
+                    orderBy: {
+                        finishedAt: "DESC",
+                    },
                 },
             );
         const finishedCollectionEntries = collectionEntries.filter(
             (entry) => entry.finishedAt != undefined,
         );
 
+        if (finishedCollectionEntries.length === 0) {
+            throw new HttpException(
+                "No finished games found.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
         const limitToUse = dto.limit || 10;
 
         const gameIds = finishedCollectionEntries.map((entry) => entry.gameId);
         const randomGameIds = getRandomItems(gameIds, limitToUse);
+
         const games = await this.gameRepositoryService.findAllByIds({
             gameIds: randomGameIds,
             relations: {
@@ -44,9 +55,21 @@ export class RecommendationService {
             },
         });
 
-        const pickedSimilarGamesIds: number[] = games.map(
+        let itemsPerPage = 1;
+
+        if (finishedCollectionEntries.length < limitToUse) {
+            itemsPerPage = Math.floor(
+                limitToUse / finishedCollectionEntries.length,
+            );
+        }
+
+        const pickedSimilarGamesIds: number[] = games.flatMap(
             // Picks a single, random, similar game for each item.
-            (game) => getRandomItem(game.similarGames!).id,
+            (game) => {
+                return getRandomItems(game.similarGames!, itemsPerPage).map(
+                    (item) => item.id,
+                );
+            },
         );
 
         return {
@@ -76,6 +99,7 @@ export class RecommendationService {
             );
 
         const gameIds = collectionEntries.map((entry) => entry.gameId);
+
         const games = await this.gameRepositoryService.findAllByIds({
             gameIds: gameIds,
             relations: {
