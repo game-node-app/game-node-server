@@ -198,10 +198,9 @@ export class RecommendationService {
 
     async getRecommendations(
         userId: string,
-        criteria: RecommendationCriteria,
         dto: GetRecommendationsRequestDto,
     ) {
-        switch (criteria) {
+        switch (dto.criteria) {
             case RecommendationCriteria.FINISHED:
                 return this.getRecommendationsByFinished(userId, dto);
             case RecommendationCriteria.THEME:
