@@ -9,17 +9,26 @@ export function getRandomItem<T>(items: T[]): T {
 }
 
 /**
- * Retrieves x (max) random items from an array.
+ * Retrieves x (max) unique random items from an array.
  * For a single item, use 'getRandomItem'.
  * @param items
  * @param max
  * @see getRandomItem
  */
 export function getRandomItems<T>(items: T[], max: number) {
+    const insertedItems = new Map<number, boolean>();
     const randomItems: T[] = [];
     for (let i = 0; i < items.length && i < max; i++) {
-        const randomIndex = Math.floor(Math.random() * items.length);
+        let randomIndex = Math.floor(Math.random() * items.length);
+        while (
+            insertedItems.values.length < items.length &&
+            insertedItems.has(randomIndex)
+        ) {
+            randomIndex = Math.floor(Math.random() * items.length);
+        }
+
         randomItems.push(items[randomIndex]);
+        insertedItems.set(randomIndex, true);
     }
 
     return randomItems;

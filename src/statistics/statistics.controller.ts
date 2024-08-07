@@ -82,7 +82,6 @@ export class StatisticsController {
         type: GameStatisticsPaginatedResponseDto,
     })
     @HttpCode(HttpStatus.OK)
-    @Public()
     async findTrendingGames(@Body() dto: FindStatisticsTrendingGamesDto) {
         console.time("trending/games");
         const result = (await this.gameStatisticsService.findTrending(
