@@ -16,7 +16,8 @@ export function getRandomItem<T>(items: T[]): T {
  * @see getRandomItem
  */
 export function getRandomItems<T>(items: T[], max: number) {
-    const insertedItems = new Set<number>();
+    const insertedItems = new Map<number, boolean>();
+
     const randomItems: T[] = [];
     for (let i = 0; i < items.length && i < max; i++) {
         let randomIndex = Math.floor(Math.random() * items.length);
@@ -28,7 +29,7 @@ export function getRandomItems<T>(items: T[], max: number) {
         }
 
         randomItems.push(items[randomIndex]);
-        insertedItems.add(randomIndex);
+        insertedItems.set(randomIndex, true);
     }
 
     return randomItems;
