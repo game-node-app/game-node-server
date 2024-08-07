@@ -18,7 +18,7 @@ import { hours, ThrottlerGuard } from "@nestjs/throttler";
 @Controller("recommendation")
 @ApiTags("recommendation")
 @UseGuards(AuthGuard)
-// @UseInterceptors(CacheInterceptor)
+@UseInterceptors(CacheInterceptor)
 @UseGuards(ThrottlerGuard)
 export class RecommendationController {
     constructor(
@@ -26,7 +26,7 @@ export class RecommendationController {
     ) {}
 
     @Get()
-    // @CacheTTL(hours(6))
+    @CacheTTL(hours(6))
     async getRecommendations(
         @Session() session: SessionContainer,
         @Query() dto: GetRecommendationsRequestDto,
