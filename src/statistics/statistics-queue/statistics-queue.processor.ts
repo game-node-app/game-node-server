@@ -60,5 +60,7 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
         } else if (job.name === "create") {
             await targetService.create(job.data);
         }
+
+        return `${job.data.sourceType}-${job.data.sourceId}`;
     }
 }

@@ -9,9 +9,7 @@ import {
 import { RecommendationService } from "./recommendation.service";
 import { Session } from "src/auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
-import {
-    GetRecommendationsRequestDto,
-} from "./dto/get-recommendations.dto";
+import { GetRecommendationsRequestDto } from "./dto/get-recommendations.dto";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "src/auth/auth.guard";
 import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
