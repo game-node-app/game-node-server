@@ -14,11 +14,12 @@ import { ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "src/auth/auth.guard";
 import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { hours, ThrottlerGuard } from "@nestjs/throttler";
+import { SessionAwareCacheInterceptor } from "../interceptor/session-aware-cache/session-aware-cache.interceptor";
 
 @Controller("recommendation")
 @ApiTags("recommendation")
 @UseGuards(AuthGuard)
-@UseInterceptors(CacheInterceptor)
+@UseInterceptors(SessionAwareCacheInterceptor)
 @UseGuards(ThrottlerGuard)
 export class RecommendationController {
     constructor(
