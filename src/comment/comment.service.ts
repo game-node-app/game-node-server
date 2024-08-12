@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ReviewComment } from "./entity/review-comment.entity";
-import { Repository } from "typeorm";
+import { IsNull, Repository } from "typeorm";
 import { CreateCommentDto } from "./dto/create-comment.dto";
 import { CommentSourceType } from "./comment.constants";
 import { UserComment } from "./entity/user-comment.entity";
@@ -19,6 +19,7 @@ import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
+import { FindChildrenCommentsDto } from "./dto/find-children-comments.dto";
 
 const MIN_COMMENT_CREATE_WAIT_TIME = minutes(1);
 
@@ -51,6 +52,8 @@ export class CommentService {
                     ...baseFindOptions,
                     where: {
                         reviewId: dto.sourceId,
+                        // Excludes comments of comments
+                        childOfId: IsNull(),
                     },
                 });
             default:
@@ -59,6 +62,16 @@ export class CommentService {
                     HttpStatus.BAD_REQUEST,
                 );
         }
+    }
+
+    async findChildrenById(dto: FindChildrenCommentsDto) {
+        const targetRepository = this.getTargetRepository(dto.sourceType);
+
+        return await targetRepository.find({
+            where: {
+                childOfId: dto.commentId,
+            },
+        });
     }
 
     async findOneById(sourceType: CommentSourceType, commentId: string) {
@@ -105,8 +118,6 @@ export class CommentService {
 
     async create(userId: string, dto: CreateCommentDto) {
         const { sourceType, sourceId, content } = dto;
-
-        await this.checkForCreateSpam(userId, dto);
 
         let insertedEntryId: string;
         switch (sourceType) {

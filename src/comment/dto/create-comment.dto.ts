@@ -2,6 +2,7 @@ import { CommentSourceType } from "../comment.constants";
 import {
     IsEnum,
     IsNotEmpty,
+    IsOptional,
     IsString,
     Length,
     MinLength,
@@ -23,4 +24,7 @@ export class CreateCommentDto {
     @IsString()
     @MinLength(1)
     content: string;
+    @IsOptional()
+    @Length(36)
+    childOf?: string;
 }
