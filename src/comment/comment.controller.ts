@@ -8,6 +8,7 @@ import {
     Param,
     Patch,
     Post,
+    Query,
     UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
@@ -25,6 +26,8 @@ import { CommentSourceType } from "./comment.constants";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { DeleteCommentDto } from "./dto/delete-comment.dto";
 import { SuspensionGuard } from "../suspension/suspension.guard";
+import { BaseFindDto } from "../utils/base-find.dto";
+import { UserComment } from "./entity/user-comment.entity";
 
 @Controller("comment")
 @ApiTags("comment")
@@ -51,6 +54,14 @@ export class CommentController {
     ) {
         return this.commentService.findOneByIdOrFail(sourceType, commentId);
     }
+
+    @Get(":sourceType/:id/children")
+    @Public()
+    async findAllChildrenById(
+        @Param("sourceType") sourceType: CommentSourceType,
+        @Param("id") commentId: string,
+        @Query() dto: BaseFindDto<UserComment>,
+    ) {}
 
     @Post("create")
     @HttpCode(HttpStatus.CREATED)

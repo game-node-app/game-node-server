@@ -4,8 +4,6 @@ import { ReviewComment } from "./entity/review-comment.entity";
 import { IsNull, Repository } from "typeorm";
 import { CreateCommentDto } from "./dto/create-comment.dto";
 import { CommentSourceType } from "./comment.constants";
-import { UserComment } from "./entity/user-comment.entity";
-import { minutes } from "@nestjs/throttler";
 import { StatisticsQueueService } from "../statistics/statistics-queue/statistics-queue.service";
 import { StatisticsSourceType } from "../statistics/statistics.constants";
 import { FindAllCommentsDto } from "./dto/find-all-comments.dto";
@@ -20,8 +18,8 @@ import {
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
 import { FindChildrenCommentsDto } from "./dto/find-children-comments.dto";
-
-const MIN_COMMENT_CREATE_WAIT_TIME = minutes(1);
+import { BaseFindDto } from "../utils/base-find.dto";
+import { UserComment } from "./entity/user-comment.entity";
 
 @Injectable()
 export class CommentService {
@@ -64,16 +62,6 @@ export class CommentService {
         }
     }
 
-    async findChildrenById(dto: FindChildrenCommentsDto) {
-        const targetRepository = this.getTargetRepository(dto.sourceType);
-
-        return await targetRepository.find({
-            where: {
-                childOfId: dto.commentId,
-            },
-        });
-    }
-
     async findOneById(sourceType: CommentSourceType, commentId: string) {
         const targetRepository = this.getTargetRepository(sourceType);
         return targetRepository.findOneBy({
@@ -93,27 +81,21 @@ export class CommentService {
         return comment;
     }
 
-    private async checkForCreateSpam(userId: string, dto: CreateCommentDto) {
-        let targetComment: UserComment | null = null;
-        switch (dto.sourceType) {
-            case CommentSourceType.REVIEW:
-                targetComment = await this.reviewCommentRepository.findOneBy({
-                    profileUserId: userId,
-                    reviewId: dto.sourceId,
-                });
-                break;
-        }
+    async findAllChildrenById(
+        sourceType: CommentSourceType,
+        commentId: string,
+        dto: BaseFindDto<UserComment>,
+    ) {
+        const targetRepository = this.getTargetRepository(sourceType);
 
-        if (targetComment != undefined) {
-            const now = new Date().getTime();
-            const createdTime = targetComment.createdAt.getTime();
-            if (now - createdTime < MIN_COMMENT_CREATE_WAIT_TIME) {
-                throw new HttpException(
-                    "Please wait at least one minute before sending a new comment.",
-                    HttpStatus.TOO_MANY_REQUESTS,
-                );
-            }
-        }
+        const baseFindOptions = buildBaseFindOptions(dto);
+
+        return await targetRepository.find({
+            ...baseFindOptions,
+            where: {
+                childOfId: commentId,
+            },
+        });
     }
 
     async create(userId: string, dto: CreateCommentDto) {
