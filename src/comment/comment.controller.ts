@@ -61,7 +61,13 @@ export class CommentController {
         @Param("sourceType") sourceType: CommentSourceType,
         @Param("id") commentId: string,
         @Query() dto: BaseFindDto<UserComment>,
-    ) {}
+    ) {
+        return this.commentService.findAllChildrenById(
+            sourceType,
+            commentId,
+            dto,
+        );
+    }
 
     @Post("create")
     @HttpCode(HttpStatus.CREATED)

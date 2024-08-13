@@ -99,7 +99,20 @@ export class CommentService {
     }
 
     async create(userId: string, dto: CreateCommentDto) {
-        const { sourceType, sourceId, content } = dto;
+        const { sourceType, sourceId, content, childOf } = dto;
+
+        if (childOf) {
+            const mainComment = await this.findOneByIdOrFail(
+                sourceType,
+                childOf,
+            );
+            if (mainComment.childOfId != undefined) {
+                throw new HttpException(
+                    "Deep-nested comments are not allowed. Comments must be a children of a single comment.",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+        }
 
         let insertedEntryId: string;
         switch (sourceType) {
@@ -108,6 +121,7 @@ export class CommentService {
                     profileUserId: userId,
                     reviewId: sourceId,
                     content,
+                    childOfId: childOf,
                 });
                 insertedEntryId = insertedEntry.id;
                 break;
