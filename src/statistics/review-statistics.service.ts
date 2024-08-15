@@ -8,12 +8,18 @@ import {
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindOptionsWhere, Repository } from "typeorm";
+import {
+    FindOptionsWhere,
+    LessThanOrEqual,
+    MoreThanOrEqual,
+    Repository,
+} from "typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import {
     StatisticsActionType,
+    StatisticsPeriodToMinusDays,
     StatisticsSourceType,
 } from "./statistics.constants";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
@@ -25,6 +31,7 @@ import {
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
 import { minutes } from "@nestjs/throttler";
+import { getPreviousDate } from "./statistics.utils";
 
 @Injectable()
 export class ReviewStatisticsService implements StatisticsService {
@@ -207,16 +214,29 @@ export class ReviewStatisticsService implements StatisticsService {
         const findOptionsWhere: FindOptionsWhere<ReviewStatistics> = {
             review: reviewFindOptionsWhere,
         };
-
+        const periodMinusDays = StatisticsPeriodToMinusDays[dto.period];
+        const periodDate = getPreviousDate(periodMinusDays);
+        const reviewsMinimumLikeCounts = 1;
         return await this.reviewStatisticsRepository.findAndCount({
             ...baseFindOptions,
-            where: findOptionsWhere,
+            where: [
+                {
+                    ...findOptionsWhere,
+                    likes: {
+                        createdAt: MoreThanOrEqual(periodDate),
+                    },
+                },
+                {
+                    ...findOptionsWhere,
+                    likesCount: LessThanOrEqual(reviewsMinimumLikeCounts),
+                },
+            ],
             order: {
                 likesCount: "DESC",
             },
             cache: {
                 id: `review-statistics-${JSON.stringify(findOptionsWhere)}`,
-                milliseconds: minutes(2),
+                milliseconds: minutes(5),
             },
         });
     }

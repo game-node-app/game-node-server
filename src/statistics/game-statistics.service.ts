@@ -174,7 +174,7 @@ export class GameStatisticsService implements StatisticsService {
             .where(`uv.createdAt >= :uvDate`, {
                 uvDate: periodDate,
             })
-            .orWhere(`(s.viewsCount = 0 AND s.likesCount = 0)`)
+            .orWhere(`(s.viewsCount = 0)`)
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(fixedStatisticsLimit)

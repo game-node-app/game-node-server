@@ -1,16 +1,16 @@
 import {
-    Controller,
-    Get,
     Body,
-    Patch,
-    Param,
-    UseInterceptors,
-    UploadedFile,
-    FileTypeValidator,
-    ParseFilePipe,
-    UseGuards,
-    Put,
+    Controller,
     Delete,
+    FileTypeValidator,
+    Get,
+    Param,
+    ParseFilePipe,
+    Patch,
+    Put,
+    UploadedFile,
+    UseGuards,
+    UseInterceptors,
 } from "@nestjs/common";
 import { ProfileService } from "./profile.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -22,6 +22,8 @@ import { AuthGuard } from "../auth/auth.guard";
 import { Profile } from "./entities/profile.entity";
 import { Public } from "../auth/public.decorator";
 import { UpdateProfileImageDto } from "./dto/update-profile-image.dto";
+import { Roles } from "../auth/roles.decorator";
+import { EUserRoles } from "../utils/constants";
 
 // No POST /profile endpoint
 @Controller("profile")
@@ -89,6 +91,12 @@ export class ProfileController {
     })
     async findOwn(@Session() session: SessionContainer) {
         return await this.profileService.findOneByIdOrFail(session.getUserId());
+    }
+
+    @Get("all")
+    @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
+    async findAll() {
+        return await this.profileService.findAll();
     }
 
     /**

@@ -83,7 +83,7 @@ export class AchievementsController {
     }
 
     @Post("grant")
-    @Roles([EUserRoles.ADMIN])
+    @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
     async grantAchievements(@Body() dto: AchievementGrantRequestDto) {
         return this.achievementsService.grantAchievements(
             dto.targetUserIds,

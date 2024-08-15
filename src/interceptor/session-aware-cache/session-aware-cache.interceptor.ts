@@ -11,18 +11,12 @@ import { SessionRequest } from "supertokens-node/framework/express";
 export class SessionAwareCacheInterceptor extends CacheInterceptor {
     protected trackBy(context: ExecutionContext): string | undefined {
         const request: SessionRequest = context.switchToHttp().getRequest();
-        console.log(request);
-        if (request.session) {
+        const defaultTrackBy = super.trackBy(context);
+        if (request.session && defaultTrackBy) {
             const userId = request.session.getUserId();
-            console.log(
-                "Returning data from cache: ",
-                `${userId}-${request.url}`,
-            );
-            return `${userId}-${request.url}`;
+            return `${userId}-${defaultTrackBy}`;
         }
 
-        console.log("Using default trackBy");
-
-        return super.trackBy(context);
+        return defaultTrackBy;
     }
 }

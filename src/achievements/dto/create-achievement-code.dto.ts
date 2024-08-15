@@ -12,3 +12,8 @@ export class CreateAchievementCodeRequestDto {
     })
     expiresAt: Date;
 }
+
+export class CreateAchievementCodeResponseDto {
+    code: string;
+    expiresAt: Date;
+}

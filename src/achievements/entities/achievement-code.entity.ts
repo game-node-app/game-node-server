@@ -49,6 +49,16 @@ export class AchievementCode {
     })
     consumedByUserId: string | null;
 
+    @ManyToOne(() => Profile, {
+        nullable: false,
+        onDelete: "CASCADE",
+    })
+    issuedBy: Profile | null;
+    @Column({
+        nullable: false,
+    })
+    issuedByUserId: string | null;
+
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()
