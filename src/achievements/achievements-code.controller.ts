@@ -7,9 +7,11 @@ import { Roles } from "../auth/roles.decorator";
 import { EUserRoles } from "../utils/constants";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { Session } from "../auth/session.decorator";
+import { ThrottlerGuard } from "@nestjs/throttler";
 
 @Controller("achievements/code")
 @ApiTags("achievements-code")
+@UseGuards(ThrottlerGuard)
 @UseGuards(AuthGuard)
 export class AchievementsCodeController {
     constructor(
@@ -26,7 +28,10 @@ export class AchievementsCodeController {
 
     @Post("generate")
     @Roles([EUserRoles.ADMIN])
-    async generate(@Body() dto: CreateAchievementCodeRequestDto) {
-        return this.achievementsCodeService.create(dto);
+    async generate(
+        @Session() session: SessionContainer,
+        @Body() dto: CreateAchievementCodeRequestDto,
+    ) {
+        return this.achievementsCodeService.create(session.getUserId(), dto);
     }
 }

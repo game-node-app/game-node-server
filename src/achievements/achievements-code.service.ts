@@ -1,7 +1,10 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import * as crypto from "node:crypto";
 import { achievementsData } from "./data/achievements.data";
-import { CreateAchievementCodeRequestDto } from "./dto/create-achievement-code.dto";
+import {
+    CreateAchievementCodeRequestDto,
+    CreateAchievementCodeResponseDto,
+} from "./dto/create-achievement-code.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { AchievementCode } from "./entities/achievement-code.entity";
 import { Repository } from "typeorm";
@@ -30,9 +33,13 @@ export class AchievementsCodeService {
     /**
      * Creates and registers a new achievement code ready to be consumed.
      * Returns the generated code.
+     * @param issuerUserId
      * @param dto
      */
-    async create(dto: CreateAchievementCodeRequestDto) {
+    async create(
+        issuerUserId: string,
+        dto: CreateAchievementCodeRequestDto,
+    ): Promise<CreateAchievementCodeResponseDto> {
         const { achievementId, expiresAt } = dto;
         const achievementExists =
             this.achievementsService.getAchievementById(achievementId);
@@ -54,11 +61,15 @@ export class AchievementsCodeService {
             achievementId: achievementId,
             isForceExpired: false,
             expiresAt: expiresAt,
+            issuedByUserId: issuerUserId,
         });
 
         const insertedEntry = await this.achievementCodeRepository.save(code);
 
-        return insertedEntry.id;
+        return {
+            code: insertedEntry.id,
+            expiresAt: expiresAt,
+        };
     }
 
     async consume(userId: string, code: string) {
