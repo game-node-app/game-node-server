@@ -1,7 +1,7 @@
 import { Achievement } from "../models/achievement.model";
 import {
     AchievementCategory,
-    horrorGameThemeId,
+    ACHIEVEMENTS_GAME_THEMES_IDS,
 } from "../achievements.constants";
 import { Review } from "../../reviews/entities/review.entity";
 import { Collection } from "../../collections/entities/collection.entity";
@@ -48,7 +48,7 @@ export const achievementsCollectionsData: Achievement[] = [
                         game: {
                             themes: {
                                 // Horror game ID in the game_theme table.
-                                id: horrorGameThemeId,
+                                id: ACHIEVEMENTS_GAME_THEMES_IDS.HORROR_ID,
                             },
                         },
                     },
@@ -78,7 +78,8 @@ export const achievementsCollectionsData: Achievement[] = [
                                     themes &&
                                     themes.some(
                                         (theme) =>
-                                            theme.id === horrorGameThemeId,
+                                            theme.id ===
+                                            ACHIEVEMENTS_GAME_THEMES_IDS.HORROR_ID,
                                     )
                                 );
                             } catch (e) {}
