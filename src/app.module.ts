@@ -31,7 +31,8 @@ import { ImporterWatchModule } from "./importer/importer-watch/importer-watch.mo
 import { ReportModule } from "./report/report.module";
 import { SuspensionModule } from "./suspension/suspension.module";
 import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.module";
-import { RecommendationModule } from './recommendation/recommendation.module';
+import { RecommendationModule } from "./recommendation/recommendation.module";
+import { QueueOptions } from "bullmq";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -118,19 +119,16 @@ function getRedisConfig() {
                     connection: {
                         host: host,
                         port: port,
-                        autoResubscribe: true,
-                        reconnectOnError: () => {
-                            return true;
-                        },
-                        maxRetriesPerRequest: null,
                     },
+
                     defaultJobOptions: {
                         removeOnComplete: true,
                         removeOnFail: true,
-                        attempts: 5,
+                        // TODO: Decrease this once we figure the cause of the dreaded mysql access error
+                        attempts: 15,
                         backoff: {
                             type: "fixed",
-                            delay: minutes(2),
+                            delay: seconds(10),
                         },
                     },
                 };
