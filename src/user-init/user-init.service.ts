@@ -8,6 +8,8 @@ import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 import { LevelService } from "../level/level.service";
 import { Timeout } from "@nestjs/schedule";
 import { AUTH_ERRORS } from "../auth/auth.constants";
+import retry from "async-retry";
+import { QueryFailedError } from "typeorm";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
@@ -40,6 +42,8 @@ export class UserInitService {
      * Given a Supertokens userId, initialize said user in our system. <br>
      * This function should be called on the PostSignup event for SuperTokens. <br>
      * Throws errors when any of the init methods fails.
+     *
+     * Errors should be thrown with some of AUTH_ERROR's messages.
      * @param userId
      * @throws Error
      */
@@ -53,15 +57,38 @@ export class UserInitService {
             this.initLibrary(userId),
             this.initLevel(userId),
         ];
-        try {
-            await Promise.all(initPromises);
-            this.logger.log(
-                `Finished init routine for ${userId} at ${new Date().toISOString()}`,
-            );
-        } catch (err) {
-            this.logger.error(err);
-            throw new Error(AUTH_ERRORS.USER_INIT_ERROR);
-        }
+        /*
+         * For access denied errors:
+         *   code: 'ER_ACCESS_DENIED_ERROR',
+         *   errno: 1045,
+         *   sqlState: '28000',
+         *   sqlMessage: "Access denied for user 'xxxxx'@'xxxxxx' (using password: YES)",
+         */
+        await retry(async (bail, attempt) => {
+            try {
+                await Promise.all(initPromises);
+            } catch (err: unknown) {
+                if (err instanceof Error) {
+                    if (Object.hasOwn(err, "code")) {
+                        // @ts-expect-error verified above
+                        if (err.code === "ER_ACCESS_DENIED_ERROR") {
+                            this.logger.warn(
+                                `User init attempt ${attempt} for ${userId} because of an access denied error`,
+                            );
+                            // Erros thrown without bail will cause a re-attempt
+                            throw err;
+                        }
+                    }
+
+                    bail(err);
+                }
+
+                bail(new Error(AUTH_ERRORS.USER_INIT_ERROR));
+            }
+        }, {});
+        this.logger.log(
+            `Finished init routine for ${userId} at ${new Date().toISOString()}`,
+        );
     }
 
     private async initUserRole(userId: string) {
