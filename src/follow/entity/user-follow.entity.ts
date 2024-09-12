@@ -14,15 +14,27 @@ import { Profile } from "../../profile/entities/profile.entity";
 export class UserFollow {
     @PrimaryGeneratedColumn()
     id: number;
+    /**
+     * User that is following another user.
+     */
     @ManyToOne(() => Profile)
     follower: Profile;
+    /**
+     * User that is following another user.
+     */
     @Column({
         nullable: false,
         length: 36,
     })
     followerUserId: string;
+    /**
+     * User that is being followed
+     */
     @ManyToOne(() => Profile)
     followed: Profile;
+    /**
+     * User that is being followed
+     */
     @Column({
         nullable: false,
         length: 36,

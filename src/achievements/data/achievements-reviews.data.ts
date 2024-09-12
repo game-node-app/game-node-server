@@ -1,7 +1,7 @@
 import { Achievement } from "../models/achievement.model";
 import {
     AchievementCategory,
-    horrorGameThemeId,
+    ACHIEVEMENTS_GAME_THEMES_IDS,
 } from "../achievements.constants";
 import { Review } from "../../reviews/entities/review.entity";
 
@@ -14,7 +14,7 @@ export const achievementsReviewsData: Achievement[] = [
         category: AchievementCategory.REVIEWS,
         checkEligibility: async (dataSource, targetUserId) => {
             const reviewsRepository = dataSource.getRepository(Review);
-            return await reviewsRepository.exist({
+            return await reviewsRepository.exists({
                 where: {
                     profile: {
                         userId: targetUserId,
@@ -22,7 +22,7 @@ export const achievementsReviewsData: Achievement[] = [
                     game: {
                         themes: {
                             // Horror game ID in the game_theme table.
-                            id: horrorGameThemeId,
+                            id: ACHIEVEMENTS_GAME_THEMES_IDS.HORROR_ID,
                         },
                     },
                 },

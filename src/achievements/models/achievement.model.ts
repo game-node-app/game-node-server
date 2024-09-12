@@ -9,7 +9,7 @@ export class Achievement {
     expGainAmount: number;
     category: AchievementCategory;
     /**
-     * Checks if a given user is eligible to get 'this' achievement
+     * Checks if a given user is eligible to get 'this' achievement.
      */
     @Exclude()
     checkEligibility: (
