@@ -12,6 +12,8 @@ import { AxiosRequestConfig } from "axios";
 import { ConfigService } from "@nestjs/config";
 import { IgdbSyncAuthService } from "./igdb-sync-auth.service";
 import { lastValueFrom } from "rxjs";
+import { Cache } from "@nestjs/cache-manager";
+import { minutes } from "@nestjs/throttler";
 
 /**
  * Queue responsible for syncing games from IGDB (results already fetched) to our database.
@@ -21,6 +23,9 @@ import { lastValueFrom } from "rxjs";
 @Injectable()
 export class IgdbSyncService {
     private logger = new Logger(IgdbSyncService.name);
+
+    private OFFSET_CACHE_KEY = "igdb-sync-last-used-offset";
+
     // Maximum allowed items per page
     private ITEMS_PER_PAGE = 500;
 
@@ -30,7 +35,29 @@ export class IgdbSyncService {
         private readonly igdbAuthService: IgdbSyncAuthService,
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
+        private readonly cache: Cache,
     ) {}
+
+    private async getLastUsedOffset(): Promise<number> {
+        const lastUsedOffset = await this.cache.get<number>(
+            this.OFFSET_CACHE_KEY,
+        );
+        if (!lastUsedOffset) {
+            return 0;
+        }
+
+        return lastUsedOffset;
+    }
+
+    private storeLastUsedOffset(offset: number) {
+        // Stores last used offset for only 30 minutes (avoids resuming on new
+        // sync tries)
+        this.cache
+            .set(this.OFFSET_CACHE_KEY, offset, minutes(30))
+            .catch((err) => {
+                this.logger.error(err);
+            });
+    }
 
     private itemsToChunks(msg: NonNullable<object[]>) {
         const chunkSize = 10;
@@ -82,9 +109,15 @@ export class IgdbSyncService {
      */
     public async sync() {
         let hasNextPage = true;
-        let currentOffset = 0;
+        let currentOffset = await this.getLastUsedOffset();
 
         while (hasNextPage) {
+            /**
+             * Stores current used offset - so if the job fails it won't retry
+             * already updated entries
+             */
+            this.storeLastUsedOffset(currentOffset);
+
             const fetchResponse =
                 await this.fetchGamesInInterval(currentOffset);
             const data = fetchResponse.data;
