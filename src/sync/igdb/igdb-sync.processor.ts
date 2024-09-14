@@ -94,7 +94,9 @@ export class IgdbSyncProcessor extends WorkerHostProcessor {
                     delay: minutes(1),
                 },
             })
-            .then()
+            .then(() => {
+                this.logger.log("Registered IGDB sync fetch job");
+            })
             .catch((err) => {
                 this.logger.error(err);
             });

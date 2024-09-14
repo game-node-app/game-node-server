@@ -86,7 +86,7 @@ export class IgdbSyncAuthService {
             return tokenInCache;
         }
 
-        this.logger.log("Fetching new access token");
+        this.logger.log("Fetching new access token...");
         return await this.fetchAccessToken();
     }
 }
