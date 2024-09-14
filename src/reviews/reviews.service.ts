@@ -176,7 +176,9 @@ export class ReviewsService {
             createReviewDto.gameId,
         );
 
-        createReviewDto.content = filterBadWords(createReviewDto.content);
+        if (createReviewDto.content) {
+            createReviewDto.content = filterBadWords(createReviewDto.content);
+        }
 
         if (possibleExistingReview) {
             const mergedEntry = this.reviewsRepository.merge(
