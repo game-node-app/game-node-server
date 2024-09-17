@@ -7,7 +7,13 @@ import {
 } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DeepPartial, FindOptionsRelations, In, Repository } from "typeorm";
+import {
+    DeepPartial,
+    FindManyOptions,
+    FindOptionsRelations,
+    In,
+    Repository,
+} from "typeorm";
 import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
 import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
@@ -19,6 +25,7 @@ import { getIconNamesForPlatformAbbreviations } from "../../game/game-repository
 import { LevelService } from "../../level/level.service";
 import { LevelIncreaseActivities } from "../../level/level.constants";
 import { CollectionsService } from "../collections.service";
+import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-entries-for-collection-id.dto";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -100,12 +107,15 @@ export class CollectionsEntriesService {
     async findAllByCollectionId(
         userId: string | undefined,
         collectionId: string,
-        dto?: FindCollectionEntriesDto,
+        dto?: FindCollectionEntriesForCollectionIdDto,
     ) {
-        const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
+        const baseFindOptions = buildBaseFindOptions<CollectionEntry>({
+            ...dto,
+            orderBy: undefined,
+        });
 
-        return await this.collectionEntriesRepository.findAndCount({
-            ...findOptions,
+        const findOptions: FindManyOptions<CollectionEntry> = {
+            ...baseFindOptions,
             where: {
                 collections: [
                     {
@@ -121,7 +131,28 @@ export class CollectionsEntriesService {
                 ],
             },
             relations: this.relations,
-        });
+        };
+
+        if (dto?.orderBy) {
+            if (dto.orderBy.addedDate) {
+                findOptions.order = {
+                    createdAt: dto.orderBy.addedDate,
+                };
+            } else if (dto.orderBy.releaseDate) {
+                findOptions.order = {
+                    game: {
+                        firstReleaseDate: dto.orderBy.releaseDate,
+                    },
+                };
+                findOptions.relations = {
+                    ...this.relations,
+                    // Needed for ordering
+                    game: true,
+                };
+            }
+        }
+
+        return await this.collectionEntriesRepository.findAndCount(findOptions);
     }
 
     async findAllByUserIdWithPermissions(

@@ -25,6 +25,7 @@ import { PaginationInterceptor } from "../../interceptor/pagination.interceptor"
 
 import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-paginated-response.dto";
 import { Public } from "../../auth/public.decorator";
+import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-entries-for-collection-id.dto";
 
 @Controller("collections-entries")
 @ApiTags("collections-entries")
@@ -159,7 +160,7 @@ export class CollectionsEntriesController {
     async findAllByCollectionId(
         @Session() session: SessionContainer,
         @Param("id") collectionId: string,
-        @Body() dto?: FindCollectionEntriesDto,
+        @Body() dto?: FindCollectionEntriesForCollectionIdDto,
     ): Promise<CollectionEntriesPaginatedResponseDto> {
         return (await this.collectionsEntriesService.findAllByCollectionId(
             session?.getUserId(),
