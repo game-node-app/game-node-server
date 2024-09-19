@@ -81,6 +81,12 @@ export class IgdbSyncProcessor extends WorkerHostProcessor {
      * @private
      */
     private registerSyncJob() {
+        if (process.env.NODE_ENV !== "production") {
+            this.logger.warn(
+                "Aborted IGDB Sync job registering for non-production environments. To re-enable, comment this code in IgdbSyncProcessor#registerSyncJob",
+            );
+            return;
+        }
         this.igdbSyncQueue
             .add(IGDB_SYNC_FETCH_JOB_NAME, undefined, {
                 repeat: {
