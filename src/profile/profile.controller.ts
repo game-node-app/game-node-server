@@ -94,7 +94,6 @@ export class ProfileController {
     }
 
     @Get("all")
-    @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
     async findAll() {
         return await this.profileService.findAll();
     }
