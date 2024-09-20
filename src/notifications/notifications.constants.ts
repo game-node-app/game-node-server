@@ -8,6 +8,7 @@ export enum ENotificationCategory {
     // Used by watch services like 'importer-watch'
     WATCH = "watch",
     ALERT = "alert",
+    MENTION = "mention",
 }
 
 /**

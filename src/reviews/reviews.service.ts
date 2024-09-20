@@ -191,6 +191,7 @@ export class ReviewsService {
             );
             await this.reviewsRepository.update(mergedEntry.id, mergedEntry);
             await this.processMentions(
+                userId,
                 mergedEntry.id,
                 createReviewDto.mentionedUserIds,
             );
@@ -211,6 +212,7 @@ export class ReviewsService {
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
 
         await this.processMentions(
+            userId,
             insertedEntry.id,
             createReviewDto.mentionedUserIds,
         );
@@ -238,14 +240,16 @@ export class ReviewsService {
     }
 
     private async processMentions(
+        userId: string,
         reviewId: string,
         mentionedUserIds: string[] = [],
     ) {
         return await this.mentionService.setMentionsFor(
+            userId,
             MentionSource.REVIEW,
             reviewId,
             // If an empty array is passed, previous mentions are removed.
-            mentionedUserIds || [],
+            mentionedUserIds,
         );
     }
 
