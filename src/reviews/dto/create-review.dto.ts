@@ -3,6 +3,7 @@ import {
     IsNumber,
     IsOptional,
     IsString,
+    Length,
     Max,
     Min,
     MinLength,
@@ -31,4 +32,10 @@ export class CreateReviewDto {
     @Min(0)
     @Max(5)
     rating: number;
+    @IsOptional()
+    @IsString({ each: true })
+    @Length(36, undefined, {
+        each: true,
+    })
+    mentionedUserIds?: string[] = [];
 }

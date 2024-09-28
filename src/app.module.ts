@@ -33,6 +33,7 @@ import { SuspensionModule } from "./suspension/suspension.module";
 import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.module";
 import { RecommendationModule } from "./recommendation/recommendation.module";
 import { QueueOptions } from "bullmq";
+import { MentionModule } from './mention/mention.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -172,6 +173,7 @@ function getRedisConfig() {
         ReportModule,
         SuspensionModule,
         RecommendationModule,
+        MentionModule,
     ],
 })
 export class AppModule implements NestModule {

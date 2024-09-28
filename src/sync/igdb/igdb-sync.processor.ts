@@ -81,29 +81,26 @@ export class IgdbSyncProcessor extends WorkerHostProcessor {
      * @private
      */
     private registerSyncJob() {
-        if (process.env.NODE_ENV !== "production") {
-            this.logger.warn(
-                "Aborted IGDB Sync job registering for non-production environments. To re-enable, comment this code in IgdbSyncProcessor#registerSyncJob",
-            );
-            return;
-        }
+        // if (process.env.NODE_ENV !== "production") {
+        //     this.logger.warn(
+        //         "Aborted IGDB Sync job registering for non-production environments. To re-enable, comment this code in IgdbSyncProcessor#registerSyncJob",
+        //     );
+        //     return;
+        // }
         this.igdbSyncQueue
             .add(IGDB_SYNC_FETCH_JOB_NAME, undefined, {
                 repeat: {
-                    jobId: "igdb-sync-fetch",
                     // “At 00:00 on Monday and Thursday.”
                     pattern: "0 0 * * 1,4",
                 },
                 attempts: 3,
-                backoff: {
-                    type: "exponential",
-                    delay: minutes(1),
-                },
             })
-            .then(() => {
+            .then((job) => {
                 this.logger.log("Registered IGDB sync fetch job");
+                this.logger.log(JSON.stringify(job));
             })
             .catch((err) => {
+                this.logger.error("Failed to register IGDB sync fetch job!");
                 this.logger.error(err);
             });
     }
