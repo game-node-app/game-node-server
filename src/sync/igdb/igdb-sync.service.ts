@@ -13,8 +13,7 @@ import { ConfigService } from "@nestjs/config";
 import { IgdbSyncAuthService } from "./igdb-sync-auth.service";
 import { lastValueFrom } from "rxjs";
 import { Cache } from "@nestjs/cache-manager";
-import { minutes, seconds } from "@nestjs/throttler";
-import sleep from "../../utils/sleep";
+import { minutes } from "@nestjs/throttler";
 
 /**
  * Queue responsible for syncing games from IGDB (results already fetched) to our database.
@@ -140,7 +139,6 @@ export class IgdbSyncService {
                         this.logger.error(err);
                     });
             }
-            await sleep(seconds(16));
         }
     }
 }
