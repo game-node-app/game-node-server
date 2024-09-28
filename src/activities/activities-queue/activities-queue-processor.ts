@@ -24,9 +24,6 @@ export class ActivitiesQueueProcessor extends WorkerHostProcessor {
             } catch (e) {
                 this.logger.error("Error while processing activity: ", e);
                 this.logger.log("This error happened for data: ", job.data);
-                // Errors must be thrown, otherwise BullMQ will not try to
-                // re-run this job
-                throw e;
             }
         }
     }

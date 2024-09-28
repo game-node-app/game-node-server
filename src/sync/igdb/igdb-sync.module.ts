@@ -4,8 +4,6 @@ import { BullModule } from "@nestjs/bullmq";
 import { IgdbSyncProcessor } from "./igdb-sync.processor";
 import { IGDB_SYNC_QUEUE_NAME } from "./igdb-sync.constants";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
-import { IgdbSyncAuthService } from "./igdb-sync-auth.service";
-import { HttpModule } from "@nestjs/axios";
 
 /**
  * This module is responsible for handling the game create/update queue.
@@ -14,7 +12,6 @@ import { HttpModule } from "@nestjs/axios";
  */
 @Module({
     imports: [
-        HttpModule,
         BullModule.registerQueue({
             name: IGDB_SYNC_QUEUE_NAME,
             defaultJobOptions: {
@@ -25,8 +22,9 @@ import { HttpModule } from "@nestjs/axios";
                 backoff: 300,
             },
         }),
+
         GameRepositoryModule,
     ],
-    providers: [IgdbSyncService, IgdbSyncProcessor, IgdbSyncAuthService],
+    providers: [IgdbSyncService, IgdbSyncProcessor],
 })
 export class IgdbSyncModule {}
