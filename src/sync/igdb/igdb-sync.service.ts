@@ -109,7 +109,6 @@ export class IgdbSyncService {
      * on our internal queue ot be processed in a delayed manner.
      */
     public async sync() {
-        this.logger.log("Starting IGDB sync process...");
         let hasNextPage = true;
         let currentOffset = await this.getLastUsedOffset();
 
@@ -122,9 +121,6 @@ export class IgdbSyncService {
 
             const fetchResponse =
                 await this.fetchGamesInInterval(currentOffset);
-            this.logger.log(
-                `Fetched ${fetchResponse.data.length} items for processing`,
-            );
             const data = fetchResponse.data;
             hasNextPage =
                 data != undefined && data.length > this.ITEMS_PER_PAGE;
@@ -136,14 +132,11 @@ export class IgdbSyncService {
                 this.igdbSyncQueue
                     .add(IGDB_SYNC_JOB_NAME, items)
                     .then(() => {
-                        // this.logger.log(
-                        //     `Registered ${items.length} items for processing`,
-                        // );
+                        this.logger.log(
+                            `Registered ${items.length} items for processing`,
+                        );
                     })
                     .catch((err) => {
-                        this.logger.error(
-                            "Failed to add IGDB sync items to processing queue!",
-                        );
                         this.logger.error(err);
                     });
             }
