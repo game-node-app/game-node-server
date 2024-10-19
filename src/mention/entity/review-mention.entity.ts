@@ -9,6 +9,7 @@ import {
 } from "typeorm";
 import { Review } from "../../reviews/entities/review.entity";
 import { Profile } from "../../profile/entities/profile.entity";
+import { BaseMentionEntity } from "./mention.entity";
 
 /**
  * Entity representing a mention of another user in a review. <br>
@@ -16,10 +17,7 @@ import { Profile } from "../../profile/entities/profile.entity";
  */
 @Entity()
 @Unique(["reviewId", "mentionedProfileUserId"])
-export class ReviewMention {
-    @PrimaryGeneratedColumn()
-    id: number;
-
+export class ReviewMention extends BaseMentionEntity {
     @ManyToOne(() => Review, {
         nullable: false,
         onDelete: "CASCADE",
@@ -28,18 +26,4 @@ export class ReviewMention {
 
     @Column()
     reviewId: string;
-
-    @ManyToOne(() => Profile, {
-        nullable: false,
-        onDelete: "CASCADE",
-    })
-    mentionedProfile: Profile;
-
-    @Column()
-    mentionedProfileUserId: string;
-
-    @CreateDateColumn()
-    createdAt: Date;
-    @UpdateDateColumn()
-    updatedAt: Date;
 }
