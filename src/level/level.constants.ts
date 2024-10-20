@@ -12,7 +12,7 @@ export enum LevelIncreaseActivities {
 }
 
 export const LevelActivitiesToIncreaseAmountMap = {
-    [LevelIncreaseActivities.REVIEW_CREATED]: 125,
-    [LevelIncreaseActivities.GAME_FINISHED]: 75,
+    [LevelIncreaseActivities.REVIEW_CREATED]: 75,
+    [LevelIncreaseActivities.GAME_FINISHED]: 30,
     [LevelIncreaseActivities.COLLECTION_ENTRY_CREATED]: 30,
 };
