@@ -244,9 +244,8 @@ export class ReviewsService {
         reviewId: string,
         mentionedUserIds: string[] = [],
     ) {
-        return await this.mentionService.setMentionsFor(
+        return await this.mentionService.setMentionsForReview(
             userId,
-            MentionSource.REVIEW,
             reviewId,
             // If an empty array is passed, previous mentions are removed.
             mentionedUserIds,

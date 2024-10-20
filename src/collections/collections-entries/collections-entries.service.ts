@@ -290,6 +290,10 @@ export class CollectionsEntriesService {
             updatedPartialEntity.finishedAt = new Date();
         }
 
+        const firstFinishedStatusChange =
+            possibleExistingEntry?.finishedAt == undefined &&
+            updatedPartialEntity.finishedAt != undefined;
+
         const upsertedEntry =
             await this.collectionEntriesRepository.save(updatedPartialEntity);
 
@@ -297,6 +301,13 @@ export class CollectionsEntriesService {
             this.levelService.registerLevelExpIncreaseActivity(
                 userId,
                 LevelIncreaseActivities.COLLECTION_ENTRY_CREATED,
+            );
+        }
+
+        if (firstFinishedStatusChange) {
+            this.levelService.registerLevelExpIncreaseActivity(
+                userId,
+                LevelIncreaseActivities.GAME_FINISHED,
             );
         }
 

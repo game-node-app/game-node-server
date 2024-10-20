@@ -10,8 +10,10 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindOptionsWhere,
+    IsNull,
     LessThanOrEqual,
     MoreThanOrEqual,
+    Not,
     Repository,
 } from "typeorm";
 import { UserLike } from "./entity/user-like.entity";
@@ -210,6 +212,7 @@ export class ReviewStatisticsService implements StatisticsService {
             gameId: dto?.gameId,
             profileUserId: dto?.userId,
             id: dto?.reviewId,
+            content: Not(IsNull()),
         };
         const findOptionsWhere: FindOptionsWhere<ReviewStatistics> = {
             review: reviewFindOptionsWhere,

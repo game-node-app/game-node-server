@@ -101,7 +101,6 @@ export class GameRepositoryCreateService {
         @InjectRepository(GameEngineLogo)
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
         private readonly statisticsQueueService: StatisticsQueueService,
-        private readonly hltbSyncQueueService: HltbSyncQueueService,
     ) {}
 
     /**
@@ -136,9 +135,6 @@ export class GameRepositoryCreateService {
             sourceId: game.id,
             sourceType: StatisticsSourceType.GAME,
         });
-        // Temporarily disabled
-        // TODO: investigate if this is bogging the queue
-        // this.hltbSyncQueueService.createPlaytimeInfo(game.id, game.name!);
     }
 
     /**
