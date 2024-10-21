@@ -212,7 +212,6 @@ export class ReviewStatisticsService implements StatisticsService {
             gameId: dto?.gameId,
             profileUserId: dto?.userId,
             id: dto?.reviewId,
-            content: Not(IsNull()),
         };
         const findOptionsWhere: FindOptionsWhere<ReviewStatistics> = {
             review: reviewFindOptionsWhere,
