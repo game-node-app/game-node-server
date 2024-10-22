@@ -26,4 +26,12 @@ export const achievementsMiscData: Achievement[] = [
         category: AchievementCategory.MISC,
         checkEligibility: async () => false,
     },
+    {
+        id: "area-42",
+        name: "Does this mean something?",
+        description: "Be a member of Area 42",
+        expGainAmount: 100,
+        category: AchievementCategory.MISC,
+        checkEligibility: async () => false,
+    },
 ];
