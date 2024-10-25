@@ -5,6 +5,10 @@ import { RabbitMQModule } from "@golevelup/nestjs-rabbitmq";
 import { IGDB_SYNC_RABBITMQ_QUEUE_CONFIG } from "../sync/igdb/igdb-sync.constants";
 import { EMAIL_CONFIG_TOKEN } from "./global.tokens";
 import { SMTPServiceConfig } from "supertokens-node/lib/build/ingredients/emaildelivery/services/smtp";
+import {
+    HLTB_SYNC_REQUEST_RMQ_QUEUE,
+    HLTB_SYNC_RESPONSE_RMQ_QUEUE,
+} from "../sync/hltb/hltb-sync.constants";
 
 @Global()
 @Module({
@@ -26,12 +30,21 @@ import { SMTPServiceConfig } from "supertokens-node/lib/build/ingredients/emaild
                             type: "direct",
                             createExchangeIfNotExists: true,
                         },
+                        {
+                            name: "sync-hltb",
+                            type: "direct",
+                            createExchangeIfNotExists: true,
+                        },
                     ],
                     connectionInitOptions: {
                         wait: false,
                     },
                     uri: rabbitUri,
-                    queues: [IGDB_SYNC_RABBITMQ_QUEUE_CONFIG],
+                    queues: [
+                        IGDB_SYNC_RABBITMQ_QUEUE_CONFIG,
+                        HLTB_SYNC_REQUEST_RMQ_QUEUE,
+                        HLTB_SYNC_RESPONSE_RMQ_QUEUE,
+                    ],
                 };
             },
         }),

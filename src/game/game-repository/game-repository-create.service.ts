@@ -24,7 +24,7 @@ import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { PartialGame } from "./game-repository.types";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
 import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
-import { HltbSyncQueueService } from "../../sync/hltb/hltb-sync-queue.service";
+import { HltbSyncUpdateService } from "../../sync/hltb/hltb-sync-update.service";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -57,7 +57,7 @@ export class GameRepositoryCreateService {
      * @param gameEngineRepository
      * @param gameEngineLogoRepository
      * @param statisticsQueueService
-     * @param hltbSyncQueueService
+     * @param hltbSyncUpdateService
      */
     constructor(
         @InjectRepository(Game)
@@ -101,6 +101,7 @@ export class GameRepositoryCreateService {
         @InjectRepository(GameEngineLogo)
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
         private readonly statisticsQueueService: StatisticsQueueService,
+        private readonly hltbSyncUpdateService: HltbSyncUpdateService,
     ) {}
 
     /**
@@ -127,6 +128,7 @@ export class GameRepositoryCreateService {
         await this.gameRepository.upsert(game, ["id"]);
         await this.buildChildRelationships(game);
         this.logger.log(`Upserted game ${game.id} and it's relationships`);
+
         this.dispatchCreateUpdateEvent(game);
     }
 
@@ -134,6 +136,10 @@ export class GameRepositoryCreateService {
         this.statisticsQueueService.createStatistics({
             sourceId: game.id,
             sourceType: StatisticsSourceType.GAME,
+        });
+        this.hltbSyncUpdateService.registerUpdateRequest({
+            gameId: game.id,
+            name: game.name!,
         });
     }
 
