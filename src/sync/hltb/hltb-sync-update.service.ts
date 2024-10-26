@@ -74,8 +74,5 @@ export class HltbSyncUpdateService {
         this.logger.log(`Received update response for gameId: ${msg.gameId}`);
         const parsedResponse = parseResponse(msg.gameId, msg.match);
         await this.playtimeService.save(parsedResponse);
-        this.logger.log(
-            `Successfully processed update for gameId: ${msg.gameId}`,
-        );
     }
 }

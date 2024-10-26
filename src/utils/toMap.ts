@@ -20,6 +20,3 @@ export function toMap<T, K extends keyof T>(
         return acc;
     }, new Map());
 }
-
-const list: Game[] = [];
-const map = toMap(list, "id");
