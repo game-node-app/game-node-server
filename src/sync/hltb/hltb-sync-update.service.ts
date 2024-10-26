@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import {
     HLTBResponseItem,
     HLTBUpdateRequest,
@@ -29,6 +29,7 @@ export class HltbSyncUpdateService {
 
     constructor(
         private readonly amqpConnection: AmqpConnection,
+        @Inject(forwardRef(() => PlaytimeService))
         private readonly playtimeService: PlaytimeService,
     ) {}
 
@@ -68,9 +69,8 @@ export class HltbSyncUpdateService {
         routingKey: "sync.hltb.update.response",
         queue: "sync.hltb.update.response",
         name: "sync.hltb.update.response",
-        allowNonJsonMessages: true,
     })
-    async receiveUpdateResponse(msg: HLTBUpdateResponse) {
+    async subscribe(msg: HLTBUpdateResponse) {
         this.logger.log(`Received update response for gameId: ${msg.gameId}`);
         const parsedResponse = parseResponse(msg.gameId, msg.match);
         await this.playtimeService.save(parsedResponse);

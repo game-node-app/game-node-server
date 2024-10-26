@@ -57,7 +57,6 @@ export class GameRepositoryCreateService {
      * @param gameEngineRepository
      * @param gameEngineLogoRepository
      * @param statisticsQueueService
-     * @param hltbSyncUpdateService
      */
     constructor(
         @InjectRepository(Game)
@@ -101,7 +100,6 @@ export class GameRepositoryCreateService {
         @InjectRepository(GameEngineLogo)
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
         private readonly statisticsQueueService: StatisticsQueueService,
-        private readonly hltbSyncUpdateService: HltbSyncUpdateService,
     ) {}
 
     /**
@@ -136,10 +134,6 @@ export class GameRepositoryCreateService {
         this.statisticsQueueService.createStatistics({
             sourceId: game.id,
             sourceType: StatisticsSourceType.GAME,
-        });
-        this.hltbSyncUpdateService.registerUpdateRequest({
-            gameId: game.id,
-            name: game.name!,
         });
     }
 

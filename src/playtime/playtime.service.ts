@@ -1,8 +1,17 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+    forwardRef,
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+    Logger,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GamePlaytime } from "./entity/game-playtime.entity";
 import { DeepPartial, In, Repository } from "typeorm";
 import { toMap } from "../utils/toMap";
+import { HltbSyncUpdateService } from "../sync/hltb/hltb-sync-update.service";
+import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 
 @Injectable()
 export class PlaytimeService {
@@ -11,6 +20,9 @@ export class PlaytimeService {
     constructor(
         @InjectRepository(GamePlaytime)
         private gamePlaytimeRepository: Repository<GamePlaytime>,
+        @Inject(forwardRef(() => HltbSyncUpdateService))
+        private readonly hltbSyncUpdateService: HltbSyncUpdateService,
+        private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
     public async findOneByGameId(gameId: number) {
@@ -29,6 +41,38 @@ export class PlaytimeService {
         }
 
         return entity;
+    }
+
+    /**
+     * Triggers a HLTB sync update if no game playtime is found for a given game id.
+     * @param gameId
+     */
+    public async findOneByGameIdAndRequestUpdate(gameId: number) {
+        try {
+            return await this.findOneByGameIdOrFail(gameId);
+        } catch (err: unknown) {
+            this.registerUpdateRequest(gameId);
+            throw err;
+        }
+    }
+
+    private registerUpdateRequest(gameId: number) {
+        this.gameRepositoryService
+            .findOneById(gameId)
+            .then((game) => {
+                if (game) {
+                    this.hltbSyncUpdateService.registerUpdateRequest({
+                        gameId: gameId,
+                        name: game.name,
+                    });
+                }
+            })
+            .catch((err) => {
+                this.logger.error(
+                    `Failed to register update request for missing playtime for gameId: ${gameId}`,
+                );
+                this.logger.error(err);
+            });
     }
 
     public async findAllByGameIds(gameIds: number[]) {
