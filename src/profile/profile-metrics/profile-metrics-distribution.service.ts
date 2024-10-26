@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
-import { HltbSyncService } from "../../sync/hltb/hltb-sync.service";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import {
     ProfileMetricsYearDistributionBy,
@@ -17,12 +16,13 @@ import {
 } from "./dto/profile-metrics-type-distribution.dto";
 import { getGameCategoryName } from "../../game/game-repository/game-repository.utils";
 import { ReviewsService } from "../../reviews/reviews.service";
+import { PlaytimeService } from "../../playtime/playtime.service";
 
 @Injectable()
 export class ProfileMetricsDistributionService {
     constructor(
         private readonly collectionsEntriesService: CollectionsEntriesService,
-        private readonly hltbService: HltbSyncService,
+        private readonly playtimeService: PlaytimeService,
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly reviewsService: ReviewsService,
     ) {}
@@ -33,7 +33,7 @@ export class ProfileMetricsDistributionService {
     ): Promise<ProfileMetricsYearDistributionResponseDto> {
         const [collectionEntries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
-                undefined,
+                userId,
                 userId,
                 {
                     limit: 9999999,
@@ -149,7 +149,9 @@ export class ProfileMetricsDistributionService {
                 );
 
                 const playtimeMap =
-                    await this.hltbService.getPlaytimesMap(finishedGamesIds);
+                    await this.playtimeService.getPlaytimesMap(
+                        finishedGamesIds,
+                    );
 
                 for (const finishedGame of finishedGames) {
                     const playtime = playtimeMap.get(finishedGame.gameId);
@@ -203,7 +205,7 @@ export class ProfileMetricsDistributionService {
     ): Promise<ProfileMetricsTypeDistributionResponseDto> {
         const [collectionEntries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
-                undefined,
+                userId,
                 userId,
                 {
                     limit: 9999999,

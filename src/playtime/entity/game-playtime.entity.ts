@@ -4,11 +4,10 @@ import {
     Entity,
     JoinColumn,
     OneToOne,
-    PrimaryColumn,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
-import { Game } from "../../../game/game-repository/entities/game.entity";
+import { Game } from "../../game/game-repository/entities/game.entity";
 
 @Entity()
 export class GamePlaytime {

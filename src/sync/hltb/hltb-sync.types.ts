@@ -36,7 +36,12 @@ export interface HLTBResponseItem {
     release_world: number;
 }
 
-export interface HLTBJobData {
+export interface HLTBUpdateRequest {
     gameId: number;
     name: string;
+}
+
+export interface HLTBUpdateResponse {
+    gameId: number;
+    match: HLTBResponseItem;
 }

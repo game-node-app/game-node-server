@@ -2,14 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { CollectionsService } from "../../collections/collections.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
-import { HltbSyncService } from "../../sync/hltb/hltb-sync.service";
+import { PlaytimeService } from "../../playtime/playtime.service";
 
 @Injectable()
 export class ProfileMetricsService {
     constructor(
         private readonly collectionsService: CollectionsService,
         private readonly collectionsEntriesService: CollectionsEntriesService,
-        private readonly hltbService: HltbSyncService,
+        private readonly playtimeService: PlaytimeService,
     ) {}
 
     async getStatsOverview(userId: string): Promise<ProfileMetricsOverviewDto> {
@@ -37,7 +37,7 @@ export class ProfileMetricsService {
         );
 
         const playtimeMap =
-            await this.hltbService.getPlaytimesMap(finishedGamesIds);
+            await this.playtimeService.getPlaytimesMap(finishedGamesIds);
 
         let totalEstimatedPlaytime = 0;
         for (const value of playtimeMap.values()) {
