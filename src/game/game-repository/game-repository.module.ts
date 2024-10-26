@@ -54,7 +54,6 @@ import { HltbSyncModule } from "../../sync/hltb/hltb-sync.module";
             GamePlayerPerspective,
         ]),
         forwardRef(() => StatisticsQueueModule),
-        HltbSyncModule,
     ],
     providers: [GameRepositoryService, GameRepositoryCreateService],
     exports: [GameRepositoryService, GameRepositoryCreateService],

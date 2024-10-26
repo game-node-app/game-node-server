@@ -1,9 +1,9 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { HltbSyncUpdateService } from "./hltb-sync-update.service";
 import { PlaytimeModule } from "../../playtime/playtime.module";
 
 @Module({
-    imports: [PlaytimeModule],
+    imports: [forwardRef(() => PlaytimeModule)],
     providers: [HltbSyncUpdateService],
     exports: [HltbSyncUpdateService],
 })

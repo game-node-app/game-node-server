@@ -9,6 +9,6 @@ export class PlaytimeController {
 
     @Get(":gameId")
     async findOneByGameId(@Param("gameId") gameId: number) {
-        return this.playtimeService.findOneByGameIdOrFail(gameId);
+        return this.playtimeService.findOneByGameIdAndRequestUpdate(gameId);
     }
 }
