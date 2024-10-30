@@ -12,7 +12,6 @@ import { AchievementsModule } from "../achievements/achievements.module";
     imports: [
         TypeOrmModule.forFeature([Collection]),
         LibrariesModule,
-        ReviewsModule,
         forwardRef(() => CollectionsEntriesModule),
         AchievementsModule,
     ],

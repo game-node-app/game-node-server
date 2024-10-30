@@ -1,5 +1,4 @@
 import { Processor } from "@nestjs/bullmq";
-import { Activity } from "../activities-repository/entities/activity.entity";
 import { Job } from "bullmq";
 import { Injectable, Logger } from "@nestjs/common";
 import { ActivitiesRepositoryService } from "../activities-repository/activities-repository.service";
@@ -19,12 +18,7 @@ export class ActivitiesQueueProcessor extends WorkerHostProcessor {
 
     async process(job: Job<ActivityCreate>) {
         if (job.name === "register") {
-            try {
-                await this.activitiesRepositoryService.create(job.data);
-            } catch (e) {
-                this.logger.error("Error while processing activity: ", e);
-                this.logger.log("This error happened for data: ", job.data);
-            }
+            await this.activitiesRepositoryService.create(job.data);
         }
     }
 }

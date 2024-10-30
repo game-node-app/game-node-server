@@ -16,6 +16,7 @@ import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { minutes } from "@nestjs/throttler";
 import { Public } from "../../auth/public.decorator";
 import { AuthGuard } from "../../auth/auth.guard";
+import { SessionAwareCacheInterceptor } from "../../interceptor/session-aware-cache/session-aware-cache.interceptor";
 
 @ApiTags("activities-feed")
 @Controller("activities/feed")
@@ -26,7 +27,7 @@ export class ActivitiesFeedController {
     ) {}
 
     @Get()
-    @UseInterceptors(CacheInterceptor)
+    @UseInterceptors(SessionAwareCacheInterceptor)
     @CacheTTL(minutes(5))
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({

@@ -15,6 +15,11 @@ import { StatisticsQueueService } from "../../statistics/statistics-queue/statis
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
 import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { GameFilterService } from "../../game/game-filter/game-filter.service";
+import { SuspensionService } from "../../suspension/suspension.service";
+import { ReviewsService } from "../../reviews/reviews.service";
+import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
+import { UnrecoverableError } from "bullmq";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -24,9 +29,75 @@ export class ActivitiesRepositoryService {
         @InjectRepository(Activity)
         private activitiesRepository: Repository<Activity>,
         private readonly statisticsQueueService: StatisticsQueueService,
+        private readonly reviewsService: ReviewsService,
+        private readonly collectionEntriesService: CollectionsEntriesService,
+        private readonly gameFilterService: GameFilterService,
+        private readonly suspensionService: SuspensionService,
     ) {}
 
+    /**
+     * Check if the activity can be created.
+     * - target entry really exists
+     * - user is not suspended/banned
+     * - game is not excluded
+     * @param dto
+     * @private
+     */
+    private async validateCreate(dto: ActivityCreate) {
+        const isSuspendedOrBanned =
+            await this.suspensionService.checkIsSuspendedOrBanned(
+                dto.profileUserId,
+            );
+        if (isSuspendedOrBanned) {
+            throw new UnrecoverableError("User is suspended or banned.");
+        }
+
+        let targetGameId: number | undefined = undefined;
+        switch (dto.type) {
+            case ActivityType.COLLECTION_ENTRY: {
+                if (typeof dto.sourceId !== "string") {
+                    throw new UnrecoverableError(
+                        "Invalid sourceId type for collectionEntry activity",
+                    );
+                }
+                const collectionEntry =
+                    await this.collectionEntriesService.findOneByIdOrFail(
+                        dto.sourceId,
+                    );
+
+                targetGameId = collectionEntry.gameId;
+                break;
+            }
+            case ActivityType.REVIEW: {
+                if (typeof dto.sourceId !== "string") {
+                    throw new UnrecoverableError(
+                        "Invalid sourceId type for review activity",
+                    );
+                }
+                const review = await this.reviewsService.findOneByIdOrFail(
+                    dto.sourceId,
+                );
+                targetGameId = review.gameId;
+                break;
+            }
+        }
+
+        if (targetGameId == undefined) {
+            return;
+        }
+
+        const isGameExcluded =
+            await this.gameFilterService.isExcluded(targetGameId);
+        if (isGameExcluded) {
+            throw new UnrecoverableError(
+                "Target game is excluded from front-facing content",
+            );
+        }
+    }
+
     async create(dto: ActivityCreate) {
+        await this.validateCreate(dto);
+
         const { type, sourceId, complementarySourceId, profileUserId } = dto;
 
         const activity = this.activitiesRepository.create({
@@ -37,12 +108,12 @@ export class ActivitiesRepositoryService {
         switch (dto.type) {
             case ActivityType.COLLECTION_ENTRY:
                 if (typeof sourceId !== "string") {
-                    throw new Error(
+                    throw new UnrecoverableError(
                         "CollectionEntry activities should have a string sourceId",
                     );
                 }
                 if (typeof complementarySourceId !== "string") {
-                    throw new Error(
+                    throw new UnrecoverableError(
                         "A string complementarySourceId must be specified for CollectionEntry activities",
                     );
                 }
@@ -51,7 +122,7 @@ export class ActivitiesRepositoryService {
                 break;
             case ActivityType.REVIEW:
                 if (typeof sourceId !== "string") {
-                    throw new Error(
+                    throw new UnrecoverableError(
                         "Review activities should have a string sourceId",
                     );
                 }
@@ -59,38 +130,25 @@ export class ActivitiesRepositoryService {
                 break;
             case ActivityType.FOLLOW:
                 if (typeof sourceId !== "number") {
-                    throw new Error(
+                    throw new UnrecoverableError(
                         "Follow activities should have a number sourceId",
                     );
                 }
                 activity.userFollowId = sourceId;
                 break;
             default:
-                this.logger.error(
-                    `Invalid activity type: ${JSON.stringify(dto)}`,
-                );
-                throw new Error(
+                throw new UnrecoverableError(
                     `Invalid activity type: ${JSON.stringify(dto)}`,
                 );
         }
 
-        try {
-            const persistedActivity =
-                await this.activitiesRepository.save(activity);
+        const persistedActivity =
+            await this.activitiesRepository.save(activity);
 
-            this.statisticsQueueService.createStatistics({
-                sourceId: persistedActivity.id,
-                sourceType: StatisticsSourceType.ACTIVITY,
-            });
-        } catch (e) {
-            /**
-             * One of the unique constraints likely failed
-             */
-            if (e instanceof QueryFailedError) {
-                this.logger.warn(`Skipping attempt to re-insert activity`);
-            }
-            this.logger.error(e);
-        }
+        this.statisticsQueueService.createStatistics({
+            sourceId: persistedActivity.id,
+            sourceType: StatisticsSourceType.ACTIVITY,
+        });
     }
 
     async findLatestBy(by: FindManyOptions<Activity>) {
