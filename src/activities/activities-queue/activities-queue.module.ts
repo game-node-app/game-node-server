@@ -1,5 +1,5 @@
 import { BullModule } from "@nestjs/bullmq";
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { ProfileModule } from "../../profile/profile.module";
 import { ActivitiesQueueProcessor } from "./activities-queue-processor";
 import { ActivitiesQueueService } from "./activities-queue.service";
@@ -11,7 +11,6 @@ import { ActivitiesRepositoryModule } from "../activities-repository/activities-
         BullModule.registerQueue({
             name: "activities",
         }),
-
         ProfileModule,
     ],
     providers: [ActivitiesQueueService, ActivitiesQueueProcessor],

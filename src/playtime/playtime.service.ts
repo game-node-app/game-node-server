@@ -12,6 +12,7 @@ import { DeepPartial, In, Repository } from "typeorm";
 import { toMap } from "../utils/toMap";
 import { HltbSyncUpdateService } from "../sync/hltb/hltb-sync-update.service";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
+import { days } from "@nestjs/throttler";
 
 @Injectable()
 export class PlaytimeService {
@@ -49,7 +50,17 @@ export class PlaytimeService {
      */
     public async findOneByGameIdAndRequestUpdate(gameId: number) {
         try {
-            return await this.findOneByGameIdOrFail(gameId);
+            const playtimeInfo = await this.findOneByGameIdOrFail(gameId);
+            if (
+                playtimeInfo &&
+                playtimeInfo.updatedAt &&
+                new Date().getTime() - playtimeInfo.updatedAt.getTime() >
+                    days(14)
+            ) {
+                this.registerUpdateRequest(gameId);
+            }
+
+            return playtimeInfo;
         } catch (err: unknown) {
             this.registerUpdateRequest(gameId);
             throw err;

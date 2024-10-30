@@ -13,6 +13,7 @@ import { ActivityStatisticsService } from "./activity-statistics.service";
 import { ActivityStatistics } from "./entity/activity-statistics.entity";
 import { CommentStatisticsService } from "./comment-statistics.service";
 import { CommentStatistics } from "./entity/comment-statistics.entity";
+import { GameFilterModule } from "../game/game-filter/game-filter.module";
 
 @Module({
     imports: [
@@ -26,6 +27,7 @@ import { CommentStatistics } from "./entity/comment-statistics.entity";
         ]),
         NotificationsModule,
         forwardRef(() => GameRepositoryModule),
+        GameFilterModule,
     ],
     providers: [
         GameStatisticsService,

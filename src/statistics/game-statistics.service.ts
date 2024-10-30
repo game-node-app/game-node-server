@@ -21,6 +21,7 @@ import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-g
 import { getPreviousDate } from "./statistics.utils";
 import { hours } from "@nestjs/throttler";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
+import { GameFilterService } from "../game/game-filter/game-filter.service";
 
 @Injectable()
 export class GameStatisticsService implements StatisticsService {
@@ -32,6 +33,7 @@ export class GameStatisticsService implements StatisticsService {
         @InjectRepository(UserView)
         private readonly userViewRepository: Repository<UserView>,
         private readonly gameRepositoryService: GameRepositoryService,
+        private readonly gameFilterService: GameFilterService,
     ) {}
 
     /**
@@ -159,9 +161,8 @@ export class GameStatisticsService implements StatisticsService {
         // User supplied limit
         const limitToUse = limit || 20;
         const minusDays = StatisticsPeriodToMinusDays[period];
-        const periodDate = getPreviousDate(minusDays);
+        const viewsStartDate = getPreviousDate(minusDays);
 
-        console.time("game-trending-statistics");
         const queryBuilder =
             this.gameStatisticsRepository.createQueryBuilder("s");
 
@@ -171,19 +172,23 @@ export class GameStatisticsService implements StatisticsService {
         const statistics = await queryBuilder
             .select()
             .leftJoin(UserView, `uv`, `uv.gameStatisticsId = s.id`)
-            .where(`uv.createdAt >= :uvDate`, {
-                uvDate: periodDate,
+            .where(`(uv.createdAt >= :uvDate OR s.viewsCount = 0)`, {
+                uvDate: viewsStartDate,
             })
-            .orWhere(`(s.viewsCount = 0)`)
+            .andWhere(() => {
+                const excludedGamesQuery =
+                    this.gameFilterService.buildQueryBuilderSubQuery(
+                        "s.gameId",
+                    );
+                console.log("excludedGamesQuery", excludedGamesQuery);
+                return `(NOT EXISTS ${excludedGamesQuery})`;
+            })
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(fixedStatisticsLimit)
-            .cache(`trending-games-statistics-${period}`, hours(6))
+            // .cache(`trending-games-statistics-${period}`, hours(6))
             .getMany();
 
-        console.timeEnd("game-trending-statistics");
-
-        console.time("game-trending-filter");
         const gameIds = statistics.map((s) => s.gameId);
         const games = await this.gameRepositoryService.findAllIdsWithFilters({
             ...criteria,
@@ -197,7 +202,6 @@ export class GameStatisticsService implements StatisticsService {
         const relevantStatistics = statistics.filter((statistics) =>
             gamesSlice.includes(statistics.gameId),
         );
-        console.timeEnd("game-trending-filter");
         return [relevantStatistics, totalAvailableGames];
     }
 
