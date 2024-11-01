@@ -144,10 +144,15 @@ export class ReportService {
                     "ban",
                 );
                 break;
+            // An alert will be emitted below
             case ReportHandleAction.ALERT:
                 break;
             case ReportHandleAction.DISCARD:
-                await this.delete(reportId);
+                await this.close(
+                    handlerUserId,
+                    reportId,
+                    ReportHandleAction.DISCARD,
+                );
                 return;
         }
 
@@ -159,7 +164,6 @@ export class ReportService {
                 );
             }
         }
-
         this.notificationsQueueService.registerNotification({
             sourceId: report.id,
             userId: undefined,
@@ -186,11 +190,5 @@ export class ReportService {
                 isClosed: true,
             },
         );
-    }
-
-    async delete(reportId: number) {
-        await this.reportRepository.delete({
-            id: reportId,
-        });
     }
 }
