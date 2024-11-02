@@ -80,4 +80,24 @@ export class SuspensionService {
             ],
         });
     }
+
+    async checkIsSuspended(userId: string) {
+        const now = new Date();
+        return await this.userSuspensionRepository.exists({
+            where: {
+                profileUserId: userId,
+                isSuspension: true,
+                endDate: MoreThanOrEqual(now),
+            },
+        });
+    }
+
+    async checkIsBanned(userId: string) {
+        return await this.userSuspensionRepository.exists({
+            where: {
+                profileUserId: userId,
+                isBan: true,
+            },
+        });
+    }
 }

@@ -191,6 +191,19 @@ export class AchievementsService {
             );
         }
 
+        const existingAchievement =
+            await this.getObtainedAchievementByAchievementId(
+                targetUserId,
+                achievementId,
+            );
+
+        if (existingAchievement) {
+            throw new HttpException(
+                "User already has this achievement.",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
         const obtainedAchievementEntity =
             this.obtainedAchievementsRepository.create({
                 achievementId: achievement.id,

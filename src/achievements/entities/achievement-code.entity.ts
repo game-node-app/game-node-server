@@ -38,6 +38,16 @@ export class AchievementCode {
     })
     isForceExpired: boolean;
 
+    /**
+     * This basically disables 'isForceExpired' functionality if set to false. <br>
+     * This also disables 'consumedBy' tracking if set to false.
+     */
+    @Column({
+        nullable: false,
+        default: true,
+    })
+    isSingleUse: boolean;
+
     @ManyToOne(() => Profile, {
         nullable: true,
         onDelete: "CASCADE",

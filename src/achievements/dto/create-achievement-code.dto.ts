@@ -1,4 +1,11 @@
-import { IsDate, IsNotEmpty, IsString, Length } from "class-validator";
+import {
+    IsBoolean,
+    IsDate,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    Length,
+} from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateAchievementCodeRequestDto {
@@ -11,6 +18,8 @@ export class CreateAchievementCodeRequestDto {
         type: "date-time",
     })
     expiresAt: Date;
+    @IsBoolean()
+    isSingleUse: boolean = true;
 }
 
 export class CreateAchievementCodeResponseDto {

@@ -15,7 +15,12 @@ import {
 import { ProfileService } from "./profile.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { ApiConsumes, ApiResponse, ApiTags } from "@nestjs/swagger";
+import {
+    ApiConsumes,
+    ApiOkResponse,
+    ApiResponse,
+    ApiTags,
+} from "@nestjs/swagger";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
@@ -24,6 +29,7 @@ import { Public } from "../auth/public.decorator";
 import { UpdateProfileImageDto } from "./dto/update-profile-image.dto";
 import { Roles } from "../auth/roles.decorator";
 import { EUserRoles } from "../utils/constants";
+import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 
 // No POST /profile endpoint
 @Controller("profile")
@@ -94,6 +100,11 @@ export class ProfileController {
     }
 
     @Get("all")
+    @ApiOkResponse({
+        type: FindAllProfileResponseItemDto,
+        status: "2XX",
+        isArray: true,
+    })
     async findAll() {
         return await this.profileService.findAll();
     }
