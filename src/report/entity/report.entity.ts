@@ -14,7 +14,6 @@ import {
     ReportHandleAction,
     ReportSourceType,
 } from "../report.constants";
-import { UserComment } from "../../comment/entity/user-comment.entity";
 import { ReviewComment } from "../../comment/entity/review-comment.entity";
 
 @Entity()
@@ -36,25 +35,15 @@ export class Report {
     })
     category: ReportCategory;
 
-    // Relations
-    @ManyToOne(() => Review, {
-        nullable: true,
-        onDelete: "CASCADE",
-    })
-    targetReview: Review | null;
+    /**
+     * User-submitted reason for report.
+     */
     @Column({
+        type: "longtext",
         nullable: true,
     })
-    targetReviewId: string | null;
-    @ManyToOne(() => ReviewComment, {
-        nullable: true,
-        onDelete: "CASCADE",
-    })
-    targetReviewComment: ReviewComment | null;
-    @Column({
-        nullable: true,
-    })
-    targetReviewCommentId: string | null;
+    reason: string | null;
+
     /**
      * Profile that is being target of a report
      */
@@ -69,14 +58,6 @@ export class Report {
     targetProfileUserId: string;
 
     /**
-     * User-submitted reason for report.
-     */
-    @Column({
-        type: "longtext",
-        nullable: true,
-    })
-    reason: string | null;
-    /**
      * User responsible for report.
      */
     @ManyToOne(() => Profile, {
@@ -86,6 +67,39 @@ export class Report {
     profile: Profile;
     @Column()
     profileUserId: string;
+
+    /**
+     * User responsible for closing this report
+     */
+    @ManyToOne(() => Profile, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    closeProfile: Profile | null;
+    @Column({
+        nullable: true,
+    })
+    closeProfileUserId: string | null;
+
+    // Relations
+    @ManyToOne(() => Review, {
+        nullable: true,
+        onDelete: "SET NULL",
+    })
+    targetReview: Review | null;
+    @Column({
+        nullable: true,
+    })
+    targetReviewId: string | null;
+    @ManyToOne(() => ReviewComment, {
+        nullable: true,
+        onDelete: "SET NULL",
+    })
+    targetReviewComment: ReviewComment | null;
+    @Column({
+        nullable: true,
+    })
+    targetReviewCommentId: string | null;
 
     @Column({
         nullable: false,
@@ -101,18 +115,6 @@ export class Report {
         type: "varchar",
     })
     closeHandleAction: ReportHandleAction | null;
-    /**
-     * User responsible for closing this report
-     */
-    @ManyToOne(() => Profile, {
-        nullable: true,
-        onDelete: "CASCADE",
-    })
-    closeProfile: Profile | null;
-    @Column({
-        nullable: true,
-    })
-    closeProfileUserId: string | null;
 
     @CreateDateColumn()
     createdAt: Date;

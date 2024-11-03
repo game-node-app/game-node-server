@@ -40,7 +40,7 @@ export class AchievementsCodeService {
         issuerUserId: string,
         dto: CreateAchievementCodeRequestDto,
     ): Promise<CreateAchievementCodeResponseDto> {
-        const { achievementId, expiresAt } = dto;
+        const { achievementId, expiresAt, isSingleUse } = dto;
         const achievementExists =
             this.achievementsService.getAchievementById(achievementId);
 
@@ -61,6 +61,7 @@ export class AchievementsCodeService {
             achievementId: achievementId,
             isForceExpired: false,
             expiresAt: expiresAt,
+            isSingleUse: isSingleUse ?? true,
             issuedByUserId: issuerUserId,
         });
 
@@ -93,9 +94,11 @@ export class AchievementsCodeService {
 
         await this.achievementsService.grantAchievement(userId, achievementId);
 
-        await this.achievementCodeRepository.update(possibleCode.id, {
-            consumedByUserId: userId,
-            isForceExpired: true,
-        });
+        if (possibleCode.isSingleUse) {
+            await this.achievementCodeRepository.update(possibleCode.id, {
+                consumedByUserId: userId,
+                isForceExpired: true,
+            });
+        }
     }
 }

@@ -127,8 +127,6 @@ export class ReportService {
             );
         }
 
-        // In case more user-generated content is added in the future, just add more checks here.
-        const isContentDeletable = report.targetReviewId != undefined;
         switch (action) {
             case ReportHandleAction.SUSPEND:
                 await this.suspensionService.create(
@@ -144,18 +142,33 @@ export class ReportService {
                     "ban",
                 );
                 break;
+            // An alert will be emitted below
             case ReportHandleAction.ALERT:
                 break;
             case ReportHandleAction.DISCARD:
-                await this.delete(reportId);
+                await this.close(
+                    handlerUserId,
+                    reportId,
+                    ReportHandleAction.DISCARD,
+                );
                 return;
         }
+        // ...Action is different from DISCARD
 
-        if (isContentDeletable && deleteReportedContent) {
+        if (deleteReportedContent) {
             if (report.targetReviewId != undefined) {
                 await this.reviewsService.delete(
                     report.targetProfileUserId,
                     report.targetReviewId,
+                );
+            }
+            if (report.targetReviewCommentId != undefined) {
+                await this.commentService.delete(
+                    report.targetProfileUserId,
+                    report.targetReviewCommentId,
+                    {
+                        sourceType: CommentSourceType.REVIEW,
+                    },
                 );
             }
         }
@@ -186,11 +199,5 @@ export class ReportService {
                 isClosed: true,
             },
         );
-    }
-
-    async delete(reportId: number) {
-        await this.reportRepository.delete({
-            id: reportId,
-        });
     }
 }

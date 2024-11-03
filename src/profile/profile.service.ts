@@ -16,6 +16,8 @@ import {
     UpdateProfileImageDto,
 } from "./dto/update-profile-image.dto";
 import { ProfileBanner } from "./entities/profile-banner.entity";
+import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
+import { SuspensionService } from "../suspension/suspension.service";
 
 const getImageFilePath = (filename: string, extension: string) => {
     return `${publicImagesDir}/uploads/${filename}.${extension}`;
@@ -31,6 +33,7 @@ export class ProfileService {
         private profileAvatarRepository: Repository<ProfileAvatar>,
         @InjectRepository(ProfileBanner)
         private profileBannerRepository: Repository<ProfileBanner>,
+        private readonly suspensionService: SuspensionService,
     ) {}
 
     /**
@@ -164,8 +167,24 @@ export class ProfileService {
         await this.profileRepository.save(profile);
     }
 
-    async findAll() {
-        return await this.profileRepository.find();
+    async findAll(): Promise<FindAllProfileResponseItemDto[]> {
+        const result: FindAllProfileResponseItemDto[] = [];
+        const profiles = await this.profileRepository.find();
+
+        for (const profile of profiles) {
+            const [isSuspended, isBanned] = await Promise.all([
+                this.suspensionService.checkIsSuspended(profile.userId),
+                this.suspensionService.checkIsBanned(profile.userId),
+            ]);
+
+            result.push({
+                profile,
+                isSuspended,
+                isBanned,
+            });
+        }
+
+        return result;
     }
 
     async findOneById(userId: string): Promise<Profile | null> {
