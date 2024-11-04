@@ -3,6 +3,9 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { GameExclusion } from "./entity/game-exclusion.entity";
 import { DataSource, In, Repository } from "typeorm";
 import { GameRepositoryService } from "../game-repository/game-repository.service";
+import { FindAllExcludedGamesRequestDto } from "./dto/find-all-excluded-games.dto";
+import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 
 @Injectable()
 export class GameFilterService {
@@ -13,7 +16,14 @@ export class GameFilterService {
         private readonly dataSource: DataSource,
     ) {}
 
-    public async issueExclusion(issuerUserId: string, targetGameId: number) {
+    public async findAll(
+        dto: FindAllExcludedGamesRequestDto,
+    ): Promise<TPaginationData<GameExclusion>> {
+        const options = buildBaseFindOptions(dto);
+        return this.gameExclusionRepository.findAndCount(options);
+    }
+
+    public async registerExclusion(issuerUserId: string, targetGameId: number) {
         // Errors out if game doesn't exist
         await this.gameRepositoryService.findOneById(targetGameId);
 
@@ -35,6 +45,15 @@ export class GameFilterService {
             targetGameId: targetGameId,
             isActive: true,
             issuerUserId: issuerUserId,
+        });
+    }
+
+    public async deleteExclusion(targetGameId: number) {
+        // Errors out if game doesn't exist
+        await this.gameRepositoryService.findOneById(targetGameId);
+
+        await this.gameExclusionRepository.delete({
+            targetGameId: targetGameId,
         });
     }
 
