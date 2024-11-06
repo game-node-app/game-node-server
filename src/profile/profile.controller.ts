@@ -31,7 +31,6 @@ import { Roles } from "../auth/roles.decorator";
 import { EUserRoles } from "../utils/constants";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 
-// No POST /profile endpoint
 @Controller("profile")
 @ApiTags("profile")
 @UseGuards(AuthGuard)
@@ -100,6 +99,7 @@ export class ProfileController {
     }
 
     @Get("all")
+    @Roles([EUserRoles.ADMIN, EUserRoles.MOD])
     @ApiOkResponse({
         type: FindAllProfileResponseItemDto,
         status: "2XX",
