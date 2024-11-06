@@ -3,6 +3,10 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { GameExclusion } from "./entity/game-exclusion.entity";
 import { DataSource, In, Repository } from "typeorm";
 import { GameRepositoryService } from "../game-repository/game-repository.service";
+import { FindAllExcludedGamesRequestDto } from "./dto/find-all-excluded-games.dto";
+import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
+import { ChangeExclusionStatusDto } from "./dto/change-exclusion-status.dto";
 
 @Injectable()
 export class GameFilterService {
@@ -13,7 +17,14 @@ export class GameFilterService {
         private readonly dataSource: DataSource,
     ) {}
 
-    public async issueExclusion(issuerUserId: string, targetGameId: number) {
+    public async findAll(
+        dto: FindAllExcludedGamesRequestDto,
+    ): Promise<TPaginationData<GameExclusion>> {
+        const options = buildBaseFindOptions(dto);
+        return this.gameExclusionRepository.findAndCount(options);
+    }
+
+    public async register(issuerUserId: string, targetGameId: number) {
         // Errors out if game doesn't exist
         await this.gameRepositoryService.findOneById(targetGameId);
 
@@ -35,6 +46,29 @@ export class GameFilterService {
             targetGameId: targetGameId,
             isActive: true,
             issuerUserId: issuerUserId,
+        });
+    }
+
+    public async changeStatus(
+        targetGameId: number,
+        dto: ChangeExclusionStatusDto,
+    ) {
+        await this.gameRepositoryService.findOneById(targetGameId);
+        const exclusion = await this.gameExclusionRepository.findOneByOrFail({
+            targetGameId: targetGameId,
+        });
+
+        await this.gameExclusionRepository.update(exclusion.id, {
+            isActive: dto.isActive,
+        });
+    }
+
+    public async delete(targetGameId: number) {
+        // Errors out if game doesn't exist
+        await this.gameRepositoryService.findOneById(targetGameId);
+
+        await this.gameExclusionRepository.delete({
+            targetGameId: targetGameId,
         });
     }
 

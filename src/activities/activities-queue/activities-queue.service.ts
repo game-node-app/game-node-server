@@ -17,9 +17,12 @@ export class ActivitiesQueueService {
             throw new Error("An activity must have an associated profile.");
         } else if (
             activity.sourceId == undefined ||
-            typeof activity.sourceId !== "string"
+            (typeof activity.sourceId !== "number" &&
+                typeof activity.sourceId !== "string")
         ) {
-            this.logger.error("Activity must have a valid sourceId.");
+            this.logger.error(
+                `Activity must have a valid sourceId. ${JSON.stringify(activity)}`,
+            );
             throw new Error("Activity must have a valid sourceId.");
         }
         this.activitiesQueue
