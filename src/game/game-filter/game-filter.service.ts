@@ -6,6 +6,7 @@ import { GameRepositoryService } from "../game-repository/game-repository.servic
 import { FindAllExcludedGamesRequestDto } from "./dto/find-all-excluded-games.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
+import { ChangeExclusionStatusDto } from "./dto/change-exclusion-status.dto";
 
 @Injectable()
 export class GameFilterService {
@@ -23,7 +24,7 @@ export class GameFilterService {
         return this.gameExclusionRepository.findAndCount(options);
     }
 
-    public async registerExclusion(issuerUserId: string, targetGameId: number) {
+    public async register(issuerUserId: string, targetGameId: number) {
         // Errors out if game doesn't exist
         await this.gameRepositoryService.findOneById(targetGameId);
 
@@ -48,7 +49,21 @@ export class GameFilterService {
         });
     }
 
-    public async deleteExclusion(targetGameId: number) {
+    public async changeStatus(
+        targetGameId: number,
+        dto: ChangeExclusionStatusDto,
+    ) {
+        await this.gameRepositoryService.findOneById(targetGameId);
+        const exclusion = await this.gameExclusionRepository.findOneByOrFail({
+            targetGameId: targetGameId,
+        });
+
+        await this.gameExclusionRepository.update(exclusion.id, {
+            isActive: dto.isActive,
+        });
+    }
+
+    public async delete(targetGameId: number) {
         // Errors out if game doesn't exist
         await this.gameRepositoryService.findOneById(targetGameId);
 

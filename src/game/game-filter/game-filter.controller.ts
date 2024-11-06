@@ -1,4 +1,5 @@
 import {
+    Body,
     Controller,
     Delete,
     Get,
@@ -6,6 +7,7 @@ import {
     HttpStatus,
     Param,
     Post,
+    Put,
     Query,
     UseGuards,
     UseInterceptors,
@@ -22,6 +24,7 @@ import {
     FindAllExcludedGamesResponseDto,
 } from "./dto/find-all-excluded-games.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
+import { ChangeExclusionStatusDto } from "./dto/change-exclusion-status.dto";
 
 @Controller("game/filter")
 @ApiTags("game-filter")
@@ -45,18 +48,15 @@ export class GameFilterController {
         @Session() session: SessionContainer,
         @Param("gameId") gameId: number,
     ) {
-        return this.gameFilterService.registerExclusion(
-            session.getUserId(),
-            gameId,
-        );
+        return this.gameFilterService.register(session.getUserId(), gameId);
     }
 
-    @Delete(":gameId")
+    @Put(":gameId/status")
     @HttpCode(HttpStatus.NO_CONTENT)
-    async deleteExclusion(
-        @Session() session: SessionContainer,
+    async changeStatus(
         @Param("gameId") gameId: number,
+        @Body() dto: ChangeExclusionStatusDto,
     ) {
-        return this.gameFilterService.deleteExclusion(gameId);
+        await this.gameFilterService.changeStatus(gameId, dto);
     }
 }
