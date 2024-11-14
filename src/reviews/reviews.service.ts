@@ -19,8 +19,6 @@ import {
 import { StatisticsQueueService } from "../statistics/statistics-queue/statistics-queue.service";
 import { LevelService } from "../level/level.service";
 import { LevelIncreaseActivities } from "../level/level.constants";
-import { MentionService } from "../mention/mention.service";
-import { MentionSource } from "../mention/mention.constants";
 
 export class ReviewsService {
     private readonly logger = new Logger(ReviewsService.name);
@@ -34,7 +32,6 @@ export class ReviewsService {
         private readonly achievementsQueueService: AchievementsQueueService,
         private readonly statisticsQueueService: StatisticsQueueService,
         private readonly levelService: LevelService,
-        private readonly mentionService: MentionService,
     ) {}
 
     async findOneById(id: string) {
@@ -190,11 +187,6 @@ export class ReviewsService {
                 createReviewDto,
             );
             await this.reviewsRepository.update(mergedEntry.id, mergedEntry);
-            await this.processMentions(
-                userId,
-                mergedEntry.id,
-                createReviewDto.mentionedUserIds,
-            );
             return;
         }
 
@@ -210,12 +202,6 @@ export class ReviewsService {
         });
 
         const insertedEntry = await this.reviewsRepository.save(reviewEntity);
-
-        await this.processMentions(
-            userId,
-            insertedEntry.id,
-            createReviewDto.mentionedUserIds,
-        );
 
         this.activitiesQueue.register({
             type: ActivityType.REVIEW,
@@ -236,19 +222,6 @@ export class ReviewsService {
         this.levelService.registerLevelExpIncreaseActivity(
             userId,
             LevelIncreaseActivities.REVIEW_CREATED,
-        );
-    }
-
-    private async processMentions(
-        userId: string,
-        reviewId: string,
-        mentionedUserIds: string[] = [],
-    ) {
-        return await this.mentionService.setMentionsForReview(
-            userId,
-            reviewId,
-            // If an empty array is passed, previous mentions are removed.
-            mentionedUserIds,
         );
     }
 
