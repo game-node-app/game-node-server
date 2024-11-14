@@ -29,7 +29,6 @@ import { ReportModule } from "./report/report.module";
 import { SuspensionModule } from "./suspension/suspension.module";
 import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.module";
 import { RecommendationModule } from "./recommendation/recommendation.module";
-import { MentionModule } from "./mention/mention.module";
 import { PlaytimeModule } from "./playtime/playtime.module";
 import { GameFilterModule } from "./game/game-filter/game-filter.module";
 
@@ -166,7 +165,6 @@ function getRedisConfig() {
         ReportModule,
         SuspensionModule,
         RecommendationModule,
-        MentionModule,
         PlaytimeModule,
         GameFilterModule,
     ],

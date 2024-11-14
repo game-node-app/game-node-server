@@ -11,7 +11,6 @@ import { AchievementsModule } from "../achievements/achievements.module";
 import { StatisticsQueueModule } from "../statistics/statistics-queue/statistics-queue.module";
 import { LevelModule } from "../level/level.module";
 import { SuspensionModule } from "../suspension/suspension.module";
-import { MentionModule } from "../mention/mention.module";
 
 @Module({
     imports: [
@@ -23,7 +22,6 @@ import { MentionModule } from "../mention/mention.module";
         forwardRef(() => CollectionsEntriesModule),
         StatisticsQueueModule,
         LevelModule,
-        MentionModule,
     ],
     controllers: [ReviewsController],
     providers: [ReviewsService],
