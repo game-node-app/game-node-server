@@ -8,13 +8,10 @@ import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bullmq";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { GlobalModule } from "./global/global.module";
-import { CollectionsModule } from "./collections/collections.module";
-import { CollectionsEntriesModule } from "./collections/collections-entries/collections-entries.module";
-import { LibrariesModule } from "./libraries/libraries.module";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
-import { minutes, seconds, ThrottlerModule } from "@nestjs/throttler";
+import { seconds, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { LevelModule } from "./level/level.module";
 import { HealthModule } from "./health/health.module";
@@ -32,7 +29,6 @@ import { ReportModule } from "./report/report.module";
 import { SuspensionModule } from "./suspension/suspension.module";
 import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.module";
 import { RecommendationModule } from "./recommendation/recommendation.module";
-import { QueueOptions } from "bullmq";
 import { MentionModule } from "./mention/mention.module";
 import { PlaytimeModule } from "./playtime/playtime.module";
 import { GameFilterModule } from "./game/game-filter/game-filter.module";
@@ -123,7 +119,6 @@ function getRedisConfig() {
                         host: host,
                         port: port,
                     },
-
                     defaultJobOptions: {
                         removeOnComplete: true,
                         removeOnFail: true,
