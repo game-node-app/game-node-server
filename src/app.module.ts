@@ -126,7 +126,7 @@ function getRedisConfig() {
                         attempts: 15,
                         backoff: {
                             type: "fixed",
-                            delay: seconds(10),
+                            delay: seconds(2),
                         },
                     },
                 };
