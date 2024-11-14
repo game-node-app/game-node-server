@@ -22,7 +22,6 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
                 backoff: 300,
             },
         }),
-
         GameRepositoryModule,
     ],
     providers: [IgdbSyncService, IgdbSyncProcessor],

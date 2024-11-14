@@ -1,10 +1,4 @@
-import {
-    Inject,
-    Injectable,
-    Logger,
-    MessageEvent,
-    UseGuards,
-} from "@nestjs/common";
+import { Inject, Injectable, Logger, UseGuards } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindOptionsRelations,
@@ -15,8 +9,8 @@ import {
 } from "typeorm";
 import { Notification } from "./entity/notification.entity";
 import { AuthGuard } from "../auth/auth.guard";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { NotificationAggregateDto } from "./dto/notification-aggregate.dto";
@@ -25,7 +19,7 @@ import {
     ENotificationSourceType,
 } from "./notifications.constants";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
-import { hours, minutes } from "@nestjs/throttler";
+import { minutes } from "@nestjs/throttler";
 import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
 
 @Injectable()

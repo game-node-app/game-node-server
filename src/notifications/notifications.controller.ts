@@ -30,7 +30,6 @@ export class NotificationsController {
     @Get()
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
-        status: 200,
         type: PaginatedNotificationAggregationDto,
     })
     async findAllAndAggregate(

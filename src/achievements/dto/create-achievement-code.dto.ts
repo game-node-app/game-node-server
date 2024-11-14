@@ -14,9 +14,7 @@ export class CreateAchievementCodeRequestDto {
     achievementId: string;
     @IsNotEmpty()
     @IsDate()
-    @ApiProperty({
-        type: "date-time",
-    })
+    @ApiProperty({})
     expiresAt: Date;
     @IsBoolean()
     isSingleUse: boolean = true;
