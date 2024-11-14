@@ -102,7 +102,6 @@ export class ProfileController {
     @Roles([EUserRoles.ADMIN, EUserRoles.MOD])
     @ApiOkResponse({
         type: FindAllProfileResponseItemDto,
-        status: "2XX",
         isArray: true,
     })
     async findAll() {

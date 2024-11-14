@@ -33,7 +33,6 @@ export class FollowController {
 
     @Get("status")
     @ApiOkResponse({
-        status: 200,
         type: FollowStatusDto,
     })
     @Public()
@@ -46,7 +45,6 @@ export class FollowController {
 
     @Get(":id")
     @ApiOkResponse({
-        status: 200,
         type: UserFollow,
     })
     async getUserFollowById(@Param("id") userFollowId: number) {

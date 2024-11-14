@@ -58,7 +58,6 @@ export class ReviewsController {
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
         type: FindReviewPaginatedDto,
-        status: 200,
     })
     @Public()
     async findAllByUserId(
@@ -73,7 +72,6 @@ export class ReviewsController {
     @Public()
     @ApiOkResponse({
         type: FindReviewPaginatedDto,
-        status: 200,
     })
     async findAllByGameId(
         @Param("id") gameId: number,
@@ -86,7 +84,6 @@ export class ReviewsController {
     @Public()
     @ApiOkResponse({
         type: Review,
-        status: 200,
     })
     async findOneByUserIdAndGameId(
         @Query("id") userId: string,

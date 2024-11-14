@@ -9,7 +9,7 @@ export class LevelController {
     constructor(private readonly userLevelService: LevelService) {}
 
     @Get(":userId")
-    @ApiOkResponse({ status: 200, type: UserLevel })
+    @ApiOkResponse({ type: UserLevel })
     findOne(@Param("userId") userId: string) {
         return this.userLevelService.findOneByUserIdOrFail(userId);
     }

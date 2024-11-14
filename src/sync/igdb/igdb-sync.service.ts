@@ -57,7 +57,7 @@ export class IgdbSyncService {
         }
         const chunks = this.msgToChunks(msg);
         for (const chunk of chunks) {
-            this.igdbSyncQueue.add(IGDB_SYNC_JOB_NAME, chunk);
+            await this.igdbSyncQueue.add(IGDB_SYNC_JOB_NAME, chunk);
         }
     }
 }

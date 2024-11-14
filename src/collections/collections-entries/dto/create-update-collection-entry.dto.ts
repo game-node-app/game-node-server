@@ -26,8 +26,6 @@ export class CreateUpdateCollectionEntryDto {
     isFavorite: boolean = false;
     @IsOptional()
     @IsDate()
-    @ApiProperty({
-        type: "date-time",
-    })
+    @ApiProperty({})
     finishedAt?: Date;
 }
