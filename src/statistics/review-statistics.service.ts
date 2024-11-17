@@ -233,13 +233,17 @@ export class ReviewStatisticsService implements StatisticsService {
                     likesCount: LessThanOrEqual(reviewsMinimumLikeCounts),
                 },
             ],
+            // Order by likesCount THEN review create date
             order: {
                 likesCount: "DESC",
+                review: {
+                    createdAt: "DESC",
+                },
             },
-            cache: {
-                id: `review-statistics-${JSON.stringify(findOptionsWhere)}`,
-                milliseconds: minutes(5),
+            relations: {
+                review: true,
             },
+            cache: minutes(5),
         });
     }
 }
