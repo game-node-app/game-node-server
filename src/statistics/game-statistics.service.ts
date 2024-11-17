@@ -180,13 +180,12 @@ export class GameStatisticsService implements StatisticsService {
                     this.gameFilterService.buildQueryBuilderSubQuery(
                         "s.gameId",
                     );
-                console.log("excludedGamesQuery", excludedGamesQuery);
                 return `(NOT EXISTS ${excludedGamesQuery})`;
             })
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(fixedStatisticsLimit)
-            // .cache(`trending-games-statistics-${period}`, hours(6))
+            .cache(`trending-games-statistics-${period}`, hours(6))
             .getMany();
 
         const gameIds = statistics.map((s) => s.gameId);
