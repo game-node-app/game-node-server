@@ -58,7 +58,7 @@ function normalizeIgdbResults(results: any[]) {
 }
 
 @Processor(IGDB_SYNC_QUEUE_NAME, {
-    concurrency: 300,
+    concurrency: 100,
 })
 export class IgdbSyncProcessor extends WorkerHostProcessor {
     logger = new Logger(IgdbSyncProcessor.name);
