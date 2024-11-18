@@ -50,6 +50,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.13-management
+    hostname: rabbitmq
     volumes:
       - rabbitmq:/var/lib/rabbitmq/
 
@@ -73,6 +74,7 @@ services:
 
   db:
     image: mysql:8.3
+    hostname: server-db
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASS}
       MYSQL_USER: ${DB_USER}
@@ -93,6 +95,7 @@ services:
 
   redis:
     image: redis:latest
+    hostname: server-redis
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
 
@@ -112,16 +115,17 @@ services:
 
   server:
     image: lamarcke/game-node-server:latest
+    hostname: server
 
     # Most of the env vars are loaded directly from .env, we only need to override some to make sure
     # the docker resources are accessible.
     environment:
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://server-redis:6379
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
       SERVER_PORT: 5000
       DOMAIN_API: https://server.gamenode.app
       DOMAIN_WEBSITE: https://gamenode.app
-      DB_HOST: db
+      DB_HOST: server-db
       DB_DATABASE: gamenode
       DB_PASS: ${DB_PASS}
       DB_USER: ${DB_USER}
