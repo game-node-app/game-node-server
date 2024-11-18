@@ -16,7 +16,9 @@ import { StatisticsQueueService } from "./statistics-queue.service";
 import { StatisticsService } from "../statistics.types";
 import { CommentStatisticsService } from "../comment-statistics.service";
 
-@Processor(STATISTICS_QUEUE_NAME)
+@Processor(STATISTICS_QUEUE_NAME, {
+    concurrency: 50,
+})
 export class StatisticsQueueProcessor extends WorkerHostProcessor {
     logger = new Logger(StatisticsQueueService.name);
     constructor(
