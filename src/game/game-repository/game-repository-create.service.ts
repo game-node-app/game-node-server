@@ -22,9 +22,6 @@ import { GamePlayerPerspective } from "./entities/game-player-perspective.entity
 import { GameEngine } from "./entities/game-engine.entity";
 import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { PartialGame } from "./game-repository.types";
-import { StatisticsSourceType } from "../../statistics/statistics.constants";
-import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
-import { HltbSyncUpdateService } from "../../sync/hltb/hltb-sync-update.service";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -99,7 +96,6 @@ export class GameRepositoryCreateService {
         private readonly gameEngineRepository: Repository<GameEngine>,
         @InjectRepository(GameEngineLogo)
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
-        private readonly statisticsQueueService: StatisticsQueueService,
     ) {}
 
     /**
@@ -126,15 +122,6 @@ export class GameRepositoryCreateService {
         await this.gameRepository.upsert(game, ["id"]);
         await this.buildChildRelationships(game);
         this.logger.log(`Upserted game ${game.id} and it's relationships`);
-
-        this.dispatchCreateUpdateEvent(game);
-    }
-
-    private dispatchCreateUpdateEvent(game: PartialGame) {
-        this.statisticsQueueService.createStatistics({
-            sourceId: game.id,
-            sourceType: StatisticsSourceType.GAME,
-        });
     }
 
     /**
