@@ -1,54 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
-import { GameRepositoryCreateService } from "../../game/game-repository/game-repository-create.service";
-import { PartialGame } from "../../game/game-repository/game-repository.types";
+import { InjectQueue } from "@nestjs/bullmq";
 import {
-    objectKeysToCamelCase,
-    parseGameDates,
-} from "./utils/game-conversor-utils";
-import isEmptyObject from "../../utils/isEmptyObject";
-
-/**
- * Recursively converts types of a game object.
- * @param game
- */
-const convertIgdbResultTypes = (game: PartialGame) => {
-    const gameWithParsedDates = parseGameDates(game);
-
-    for (const [key, value] of Object.entries(gameWithParsedDates)) {
-        if (value == undefined) {
-        } else if (isEmptyObject(value)) {
-            gameWithParsedDates[key] = undefined;
-            // A lot of things are of type object, including dates and arrays, so we need to check for those first
-        } else if (typeof value === "object" && value.constructor === Object) {
-            gameWithParsedDates[key] = convertIgdbResultTypes(value);
-        } else if (Array.isArray(value) && value.length > 0) {
-            gameWithParsedDates[key] = value.map((item) =>
-                convertIgdbResultTypes(item),
-            );
-        }
-    }
-
-    return gameWithParsedDates;
-};
-
-function normalizeIgdbResults(results: any[]) {
-    const normalizedResults: PartialGame[] = [];
-    for (const result of results) {
-        // Do basic parsing (converts fields to camelCase)
-        const normalizedResult: PartialGame = objectKeysToCamelCase(result);
-
-        if (normalizedResult.gameLocalizations) {
-            normalizedResult.localizations = normalizedResult.gameLocalizations;
-        }
-
-        const convertedResult = convertIgdbResultTypes(normalizedResult);
-
-        normalizedResults.push(convertedResult);
-    }
-
-    return normalizedResults;
-}
+    IGDB_SYNC_JOB_NAME,
+    IGDB_SYNC_QUEUE_NAME,
+} from "./igdb-sync.constants";
+import { Queue } from "bullmq";
 
 /**
  * Queue responsible for syncing games from IGDB (results already fetched) to our database.
@@ -60,8 +17,26 @@ export class IgdbSyncService {
     private logger = new Logger(IgdbSyncService.name);
 
     constructor(
-        private readonly gameRepositoryCreateService: GameRepositoryCreateService,
+        @InjectQueue(IGDB_SYNC_QUEUE_NAME)
+        private readonly igdbSyncQueue: Queue,
     ) {}
+
+    private msgToChunks(msg: NonNullable<object[]>) {
+        const chunkSize = 10;
+        const chunks: object[][] = [];
+        let temp_chunk: object[] = [];
+        for (let i = 0; i < msg.length; i++) {
+            temp_chunk.push(msg[i]);
+            if (
+                temp_chunk.length !== 0 &&
+                temp_chunk.length % chunkSize === 0
+            ) {
+                chunks.push(temp_chunk);
+                temp_chunk = [];
+            }
+        }
+        return chunks;
+    }
 
     /**
      * Subscription to events sent by game-node-sync-igdb trough RabbitMQ.
@@ -73,23 +48,16 @@ export class IgdbSyncService {
         queue: "sync",
         name: "sync",
     })
-    async subscribe(msg: NonNullable<PartialGame[]>) {
+    async subscribe(msg: NonNullable<object[]>) {
         if (msg == undefined || !Array.isArray(msg)) {
             this.logger.error(
                 `Ignoring malformed message on subscribe: ${msg}`,
             );
             return;
         }
-
-        const normalizedResults = normalizeIgdbResults(msg);
-
-        for (const result of normalizedResults) {
-            this.gameRepositoryCreateService
-                .createOrUpdate(result)
-                .then()
-                .catch((err) => {
-                    this.logger.error(err);
-                });
+        const chunks = this.msgToChunks(msg);
+        for (const chunk of chunks) {
+            await this.igdbSyncQueue.add(IGDB_SYNC_JOB_NAME, chunk);
         }
     }
 }
