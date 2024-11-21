@@ -95,16 +95,30 @@ export class CollectionsEntriesService {
         collectionEntryIds: string[],
         dto?: FindCollectionEntriesDto,
     ) {
-        const findOptions = buildBaseFindOptions<CollectionEntry>(dto);
+        const findOptions = buildBaseFindOptions<CollectionEntry>({
+            ...dto,
+            orderBy: undefined,
+        });
+
         return await this.collectionEntriesRepository.find({
             ...findOptions,
             where: {
                 id: In(collectionEntryIds),
             },
+            order: {
+                createdAt: dto?.orderBy?.addedDate,
+                game: {
+                    firstReleaseDate: dto?.orderBy?.releaseDate,
+                },
+            },
+            relations: {
+                ...this.relations,
+                game: dto?.orderBy?.releaseDate != undefined,
+            },
         });
     }
 
-    async findAllByCollectionId(
+    async findAllByCollectionIdWithPermissions(
         userId: string | undefined,
         collectionId: string,
         dto?: FindCollectionEntriesForCollectionIdDto,
@@ -130,27 +144,17 @@ export class CollectionsEntriesService {
                     },
                 ],
             },
-            relations: this.relations,
+            order: {
+                createdAt: dto?.orderBy?.addedDate,
+                game: {
+                    firstReleaseDate: dto?.orderBy?.releaseDate,
+                },
+            },
+            relations: {
+                ...this.relations,
+                game: dto?.orderBy?.releaseDate != undefined,
+            },
         };
-
-        if (dto?.orderBy) {
-            if (dto.orderBy.addedDate) {
-                findOptions.order = {
-                    createdAt: dto.orderBy.addedDate,
-                };
-            } else if (dto.orderBy.releaseDate) {
-                findOptions.order = {
-                    game: {
-                        firstReleaseDate: dto.orderBy.releaseDate,
-                    },
-                };
-                findOptions.relations = {
-                    ...this.relations,
-                    // Needed for ordering
-                    game: true,
-                };
-            }
-        }
 
         return await this.collectionEntriesRepository.findAndCount(findOptions);
     }
@@ -161,7 +165,10 @@ export class CollectionsEntriesService {
         dto: FindCollectionEntriesDto,
     ) {
         const isOwnQuery = userId === targetUserId;
-        const findOptions = buildBaseFindOptions(dto);
+        const findOptions = buildBaseFindOptions({
+            ...dto,
+            orderBy: undefined,
+        });
 
         if (isOwnQuery) {
             return await this.collectionEntriesRepository.findAndCount({
@@ -173,7 +180,16 @@ export class CollectionsEntriesService {
                         },
                     },
                 },
-                relations: this.relations,
+                order: {
+                    createdAt: dto?.orderBy?.addedDate,
+                    game: {
+                        firstReleaseDate: dto?.orderBy?.releaseDate,
+                    },
+                },
+                relations: {
+                    ...this.relations,
+                    game: dto?.orderBy?.releaseDate != undefined,
+                },
             });
         }
 
@@ -187,7 +203,16 @@ export class CollectionsEntriesService {
                     },
                 },
             },
-            relations: this.relations,
+            order: {
+                createdAt: dto?.orderBy?.addedDate,
+                game: {
+                    firstReleaseDate: dto?.orderBy?.releaseDate,
+                },
+            },
+            relations: {
+                ...this.relations,
+                game: dto?.orderBy?.releaseDate != undefined,
+            },
         });
     }
 
@@ -196,7 +221,10 @@ export class CollectionsEntriesService {
         targetUserId: string,
         dto: FindCollectionEntriesDto,
     ) {
-        const findOptions = buildBaseFindOptions(dto);
+        const findOptions = buildBaseFindOptions({
+            ...dto,
+            orderBy: undefined,
+        });
         const isOwnQuery = userId === targetUserId;
         if (isOwnQuery) {
             return await this.collectionEntriesRepository.findAndCount({
@@ -209,7 +237,16 @@ export class CollectionsEntriesService {
                         },
                     },
                 },
-                relations: this.relations,
+                order: {
+                    createdAt: dto?.orderBy?.addedDate,
+                    game: {
+                        firstReleaseDate: dto?.orderBy?.releaseDate,
+                    },
+                },
+                relations: {
+                    ...this.relations,
+                    game: dto?.orderBy?.releaseDate != undefined,
+                },
             });
         }
 
@@ -223,6 +260,16 @@ export class CollectionsEntriesService {
                     },
                     isPublic: true,
                 },
+            },
+            order: {
+                createdAt: dto?.orderBy?.addedDate,
+                game: {
+                    firstReleaseDate: dto?.orderBy?.releaseDate,
+                },
+            },
+            relations: {
+                ...this.relations,
+                game: dto?.orderBy?.releaseDate != undefined,
             },
         });
     }
