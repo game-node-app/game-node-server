@@ -27,9 +27,6 @@ export class RecommendationService {
                 {
                     offset: 0,
                     limit: 9999999,
-                    orderBy: {
-                        finishedAt: "DESC",
-                    },
                 },
             );
         const finishedCollectionEntries = collectionEntries.filter(
