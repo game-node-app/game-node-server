@@ -8,12 +8,16 @@ import {
 } from "./dto/get-recommendations.dto";
 import { getRandomItem, getRandomItems } from "../utils/getRandomItems";
 import { Game } from "../game/game-repository/entities/game.entity";
+import { GameFilterService } from "../game/game-filter/game-filter.service";
+
+import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 
 @Injectable()
 export class RecommendationService {
     constructor(
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly collectionsEntriesService: CollectionsEntriesService,
+        private readonly gameFilterService: GameFilterService,
     ) {}
 
     private async getRecommendationsByFinished(
@@ -27,9 +31,6 @@ export class RecommendationService {
                 {
                     offset: 0,
                     limit: 9999999,
-                    orderBy: {
-                        finishedAt: "DESC",
-                    },
                 },
             );
         const finishedCollectionEntries = collectionEntries.filter(
@@ -46,19 +47,27 @@ export class RecommendationService {
         const limitToUse = dto.limit || 10;
 
         const gameIds = finishedCollectionEntries.map((entry) => entry.gameId);
-        const randomGameIds = getRandomItems(gameIds, limitToUse);
+
+        const nonExcludedGameIds =
+            await this.gameFilterService.removeExcluded(gameIds);
+
+        const sfwGameIds =
+            await this.gameFilterService.removeMature(nonExcludedGameIds);
+
+        const randomGameIds = getRandomItems(sfwGameIds, limitToUse);
 
         const games = await this.gameRepositoryService.findAllByIds({
             gameIds: randomGameIds,
             relations: {
                 similarGames: true,
+                themes: true,
             },
         });
 
-        let itemsPerPage = 1;
+        let similarItemsPerEntry = 1;
 
         if (finishedCollectionEntries.length < limitToUse) {
-            itemsPerPage = Math.floor(
+            similarItemsPerEntry = Math.floor(
                 limitToUse / finishedCollectionEntries.length,
             );
         }
@@ -66,9 +75,10 @@ export class RecommendationService {
         const pickedSimilarGamesIds: number[] = games.flatMap(
             // Picks a single, random, similar game for each item.
             (game) => {
-                return getRandomItems(game.similarGames!, itemsPerPage).map(
-                    (item) => item.id,
-                );
+                return getRandomItems(
+                    game.similarGames!,
+                    similarItemsPerEntry,
+                ).map((item) => item.id);
             },
         );
 

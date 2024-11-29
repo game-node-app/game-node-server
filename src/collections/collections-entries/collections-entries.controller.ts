@@ -162,7 +162,7 @@ export class CollectionsEntriesController {
         @Param("id") collectionId: string,
         @Body() dto?: FindCollectionEntriesForCollectionIdDto,
     ): Promise<CollectionEntriesPaginatedResponseDto> {
-        return (await this.collectionsEntriesService.findAllByCollectionId(
+        return (await this.collectionsEntriesService.findAllByCollectionIdWithPermissions(
             session?.getUserId(),
             collectionId,
             dto,

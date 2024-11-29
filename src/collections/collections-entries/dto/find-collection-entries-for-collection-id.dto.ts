@@ -1,14 +1,10 @@
 import { OmitType } from "@nestjs/swagger";
 import { FindCollectionEntriesDto } from "./find-collection-entries.dto";
-
-export class FindCollectionEntriesForCollectionIdOrderBy {
-    addedDate?: "ASC" | "DESC";
-    releaseDate?: "ASC" | "DESC";
-}
+import { FindCollectionEntriesOrderBy } from "./collection-entries-order-by.dto";
 
 export class FindCollectionEntriesForCollectionIdDto extends OmitType(
     FindCollectionEntriesDto,
     ["orderBy"],
 ) {
-    orderBy?: FindCollectionEntriesForCollectionIdOrderBy;
+    orderBy?: FindCollectionEntriesOrderBy;
 }

@@ -8,6 +8,7 @@ import { GameFilterModule } from "../../game/game-filter/game-filter.module";
 import { SuspensionModule } from "../../suspension/suspension.module";
 import { ReviewsModule } from "../../reviews/reviews.module";
 import { CollectionsEntriesModule } from "../../collections/collections-entries/collections-entries.module";
+import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 
 @Module({
     imports: [

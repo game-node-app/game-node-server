@@ -22,6 +22,7 @@ import { getPreviousDate } from "./statistics.utils";
 import { hours } from "@nestjs/throttler";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 import { GameFilterService } from "../game/game-filter/game-filter.service";
+import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 
 @Injectable()
 export class GameStatisticsService implements StatisticsService {
@@ -166,27 +167,37 @@ export class GameStatisticsService implements StatisticsService {
         const queryBuilder =
             this.gameStatisticsRepository.createQueryBuilder("s");
 
-        /**
-         * Made with query builder, so we can further optimize the query
-         */
-        const statistics = await queryBuilder
+        const query = queryBuilder
             .select()
             .leftJoin(UserView, `uv`, `uv.gameStatisticsId = s.id`)
             .where(`(uv.createdAt >= :uvDate OR s.viewsCount = 0)`, {
                 uvDate: viewsStartDate,
             })
+            // Excludes games with specific themes
+            .andWhere(
+                `NOT EXISTS (SELECT 1 FROM game_themes_game_theme AS gtgt WHERE gtgt.gameId = s.gameId 
+                AND gtgt.gameThemeId = :excludedThemeId)`,
+                {
+                    excludedThemeId: MATURE_THEME_ID,
+                },
+            )
+            // Excludes admin excluded games
             .andWhere(() => {
-                const excludedGamesQuery =
+                const excludedQuery =
                     this.gameFilterService.buildQueryBuilderSubQuery(
-                        "s.gameId",
+                        `s.gameId`,
                     );
-                return `(NOT EXISTS ${excludedGamesQuery})`;
+                return `NOT EXISTS ${excludedQuery}`;
             })
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(fixedStatisticsLimit)
-            .cache(`trending-games-statistics-${period}`, hours(6))
-            .getMany();
+            .cache(`trending-games-statistics-${period}`, hours(6));
+
+        /**
+         * Made with query builder, so we can further optimize the query
+         */
+        const statistics = await query.getMany();
 
         const gameIds = statistics.map((s) => s.gameId);
         const games = await this.gameRepositoryService.findAllIdsWithFilters({
