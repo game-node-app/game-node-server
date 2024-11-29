@@ -8,6 +8,8 @@ import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { ChangeExclusionStatusDto } from "./dto/change-exclusion-status.dto";
 
+import { MATURE_THEME_ID } from "./game-filter.constants";
+
 @Injectable()
 export class GameFilterService {
     constructor(
@@ -81,6 +83,44 @@ export class GameFilterService {
         });
     }
 
+    public async isMature(targetGameId: number) {
+        const game = await this.gameRepositoryService.findOneById(
+            targetGameId,
+            {
+                relations: {
+                    themes: true,
+                },
+            },
+        );
+
+        return game.themes!.some((theme) => theme.id === MATURE_THEME_ID);
+    }
+
+    /**
+     * Returns a list of gameIds with mature games removed.
+     * @param gameIds
+     */
+    public async removeMature(gameIds: number[]) {
+        const games = await this.gameRepositoryService.findAllByIds({
+            gameIds: gameIds,
+            relations: {
+                themes: true,
+            },
+        });
+
+        const matureGameIds = games
+            .filter((game) => {
+                if (game.themes == undefined) return true;
+                return game.themes.some(
+                    (theme) => theme.id === MATURE_THEME_ID,
+                );
+            })
+            .map((game) => game.id);
+
+        // Done this way to preserve ordering
+        return gameIds.filter((id) => !matureGameIds.includes(id));
+    }
+
     /**
      * Returns a list of gameIds with excluded ones removed.
      * @param gameIds
@@ -91,6 +131,7 @@ export class GameFilterService {
             isActive: true,
         });
 
+        // Done this way to preserve ordering
         return gameIds.filter((gameId) => {
             return !excludedIds.some(
                 (excluded) => excluded.targetGameId === gameId,

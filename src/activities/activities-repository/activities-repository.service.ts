@@ -20,6 +20,7 @@ import { SuspensionService } from "../../suspension/suspension.service";
 import { ReviewsService } from "../../reviews/reviews.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { UnrecoverableError } from "bullmq";
+import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -40,6 +41,7 @@ export class ActivitiesRepositoryService {
      * - target entry really exists
      * - user is not suspended/banned
      * - game is not excluded
+     * - game is not nsfw
      * @param dto
      * @private
      */
@@ -89,6 +91,14 @@ export class ActivitiesRepositoryService {
         const isGameExcluded =
             await this.gameFilterService.isExcluded(targetGameId);
         if (isGameExcluded) {
+            throw new UnrecoverableError(
+                "Target game is excluded from front-facing content",
+            );
+        }
+
+        const isGameMature =
+            await this.gameFilterService.isMature(targetGameId);
+        if (isGameMature) {
             throw new UnrecoverableError(
                 "Target game is excluded from front-facing content",
             );

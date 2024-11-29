@@ -22,6 +22,7 @@ import { getPreviousDate } from "./statistics.utils";
 import { hours } from "@nestjs/throttler";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 import { GameFilterService } from "../game/game-filter/game-filter.service";
+import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 
 @Injectable()
 export class GameStatisticsService implements StatisticsService {
@@ -173,11 +174,13 @@ export class GameStatisticsService implements StatisticsService {
                 uvDate: viewsStartDate,
             })
             // Excludes games with specific themes
-            .andWhere(() => {
-                // gameThemeId = 42 -> 'erotic' theme
-                return `NOT EXISTS (SELECT 1 FROM game_themes_game_theme AS gtgt WHERE gtgt.gameId = s.gameId 
-                AND gtgt.gameThemeId = 42)`;
-            })
+            .andWhere(
+                `NOT EXISTS (SELECT 1 FROM game_themes_game_theme AS gtgt WHERE gtgt.gameId = s.gameId 
+                AND gtgt.gameThemeId = :excludedThemeId)`,
+                {
+                    excludedThemeId: MATURE_THEME_ID,
+                },
+            )
             // Excludes admin excluded games
             .andWhere(() => {
                 const excludedQuery =
