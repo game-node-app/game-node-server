@@ -47,64 +47,10 @@ export class AuthService {
                     /**
                      * Custom logic implemented here:
                      * - Implements user initialization logic
-                     * - Handles account deduplication
-                     * https://supertokens.com/docs/thirdpartypasswordless/common-customizations/deduplication/overview
                      */
                     override: {
                         apis: (originalImplementation) => ({
                             ...originalImplementation,
-                            createCodePOST: async (input) => {
-                                if ("email" in input) {
-                                    const existingUsers =
-                                        await supertokens.listUsersByAccountInfo(
-                                            input.tenantId,
-                                            {
-                                                email: input.email,
-                                            },
-                                        );
-                                    // New user trying to sign-up
-                                    if (existingUsers.length === 0) {
-                                        return originalImplementation.createCodePOST!(
-                                            input,
-                                        );
-                                    }
-                                    const isUsualLoginMethod =
-                                        existingUsers.some((existingUser) => {
-                                            return existingUser.loginMethods.some(
-                                                (loginMethod) => {
-                                                    const isSameEmail =
-                                                        loginMethod.hasSameEmailAs(
-                                                            input.email,
-                                                        );
-                                                    const isSameMethod =
-                                                        loginMethod.recipeId ===
-                                                        "passwordless";
-                                                    return (
-                                                        isSameEmail &&
-                                                        isSameMethod
-                                                    );
-                                                },
-                                            );
-                                        });
-                                    if (isUsualLoginMethod) {
-                                        return originalImplementation.createCodePOST!(
-                                            input,
-                                        );
-                                    }
-
-                                    return {
-                                        status: "GENERAL_ERROR",
-                                        message:
-                                            "It seems like you already have an account with us. Please sign-in with the usual method.",
-                                    };
-                                }
-
-                                // Phone number based login.
-                                // Not currently used by GameNode, but we maintain the logic here to avoid problems.
-                                return originalImplementation.createCodePOST!(
-                                    input,
-                                );
-                            },
                             consumeCodePOST: async (input) => {
                                 try {
                                     const result =
@@ -142,60 +88,8 @@ export class AuthService {
                     /**
                      * Custom logic implemented here:
                      * - Implements user initialization logic
-                     * - Handles account deduplication
-                     * https://supertokens.com/docs/thirdpartypasswordless/common-customizations/deduplication/overview
                      */
                     override: {
-                        functions: (originalImplementation) => ({
-                            ...originalImplementation,
-                            signInUp: async (input) => {
-                                const existingUsers =
-                                    await supertokens.listUsersByAccountInfo(
-                                        input.tenantId,
-                                        {
-                                            email: input.email,
-                                        },
-                                    );
-                                if (existingUsers.length === 0) {
-                                    // A new user is trying to sign-in.
-                                    return originalImplementation.signInUp(
-                                        input,
-                                    );
-                                }
-                                // Checks if user is trying to sign-in using the previously used third party provider
-                                const isUsualLoginMethod = existingUsers.some(
-                                    (existingUser) => {
-                                        return existingUser.loginMethods.some(
-                                            (loginMethod) => {
-                                                const isThirdPartyProvider =
-                                                    loginMethod.recipeId ===
-                                                    "thirdparty";
-                                                const isSameProvider =
-                                                    loginMethod.hasSameThirdPartyInfoAs(
-                                                        {
-                                                            id: input.thirdPartyId,
-                                                            userId: input.thirdPartyUserId,
-                                                        },
-                                                    );
-
-                                                return (
-                                                    isThirdPartyProvider &&
-                                                    isSameProvider
-                                                );
-                                            },
-                                        );
-                                    },
-                                );
-                                if (isUsualLoginMethod) {
-                                    return originalImplementation.signInUp(
-                                        input,
-                                    );
-                                }
-                                throw new Error(
-                                    AUTH_ERRORS.DUPLICATE_ACCOUNT_ERROR,
-                                );
-                            },
-                        }),
                         apis: (originalImplementation) => ({
                             ...originalImplementation,
                             signInUpPOST: async (input) => {

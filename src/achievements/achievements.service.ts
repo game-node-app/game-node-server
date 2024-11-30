@@ -191,11 +191,14 @@ export class AchievementsService {
             );
         }
 
-        const existingAchievement =
-            await this.getObtainedAchievementByAchievementId(
-                targetUserId,
-                achievementId,
-            );
+        let existingAchievement: ObtainedAchievement | undefined = undefined;
+        try {
+            existingAchievement =
+                await this.getObtainedAchievementByAchievementId(
+                    targetUserId,
+                    achievementId,
+                );
+        } catch (error: unknown) {}
 
         if (existingAchievement) {
             throw new HttpException(
