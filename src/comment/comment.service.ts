@@ -48,7 +48,7 @@ export class CommentService {
 
     async findAll(
         dto: FindAllCommentsDto,
-    ): Promise<TPaginationData<ReviewComment>> {
+    ): Promise<TPaginationData<ReviewComment | ActivityComment>> {
         const baseFindOptions = buildBaseFindOptions(dto);
         switch (dto.sourceType) {
             case CommentSourceType.REVIEW:
@@ -56,6 +56,19 @@ export class CommentService {
                     ...baseFindOptions,
                     where: {
                         reviewId: dto.sourceId,
+                        // Only returns top-level comments, excluding comments of comments in the main list
+                        childOfId: IsNull(),
+                    },
+                    relations: {
+                        // Includes comments of comments in a list in each element
+                        childOf: true,
+                    },
+                });
+            case CommentSourceType.ACTIVITY:
+                return await this.activityCommentRepository.findAndCount({
+                    ...baseFindOptions,
+                    where: {
+                        activityId: dto.sourceId,
                         // Only returns top-level comments, excluding comments of comments in the main list
                         childOfId: IsNull(),
                     },
