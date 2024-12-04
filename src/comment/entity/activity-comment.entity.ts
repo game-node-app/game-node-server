@@ -16,11 +16,11 @@ export class ActivityComment extends UserComment {
     })
     activityId: string;
 
-    @ManyToOne(() => ReviewComment, {
+    @ManyToOne(() => ActivityComment, {
         nullable: true,
         onDelete: "CASCADE",
     })
-    childOf: ReviewComment | null;
+    childOf: ActivityComment | null;
     @Column({
         nullable: true,
     })
