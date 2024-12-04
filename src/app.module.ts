@@ -31,6 +31,7 @@ import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.
 import { RecommendationModule } from "./recommendation/recommendation.module";
 import { PlaytimeModule } from "./playtime/playtime.module";
 import { GameFilterModule } from "./game/game-filter/game-filter.module";
+import { PsnModule } from "./sync/psn/psn.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -167,6 +168,7 @@ function getRedisConfig() {
         RecommendationModule,
         PlaytimeModule,
         GameFilterModule,
+        PsnModule,
     ],
 })
 export class AppModule implements NestModule {
