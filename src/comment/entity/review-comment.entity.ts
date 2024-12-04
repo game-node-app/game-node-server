@@ -1,5 +1,5 @@
 import { UserComment } from "./user-comment.entity";
-import { Column, Entity, Index, ManyToOne } from "typeorm";
+import { Column, Entity, Index, ManyToOne, OneToMany } from "typeorm";
 import { Review } from "../../reviews/entities/review.entity";
 import { ThreadEnabledComment } from "../comment.types";
 
@@ -19,11 +19,14 @@ export class ReviewComment
     })
     reviewId: string;
 
+    @OneToMany(() => ReviewComment, (comment) => comment.childOf)
+    parentOf: ReviewComment[] | null;
+
     @ManyToOne(() => ReviewComment, {
         nullable: true,
         onDelete: "CASCADE",
     })
-    childOf: ReviewComment | null;
+    childOf: ReviewComment[] | null;
     @Column({
         nullable: true,
     })

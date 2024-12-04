@@ -43,7 +43,8 @@ export class CommentController {
     @HttpCode(HttpStatus.OK)
     @UseInterceptors(PaginationInterceptor)
     async findAll(@Body() dto: FindAllCommentsDto) {
-        return this.commentService.findAll(dto);
+        const result = await this.commentService.findAll(dto);
+        return result;
     }
 
     @Get(":sourceType/:id")

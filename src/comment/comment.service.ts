@@ -61,7 +61,7 @@ export class CommentService {
                     },
                     relations: {
                         // Includes comments of comments in a list in each element
-                        childOf: true,
+                        parentOf: true,
                     },
                 });
             case CommentSourceType.ACTIVITY:
@@ -74,7 +74,7 @@ export class CommentService {
                     },
                     relations: {
                         // Includes comments of comments in a list in each element
-                        childOf: true,
+                        parentOf: true,
                     },
                 });
             default:
