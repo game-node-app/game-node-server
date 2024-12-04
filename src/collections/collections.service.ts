@@ -144,6 +144,7 @@ export class CollectionsService {
             library: userLibrary,
             isPublic: createCollectionDto.isPublic,
             isFeatured: createCollectionDto.isFeatured,
+            isFinished: createCollectionDto.isFinished,
         });
 
         try {

@@ -3,6 +3,7 @@ import { Column, Entity, JoinColumn, OneToMany, OneToOne } from "typeorm";
 import { UserView } from "./user-view.entity";
 import { UserLike } from "./user-like.entity";
 import { ReviewComment } from "../../comment/entity/review-comment.entity";
+import { ActivityComment } from "../../comment/entity/activity-comment.entity";
 
 @Entity()
 export class CommentStatistics extends Statistics {
@@ -15,9 +16,19 @@ export class CommentStatistics extends Statistics {
         onDelete: "CASCADE",
     })
     @JoinColumn()
-    reviewComment: ReviewComment;
+    reviewComment: ReviewComment | null;
     @Column({
         nullable: true,
     })
-    reviewCommentId: string;
+    reviewCommentId: string | null;
+    @OneToOne(() => ActivityComment, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    @JoinColumn()
+    activityComment: ActivityComment | null;
+    @Column({
+        nullable: true,
+    })
+    activityCommentId: string | null;
 }

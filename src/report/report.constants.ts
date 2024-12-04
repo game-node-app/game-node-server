@@ -2,6 +2,7 @@ export enum ReportSourceType {
     REVIEW = "review",
     PROFILE = "profile",
     REVIEW_COMMENT = "review_comment",
+    ACTIVITY_COMMENT = "activity_comment",
 }
 
 export enum ReportCategory {
@@ -13,6 +14,7 @@ export enum ReportCategory {
      * Personal attacks, including but not limited to racism, sexism, etc.
      */
     Personal = "personal",
+    Nudity = "nudity",
 }
 
 export enum ReportHandleAction {
