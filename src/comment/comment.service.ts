@@ -56,8 +56,12 @@ export class CommentService {
                     ...baseFindOptions,
                     where: {
                         reviewId: dto.sourceId,
-                        // Only returns top-level comments, excluding comments of comments
+                        // Only returns top-level comments, excluding comments of comments in the main list
                         childOfId: IsNull(),
+                    },
+                    relations: {
+                        // Includes comments of comments in a list in each element
+                        childOf: true,
                     },
                 });
             default:
