@@ -80,7 +80,7 @@ export class ReportService {
                     CommentSourceType.ACTIVITY,
                     sourceId,
                 );
-                createdReport.targetReviewCommentId = comment.id;
+                createdReport.targetActivityCommentId = comment.id;
                 createdReport.targetProfileUserId = comment.profileUserId;
                 break;
             }

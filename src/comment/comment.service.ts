@@ -137,7 +137,6 @@ export class CommentService {
             }
         }
 
-        let insertedEntryId: string;
         switch (sourceType) {
             case CommentSourceType.REVIEW: {
                 const insertedEntry = await this.reviewCommentRepository.save({
@@ -146,7 +145,21 @@ export class CommentService {
                     content,
                     childOfId: childOf,
                 });
-                insertedEntryId = insertedEntry.id;
+
+                this.statisticsQueueService.createStatistics({
+                    sourceType: StatisticsSourceType.ACTIVITY_COMMENT,
+                    sourceId: insertedEntry.id,
+                });
+
+                this.createNotification(
+                    insertedEntry.id,
+                    CommentSourceType.REVIEW,
+                )
+                    .then()
+                    .catch((err) => {
+                        this.logger.error(err);
+                    });
+
                 break;
             }
             case CommentSourceType.ACTIVITY: {
@@ -158,7 +171,21 @@ export class CommentService {
                         childOfId: childOf,
                     },
                 );
-                insertedEntryId = insertedEntry.id;
+
+                this.statisticsQueueService.createStatistics({
+                    sourceType: StatisticsSourceType.ACTIVITY_COMMENT,
+                    sourceId: insertedEntry.id,
+                });
+
+                this.createNotification(
+                    insertedEntry.id,
+                    CommentSourceType.ACTIVITY,
+                )
+                    .then()
+                    .catch((err) => {
+                        this.logger.error(err);
+                    });
+
                 break;
             }
             default:
@@ -167,17 +194,6 @@ export class CommentService {
                     HttpStatus.BAD_REQUEST,
                 );
         }
-
-        this.statisticsQueueService.createStatistics({
-            sourceType: StatisticsSourceType.REVIEW_COMMENT,
-            sourceId: insertedEntryId,
-        });
-
-        this.createNotification(insertedEntryId, sourceType)
-            .then()
-            .catch((err) => {
-                this.logger.error(err);
-            });
     }
 
     /**

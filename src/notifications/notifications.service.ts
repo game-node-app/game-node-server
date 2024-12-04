@@ -156,7 +156,9 @@ export class NotificationsService {
                     notification.activityId! ||
                     notification.profileUserId! ||
                     notification.importerNotificationId! ||
-                    notification.reportId!,
+                    notification.reportId! ||
+                    notification.reviewCommentId! ||
+                    notification.activityCommentId!,
                 sourceType: notification.sourceType,
                 notifications: aggregationNotifications,
             });

@@ -7,9 +7,12 @@ import {
 } from "./notifications.constants";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
 import { WorkerHostProcessor } from "../utils/WorkerHostProcessor";
+import { Logger } from "@nestjs/common";
 
 @Processor(NOTIFICATIONS_QUEUE_NAME)
 export class NotificationsQueueProcessor extends WorkerHostProcessor {
+    logger = new Logger(NotificationsQueueProcessor.name);
+
     constructor(private readonly notificationsService: NotificationsService) {
         super();
     }

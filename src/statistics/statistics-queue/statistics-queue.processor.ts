@@ -12,7 +12,6 @@ import { StatisticsSourceType } from "../statistics.constants";
 import { ReviewStatisticsService } from "../review-statistics.service";
 import { ActivityStatisticsService } from "../activity-statistics.service";
 import { Logger } from "@nestjs/common";
-import { StatisticsQueueService } from "./statistics-queue.service";
 import { StatisticsService } from "../statistics.types";
 import { CommentStatisticsService } from "../comment-statistics.service";
 
@@ -20,7 +19,7 @@ import { CommentStatisticsService } from "../comment-statistics.service";
     concurrency: 300,
 })
 export class StatisticsQueueProcessor extends WorkerHostProcessor {
-    logger = new Logger(StatisticsQueueService.name);
+    logger = new Logger(StatisticsQueueProcessor.name);
     constructor(
         private readonly gameStatisticsService: GameStatisticsService,
         private readonly reviewStatisticsService: ReviewStatisticsService,
