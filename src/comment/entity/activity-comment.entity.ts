@@ -1,11 +1,14 @@
 import { UserComment } from "./user-comment.entity";
-import { Column, Entity, Index, ManyToOne } from "typeorm";
+import { Column, Entity, Index, ManyToOne, OneToMany } from "typeorm";
 import { Activity } from "../../activities/activities-repository/entities/activity.entity";
-import { ReviewComment } from "./review-comment.entity";
+import { ThreadEnabledComment } from "../comment.types";
 
 @Entity()
 @Index(["profile", "activity"])
-export class ActivityComment extends UserComment {
+export class ActivityComment
+    extends UserComment
+    implements ThreadEnabledComment<ActivityComment>
+{
     @ManyToOne(() => Activity, {
         nullable: false,
         onDelete: "CASCADE",
@@ -16,11 +19,14 @@ export class ActivityComment extends UserComment {
     })
     activityId: string;
 
-    @ManyToOne(() => ReviewComment, {
+    @OneToMany(() => ActivityComment, (comment) => comment.childOf)
+    parentOf: ActivityComment[] | null;
+
+    @ManyToOne(() => ActivityComment, {
         nullable: true,
         onDelete: "CASCADE",
     })
-    childOf: ReviewComment | null;
+    childOf: ActivityComment[] | null;
     @Column({
         nullable: true,
     })

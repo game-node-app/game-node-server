@@ -6,6 +6,6 @@ import { UserComment } from "./entity/user-comment.entity";
  * Only one level of "children" is allowed for performance reasons.
  */
 export interface ThreadEnabledComment<T extends UserComment> {
-    childOf: T | null;
+    childOf: T[] | null;
     childOfId: string | null;
 }
