@@ -49,6 +49,9 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
             case StatisticsSourceType.REVIEW_COMMENT:
                 targetService = this.commentStatisticsService;
                 break;
+            case StatisticsSourceType.ACTIVITY_COMMENT:
+                targetService = this.commentStatisticsService;
+                break;
             default:
                 throw new Error(
                     `Invalid sourceType for job: ${job.id} - ${JSON.stringify(job.data)}`,

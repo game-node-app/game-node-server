@@ -59,13 +59,14 @@ export class ReportService {
         });
 
         switch (dto.sourceType) {
-            case ReportSourceType.REVIEW:
+            case ReportSourceType.REVIEW: {
                 const review =
                     await this.reviewsService.findOneByIdOrFail(sourceId);
                 createdReport.targetReviewId = review.id;
                 createdReport.targetProfileUserId = review.profileUserId;
                 break;
-            case ReportSourceType.REVIEW_COMMENT:
+            }
+            case ReportSourceType.REVIEW_COMMENT: {
                 const comment = await this.commentService.findOneByIdOrFail(
                     CommentSourceType.REVIEW,
                     sourceId,
@@ -73,10 +74,21 @@ export class ReportService {
                 createdReport.targetReviewCommentId = comment.id;
                 createdReport.targetProfileUserId = comment.profileUserId;
                 break;
+            }
+            case ReportSourceType.ACTIVITY_COMMENT: {
+                const comment = await this.commentService.findOneByIdOrFail(
+                    CommentSourceType.ACTIVITY,
+                    sourceId,
+                );
+                createdReport.targetReviewCommentId = comment.id;
+                createdReport.targetProfileUserId = comment.profileUserId;
+                break;
+            }
 
-            case ReportSourceType.PROFILE:
+            case ReportSourceType.PROFILE: {
                 createdReport.targetProfileUserId = sourceId;
                 break;
+            }
         }
 
         if (createdReport.targetProfileUserId === userId) {

@@ -15,6 +15,7 @@ import {
     ReportSourceType,
 } from "../report.constants";
 import { ReviewComment } from "../../comment/entity/review-comment.entity";
+import { ActivityComment } from "../../comment/entity/activity-comment.entity";
 
 @Entity()
 export class Report {
@@ -100,6 +101,16 @@ export class Report {
         nullable: true,
     })
     targetReviewCommentId: string | null;
+
+    @ManyToOne(() => ActivityComment, {
+        nullable: true,
+        onDelete: "SET NULL",
+    })
+    targetActivityComment: ActivityComment | null;
+    @Column({
+        nullable: true,
+    })
+    targetActivityCommentId: string | null;
 
     @Column({
         nullable: false,

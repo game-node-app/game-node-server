@@ -21,7 +21,7 @@ export class CommentStatistics extends Statistics {
         nullable: true,
     })
     reviewCommentId: string | null;
-    @OneToOne(() => ReviewComment, {
+    @OneToOne(() => ActivityComment, {
         nullable: true,
         onDelete: "CASCADE",
     })
