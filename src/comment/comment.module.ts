@@ -7,16 +7,19 @@ import { ReviewComment } from "./entity/review-comment.entity";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { ReviewsModule } from "../reviews/reviews.module";
 import { SuspensionModule } from "../suspension/suspension.module";
+import { ActivitiesRepositoryModule } from "../activities/activities-repository/activities-repository.module";
+import { ActivityComment } from "./entity/activity-comment.entity";
 
 /**
  * Module responsible for handling user comments.
  */
 @Module({
     imports: [
-        TypeOrmModule.forFeature([ReviewComment]),
+        TypeOrmModule.forFeature([ReviewComment, ActivityComment]),
         StatisticsQueueModule,
         NotificationsModule,
         ReviewsModule,
+        ActivitiesRepositoryModule,
         SuspensionModule,
     ],
     providers: [CommentService],

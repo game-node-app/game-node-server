@@ -178,6 +178,10 @@ export class ActivitiesRepositoryService {
         return await this.activitiesRepository.findOne(by);
     }
 
+    async findOneByOrFail(by: FindOneOptions<Activity>) {
+        return await this.activitiesRepository.findOneOrFail(by);
+    }
+
     async findLatest(dto: FindLatestActivitiesDto) {
         const baseFindOptions = buildBaseFindOptions(dto);
         return await this.findLatestBy({

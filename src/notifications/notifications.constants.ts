@@ -7,12 +7,14 @@ export enum ENotificationCategory {
     COMMENT = "comment",
     // Used by watch services like 'importer-watch'
     WATCH = "watch",
+    // Used by the suspension module
     ALERT = "alert",
     MENTION = "mention",
 }
 
 /**
  * The source type the notification relates to.
+ * This one can and should be pretty diverse, to easily represent a target entity.
  * @example a 'like' notification on a 'review'
  * @example a 'comment' notification on a 'review'
  * @example a 'watch' notification from the 'importer-watch' system, which generated a 'importer-watch-notification' entry.
@@ -22,7 +24,12 @@ export enum ENotificationCategory {
 export enum ENotificationSourceType {
     GAME = "game",
     REVIEW = "review",
+    // Used with 'comment' category to indicate it's a notification related to a review comment (not the review itself)
+    REVIEW_COMMENT = "review_comment",
     ACTIVITY = "activity",
+    // Used with 'comment' category to indicate it's a notification related to a activity comment (not the activity itself)
+    // e.g. deep nested activity comment
+    ACTIVITY_COMMENT = "activity_comment",
     /**
      * Generally used for followers related notifications
      */

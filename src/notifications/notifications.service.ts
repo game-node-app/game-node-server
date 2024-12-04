@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, UseGuards } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindOptionsRelations,
@@ -8,7 +8,6 @@ import {
     Repository,
 } from "typeorm";
 import { Notification } from "./entity/notification.entity";
-import { AuthGuard } from "../auth/auth.guard";
 import { Cache } from "cache-manager";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
@@ -21,12 +20,11 @@ import {
 import { CreateNotificationDto } from "./dto/create-notification.dto";
 import { minutes } from "@nestjs/throttler";
 import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
+import { UnrecoverableError } from "bullmq";
 
 @Injectable()
-@UseGuards(AuthGuard)
 export class NotificationsService {
     private readonly logger = new Logger(NotificationsService.name);
-    private readonly repeatedNotificationWaitPeriodMinutes = 5;
 
     private readonly relations: FindOptionsRelations<Notification> = {
         profile: true,
@@ -114,13 +112,21 @@ export class NotificationsService {
                     const hasValidCategory = aggregationCategories.includes(
                         comparedNotification.category,
                     );
-                    const isSameSource =
-                        (comparedNotification.reviewId != undefined &&
-                            comparedNotification.reviewId ===
-                                notification.reviewId) ||
-                        (comparedNotification.activityId != undefined &&
-                            comparedNotification.activityId ===
-                                notification.activityId);
+
+                    const comparableProperties: (keyof Notification)[] = [
+                        "reviewId",
+                        "activityId",
+                    ];
+
+                    const isSameSource = comparableProperties.some(
+                        (property) => {
+                            return (
+                                comparedNotification[property] != undefined &&
+                                comparedNotification[property] ===
+                                    notification[property]
+                            );
+                        },
+                    );
 
                     const isSimilar =
                         !isAlreadyProcessed && hasValidCategory && isSameSource;
@@ -200,64 +206,17 @@ export class NotificationsService {
         return notifications;
     }
 
-    private async isPossibleSpam(createDto: CreateNotificationDto) {
-        const ignoredCategories = [
-            ENotificationCategory.WATCH,
-            ENotificationCategory.ALERT,
-        ];
-        const ignoredSources = [
-            ENotificationSourceType.REPORT,
-            ENotificationSourceType.IMPORTER,
-        ];
-
-        if (
-            ignoredCategories.includes(createDto.category) ||
-            ignoredSources.includes(createDto.sourceType)
-        ) {
-            return false;
-        }
-
-        const minimumRepeatedNotificationDate = new Date();
-        minimumRepeatedNotificationDate.setMinutes(
-            minimumRepeatedNotificationDate.getMinutes() -
-                this.repeatedNotificationWaitPeriodMinutes,
-        );
-
-        const whereOptions: FindOptionsWhere<Notification> = {
-            sourceType: createDto.sourceType,
-            category: createDto.category,
-            profileUserId: createDto.userId,
-            targetProfileUserId: createDto.targetUserId,
-            createdAt: MoreThanOrEqual(minimumRepeatedNotificationDate),
-        };
-
-        switch (createDto.sourceType) {
-            case ENotificationSourceType.GAME:
-                whereOptions.gameId = createDto.sourceId as number;
-                break;
-            case ENotificationSourceType.REVIEW:
-                whereOptions.reviewId = createDto.sourceId as string;
-                break;
-            case ENotificationSourceType.ACTIVITY:
-                whereOptions.activityId = createDto.sourceId as string;
-                break;
-            case ENotificationSourceType.PROFILE:
-                whereOptions.profileUserId = createDto.sourceId as string;
-                break;
-        }
-
-        return await this.notificationRepository.exists({
-            where: whereOptions,
-        });
-    }
-
     public async create(dto: CreateNotificationDto) {
-        if (dto.sourceId == undefined) {
-            throw new Error(
-                "Error while creating a new notification: missing sourceId.",
+        if (
+            dto.sourceId == undefined ||
+            dto.sourceType == undefined ||
+            dto.category == undefined
+        ) {
+            throw new UnrecoverableError(
+                "Error while creating notification: missing sourceId or sourceType or category.",
             );
         } else if (dto.targetUserId == undefined) {
-            throw new Error(
+            throw new UnrecoverableError(
                 "Common notifications can't be targeted at all users (targetProfileUserId is null): " +
                     JSON.stringify(dto),
             );
@@ -266,14 +225,9 @@ export class NotificationsService {
                 `Skipping attempt to make user notify itself: ${dto.userId} -> ${dto.targetUserId}`,
             );
             this.logger.warn(`On DTO: ${JSON.stringify(dto)}}`);
-            return;
-        } else if (await this.isPossibleSpam(dto)) {
-            this.logger.warn(
-                `Skipping attempt to create repeated notification: ${JSON.stringify(
-                    dto,
-                )}`,
+            throw new UnrecoverableError(
+                `Skipping attempt to make user notify itself: ${JSON.stringify(dto)}}`,
             );
-            return;
         }
 
         const entity = this.notificationRepository.create({
@@ -301,6 +255,17 @@ export class NotificationsService {
                 break;
             case ENotificationSourceType.REPORT:
                 entity.reportId = dto.sourceId as number;
+                break;
+            case ENotificationSourceType.ACTIVITY_COMMENT:
+                entity.activityCommentId = dto.sourceId as string;
+                break;
+            case ENotificationSourceType.REVIEW_COMMENT:
+                entity.reviewCommentId = dto.sourceId as string;
+                break;
+            default:
+                throw new UnrecoverableError(
+                    `Invalid sourceType for notification: ${JSON.stringify(dto)}`,
+                );
         }
 
         await this.notificationRepository.save(entity);

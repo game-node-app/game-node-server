@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { CommentStatistics } from "./entity/comment-statistics.entity";
 import { StatisticsService } from "./statistics.types";
@@ -18,11 +18,18 @@ import {
     StatisticsActionType,
     StatisticsSourceType,
 } from "./statistics.constants";
+import {
+    ENotificationCategory,
+    ENotificationSourceType,
+} from "../notifications/notifications.constants";
+import { UnrecoverableError } from "bullmq";
 
 type CommentEntityKeys = keyof CommentStatistics;
 
 @Injectable()
 export class CommentStatisticsService implements StatisticsService {
+    private logger = new Logger(CommentStatisticsService.name);
+
     constructor(
         @InjectRepository(CommentStatistics)
         private readonly commentStatisticsRepository: Repository<CommentStatistics>,
@@ -39,6 +46,8 @@ export class CommentStatisticsService implements StatisticsService {
         switch (sourceType) {
             case StatisticsSourceType.REVIEW_COMMENT:
                 return "reviewCommentId";
+            case StatisticsSourceType.ACTIVITY_COMMENT:
+                return "activityCommentId";
 
             default:
                 throw new Error("Invalid source type for comment statistics");
@@ -130,7 +139,7 @@ export class CommentStatisticsService implements StatisticsService {
     }
 
     async handleLike(data: StatisticsLikeAction): Promise<void> {
-        const { sourceId, userId, targetUserId, action, sourceType } = data;
+        const { sourceId, userId, action, sourceType } = data;
         if (typeof sourceId !== "string") {
             throw new Error("Invalid type for review-statistics like");
         }
@@ -190,16 +199,42 @@ export class CommentStatisticsService implements StatisticsService {
             1,
         );
 
-        if (targetUserId) {
-            // TODO: Handle notifications
-            // this.notificationsQueueService.registerNotification({
-            //     targetUserId,
-            //     userId,
-            //     sourceId: sourceId,
-            //     sourceType: ENotificationSourceType.ACTIVITY,
-            //     category: ENotificationCategory.LIKE,
-            // });
+        this.createLikeNotification(data)
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
+    }
+
+    async createLikeNotification(data: StatisticsLikeAction) {
+        const { sourceId, sourceType, targetUserId, userId } = data;
+
+        if (targetUserId == undefined) {
+            return;
         }
+
+        let notificationSourceType: ENotificationSourceType;
+        switch (sourceType) {
+            case StatisticsSourceType.ACTIVITY_COMMENT:
+                notificationSourceType =
+                    ENotificationSourceType.ACTIVITY_COMMENT;
+                break;
+            case StatisticsSourceType.REVIEW_COMMENT:
+                notificationSourceType = ENotificationSourceType.REVIEW_COMMENT;
+                break;
+            default:
+                throw new UnrecoverableError(
+                    `Invalid sourceType for like notification: ${JSON.stringify(data)}`,
+                );
+        }
+
+        this.notificationsQueueService.registerNotification({
+            sourceId,
+            sourceType: notificationSourceType,
+            category: ENotificationCategory.LIKE,
+            userId,
+            targetUserId,
+        });
     }
 
     async handleView(data: StatisticsViewAction): Promise<void> {

@@ -17,9 +17,10 @@ import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
-import { FindChildrenCommentsDto } from "./dto/find-children-comments.dto";
 import { BaseFindDto } from "../utils/base-find.dto";
 import { UserComment } from "./entity/user-comment.entity";
+import { ActivityComment } from "./entity/activity-comment.entity";
+import { ActivitiesRepositoryService } from "../activities/activities-repository/activities-repository.service";
 
 @Injectable()
 export class CommentService {
@@ -28,15 +29,20 @@ export class CommentService {
     constructor(
         @InjectRepository(ReviewComment)
         private readonly reviewCommentRepository: Repository<ReviewComment>,
+        @InjectRepository(ActivityComment)
+        private readonly activityCommentRepository: Repository<ActivityComment>,
         private readonly statisticsQueueService: StatisticsQueueService,
         private readonly notificationsQueueService: NotificationsQueueService,
         private readonly reviewsService: ReviewsService,
+        private readonly activitiesRepositoryService: ActivitiesRepositoryService,
     ) {}
 
     private getTargetRepository(commentSourceType: CommentSourceType) {
         switch (commentSourceType) {
             case CommentSourceType.REVIEW:
                 return this.reviewCommentRepository;
+            case CommentSourceType.ACTIVITY:
+                return this.activityCommentRepository;
         }
     }
 
@@ -50,7 +56,7 @@ export class CommentService {
                     ...baseFindOptions,
                     where: {
                         reviewId: dto.sourceId,
-                        // Excludes comments of comments
+                        // Only returns top-level comments, excluding comments of comments
                         childOfId: IsNull(),
                     },
                 });
@@ -116,7 +122,7 @@ export class CommentService {
 
         let insertedEntryId: string;
         switch (sourceType) {
-            case CommentSourceType.REVIEW:
+            case CommentSourceType.REVIEW: {
                 const insertedEntry = await this.reviewCommentRepository.save({
                     profileUserId: userId,
                     reviewId: sourceId,
@@ -125,6 +131,19 @@ export class CommentService {
                 });
                 insertedEntryId = insertedEntry.id;
                 break;
+            }
+            case CommentSourceType.ACTIVITY: {
+                const insertedEntry = await this.activityCommentRepository.save(
+                    {
+                        profileUserId: userId,
+                        activityId: sourceId,
+                        content,
+                        childOfId: childOf,
+                    },
+                );
+                insertedEntryId = insertedEntry.id;
+                break;
+            }
             default:
                 throw new HttpException(
                     "Invalid sourceType.",
@@ -145,28 +164,72 @@ export class CommentService {
     }
 
     /**
-     * Registers notification for target entity (e.g. review) when a new comment is inserted.
+     * Registers notification for target entity (e.g. review, review comment) when a new comment is inserted.
      * @param commentId
      * @param sourceType
      */
     async createNotification(commentId: string, sourceType: CommentSourceType) {
         const comment = await this.findOneByIdOrFail(sourceType, commentId);
-        let targetUserId: string;
-        let sourceId: string;
-        switch (sourceType) {
-            case CommentSourceType.REVIEW:
+
+        let targetUserId: string | undefined;
+        let sourceId: string | undefined;
+        let notificationSourceType: ENotificationSourceType | undefined;
+
+        if (comment instanceof ReviewComment) {
+            if (comment.childOfId != undefined) {
+                const parentComment = await this.findOneByIdOrFail(
+                    sourceType,
+                    comment.childOfId,
+                );
+                targetUserId = parentComment.profileUserId;
+                sourceId = parentComment.id;
+                notificationSourceType = ENotificationSourceType.REVIEW_COMMENT;
+            } else {
                 const review = await this.reviewsService.findOneByIdOrFail(
                     comment.reviewId,
                 );
                 targetUserId = review.profileUserId;
                 sourceId = review.id;
-                break;
+                notificationSourceType = ENotificationSourceType.REVIEW;
+            }
+        } else if (comment instanceof ActivityComment) {
+            if (comment.childOfId != undefined) {
+                const parentComment = await this.findOneByIdOrFail(
+                    sourceType,
+                    comment.childOfId,
+                );
+                targetUserId = parentComment.profileUserId;
+                sourceId = parentComment.id;
+                notificationSourceType =
+                    ENotificationSourceType.ACTIVITY_COMMENT;
+            } else {
+                const activity =
+                    await this.activitiesRepositoryService.findOneByOrFail({
+                        where: {
+                            id: comment.activityId,
+                        },
+                    });
+                targetUserId = activity.profileUserId;
+                sourceId = activity.id;
+                notificationSourceType = ENotificationSourceType.ACTIVITY;
+            }
+        }
+
+        if (
+            sourceId == undefined ||
+            targetUserId == undefined ||
+            notificationSourceType == undefined
+        ) {
+            this.logger.error(
+                "Failed to generate comment notification: could not determine comment notification target.",
+            );
+            return;
         }
 
         this.notificationsQueueService.registerNotification({
             userId: comment.profileUserId,
             sourceId: sourceId,
-            sourceType: ENotificationSourceType.REVIEW,
+            sourceType: notificationSourceType,
             targetUserId: targetUserId,
             category: ENotificationCategory.COMMENT,
         });
