@@ -24,6 +24,7 @@ import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { PartialGame } from "./game-repository.types";
 import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
+import { days } from "@nestjs/throttler";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -101,6 +102,39 @@ export class GameRepositoryCreateService {
         private readonly statisticsQueueService: StatisticsQueueService,
     ) {}
 
+    async shouldUpdate(game: PartialGame) {
+        if (game.id == null || typeof game.id !== "number") {
+            return false;
+        } else if (
+            game.name == undefined &&
+            (game.alternativeNames == undefined ||
+                game.alternativeNames.length === 0)
+        ) {
+            return false;
+        } else if (
+            (await this.gameRepository.existsBy({ id: game.id })) &&
+            game.updatedAt != undefined
+        ) {
+            const now = new Date();
+            const lastUpdateDate = game.updatedAt as Date;
+            const dayInMs = 1000 * 3600 * 24;
+
+            const differenceInTime = now.getTime() - lastUpdateDate.getTime();
+            const approximateDifferenceInDays = Math.round(
+                differenceInTime / dayInMs,
+            );
+
+            // game already exists and it has been more than thirty days since it's last update
+            // this logic only works if the 'updated_at' property is being returned by igdb-sync.
+            if (approximateDifferenceInDays >= 30) {
+                return false;
+            }
+            const one = 2;
+        }
+
+        return true;
+    }
+
     /**
      * Creates or updates a game in our database. <br>
      * ManyToMany models can't be easily upserted, since the junction table is not inserted/updated automatically (without .save).
@@ -109,16 +143,11 @@ export class GameRepositoryCreateService {
      * @param game
      */
     async createOrUpdate(game: PartialGame) {
-        if (game.id == null || typeof game.id !== "number") {
-            throw new Error("Game ID must be a number.");
-        } else if (
-            game.name == undefined &&
-            (game.alternativeNames == undefined ||
-                game.alternativeNames.length === 0)
-        ) {
-            throw new Error(
-                "Game name or alternative names must be specified.",
-            );
+        const shouldProcess = await this.shouldUpdate(game);
+
+        if (!shouldProcess) {
+            // Do not log here, as most games are skipped after the first run.
+            return;
         }
 
         const isUpdateAction = await this.gameRepository.existsBy({
@@ -163,9 +192,9 @@ export class GameRepositoryCreateService {
 
     /**
      * Builds child relationships which depend on the game being saved (e.g. alternative names, cover).
-     e.g. Relationships where Game is on the OneToMany or ManyToMany side.<br>
-
-     <strong> We assume the game is already persisted at this point, so we can use it as a parent.</strong>
+     * e.g. Relationships where Game is on the OneToMany or ManyToMany side.<br>
+     *
+     * <strong> We assume the game is already persisted at this point, so we can use it as a parent.</strong>
      * @param game
      */
     async buildChildRelationships(game: PartialGame) {

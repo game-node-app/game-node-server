@@ -50,17 +50,17 @@ export const parseGameDates = (game: PartialGame) => {
         "start_date",
         "startDate",
     ];
+
     for (const [key, value] of Object.entries(parsedGame)) {
         if (dateFields.includes(key) && typeof value === "number") {
+            // IGDB Dates are always returned in seconds, even if they are
+            // unix timestamps.
             let asDate: Date | undefined = new Date(value * 1000);
 
-            // Dates can't be invalid or in the future.
-            if (
-                asDate.toString() === "Invalid Date" ||
-                asDate.getTime() > Date.now()
-            ) {
+            if (asDate.toString() === "Invalid Date") {
                 asDate = undefined;
             }
+
             parsedGame[key] = asDate;
         }
     }

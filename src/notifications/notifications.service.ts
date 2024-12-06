@@ -113,12 +113,20 @@ export class NotificationsService {
                         comparedNotification.category,
                     );
 
-                    const comparableProperties: (keyof Notification)[] = [
+                    const comparableSourceIds: (keyof Notification)[] = [
                         "reviewId",
                         "activityId",
+                        "reviewCommentId",
+                        "activityCommentId",
                     ];
 
-                    const isSameSource = comparableProperties.some(
+                    const hasSameCategory =
+                        notification.category === comparedNotification.category;
+                    const hasSameSourceType =
+                        notification.sourceType ===
+                        comparedNotification.sourceType;
+
+                    const hasSameSourceId = comparableSourceIds.some(
                         (property) => {
                             return (
                                 comparedNotification[property] != undefined &&
@@ -129,7 +137,11 @@ export class NotificationsService {
                     );
 
                     const isSimilar =
-                        !isAlreadyProcessed && hasValidCategory && isSameSource;
+                        !isAlreadyProcessed &&
+                        hasValidCategory &&
+                        hasSameCategory &&
+                        hasSameSourceType &&
+                        hasSameSourceId;
 
                     if (isSimilar) {
                         processedEntities.set(
@@ -154,11 +166,13 @@ export class NotificationsService {
                 sourceId:
                     notification.reviewId! ||
                     notification.activityId! ||
-                    notification.profileUserId! ||
                     notification.importerNotificationId! ||
                     notification.reportId! ||
                     notification.reviewCommentId! ||
-                    notification.activityCommentId!,
+                    notification.activityCommentId! ||
+                    // profileUserId should be last, otherwise you will get weird issues.
+                    notification.profileUserId!,
+
                 sourceType: notification.sourceType,
                 notifications: aggregationNotifications,
             });
