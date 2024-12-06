@@ -192,7 +192,7 @@ export class GameStatisticsService implements StatisticsService {
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(fixedStatisticsLimit)
-            .cache(`trending-games-statistics-${period}`, hours(6));
+            .cache(`trending-games-statistics-${period}`, hours(24));
 
         /**
          * Made with query builder, so we can further optimize the query
