@@ -61,10 +61,15 @@ export class StatisticsController {
                 return this.activityStatisticsService.findOne(
                     dto.sourceId as string,
                 );
+            case StatisticsSourceType.ACTIVITY_COMMENT:
+                return this.commentStatisticsService.findOne(
+                    dto.sourceId as string,
+                    StatisticsSourceType.ACTIVITY_COMMENT,
+                );
             case StatisticsSourceType.REVIEW_COMMENT:
                 return this.commentStatisticsService.findOne(
                     dto.sourceId as string,
-                    dto.sourceType,
+                    StatisticsSourceType.REVIEW_COMMENT,
                 );
             default:
                 throw new HttpException(
@@ -146,6 +151,11 @@ export class StatisticsController {
                 );
             case StatisticsSourceType.ACTIVITY:
                 return this.activityStatisticsService.getStatus(
+                    dto.statisticsId,
+                    session?.getUserId(),
+                );
+            case StatisticsSourceType.ACTIVITY_COMMENT:
+                return this.commentStatisticsService.getStatus(
                     dto.statisticsId,
                     session?.getUserId(),
                 );
