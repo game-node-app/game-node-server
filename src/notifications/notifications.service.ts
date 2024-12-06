@@ -116,6 +116,8 @@ export class NotificationsService {
                     const comparableProperties: (keyof Notification)[] = [
                         "reviewId",
                         "activityId",
+                        "reviewCommentId",
+                        "activityCommentId",
                     ];
 
                     const isSameSource = comparableProperties.some(
@@ -154,11 +156,13 @@ export class NotificationsService {
                 sourceId:
                     notification.reviewId! ||
                     notification.activityId! ||
-                    notification.profileUserId! ||
                     notification.importerNotificationId! ||
                     notification.reportId! ||
                     notification.reviewCommentId! ||
-                    notification.activityCommentId!,
+                    notification.activityCommentId! ||
+                    // profileUserId should be last, otherwise you will get weird issues.
+                    notification.profileUserId!,
+
                 sourceType: notification.sourceType,
                 notifications: aggregationNotifications,
             });
