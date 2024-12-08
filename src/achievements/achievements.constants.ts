@@ -7,14 +7,16 @@ export enum AchievementCategory {
     COLLECTIONS,
     FOLLOWERS,
     REVIEWS,
-    REVIEW_COMMENTS,
+    COMMENTS,
     MISC,
 }
 
 export const ACHIEVEMENTS_GAME_IDS = {
     JUST_DANCE_IDS: [],
-};
+    TOMB_RAIDER_2013: 1164,
+    DEATH_STRANDING_IDS: [19564, 152063, 228530],
+} as const;
 
 export const ACHIEVEMENTS_GAME_THEMES_IDS = {
     HORROR_ID: 19,
-};
+} as const;

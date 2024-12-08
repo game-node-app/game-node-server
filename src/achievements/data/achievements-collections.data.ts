@@ -1,9 +1,9 @@
 import { Achievement } from "../models/achievement.model";
 import {
     AchievementCategory,
+    ACHIEVEMENTS_GAME_IDS,
     ACHIEVEMENTS_GAME_THEMES_IDS,
 } from "../achievements.constants";
-import { Review } from "../../reviews/entities/review.entity";
 import { Collection } from "../../collections/entities/collection.entity";
 import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
 
@@ -95,6 +95,24 @@ export const achievementsCollectionsData: Achievement[] = [
             );
 
             return collectionMeetsCriteria;
+        },
+    },
+    {
+        id: "a-survivor-is-born",
+        name: "A Survivor is Born",
+        category: AchievementCategory.COLLECTIONS,
+        expGainAmount: 50,
+        description: "Have Tomb Raider 2013 in your library",
+        checkEligibility: async (dataSource, targetUserId) => {
+            const collectionEntryRepository =
+                dataSource.getRepository(CollectionEntry);
+
+            return await collectionEntryRepository.existsBy({
+                gameId: ACHIEVEMENTS_GAME_IDS.TOMB_RAIDER_2013,
+                collections: {
+                    libraryUserId: targetUserId,
+                },
+            });
         },
     },
 ];
