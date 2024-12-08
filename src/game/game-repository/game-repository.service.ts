@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
-import { DataSource, FindOptionsRelations, In, Repository } from "typeorm";
+import { DataSource, In, Repository } from "typeorm";
 import { GameGenre } from "./entities/game-genre.entity";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameTheme } from "./entities/game-theme.entity";
@@ -26,6 +26,7 @@ import {
     getStoreNameForExternalGameCategory,
 } from "./game-repository.utils";
 import { toMap } from "../../utils/toMap";
+import { getRelationLoadStrategy } from "../../utils/getRelationLoadStrategy";
 
 /**
  * Look-up table between resource names and their respective entities
@@ -44,7 +45,6 @@ export type TAllowedResource = keyof typeof resourceToTargetEntityMap;
 @Injectable()
 export class GameRepositoryService {
     private readonly logger = new Logger(GameRepositoryService.name);
-    private readonly maximumAllowedRelationsQuery = 3;
 
     /**
      * @param dataSource
@@ -62,37 +62,17 @@ export class GameRepositoryService {
         private readonly gameExternalGameRepository: Repository<GameExternalGame>,
     ) {}
 
-    private validateMaximumRelations(
-        relations: FindOptionsRelations<Game> | undefined,
-    ) {
-        if (!relations) return;
-        const totalQueriedEntries = Object.entries(relations).filter(
-            ([key, value]) => {
-                // E.g.: genres: true
-                return key != undefined && value;
-            },
-        ).length;
-        if (totalQueriedEntries > this.maximumAllowedRelationsQuery) {
-            throw new HttpException(
-                `For performance reasons, queries with more than ${this.maximumAllowedRelationsQuery} relations are not allowed. Send multiple requests instead.`,
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-    }
-
     async findOneById(
         id: number,
         dto?: GameRepositoryFindOneDto,
     ): Promise<Game> {
-        this.validateMaximumRelations(dto?.relations);
-
         const game = await this.gameRepository.findOne({
             where: {
                 id,
             },
             relations: dto?.relations,
             cache: minutes(5),
-            relationLoadStrategy: "query",
+            relationLoadStrategy: getRelationLoadStrategy(dto?.relations),
         });
         if (!game) {
             throw new HttpException("Game not found.", HttpStatus.NOT_FOUND);
@@ -119,7 +99,6 @@ export class GameRepositoryService {
         ) {
             throw new HttpException("Invalid query.", HttpStatus.BAD_REQUEST);
         }
-        this.validateMaximumRelations(dto?.relations);
 
         const games = await this.gameRepository.find({
             where: {
@@ -127,7 +106,7 @@ export class GameRepositoryService {
             },
             relations: dto.relations,
             cache: minutes(5),
-            relationLoadStrategy: "query",
+            relationLoadStrategy: getRelationLoadStrategy(dto?.relations),
         });
 
         if (games.length === 0) {
@@ -267,6 +246,10 @@ export class GameRepositoryService {
             where: {
                 uid: In(sourceIds),
                 category,
+            },
+            cache: {
+                id: `external-games-ids-${category}-${sourceIds}`,
+                milliseconds: days(1),
             },
         });
     }

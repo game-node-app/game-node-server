@@ -29,7 +29,9 @@ export class ImporterWatchNotification {
     })
     source: EImporterSource;
 
-    @ManyToMany(() => GameExternalGame)
+    @ManyToMany(() => GameExternalGame, {
+        nullable: true,
+    })
     @JoinTable()
-    games: GameExternalGame[];
+    games: GameExternalGame[] | null;
 }

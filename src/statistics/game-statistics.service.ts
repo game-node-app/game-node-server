@@ -158,7 +158,7 @@ export class GameStatisticsService implements StatisticsService {
         const { period, criteria, offset, limit } = data;
         const offsetToUse = offset || 0;
         // We save up to this N statistics entities on cache to improve load performance.
-        const fixedStatisticsLimit = 10000;
+        const fixedStatisticsLimit = 25000;
         // User supplied limit
         const limitToUse = limit || 20;
         const minusDays = StatisticsPeriodToMinusDays[period];
@@ -167,6 +167,9 @@ export class GameStatisticsService implements StatisticsService {
         const queryBuilder =
             this.gameStatisticsRepository.createQueryBuilder("s");
 
+        /**
+         * Made with query builder, so we can further optimize the query
+         */
         const query = queryBuilder
             .select()
             .leftJoin(UserView, `uv`, `uv.gameStatisticsId = s.id`)
@@ -181,22 +184,11 @@ export class GameStatisticsService implements StatisticsService {
                     excludedThemeId: MATURE_THEME_ID,
                 },
             )
-            // Excludes admin excluded games
-            .andWhere(() => {
-                const excludedQuery =
-                    this.gameFilterService.buildQueryBuilderSubQuery(
-                        `s.gameId`,
-                    );
-                return `NOT EXISTS ${excludedQuery}`;
-            })
             .addOrderBy(`s.viewsCount`, `DESC`)
             .skip(0)
             .take(fixedStatisticsLimit)
-            .cache(`trending-games-statistics-${period}`, hours(6));
+            .cache(`trending-games-statistics-${period}`, hours(24));
 
-        /**
-         * Made with query builder, so we can further optimize the query
-         */
         const statistics = await query.getMany();
 
         const gameIds = statistics.map((s) => s.gameId);
