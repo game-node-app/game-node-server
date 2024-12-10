@@ -88,14 +88,6 @@ export class ActivitiesRepositoryService {
             return;
         }
 
-        const isGameExcluded =
-            await this.gameFilterService.isExcluded(targetGameId);
-        if (isGameExcluded) {
-            throw new UnrecoverableError(
-                "Target game is excluded from front-facing content",
-            );
-        }
-
         const isGameMature =
             await this.gameFilterService.isMature(targetGameId);
         if (isGameMature) {

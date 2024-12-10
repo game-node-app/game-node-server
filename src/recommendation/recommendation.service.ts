@@ -48,11 +48,7 @@ export class RecommendationService {
 
         const gameIds = finishedCollectionEntries.map((entry) => entry.gameId);
 
-        const nonExcludedGameIds =
-            await this.gameFilterService.removeExcluded(gameIds);
-
-        const sfwGameIds =
-            await this.gameFilterService.removeMature(nonExcludedGameIds);
+        const sfwGameIds = await this.gameFilterService.removeMature(gameIds);
 
         const randomGameIds = getRandomItems(sfwGameIds, limitToUse);
 

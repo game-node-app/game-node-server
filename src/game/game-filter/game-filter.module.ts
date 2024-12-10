@@ -1,9 +1,6 @@
 import { Module } from "@nestjs/common";
 import { GameFilterService } from "./game-filter.service";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { GameExclusion } from "./entity/game-exclusion.entity";
 import { GameRepositoryModule } from "../game-repository/game-repository.module";
-import { GameFilterController } from './game-filter.controller';
 
 /**
  * The game filter module is responsible for issuing 'exclusions' for certain games.
@@ -13,9 +10,8 @@ import { GameFilterController } from './game-filter.controller';
  * info page (hopefully only there).
  */
 @Module({
-    imports: [TypeOrmModule.forFeature([GameExclusion]), GameRepositoryModule],
+    imports: [GameRepositoryModule],
     providers: [GameFilterService],
     exports: [GameFilterService],
-    controllers: [GameFilterController],
 })
 export class GameFilterModule {}
