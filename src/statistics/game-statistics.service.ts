@@ -23,6 +23,7 @@ import { hours } from "@nestjs/throttler";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 import { GameFilterService } from "../game/game-filter/game-filter.service";
 import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
+import isEmptyObject from "../utils/isEmptyObject";
 
 @Injectable()
 export class GameStatisticsService implements StatisticsService {
@@ -176,7 +177,7 @@ export class GameStatisticsService implements StatisticsService {
             .where(`(uv.createdAt >= :uvDate OR s.viewsCount = 0)`, {
                 uvDate: viewsStartDate,
             })
-            // Excludes games with specific themes
+            // Excludes games with mature theme
             .andWhere(
                 `NOT EXISTS (SELECT 1 FROM game_themes_game_theme AS gtgt WHERE gtgt.gameId = s.gameId 
                 AND gtgt.gameThemeId = :excludedThemeId)`,
@@ -190,6 +191,15 @@ export class GameStatisticsService implements StatisticsService {
             .cache(`trending-games-statistics-${period}`, hours(24));
 
         const statistics = await query.getMany();
+
+        // This greatly improves performance when no filtering is actually being done.
+        if (criteria == undefined || isEmptyObject(criteria)) {
+            const slicedStatistics = statistics.slice(
+                offsetToUse,
+                offsetToUse + limitToUse,
+            );
+            return [slicedStatistics, fixedStatisticsLimit];
+        }
 
         const gameIds = statistics.map((s) => s.gameId);
         const games = await this.gameRepositoryService.findAllIdsWithFilters({
