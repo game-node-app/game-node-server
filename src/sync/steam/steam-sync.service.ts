@@ -74,11 +74,18 @@ export class SteamSyncService {
             language: "english",
         });
 
+        const sortedGames = games.toSorted((a, b) => {
+            const timestampA = a.lastPlayedTimestamp ?? 0;
+            const timestampB = b.lastPlayedTimestamp ?? 0;
+
+            return timestampB - timestampA;
+        });
+
         this.cacheManager
-            .set(`steam-sync-games-${steamUserId}`, games, minutes(10))
+            .set(`steam-sync-games-${steamUserId}`, sortedGames, minutes(10))
             .then()
             .catch();
 
-        return games;
+        return sortedGames;
     }
 }
