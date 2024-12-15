@@ -41,10 +41,15 @@ export class GameStatisticsService implements StatisticsService {
         private readonly cacheManager: Cache,
     ) {}
 
-    private getCachedStatistics(period: StatisticsPeriod) {
-        return this.cacheManager.get<GameStatistics[]>(
+    private async getCachedStatistics(period: StatisticsPeriod) {
+        const cachedStatistics = await this.cacheManager.get<GameStatistics[]>(
             `trending-games-statistics-${period}`,
         );
+        if (cachedStatistics != undefined && !Array.isArray(cachedStatistics)) {
+            return undefined;
+        }
+
+        return cachedStatistics;
     }
 
     private setCachedStatistics(
