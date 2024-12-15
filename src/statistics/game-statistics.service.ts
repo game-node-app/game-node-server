@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GameStatistics } from "./entity/game-statistics.entity";
 import { Repository } from "typeorm";
@@ -11,6 +11,7 @@ import {
 } from "./statistics-queue/statistics-queue.types";
 import {
     StatisticsActionType,
+    StatisticsPeriod,
     StatisticsPeriodToMinusDays,
     StatisticsSourceType,
 } from "./statistics.constants";
@@ -21,12 +22,14 @@ import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-g
 import { getPreviousDate } from "./statistics.utils";
 import { hours } from "@nestjs/throttler";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
-import { GameFilterService } from "../game/game-filter/game-filter.service";
+import { Cache } from "@nestjs/cache-manager";
 import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 import isEmptyObject from "../utils/isEmptyObject";
 
 @Injectable()
 export class GameStatisticsService implements StatisticsService {
+    private logger = new Logger(GameStatisticsService.name);
+
     constructor(
         @InjectRepository(GameStatistics)
         private readonly gameStatisticsRepository: Repository<GameStatistics>,
@@ -35,8 +38,26 @@ export class GameStatisticsService implements StatisticsService {
         @InjectRepository(UserView)
         private readonly userViewRepository: Repository<UserView>,
         private readonly gameRepositoryService: GameRepositoryService,
-        private readonly gameFilterService: GameFilterService,
+        private readonly cacheManager: Cache,
     ) {}
+
+    private getCachedStatistics(period: StatisticsPeriod) {
+        return this.cacheManager.get<GameStatistics[]>(
+            `trending-games-statistics-${period}`,
+        );
+    }
+
+    private setCachedStatistics(
+        period: StatisticsPeriod,
+        data: GameStatistics[],
+    ) {
+        this.cacheManager
+            .set(`trending-games-statistics-${period}`, data, hours(24))
+            .then()
+            .catch((err) => {
+                this.logger.error(err);
+            });
+    }
 
     /**
      * Creates a new GameStatistics. <br>
@@ -165,32 +186,36 @@ export class GameStatisticsService implements StatisticsService {
         const minusDays = StatisticsPeriodToMinusDays[period];
         const viewsStartDate = getPreviousDate(minusDays);
 
-        const queryBuilder =
-            this.gameStatisticsRepository.createQueryBuilder("s");
+        let statistics = await this.getCachedStatistics(period);
 
-        /**
-         * Made with query builder, so we can further optimize the query
-         */
-        const query = queryBuilder
-            .select()
-            .leftJoin(UserView, `uv`, `uv.gameStatisticsId = s.id`)
-            .where(`(uv.createdAt >= :uvDate OR s.viewsCount = 0)`, {
-                uvDate: viewsStartDate,
-            })
-            // Excludes games with mature theme
-            .andWhere(
-                `NOT EXISTS (SELECT 1 FROM game_themes_game_theme AS gtgt WHERE gtgt.gameId = s.gameId 
+        if (statistics == undefined) {
+            const queryBuilder =
+                this.gameStatisticsRepository.createQueryBuilder("s");
+
+            /**
+             * Made with query builder, so we can further optimize the query
+             */
+            const query = queryBuilder
+                .select()
+                .leftJoin(UserView, `uv`, `uv.gameStatisticsId = s.id`)
+                .where(`(uv.createdAt >= :uvDate OR s.viewsCount = 0)`, {
+                    uvDate: viewsStartDate,
+                })
+                // Excludes games with mature theme
+                .andWhere(
+                    `NOT EXISTS (SELECT 1 FROM game_themes_game_theme AS gtgt WHERE gtgt.gameId = s.gameId 
                 AND gtgt.gameThemeId = :excludedThemeId)`,
-                {
-                    excludedThemeId: MATURE_THEME_ID,
-                },
-            )
-            .addOrderBy(`s.viewsCount`, `DESC`)
-            .skip(0)
-            .take(fixedStatisticsLimit)
-            .cache(`trending-games-statistics-${period}`, hours(24));
+                    {
+                        excludedThemeId: MATURE_THEME_ID,
+                    },
+                )
+                .addOrderBy(`s.viewsCount`, `DESC`)
+                .skip(0)
+                .take(fixedStatisticsLimit);
 
-        const statistics = await query.getMany();
+            statistics = await query.getMany();
+            this.setCachedStatistics(period, statistics);
+        }
 
         // This greatly improves performance when no filtering is actually being done.
         if (criteria == undefined || isEmptyObject(criteria)) {
