@@ -124,12 +124,11 @@ export class GameRepositoryCreateService {
                 differenceInTime / dayInMs,
             );
 
-            // game already exists and it has been more than thirty days since it's last update
+            // game already exists, and it has been more than fifteen days since it's last update
             // this logic only works if the 'updated_at' property is being returned by igdb-sync.
-            if (approximateDifferenceInDays >= 30) {
+            if (approximateDifferenceInDays >= 15) {
                 return false;
             }
-            const one = 2;
         }
 
         return true;
@@ -146,7 +145,9 @@ export class GameRepositoryCreateService {
         const shouldProcess = await this.shouldUpdate(game);
 
         if (!shouldProcess) {
-            // Do not log here, as most games are skipped after the first run.
+            this.logger.log(
+                `Skipping game ${game.id} because it's not recently updated or invalid.`,
+            );
             return;
         }
 
