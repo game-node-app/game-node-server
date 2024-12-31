@@ -4,7 +4,9 @@ import {
     FindOptionsRelations,
     FindOptionsWhere,
     In,
+    IsNull,
     MoreThanOrEqual,
+    Or,
     Repository,
 } from "typeorm";
 import { Notification } from "./entity/notification.entity";
@@ -61,12 +63,11 @@ export class NotificationsService {
 
     private async findAllAfterDate(userId: string, date: Date) {
         return await this.notificationRepository.find({
-            where: [
-                {
-                    targetProfileUserId: userId,
-                    createdAt: MoreThanOrEqual(date),
-                },
-            ],
+            where: {
+                targetProfileUserId: userId,
+                createdAt: MoreThanOrEqual(date),
+            },
+
             relations: this.relations,
             order: {
                 createdAt: "DESC",
@@ -191,9 +192,14 @@ export class NotificationsService {
             await this.notificationRepository.findAndCount({
                 skip: offset,
                 take: limit,
-                where: {
-                    targetProfileUserId: userId,
-                },
+                where: [
+                    {
+                        targetProfileUserId: userId,
+                    },
+                    {
+                        targetProfileUserId: IsNull(),
+                    },
+                ],
                 order: {
                     createdAt: "DESC",
                 },
