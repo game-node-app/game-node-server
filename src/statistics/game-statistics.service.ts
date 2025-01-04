@@ -240,7 +240,9 @@ export class GameStatisticsService implements StatisticsService {
             offset: 0,
         });
         const totalAvailableGames = games.length;
-        const gamesSlice = games.slice(offsetToUse, offsetToUse + limitToUse);
+        const gamesSlice = games
+            .slice(offsetToUse, offsetToUse + limitToUse)
+            .map((game) => game.id);
         const relevantStatistics = statistics.filter((statistics) =>
             gamesSlice.includes(statistics.gameId),
         );
