@@ -27,6 +27,7 @@ import {
 } from "./game-repository.utils";
 import { toMap } from "../../utils/toMap";
 import { getRelationLoadStrategy } from "../../utils/getRelationLoadStrategy";
+import { GameRepositoryCacheService } from "./game-repository-cache.service";
 
 /**
  * Look-up table between resource names and their respective entities
@@ -51,6 +52,7 @@ export class GameRepositoryService {
      * @param gameRepository
      * @param gamePlatformRepository
      * @param gameExternalGameRepository
+     * @param gameRepositoryCacheService
      */
     constructor(
         private readonly dataSource: DataSource,
@@ -60,18 +62,18 @@ export class GameRepositoryService {
         private readonly gamePlatformRepository: Repository<GamePlatform>,
         @InjectRepository(GameExternalGame)
         private readonly gameExternalGameRepository: Repository<GameExternalGame>,
+        private readonly gameRepositoryCacheService: GameRepositoryCacheService,
     ) {}
 
     async findOneById(
         id: number,
         dto?: GameRepositoryFindOneDto,
     ): Promise<Game> {
-        const game = await this.gameRepository.findOne({
+        const game = await this.gameRepositoryCacheService.findOne({
             where: {
                 id,
             },
             relations: dto?.relations,
-            cache: minutes(5),
             relationLoadStrategy: getRelationLoadStrategy(dto?.relations),
         });
         if (!game) {
@@ -100,12 +102,11 @@ export class GameRepositoryService {
             throw new HttpException("Invalid query.", HttpStatus.BAD_REQUEST);
         }
 
-        const games = await this.gameRepository.find({
+        const games = await this.gameRepositoryCacheService.find({
             where: {
                 id: In(dto?.gameIds),
             },
             relations: dto.relations,
-            cache: minutes(5),
             relationLoadStrategy: getRelationLoadStrategy(dto?.relations),
         });
 
@@ -121,29 +122,32 @@ export class GameRepositoryService {
 
     async findAll(dto: BaseFindDto<Game>): Promise<TPaginationData<Game>> {
         const findOptions = buildBaseFindOptions(dto);
-        return this.gameRepository.findAndCount(findOptions);
+        return this.gameRepositoryCacheService.findAndCount(findOptions);
     }
 
     /**
-     * Only returns ids for optimization purposes.
+     * @warning This operation can be quite expensive.
      * @param filterDto
      */
     async findAllIdsWithFilters(
         filterDto: GameRepositoryFilterDto,
-    ): Promise<number[]> {
+    ): Promise<Game[]> {
         const findOptions = buildBaseFindOptions(filterDto);
         const whereOptions = buildFilterFindOptions(filterDto);
-        const games = await this.gameRepository.find({
-            ...findOptions,
-            where: whereOptions,
-            cache: minutes(5),
-        });
+
+        const games = await this.gameRepositoryCacheService.find(
+            {
+                ...findOptions,
+                where: whereOptions,
+            },
+            days(1),
+        );
+
         if (filterDto.ids) {
-            const reorderedGames = this.reOrderByIds(filterDto.ids, games);
-            return reorderedGames.map((game) => game.id);
+            return this.reOrderByIds(filterDto.ids, games);
         }
 
-        return games.map((game) => game.id);
+        return games;
     }
 
     async findGameExternalStores(gameId: number) {

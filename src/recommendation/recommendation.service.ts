@@ -144,8 +144,10 @@ export class RecommendationService {
                 themes: [randomTheme[0]],
             });
 
+        const gameIdsInTheme = gamesInTheme.map((game) => game.id);
+
         const randomGamesInTheme = getRandomItems(
-            gamesInTheme,
+            gameIdsInTheme,
             dto.limit || 10,
         );
 
@@ -215,8 +217,10 @@ export class RecommendationService {
                 genres: [randomGenre[0]],
             });
 
+        const gameIdsInGenre = gamesInGenre.map((game) => game.id);
+
         const randomGamesInTheme = getRandomItems(
-            gamesInGenre,
+            gameIdsInGenre,
             dto.limit || 10,
         );
 

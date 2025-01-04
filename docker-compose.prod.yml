@@ -96,7 +96,7 @@ services:
   redis:
     image: redis:latest
     hostname: server-redis
-    command: ["redis-server", "--appendonly", "no", "--maxmemory", "2048mb", "--maxmemory-policy", "allkeys-lru"]
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "4096mb", "--maxmemory-policy", "allkeys-lru"]
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
 

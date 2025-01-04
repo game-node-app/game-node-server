@@ -97,6 +97,7 @@ function getRedisConfig() {
                             host: redisConfig.host,
                             port: redisConfig.port,
                         },
+                        ignoreErrors: true,
                     },
                 };
             },

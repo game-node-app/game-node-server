@@ -27,7 +27,7 @@ export class RecommendationController {
     ) {}
 
     @Get()
-    @CacheTTL(hours(6))
+    @CacheTTL(hours(24))
     async getRecommendations(
         @Session() session: SessionContainer,
         @Query() dto: GetRecommendationsRequestDto,
