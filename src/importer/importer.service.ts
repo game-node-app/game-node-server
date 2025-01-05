@@ -16,6 +16,7 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { ImporterEntry } from "./entity/importer-entry.entity";
 import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { HttpStatusCode } from "axios";
+import { ImporterResponseItemDto } from "./dto/importer-response-item.dto";
 
 @Injectable()
 export class ImporterService {
@@ -77,9 +78,19 @@ export class ImporterService {
                 EGameExternalGameCategory.Steam,
             );
 
-        return externalGames.filter(
+        const filteredGames = externalGames.filter(
             (externalGame) =>
                 !ignoredExternalGamesIds.includes(externalGame.id),
+        );
+
+        return filteredGames.map(
+            (item): ImporterResponseItemDto => ({
+                ...item,
+                /* PC platform ID
+                 * @see GamePlatform#id
+                 */
+                preferredPlatformId: 6,
+            }),
         );
     }
 
@@ -121,21 +132,51 @@ export class ImporterService {
         const externalGames =
             await this.gameRepositoryService.getExternalGamesForSourceIds(
                 gamesUids,
-                EGameExternalGameCategory.Steam,
+                EGameExternalGameCategory.PlaystationStoreUs,
             );
 
-        return externalGames.filter(
+        const filteredGames = externalGames.filter(
             (externalGame) =>
                 !ignoredExternalGamesIds.includes(externalGame.id),
         );
+
+        return filteredGames.map((item): ImporterResponseItemDto => {
+            const relatedOriginalGame = games.find(
+                (game) => `${game.concept.id}` === item.uid,
+            )!;
+
+            /*
+             * @see GamePlatform#id
+             */
+            let targetPlatformId: number;
+            switch (relatedOriginalGame.category) {
+                case "ps4_game":
+                    // ps4 platform id
+                    targetPlatformId = 48;
+                    break;
+                case "ps5_game":
+                    // ps5 platform id
+                    targetPlatformId = 167;
+                    break;
+                default:
+                    // ps4 platform id
+                    targetPlatformId = 48;
+                    break;
+            }
+
+            return {
+                ...item,
+                preferredPlatformId: targetPlatformId,
+            };
+        });
     }
 
     public async findUnprocessedEntries(
         userId: string,
         source: EImporterSource,
         dto: ImporterUnprocessedRequestDto,
-    ): Promise<TPaginationData<GameExternalGame>> {
-        let entries: GameExternalGame[] = [];
+    ): Promise<TPaginationData<ImporterResponseItemDto>> {
+        let entries: ImporterResponseItemDto[] = [];
         switch (source) {
             case EImporterSource.STEAM:
                 entries = await this.findUnprocessedSteamEntries(userId);
