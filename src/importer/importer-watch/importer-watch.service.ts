@@ -11,6 +11,7 @@ import { UserConnection } from "../../connections/entity/user-connection.entity"
 import {
     EConnectionType,
     IMPORTER_VIABLE_CONNECTIONS,
+    IMPORTER_WATCH_VIABLE_CONNECTIONS,
 } from "../../connections/connections.constants";
 import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
 import { EImporterSource } from "../importer.constants";
@@ -73,8 +74,7 @@ export class ImporterWatchService {
 
         const usableConnections = connections.filter(
             (connection) =>
-                IMPORTER_VIABLE_CONNECTIONS.includes(connection.type) &&
-                connection.isImporterViable &&
+                IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(connection.type) &&
                 connection.isImporterEnabled,
         );
 
@@ -90,7 +90,7 @@ export class ImporterWatchService {
     private async findUnprocessedEntries(userConnection: UserConnection) {
         let unprocessedGames: GameExternalGame[] = [];
         switch (userConnection.type) {
-            case EConnectionType.Steam:
+            case EConnectionType.STEAM:
                 [unprocessedGames] =
                     await this.importerService.findUnprocessedEntries(
                         userConnection.profileUserId,

@@ -5,10 +5,12 @@ import { In, Repository } from "typeorm";
 import {
     EConnectionType,
     IMPORTER_VIABLE_CONNECTIONS,
+    IMPORTER_WATCH_VIABLE_CONNECTIONS,
 } from "./connections.constants";
 import { ConnectionCreateDto } from "./dto/connection-create.dto";
 import { SteamSyncService } from "../sync/steam/steam-sync.service";
 import { FindAvailableConnectionsResponseDto } from "./dto/find-available-connections-response.dto";
+import { PsnSyncService } from "../sync/psn/psn-sync.service";
 
 @Injectable()
 export class ConnectionsService {
@@ -16,6 +18,7 @@ export class ConnectionsService {
         @InjectRepository(UserConnection)
         private readonly userConnectionRepository: Repository<UserConnection>,
         private readonly steamSyncService: SteamSyncService,
+        private readonly psnSyncService: PsnSyncService,
     ) {}
 
     public findOneById(id: number) {
@@ -67,6 +70,8 @@ export class ConnectionsService {
                     type: type,
                     isImporterViable:
                         IMPORTER_VIABLE_CONNECTIONS.includes(type),
+                    isImporterWatchViable:
+                        IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(type),
                     name: type.valueOf(),
                     iconName: type.valueOf(),
                 };
@@ -86,12 +91,20 @@ export class ConnectionsService {
         let sourceUsername: string;
 
         switch (type) {
-            case EConnectionType.Steam:
+            case EConnectionType.STEAM: {
                 const steamUserInfo =
                     await this.steamSyncService.resolveUserInfo(userIdentifier);
                 sourceUserId = steamUserInfo.userId;
                 sourceUsername = steamUserInfo.username;
                 break;
+            }
+            case EConnectionType.PSN: {
+                const psnUserInfo =
+                    await this.psnSyncService.resolveUserInfo(userIdentifier);
+                sourceUserId = psnUserInfo.userId;
+                sourceUsername = psnUserInfo.username;
+                break;
+            }
             default:
                 throw new HttpException(
                     "Invalid connection type",

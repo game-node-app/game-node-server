@@ -29,8 +29,6 @@ export class ImporterController {
 
     @Get(":source")
     @UseInterceptors(PaginationInterceptor)
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(minutes(5))
     @ApiOkResponse({
         type: ImporterPaginatedResponseDto,
     })

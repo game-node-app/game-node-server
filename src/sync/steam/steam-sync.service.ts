@@ -1,14 +1,14 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-
 import SteamAPI, {
     UserSummary,
     // @ts-expect-error ESModule import in CommonJS file, breaks if used
     // without 'import()'
 } from "steamapi";
-import { SteamUserIdResolveResponseDto } from "./dto/steam-user-id-resolve-response.dto";
 import { Cache } from "@nestjs/cache-manager";
-import { minutes } from "@nestjs/throttler";
+import { hours } from "@nestjs/throttler";
+import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
+import igdb from "igdb-api-node";
 
 @Injectable()
 export class SteamSyncService {
@@ -30,6 +30,7 @@ export class SteamSyncService {
                 return;
             }
             this.client = new p.default(steamKey);
+            // this.getAllGames("76561198136665859");
         });
     }
 
@@ -38,7 +39,7 @@ export class SteamSyncService {
      */
     public async resolveUserInfo(
         query: string,
-    ): Promise<SteamUserIdResolveResponseDto> {
+    ): Promise<ConnectionUserResolveDto> {
         let steamUserId: string;
         try {
             steamUserId = await this.client.resolve(query);
@@ -62,12 +63,14 @@ export class SteamSyncService {
     public async getAllGames(
         steamUserId: string,
     ): Promise<ReturnType<typeof this.client.getUserOwnedGames>> {
-        const possibleCachedGames = await this.cacheManager.get<any>(
-            `steam-sync-games-${steamUserId}`,
-        );
+        const cacheKey = `steam-sync-games-${steamUserId}`;
+
+        const possibleCachedGames = await this.cacheManager.get<any>(cacheKey);
+
         if (possibleCachedGames) {
             return possibleCachedGames;
         }
+
         const games = await this.client.getUserOwnedGames(steamUserId, {
             includeAppInfo: false,
             includeFreeGames: true,
@@ -81,10 +84,13 @@ export class SteamSyncService {
             return timestampB - timestampA;
         });
 
-        this.cacheManager
-            .set(`steam-sync-games-${steamUserId}`, sortedGames, minutes(10))
-            .then()
-            .catch();
+        if (sortedGames.length > 0) {
+            this.cacheManager
+                .set(cacheKey, sortedGames, hours(1))
+                .catch((err) => {
+                    this.logger.error(err);
+                });
+        }
 
         return sortedGames;
     }

@@ -10,11 +10,12 @@ import { GameRepositoryService } from "../game/game-repository/game-repository.s
 import { ImporterStatusUpdateRequestDto } from "./dto/importer-status-update-request.dto";
 import { EImporterSource } from "./importer.constants";
 import { EGameExternalGameCategory } from "../game/game-repository/game-repository.constants";
-import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { GameExternalGame } from "../game/game-repository/entities/game-external-game.entity";
 import { ImporterUnprocessedRequestDto } from "./dto/importer-unprocessed-request.dto";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { ImporterEntry } from "./entity/importer-entry.entity";
+import { PsnSyncService } from "../sync/psn/psn-sync.service";
+import { HttpStatusCode } from "axios";
 
 @Injectable()
 export class ImporterService {
@@ -23,11 +24,10 @@ export class ImporterService {
         private readonly processedEntryRepository: Repository<ImporterProcessedEntry>,
         @InjectRepository(ImporterIgnoredEntry)
         private readonly ignoredEntryRepository: Repository<ImporterIgnoredEntry>,
-        @Inject(CACHE_MANAGER)
-        private readonly cacheManager: Cache,
         private readonly connectionsService: ConnectionsService,
         private readonly steamSyncService: SteamSyncService,
         private readonly gameRepositoryService: GameRepositoryService,
+        private readonly psnSyncService: PsnSyncService,
     ) {}
 
     private async getProcessedEntries(
@@ -55,7 +55,7 @@ export class ImporterService {
         const userConnection =
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
                 userId,
-                EConnectionType.Steam,
+                EConnectionType.STEAM,
             );
 
         if (!userConnection.isImporterEnabled) {
@@ -83,6 +83,53 @@ export class ImporterService {
         );
     }
 
+    private async findUnprocessedPsnEntries(userId: string) {
+        const processedEntries = await this.getProcessedEntries(userId);
+
+        const ignoredExternalGamesIds = processedEntries.map((entry) => {
+            return entry.gameExternalGameId;
+        });
+
+        const userConnection =
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.PSN,
+            );
+
+        if (!userConnection.isImporterEnabled) {
+            throw new HttpException(
+                "Steam connection importing is disabled.",
+                HttpStatus.PRECONDITION_FAILED,
+            );
+        }
+
+        const games = await this.psnSyncService.getAllGames(
+            userConnection.sourceUserId,
+        );
+
+        if (games.length === 0) {
+            throw new HttpException(
+                "No games found. PSN may be unavailable or user's profile is set to private.",
+                HttpStatusCode.BadRequest,
+            );
+        }
+
+        const gamesUids = games.map((item) => {
+            return `${item.concept.id}`;
+        });
+
+        const externalGames =
+            await this.gameRepositoryService.getExternalGamesForSourceIds(
+                gamesUids,
+                EGameExternalGameCategory.Steam,
+            );
+
+        return externalGames.filter(
+            (externalGame) =>
+                !ignoredExternalGamesIds.includes(externalGame.id),
+        );
+    }
+
     public async findUnprocessedEntries(
         userId: string,
         source: EImporterSource,
@@ -93,12 +140,16 @@ export class ImporterService {
             case EImporterSource.STEAM:
                 entries = await this.findUnprocessedSteamEntries(userId);
                 break;
+            case EImporterSource.PSN:
+                entries = await this.findUnprocessedPsnEntries(userId);
+                break;
             default:
                 throw new HttpException(
                     "Importer source not available",
                     HttpStatus.BAD_REQUEST,
                 );
         }
+
         if (entries.length === 0) {
             throw new HttpException(
                 "No unprocessed entries found",
