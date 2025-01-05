@@ -24,7 +24,7 @@ import { GameCompanyLogo } from "./entities/game-company-logo.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryCreateService } from "./game-repository-create.service";
 import { StatisticsQueueModule } from "../../statistics/statistics-queue/statistics-queue.module";
-import { HltbSyncModule } from "../../sync/hltb/hltb-sync.module";
+import { GameRepositoryCacheService } from './game-repository-cache.service';
 
 /**
  * This is a pretty big module, with lots of dependencies.
@@ -55,7 +55,7 @@ import { HltbSyncModule } from "../../sync/hltb/hltb-sync.module";
         ]),
         forwardRef(() => StatisticsQueueModule),
     ],
-    providers: [GameRepositoryService, GameRepositoryCreateService],
+    providers: [GameRepositoryService, GameRepositoryCreateService, GameRepositoryCacheService],
     exports: [GameRepositoryService, GameRepositoryCreateService],
     controllers: [GameRepositoryController],
 })

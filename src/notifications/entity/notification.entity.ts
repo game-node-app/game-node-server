@@ -21,8 +21,7 @@ import { ReviewComment } from "../../comment/entity/review-comment.entity";
 import { ActivityComment } from "../../comment/entity/activity-comment.entity";
 
 @Entity()
-@Index(["sourceType", "category"])
-@Index(["createdAt"])
+@Index(["targetProfileUserId", "createdAt"])
 export class Notification {
     @PrimaryGeneratedColumn()
     id: number;

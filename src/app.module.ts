@@ -20,7 +20,6 @@ import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { HltbSyncModule } from "./sync/hltb/hltb-sync.module";
 import { SteamSyncModule } from "./sync/steam/steam-sync.module";
 import { ConnectionsModule } from "./connections/connections.module";
 import { CommentModule } from "./comment/comment.module";
@@ -31,7 +30,7 @@ import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.
 import { RecommendationModule } from "./recommendation/recommendation.module";
 import { PlaytimeModule } from "./playtime/playtime.module";
 import { GameFilterModule } from "./game/game-filter/game-filter.module";
-import { PsnModule } from "./sync/psn/psn.module";
+import { PsnSyncModule } from "./sync/psn/psn-sync.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -97,6 +96,7 @@ function getRedisConfig() {
                             host: redisConfig.host,
                             port: redisConfig.port,
                         },
+                        ignoreErrors: true,
                     },
                 };
             },
@@ -158,7 +158,6 @@ function getRedisConfig() {
         AchievementsModule,
         FollowModule,
         NotificationsModule,
-        HltbSyncModule,
         SteamSyncModule,
         ImporterWatchModule,
         ConnectionsModule,
@@ -168,7 +167,7 @@ function getRedisConfig() {
         RecommendationModule,
         PlaytimeModule,
         GameFilterModule,
-        PsnModule,
+        PsnSyncModule,
     ],
 })
 export class AppModule implements NestModule {
