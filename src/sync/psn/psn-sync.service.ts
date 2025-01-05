@@ -1,6 +1,6 @@
 import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { PsnSyncAuthService } from "./auth/psn-sync-auth.service";
-import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
+import { Cache } from "@nestjs/cache-manager";
 import {
     makeUniversalSearch,
     getUserPlayedGames,

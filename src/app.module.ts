@@ -20,7 +20,6 @@ import { FollowModule } from "./follow/follow.module";
 import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { HltbSyncModule } from "./sync/hltb/hltb-sync.module";
 import { SteamSyncModule } from "./sync/steam/steam-sync.module";
 import { ConnectionsModule } from "./connections/connections.module";
 import { CommentModule } from "./comment/comment.module";
@@ -32,7 +31,6 @@ import { RecommendationModule } from "./recommendation/recommendation.module";
 import { PlaytimeModule } from "./playtime/playtime.module";
 import { GameFilterModule } from "./game/game-filter/game-filter.module";
 import { PsnSyncModule } from "./sync/psn/psn-sync.module";
-import { SearchModule } from './search/search.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -160,7 +158,6 @@ function getRedisConfig() {
         AchievementsModule,
         FollowModule,
         NotificationsModule,
-        HltbSyncModule,
         SteamSyncModule,
         ImporterWatchModule,
         ConnectionsModule,
@@ -171,7 +168,6 @@ function getRedisConfig() {
         PlaytimeModule,
         GameFilterModule,
         PsnSyncModule,
-        SearchModule,
     ],
 })
 export class AppModule implements NestModule {

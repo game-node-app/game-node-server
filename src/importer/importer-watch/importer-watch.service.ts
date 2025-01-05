@@ -7,10 +7,8 @@ import { Interval, Timeout } from "@nestjs/schedule";
 import { hours, seconds } from "@nestjs/throttler";
 import { ConnectionsService } from "../../connections/connections.service";
 import { LibrariesService } from "../../libraries/libraries.service";
-import { UserConnection } from "../../connections/entity/user-connection.entity";
 import {
     EConnectionType,
-    IMPORTER_VIABLE_CONNECTIONS,
     IMPORTER_WATCH_VIABLE_CONNECTIONS,
 } from "../../connections/connections.constants";
 import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
@@ -21,6 +19,7 @@ import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../../notifications/notifications.constants";
+import { UserConnectionDto } from "../../connections/dto/user-connection.dto";
 
 @Injectable()
 export class ImporterWatchService {
@@ -49,7 +48,7 @@ export class ImporterWatchService {
         });
     }
 
-    @Timeout(seconds(10))
+    @Timeout(seconds(60))
     onStartup() {
         this.process();
     }
@@ -87,7 +86,7 @@ export class ImporterWatchService {
         }
     }
 
-    private async findUnprocessedEntries(userConnection: UserConnection) {
+    private async findUnprocessedEntries(userConnection: UserConnectionDto) {
         let unprocessedGames: GameExternalGame[] = [];
         switch (userConnection.type) {
             case EConnectionType.STEAM:

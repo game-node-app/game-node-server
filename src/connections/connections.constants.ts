@@ -8,4 +8,7 @@ export const IMPORTER_VIABLE_CONNECTIONS = [
     EConnectionType.PSN,
 ];
 
-export const IMPORTER_WATCH_VIABLE_CONNECTIONS = [EConnectionType.STEAM];
+export const IMPORTER_WATCH_VIABLE_CONNECTIONS = [
+    EConnectionType.STEAM,
+    EConnectionType.PSN,
+];
