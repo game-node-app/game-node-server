@@ -21,6 +21,15 @@ import {
 } from "../../notifications/notifications.constants";
 import { UserConnectionDto } from "../../connections/dto/user-connection.dto";
 
+const connectionToImporterSource = (connectionType: EConnectionType) => {
+    switch (connectionType) {
+        case EConnectionType.STEAM:
+            return EImporterSource.STEAM;
+        case EConnectionType.PSN:
+            return EImporterSource.PSN;
+    }
+};
+
 @Injectable()
 export class ImporterWatchService {
     private readonly logger = new Logger(ImporterWatchService.name);
@@ -87,20 +96,17 @@ export class ImporterWatchService {
     }
 
     private async findUnprocessedEntries(userConnection: UserConnectionDto) {
-        let unprocessedGames: GameExternalGame[] = [];
-        switch (userConnection.type) {
-            case EConnectionType.STEAM:
-                [unprocessedGames] =
-                    await this.importerService.findUnprocessedEntries(
-                        userConnection.profileUserId,
-                        EImporterSource.STEAM,
-                        {
-                            offset: 0,
-                            limit: 99999,
-                        },
-                    );
-                break;
-        }
+        const importerSource = connectionToImporterSource(userConnection.type);
+        const [unprocessedGames] =
+            await this.importerService.findUnprocessedEntries(
+                userConnection.profileUserId,
+                importerSource,
+                {
+                    offset: 0,
+                    limit: 999999,
+                },
+            );
+
         if (unprocessedGames.length === 0) {
             this.logger.log(
                 `No unprocessed entries found for userId: ${userConnection.profileUserId} on source ${userConnection.type}`,
@@ -135,17 +141,19 @@ export class ImporterWatchService {
         await this.createNotification(
             userConnection.profileUserId,
             notAlreadyNotifiedGames,
+            importerSource,
         );
     }
 
     private async createNotification(
         userId: string,
         externalGames: GameExternalGame[],
+        source: EImporterSource,
     ) {
         const notification = await this.importerNotificationRepository.save({
             libraryUserId: userId,
             games: externalGames,
-            source: EImporterSource.STEAM,
+            source,
         });
 
         this.notificationsQueueService.registerNotification({
