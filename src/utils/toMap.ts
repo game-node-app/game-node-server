@@ -1,5 +1,3 @@
-import { Game } from "../game/game-repository/entities/game.entity";
-
 type IdentifierType<T, K extends keyof T> = T[K] extends number
     ? number
     : T[K] extends string

@@ -6,17 +6,16 @@ import { ImporterIgnoredEntry } from "./entity/importer-ignored-entry.entity";
 import { ConnectionsService } from "../connections/connections.service";
 import { EConnectionType } from "../connections/connections.constants";
 import { SteamSyncService } from "../sync/steam/steam-sync.service";
-import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 import { ImporterStatusUpdateRequestDto } from "./dto/importer-status-update-request.dto";
 import { EImporterSource } from "./importer.constants";
 import { EGameExternalGameCategory } from "../game/game-repository/game-repository.constants";
-import { GameExternalGame } from "../game/game-repository/entities/game-external-game.entity";
 import { ImporterUnprocessedRequestDto } from "./dto/importer-unprocessed-request.dto";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { ImporterEntry } from "./entity/importer-entry.entity";
 import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { HttpStatusCode } from "axios";
 import { ImporterResponseItemDto } from "./dto/importer-response-item.dto";
+import { ExternalGameService } from "../game/game-repository/external-game/external-game.service";
 
 @Injectable()
 export class ImporterService {
@@ -27,7 +26,7 @@ export class ImporterService {
         private readonly ignoredEntryRepository: Repository<ImporterIgnoredEntry>,
         private readonly connectionsService: ConnectionsService,
         private readonly steamSyncService: SteamSyncService,
-        private readonly gameRepositoryService: GameRepositoryService,
+        private readonly externalGameService: ExternalGameService,
         private readonly psnSyncService: PsnSyncService,
     ) {}
 
@@ -73,7 +72,7 @@ export class ImporterService {
         const gamesUids = games.map((item) => `${item.game.id}`);
 
         const externalGames =
-            await this.gameRepositoryService.getExternalGamesForSourceIds(
+            await this.externalGameService.getExternalGamesForSourceIds(
                 gamesUids,
                 EGameExternalGameCategory.Steam,
             );
@@ -125,13 +124,15 @@ export class ImporterService {
             );
         }
 
-        const gamesUids = games.map((item) => {
+        const gameUids = games.map((item) => {
             return `${item.concept.id}`;
         });
 
+        const uniqueGameUids = Array.from(new Set(gameUids));
+
         const externalGames =
-            await this.gameRepositoryService.getExternalGamesForSourceIds(
-                gamesUids,
+            await this.externalGameService.getExternalGamesForSourceIds(
+                uniqueGameUids,
                 EGameExternalGameCategory.PlaystationStoreUs,
             );
 

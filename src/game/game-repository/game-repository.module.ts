@@ -24,7 +24,8 @@ import { GameCompanyLogo } from "./entities/game-company-logo.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryCreateService } from "./game-repository-create.service";
 import { StatisticsQueueModule } from "../../statistics/statistics-queue/statistics-queue.module";
-import { GameRepositoryCacheService } from './game-repository-cache.service';
+import { GameRepositoryCacheService } from "./game-repository-cache.service";
+import { ExternalGameService } from "./external-game/external-game.service";
 
 /**
  * This is a pretty big module, with lots of dependencies.
@@ -55,8 +56,17 @@ import { GameRepositoryCacheService } from './game-repository-cache.service';
         ]),
         forwardRef(() => StatisticsQueueModule),
     ],
-    providers: [GameRepositoryService, GameRepositoryCreateService, GameRepositoryCacheService],
-    exports: [GameRepositoryService, GameRepositoryCreateService],
+    providers: [
+        GameRepositoryService,
+        GameRepositoryCreateService,
+        GameRepositoryCacheService,
+        ExternalGameService,
+    ],
+    exports: [
+        GameRepositoryService,
+        GameRepositoryCreateService,
+        ExternalGameService,
+    ],
     controllers: [GameRepositoryController],
 })
 export class GameRepositoryModule {}
