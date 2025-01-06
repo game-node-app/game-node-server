@@ -4,7 +4,7 @@ import {
     externalGameCategoryToIconMap,
     platformAbbreviationToIconMap,
 } from "./game-repository.constants";
-import { Game } from "./entities/game.entity";
+import { toMap } from "../../utils/toMap";
 
 export function getIconNamesForPlatformAbbreviations(abbreviations: string[]) {
     const iconsNames: string[] = [];

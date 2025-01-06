@@ -224,37 +224,4 @@ export class GameRepositoryService {
 
         return iconsNames;
     }
-
-    async getExternalGamesForGameIds(gameIds: number[]) {
-        return this.gameExternalGameRepository.find({
-            where: {
-                gameId: In(gameIds),
-            },
-            cache: {
-                id: `external-games-ids-${gameIds}`,
-                milliseconds: days(1),
-            },
-        });
-    }
-
-    /**
-     *
-     * @param sourceIds
-     * @param category
-     */
-    async getExternalGamesForSourceIds(
-        sourceIds: string[],
-        category: EGameExternalGameCategory,
-    ) {
-        return this.gameExternalGameRepository.find({
-            where: {
-                uid: In(sourceIds),
-                category,
-            },
-            cache: {
-                id: `external-games-ids-${category}-${sourceIds}`,
-                milliseconds: days(1),
-            },
-        });
-    }
 }
