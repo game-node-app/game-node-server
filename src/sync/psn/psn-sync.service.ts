@@ -11,6 +11,7 @@ import {
 import { HttpStatusCode } from "axios";
 import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
 import { hours, minutes } from "@nestjs/throttler";
+import { Cacheable } from "../../utils/cacheable";
 
 @Injectable()
 export class PsnSyncService {
@@ -73,13 +74,8 @@ export class PsnSyncService {
      * @param offset
      * @param limit - max of 200 allowed by PSN api
      */
+    @Cacheable(PsnSyncService.name, minutes(15))
     public async getGames(accountId: string, offset = 0, limit = 20) {
-        const CACHE_KEY = `psn-games-${accountId}-${offset}-${limit}`;
-
-        const dataInCache =
-            await this.cacheManager.get<UserPlayedGamesResponse>(CACHE_KEY);
-        if (dataInCache) return dataInCache;
-
         const authorization = await this.authService.getValidAccessToken();
 
         try {
@@ -91,12 +87,6 @@ export class PsnSyncService {
                     limit,
                 },
             );
-
-            this.cacheManager
-                .set(CACHE_KEY, response, minutes(15))
-                .catch((err) => {
-                    this.logger.error(err);
-                });
 
             return response;
         } catch (err: unknown) {
@@ -114,18 +104,10 @@ export class PsnSyncService {
      * @returns a list of games - may be empty if no game was found for the given accountId
      * may also be incomplete if any of the fetches failed.
      */
+    @Cacheable(PsnSyncService.name, hours(1))
     public async getAllGames(
         accountId: string,
     ): Promise<UserPlayedGamesResponse["titles"]> {
-        const CACHE_KEY = `psn-all-games-${accountId}`;
-
-        const dataInCache =
-            await this.cacheManager.get<UserPlayedGamesResponse["titles"]>(
-                CACHE_KEY,
-            );
-
-        if (dataInCache) return dataInCache;
-
         const totalTitles: UserPlayedGamesResponse["titles"] = [];
 
         // Max allowed
@@ -157,14 +139,6 @@ export class PsnSyncService {
 
             // Break by default
             break;
-        }
-
-        if (totalTitles.length > 0) {
-            this.cacheManager
-                .set(CACHE_KEY, totalTitles, hours(1))
-                .catch((err) => {
-                    this.logger.error(err);
-                });
         }
 
         return totalTitles;

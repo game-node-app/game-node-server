@@ -12,3 +12,8 @@ export const IMPORTER_WATCH_VIABLE_CONNECTIONS = [
     EConnectionType.STEAM,
     EConnectionType.PSN,
 ];
+
+export const PLAYTIME_WATCH_VIABLE_CONNECTIONS: EConnectionType[] = [
+    EConnectionType.STEAM,
+    EConnectionType.PSN,
+];

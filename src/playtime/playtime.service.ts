@@ -1,80 +1,65 @@
-import {
-    forwardRef,
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-    Logger,
-} from "@nestjs/common";
+import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { GamePlaytime } from "./entity/game-playtime.entity";
-import { DeepPartial, In, Repository } from "typeorm";
-import { toMap } from "../utils/toMap";
-import { GameRepositoryService } from "../game/game-repository/game-repository.service";
+import { DeepPartial, FindOptionsRelations, Repository } from "typeorm";
+import { UserPlaytime } from "./entity/user-playtime.entity";
+import { TPaginationData } from "../utils/pagination/pagination-response.dto";
+import { FindAllPlaytimeRequestDto } from "./dto/find-all-playtime.dto";
+import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
+import { HttpStatusCode } from "axios";
 
 @Injectable()
 export class PlaytimeService {
     private logger = new Logger(PlaytimeService.name);
+    private readonly relations: FindOptionsRelations<UserPlaytime> = {
+        externalGames: true,
+    };
 
     constructor(
-        @InjectRepository(GamePlaytime)
-        private gamePlaytimeRepository: Repository<GamePlaytime>,
-        private readonly gameRepositoryService: GameRepositoryService,
+        @InjectRepository(UserPlaytime)
+        private readonly userPlaytimeRepository: Repository<UserPlaytime>,
     ) {}
 
-    public async findOneByGameId(gameId: number) {
-        return await this.gamePlaytimeRepository.findOneBy({
-            gameId,
-        });
-    }
-
-    public async findOneByGameIdOrFail(gameId: number) {
-        const entity = await this.findOneByGameId(gameId);
-        if (!entity) {
-            throw new HttpException(
-                "No playtime info found for game.",
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-
-        return entity;
-    }
-
-    public async findAllByGameIds(gameIds: number[]) {
-        return this.gamePlaytimeRepository.find({
+    public async findOne(userId: string, gameId: number) {
+        return this.userPlaytimeRepository.findOne({
             where: {
-                gameId: In(gameIds),
+                profileUserId: userId,
+                gameId: gameId,
             },
+            relations: this.relations,
         });
     }
 
-    /**
-     * Shorthand method that transforms the result of 'findAllByGameIds'
-     * in a map where the 'gameId' is the key.
-     * @see PlaytimeService#findAllByGameIds
-     * @param gameIds
-     */
-    public async getPlaytimesMap(gameIds: number[]) {
-        const playtimes = await this.findAllByGameIds(gameIds);
+    async findOneOrFail(userId: string, gameId: number) {
+        const playtime = await this.findOne(userId, gameId);
+        if (!playtime) {
+            throw new HttpException(
+                "No playtime associated with userId for game.",
+                HttpStatusCode.BadRequest,
+            );
+        }
 
-        return toMap(playtimes, "gameId");
+        return playtime;
     }
 
-    public async save(entity: DeepPartial<GamePlaytime>) {
-        if (entity.gameId == undefined) {
-            this.logger.warn(
-                `Ignoring attempt to save entity with undefined gameId: ${JSON.stringify(entity)}`,
-            );
-            return;
-        }
-        const playtimeInfo = await this.findOneByGameId(entity.gameId);
+    public async findAllByUserId(
+        dto: FindAllPlaytimeRequestDto,
+    ): Promise<TPaginationData<UserPlaytime>> {
+        const baseFindOptions = buildBaseFindOptions(dto);
 
-        const updatedEntity: DeepPartial<GamePlaytime> = {
-            ...playtimeInfo,
-            ...entity,
-            updatedAt: new Date(),
-        };
+        return await this.userPlaytimeRepository.findAndCount({
+            ...baseFindOptions,
+            where: {
+                profileUserId: dto.userId,
+            },
+            relations: this.relations,
+        });
+    }
 
-        await this.gamePlaytimeRepository.save(updatedEntity);
+    public getPlaytimesMap(userId: string, gameIds: number[]) {
+        return new Map<number, UserPlaytime>();
+    }
+
+    async save(playtime: DeepPartial<UserPlaytime>) {
+        return await this.userPlaytimeRepository.save(playtime);
     }
 }

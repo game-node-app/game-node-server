@@ -36,14 +36,16 @@ export class ProfileMetricsService {
             (entry) => entry.gameId,
         );
 
-        const playtimeMap =
-            await this.playtimeService.getPlaytimesMap(finishedGamesIds);
+        const playtimeMap = await this.playtimeService.getPlaytimesMap(
+            userId,
+            finishedGamesIds,
+        );
 
         let totalEstimatedPlaytime = 0;
         for (const value of playtimeMap.values()) {
-            if (!value.timeMain) continue;
+            if (!value.totalPlaytimeSeconds) continue;
 
-            totalEstimatedPlaytime += value.timeMain;
+            totalEstimatedPlaytime += value.totalPlaytimeSeconds;
         }
 
         return {

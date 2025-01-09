@@ -6,9 +6,4 @@ import { PlaytimeService } from "./playtime.service";
 @ApiTags("playtime")
 export class PlaytimeController {
     constructor(private readonly playtimeService: PlaytimeService) {}
-
-    @Get(":gameId")
-    async findOneByGameId(@Param("gameId") gameId: number) {
-        return this.playtimeService.findOneByGameIdOrFail(gameId);
-    }
 }

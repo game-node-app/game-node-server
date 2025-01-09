@@ -6,6 +6,7 @@ import {
     EConnectionType,
     IMPORTER_VIABLE_CONNECTIONS,
     IMPORTER_WATCH_VIABLE_CONNECTIONS,
+    PLAYTIME_WATCH_VIABLE_CONNECTIONS,
 } from "./connections.constants";
 import { ConnectionCreateDto } from "./dto/connection-create.dto";
 import { SteamSyncService } from "../sync/steam/steam-sync.service";
@@ -17,6 +18,9 @@ const toDto = (userConnection: UserConnection): UserConnectionDto => ({
     ...userConnection,
     isImporterViable: IMPORTER_VIABLE_CONNECTIONS.includes(userConnection.type),
     isImporterWatchViable: IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(
+        userConnection.type,
+    ),
+    isPlaytimeWatchViable: PLAYTIME_WATCH_VIABLE_CONNECTIONS.includes(
         userConnection.type,
     ),
 });
@@ -89,6 +93,8 @@ export class ConnectionsService {
                         IMPORTER_VIABLE_CONNECTIONS.includes(type),
                     isImporterWatchViable:
                         IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(type),
+                    isPlaytimeWatchViable:
+                        PLAYTIME_WATCH_VIABLE_CONNECTIONS.includes(type),
                     name: type.valueOf(),
                     iconName: type.valueOf(),
                 };

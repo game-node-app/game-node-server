@@ -148,20 +148,15 @@ export class ProfileMetricsDistributionService {
                     (entry) => entry.gameId,
                 );
 
-                const playtimeMap =
-                    await this.playtimeService.getPlaytimesMap(
-                        finishedGamesIds,
-                    );
+                const playtimeMap = await this.playtimeService.getPlaytimesMap(
+                    userId,
+                    finishedGamesIds,
+                );
 
                 for (const finishedGame of finishedGames) {
                     const playtime = playtimeMap.get(finishedGame.gameId);
 
-                    if (
-                        !finishedGame.finishedAt ||
-                        !playtime ||
-                        !playtime.timeMain
-                    )
-                        continue;
+                    if (!finishedGame.finishedAt || !playtime) continue;
 
                     const finishedYear = finishedGame.finishedAt.getFullYear();
                     const previousData =
@@ -170,13 +165,13 @@ export class ProfileMetricsDistributionService {
                     if (!previousData) {
                         distributionByYearData.set(finishedYear, {
                             year: finishedYear,
-                            count: playtime.timeMain,
+                            count: playtime.totalPlaytimeSeconds,
                         });
                         continue;
                     }
 
                     const totalPlaytime =
-                        previousData.count + playtime.timeMain;
+                        previousData.count + playtime.totalPlaytimeSeconds;
 
                     distributionByYearData.set(finishedYear, {
                         ...previousData,
