@@ -2,19 +2,14 @@ import {
     Column,
     CreateDateColumn,
     Entity,
-    Index,
-    JoinColumn,
-    JoinTable,
-    ManyToMany,
     ManyToOne,
-    OneToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
-import { UserPlaytimeSource } from "../playtime.constants";
 import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
+import { ApiProperty } from "@nestjs/swagger";
 
 /**
  * User-provided playtime info. Generally obtained from syncing with third-party
@@ -43,11 +38,12 @@ export class UserPlaytime {
      * Since a user can have a single game in more than one source, this helps us identify
      * where it has been imported from.
      */
-    @ManyToMany(() => GameExternalGame, {
-        nullable: true,
+    @ManyToOne(() => GameExternalGame, {
+        nullable: false,
     })
-    @JoinTable()
-    externalGames: GameExternalGame[];
+    externalGame: GameExternalGame;
+    @Column()
+    externalGameId: number;
 
     /**
      * Total playtime for this game, in seconds.
@@ -69,11 +65,19 @@ export class UserPlaytime {
     })
     recentPlaytimeSeconds: number;
 
+    @ApiProperty({
+        type: Date,
+        nullable: true,
+    })
     @Column({
         nullable: true,
         type: "datetime",
     })
     lastPlayedDate: Date | null | undefined;
+    @ApiProperty({
+        type: Date,
+        nullable: true,
+    })
     @Column({
         nullable: true,
         type: "datetime",

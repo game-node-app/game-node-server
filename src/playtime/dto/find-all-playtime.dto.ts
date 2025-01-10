@@ -4,17 +4,23 @@ import {
     PaginationInfo,
     PaginationResponseDto,
 } from "../../utils/pagination/pagination-response.dto";
-import { UserPlaytime } from "../entity/user-playtime.entity";
+import { UserPlaytimeDto } from "./user-playtime.dto";
 
-export class FindAllPlaytimeRequestDto extends PickType(BaseFindDto, [
-    "offset",
-    "limit",
-    "orderBy",
-]) {
+export class FindAllPlaytimeRequestDto {
     userId: string;
 }
 
+export class FindAllPlaytimeByGameIdRequestDto extends FindAllPlaytimeRequestDto {
+    gameId: number;
+}
+
+export class FindPlaytimeOptionsDto extends PickType(BaseFindDto, [
+    "offset",
+    "limit",
+    "orderBy",
+]) {}
+
 export class FindAllPlaytimeResponseDto implements PaginationResponseDto {
-    data: UserPlaytime[];
+    data: UserPlaytimeDto[];
     pagination: PaginationInfo;
 }

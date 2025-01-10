@@ -18,7 +18,6 @@ import { PlaytimeService } from "../playtime.service";
 import { UserPlaytime } from "../entity/user-playtime.entity";
 import { UserPlaytimeSource } from "../playtime.constants";
 import dayjs from "dayjs";
-import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
 import { DeepPartial } from "typeorm";
 
 const hasChanged = (
@@ -35,36 +34,20 @@ const hasChanged = (
 
     if (existingPlaytime == undefined) return true;
 
-    if (
-        currentPlaytime.externalGames &&
-        existingPlaytime.externalGames.length !==
-            currentPlaytime.externalGames?.length
-    ) {
-        return true;
-    }
-
     return comparableProperties.some((property) => {
+        // If property is null and is now available in the updated entry
+        if (
+            existingPlaytime[property] == undefined &&
+            currentPlaytime[property] != undefined
+        ) {
+            return true;
+        }
+
+        // Property is not null - check if it's different from the updated one
         return (
             existingPlaytime[property] != undefined &&
             existingPlaytime[property] !== currentPlaytime[property]
         );
-    });
-};
-
-const mergeExternalGameIds = (
-    existingExternalGames: GameExternalGame[],
-    currentExternalGame: GameExternalGame,
-) => {
-    const existingIds = existingExternalGames.map((item) => item.id);
-
-    const uniqueIds = Array.from(
-        new Set([...existingIds, currentExternalGame.id]),
-    );
-
-    return uniqueIds.map((id) => {
-        return {
-            id: id,
-        } as const;
     });
 };
 
@@ -125,10 +108,11 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 return Number.parseInt(externalGame.uid) === item.game.id;
             })!;
 
-            const existingPlaytimeInfo = await this.playtimeService.findOne(
-                userId,
-                externalGame.gameId,
-            );
+            const existingPlaytimeInfo =
+                await this.playtimeService.findOneByExternalGame(
+                    userId,
+                    externalGame.id,
+                );
 
             const playtime: DeepPartial<UserPlaytime> = {
                 ...existingPlaytimeInfo,
@@ -138,10 +122,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 gameId: externalGame.gameId,
                 firstPlayedDate: undefined,
                 profileUserId: userId,
-                externalGames: mergeExternalGameIds(
-                    existingPlaytimeInfo?.externalGames ?? [],
-                    externalGame,
-                ),
+                externalGameId: externalGame.id,
             };
 
             if (hasChanged(existingPlaytimeInfo, playtime)) {
@@ -178,10 +159,11 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 return Number.parseInt(externalGame.uid) === item.concept.id;
             })!;
 
-            const existingPlaytimeInfo = await this.playtimeService.findOne(
-                userId,
-                externalGame.gameId,
-            );
+            const existingPlaytimeInfo =
+                await this.playtimeService.findOneByExternalGame(
+                    userId,
+                    externalGame.id,
+                );
 
             const playtime: DeepPartial<UserPlaytime> = {
                 ...existingPlaytimeInfo,
@@ -192,10 +174,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 totalPlaytimeSeconds: dayjs
                     .duration(relatedUserGame.playDuration)
                     .asSeconds(),
-                externalGames: mergeExternalGameIds(
-                    existingPlaytimeInfo?.externalGames ?? [],
-                    externalGame,
-                ),
+                externalGameId: externalGame.id,
             };
 
             if (hasChanged(existingPlaytimeInfo, playtime)) {

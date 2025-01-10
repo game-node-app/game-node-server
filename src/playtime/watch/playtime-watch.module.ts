@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { GamePlaytime } from "../entity/game-playtime.entity";
 import { UserPlaytime } from "../entity/user-playtime.entity";
 import { BullModule } from "@nestjs/bullmq";
 import { PLAYTIME_WATCH_QUEUE_NAME } from "./playtime-watch.constants";
