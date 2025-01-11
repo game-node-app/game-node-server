@@ -186,7 +186,7 @@ services:
     command: "sleep infinity"
 
     deploy:
-      - replicas: 1
+      replicas: 1
 
     networks:
       - game_node_app
