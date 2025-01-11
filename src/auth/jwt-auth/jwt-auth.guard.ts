@@ -45,9 +45,9 @@ export class JwtAuthGuard implements CanActivate {
         const ctx = context.switchToHttp();
         const ctxType = context.getType<"http" | "rmq">();
 
-        if (ctxType === "rmq") {
+        if (ctxType !== "http") {
             this.logger.warn(
-                `Warning: AuthGuard can't be used in a RabbitMQ service/handler`,
+                `Warning: AuthGuard can't be used in a non-HTTP context!`,
             );
 
             return true;
