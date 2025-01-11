@@ -169,6 +169,31 @@ services:
       - game_node_app
       - game_node_app_public
 
+  # This image is here to allow us to run migration separately, and doesn't feature health checks.
+  server_migration:
+    image: lamarcke/game-node-server:latest
+    hostname: server-migration
+    environment:
+      REDIS_URL: redis://server-redis:6379
+      DB_HOST: server-db
+      DB_DATABASE: gamenode
+      DB_PASS: ${DB_PASS}
+      DB_USER: ${DB_USER}
+      DB_PORT: 3306
+
+    restart: always
+
+    command: "sleep infinity"
+
+    deploy:
+      - replicas: 1
+
+    networks:
+      - game_node_app
+      - game_node_app_public
+
+
+
 networks:
   game_node_app:
     external: true
