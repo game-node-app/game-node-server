@@ -190,7 +190,6 @@ services:
 
     networks:
       - game_node_app
-      - game_node_app_public
 
 
 
