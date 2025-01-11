@@ -8,7 +8,7 @@ import SteamAPI, {
 import { Cache } from "@nestjs/cache-manager";
 import { hours } from "@nestjs/throttler";
 import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
-import igdb from "igdb-api-node";
+import { Cacheable } from "../../utils/cacheable";
 
 @Injectable()
 export class SteamSyncService {
@@ -30,7 +30,11 @@ export class SteamSyncService {
                 return;
             }
             this.client = new p.default(steamKey);
-            // this.getAllGames("76561198136665859");
+            // (async () => {
+            //     const test = await this.getAllGames("76561198136665859");
+            //
+            //     console.log(test);
+            // })();
         });
     }
 
@@ -60,17 +64,14 @@ export class SteamSyncService {
         };
     }
 
+    /**
+     * Returns simple game info for user's owned games, with included playtime info.
+     * @param steamUserId
+     */
+    @Cacheable(SteamSyncService.name, hours(1))
     public async getAllGames(
         steamUserId: string,
     ): Promise<ReturnType<typeof this.client.getUserOwnedGames>> {
-        const cacheKey = `steam-sync-games-${steamUserId}`;
-
-        const possibleCachedGames = await this.cacheManager.get<any>(cacheKey);
-
-        if (possibleCachedGames) {
-            return possibleCachedGames;
-        }
-
         const games = await this.client.getUserOwnedGames(steamUserId, {
             includeAppInfo: false,
             includeFreeGames: true,
@@ -83,14 +84,6 @@ export class SteamSyncService {
 
             return timestampB - timestampA;
         });
-
-        if (sortedGames.length > 0) {
-            this.cacheManager
-                .set(cacheKey, sortedGames, hours(1))
-                .catch((err) => {
-                    this.logger.error(err);
-                });
-        }
 
         return sortedGames;
     }

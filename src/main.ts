@@ -4,12 +4,16 @@ import { SupertokensExceptionFilter } from "./auth/auth.filter";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import duration from "dayjs/plugin/duration";
+import dayjs from "dayjs";
 import supertokens from "supertokens-node";
 
 import { publicImagesDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
 import * as process from "process";
+
+dayjs.extend(duration);
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);

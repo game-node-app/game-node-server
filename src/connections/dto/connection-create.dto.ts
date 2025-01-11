@@ -21,5 +21,8 @@ export class ConnectionCreateDto {
     userIdentifier: string;
     @IsBoolean()
     @IsOptional()
-    isImporterEnabled: boolean = false;
+    isImporterEnabled: boolean = true;
+    @IsBoolean()
+    @IsOptional()
+    isPlaytimeImportEnabled: boolean = true;
 }

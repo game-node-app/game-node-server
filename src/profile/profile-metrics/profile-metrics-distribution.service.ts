@@ -141,44 +141,32 @@ export class ProfileMetricsDistributionService {
             }
 
             case ProfileMetricsYearDistributionBy.PLAYTIME: {
-                const finishedGames = collectionEntries.filter(
-                    (entry) => entry.finishedAt != undefined,
-                );
-                const finishedGamesIds = finishedGames.map(
-                    (entry) => entry.gameId,
+                const playtimeMap = await this.playtimeService.getPlaytimesMap(
+                    userId,
+                    gameIds,
                 );
 
-                const playtimeMap =
-                    await this.playtimeService.getPlaytimesMap(
-                        finishedGamesIds,
-                    );
+                for (const collectionEntry of collectionEntries) {
+                    const playtime = playtimeMap.get(collectionEntry.gameId);
 
-                for (const finishedGame of finishedGames) {
-                    const playtime = playtimeMap.get(finishedGame.gameId);
+                    if (!playtime) continue;
 
-                    if (
-                        !finishedGame.finishedAt ||
-                        !playtime ||
-                        !playtime.timeMain
-                    )
-                        continue;
+                    const addedYear = collectionEntry.createdAt.getFullYear();
 
-                    const finishedYear = finishedGame.finishedAt.getFullYear();
-                    const previousData =
-                        distributionByYearData.get(finishedYear);
+                    const previousData = distributionByYearData.get(addedYear);
 
                     if (!previousData) {
-                        distributionByYearData.set(finishedYear, {
-                            year: finishedYear,
-                            count: playtime.timeMain,
+                        distributionByYearData.set(addedYear, {
+                            year: addedYear,
+                            count: playtime.totalPlaytimeSeconds,
                         });
                         continue;
                     }
 
                     const totalPlaytime =
-                        previousData.count + playtime.timeMain;
+                        previousData.count + playtime.totalPlaytimeSeconds;
 
-                    distributionByYearData.set(finishedYear, {
+                    distributionByYearData.set(addedYear, {
                         ...previousData,
                         count: totalPlaytime,
                     });

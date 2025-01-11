@@ -2,11 +2,10 @@ import { Module } from "@nestjs/common";
 import { PlaytimeService } from "./playtime.service";
 import { PlaytimeController } from "./playtime.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { GamePlaytime } from "./entity/game-playtime.entity";
-import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
+import { UserPlaytime } from "./entity/user-playtime.entity";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([GamePlaytime]), GameRepositoryModule],
+    imports: [TypeOrmModule.forFeature([UserPlaytime])],
     providers: [PlaytimeService],
     controllers: [PlaytimeController],
     exports: [PlaytimeService],
