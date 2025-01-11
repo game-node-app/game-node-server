@@ -6,6 +6,7 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { FindPlaytimeOptionsDto } from "./dto/find-all-playtime.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
+import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
 
 const toCumulativePlaytime = (
     userId: string,
@@ -89,9 +90,6 @@ export class PlaytimeService {
                 gameId: gameId,
             },
             relations: this.relations,
-            order: {
-                lastPlayedDate: "DESC",
-            },
         });
     }
 
@@ -144,7 +142,7 @@ export class PlaytimeService {
         return playtimeMap;
     }
 
-    async save(playtime: DeepPartial<UserPlaytime>) {
+    async save(playtime: CreateUserPlaytimeDto) {
         return await this.userPlaytimeRepository.save(playtime);
     }
 }

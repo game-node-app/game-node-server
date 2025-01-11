@@ -18,7 +18,7 @@ export class ProfileMetricsService {
                 undefined,
                 userId,
             );
-        const [collectionEntries] =
+        const [collectionEntries, totalCollectionEntries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
                 undefined,
                 userId,
@@ -28,30 +28,28 @@ export class ProfileMetricsService {
                 },
             );
 
+        const [userPlaytimes] = await this.playtimeService.findAllByUserId(
+            userId,
+            {
+                offset: 0,
+                limit: 9999999,
+            },
+        );
+
         const finishedCollectionEntries = collectionEntries.filter((entry) => {
             return entry.finishedAt != undefined;
         });
 
-        const finishedGamesIds = finishedCollectionEntries.map(
-            (entry) => entry.gameId,
-        );
+        const totalEstimatedPlaytime = userPlaytimes.reduce((acc, curr) => {
+            acc += curr.totalPlaytimeSeconds;
 
-        const playtimeMap = await this.playtimeService.getPlaytimesMap(
-            userId,
-            finishedGamesIds,
-        );
-
-        let totalEstimatedPlaytime = 0;
-        for (const value of playtimeMap.values()) {
-            if (!value.totalPlaytimeSeconds) continue;
-
-            totalEstimatedPlaytime += value.totalPlaytimeSeconds;
-        }
+            return acc;
+        }, 0);
 
         return {
             totalCollections: collections.length,
             totalFinishedGames: finishedCollectionEntries.length,
-            totalGames: collectionEntries.length,
+            totalGames: totalCollectionEntries,
             totalEstimatedPlaytime: totalEstimatedPlaytime,
         };
     }

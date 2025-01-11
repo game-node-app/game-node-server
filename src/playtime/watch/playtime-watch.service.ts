@@ -32,11 +32,14 @@ export class PlaytimeWatchService {
     async registerWatchJobs() {
         const userLibraries = await this.librariesService.findAllLibraries();
         const userIds = userLibraries.map((library) => library.userId);
+
         const availableConnections =
             await this.connectionsService.findAllByUserIdIn(userIds);
 
         const viableConnections = availableConnections.filter(
-            (connection) => connection.isPlaytimeWatchViable,
+            (connection) =>
+                connection.isPlaytimeImportViable &&
+                connection.isPlaytimeImportEnabled,
         );
 
         if (viableConnections.length === 0) {

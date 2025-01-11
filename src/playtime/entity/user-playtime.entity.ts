@@ -10,6 +10,7 @@ import { Profile } from "../../profile/entities/profile.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
 import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
 import { ApiProperty } from "@nestjs/swagger";
+import { UserPlaytimeSource } from "../playtime.constants";
 
 /**
  * User-provided playtime info. Generally obtained from syncing with third-party
@@ -19,6 +20,10 @@ import { ApiProperty } from "@nestjs/swagger";
 export class UserPlaytime {
     @PrimaryGeneratedColumn()
     id: number;
+    @Column({
+        nullable: false,
+    })
+    source: UserPlaytimeSource;
     @ManyToOne(() => Profile, {
         nullable: false,
         onDelete: "CASCADE",
@@ -92,7 +97,6 @@ export class UserPlaytime {
         default: 0,
     })
     totalPlayCount: number;
-
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

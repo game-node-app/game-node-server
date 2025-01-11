@@ -14,6 +14,6 @@ export class FindAvailableConnectionsResponseDto {
      * e.g.: Steam
      */
     isImporterWatchViable: boolean;
-    isPlaytimeWatchViable: boolean;
+    isPlaytimeImportViable: boolean;
     iconName: string;
 }

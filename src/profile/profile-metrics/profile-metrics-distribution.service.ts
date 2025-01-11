@@ -141,30 +141,23 @@ export class ProfileMetricsDistributionService {
             }
 
             case ProfileMetricsYearDistributionBy.PLAYTIME: {
-                const finishedGames = collectionEntries.filter(
-                    (entry) => entry.finishedAt != undefined,
-                );
-                const finishedGamesIds = finishedGames.map(
-                    (entry) => entry.gameId,
-                );
-
                 const playtimeMap = await this.playtimeService.getPlaytimesMap(
                     userId,
-                    finishedGamesIds,
+                    gameIds,
                 );
 
-                for (const finishedGame of finishedGames) {
-                    const playtime = playtimeMap.get(finishedGame.gameId);
+                for (const collectionEntry of collectionEntries) {
+                    const playtime = playtimeMap.get(collectionEntry.gameId);
 
-                    if (!finishedGame.finishedAt || !playtime) continue;
+                    if (!playtime) continue;
 
-                    const finishedYear = finishedGame.finishedAt.getFullYear();
-                    const previousData =
-                        distributionByYearData.get(finishedYear);
+                    const addedYear = collectionEntry.createdAt.getFullYear();
+
+                    const previousData = distributionByYearData.get(addedYear);
 
                     if (!previousData) {
-                        distributionByYearData.set(finishedYear, {
-                            year: finishedYear,
+                        distributionByYearData.set(addedYear, {
+                            year: addedYear,
                             count: playtime.totalPlaytimeSeconds,
                         });
                         continue;
@@ -173,7 +166,7 @@ export class ProfileMetricsDistributionService {
                     const totalPlaytime =
                         previousData.count + playtime.totalPlaytimeSeconds;
 
-                    distributionByYearData.set(finishedYear, {
+                    distributionByYearData.set(addedYear, {
                         ...previousData,
                         count: totalPlaytime,
                     });

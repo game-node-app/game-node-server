@@ -6,7 +6,7 @@ import {
     EConnectionType,
     IMPORTER_VIABLE_CONNECTIONS,
     IMPORTER_WATCH_VIABLE_CONNECTIONS,
-    PLAYTIME_WATCH_VIABLE_CONNECTIONS,
+    PLAYTIME_IMPORT_VIABLE_CONNECTIONS,
 } from "./connections.constants";
 import { ConnectionCreateDto } from "./dto/connection-create.dto";
 import { SteamSyncService } from "../sync/steam/steam-sync.service";
@@ -20,7 +20,7 @@ const toDto = (userConnection: UserConnection): UserConnectionDto => ({
     isImporterWatchViable: IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(
         userConnection.type,
     ),
-    isPlaytimeWatchViable: PLAYTIME_WATCH_VIABLE_CONNECTIONS.includes(
+    isPlaytimeImportViable: PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(
         userConnection.type,
     ),
 });
@@ -93,8 +93,8 @@ export class ConnectionsService {
                         IMPORTER_VIABLE_CONNECTIONS.includes(type),
                     isImporterWatchViable:
                         IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(type),
-                    isPlaytimeWatchViable:
-                        PLAYTIME_WATCH_VIABLE_CONNECTIONS.includes(type),
+                    isPlaytimeImportViable:
+                        PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(type),
                     name: type.valueOf(),
                     iconName: type.valueOf(),
                 };
@@ -103,7 +103,12 @@ export class ConnectionsService {
     }
 
     public async createOrUpdate(userId: string, dto: ConnectionCreateDto) {
-        const { type, userIdentifier, isImporterEnabled } = dto;
+        const {
+            type,
+            userIdentifier,
+            isImporterEnabled,
+            isPlaytimeImportEnabled,
+        } = dto;
 
         const possibleExistingConnection = await this.findOneByUserIdAndType(
             userId,
@@ -136,8 +141,13 @@ export class ConnectionsService {
         }
 
         const isImporterViable = IMPORTER_VIABLE_CONNECTIONS.includes(type);
+        const isPlaytimeImporterViable =
+            PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(type);
         const finalIsImporterEnabled = isImporterViable
             ? isImporterEnabled
+            : false;
+        const finalIsPlaytimeImportEnabled = isPlaytimeImporterViable
+            ? isPlaytimeImportEnabled
             : false;
 
         await this.userConnectionRepository.save({
@@ -148,6 +158,7 @@ export class ConnectionsService {
             sourceUsername: sourceUsername,
             isImporterViable,
             isImporterEnabled: finalIsImporterEnabled,
+            isPlaytimeImportEnabled: finalIsPlaytimeImportEnabled,
         });
     }
 

@@ -1,48 +1,32 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { ImporterNotifiedEntry } from "../entity/importer-notified-entry.entity";
 import { Repository } from "typeorm";
-import { ImporterService } from "../importer.service";
 import { Interval, Timeout } from "@nestjs/schedule";
 import { hours, seconds } from "@nestjs/throttler";
 import { ConnectionsService } from "../../connections/connections.service";
 import { LibrariesService } from "../../libraries/libraries.service";
-import {
-    EConnectionType,
-    IMPORTER_WATCH_VIABLE_CONNECTIONS,
-} from "../../connections/connections.constants";
-import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
-import { EImporterSource } from "../importer.constants";
+import { IMPORTER_WATCH_VIABLE_CONNECTIONS } from "../../connections/connections.constants";
 import { ImporterWatchNotification } from "../entity/importer-notification.entity";
-import { NotificationsQueueService } from "../../notifications/notifications-queue.service";
+import { Queue } from "bullmq";
+import { InjectQueue } from "@nestjs/bullmq";
 import {
-    ENotificationCategory,
-    ENotificationSourceType,
-} from "../../notifications/notifications.constants";
-import { UserConnectionDto } from "../../connections/dto/user-connection.dto";
-
-const connectionToImporterSource = (connectionType: EConnectionType) => {
-    switch (connectionType) {
-        case EConnectionType.STEAM:
-            return EImporterSource.STEAM;
-        case EConnectionType.PSN:
-            return EImporterSource.PSN;
-    }
-};
+    IMPORTER_WATCH_JOB_NAME,
+    IMPORTER_WATCH_QUEUE_NAME,
+    ImporterWatchJob,
+} from "./importer-watch.constants";
+import { connectionToImporterSource } from "../importer.util";
 
 @Injectable()
 export class ImporterWatchService {
     private readonly logger = new Logger(ImporterWatchService.name);
 
     constructor(
-        @InjectRepository(ImporterNotifiedEntry)
-        private readonly importerNotifiedEntryRepository: Repository<ImporterNotifiedEntry>,
+        @InjectQueue(IMPORTER_WATCH_QUEUE_NAME)
+        private readonly queue: Queue<ImporterWatchJob>,
         @InjectRepository(ImporterWatchNotification)
         private readonly importerNotificationRepository: Repository<ImporterWatchNotification>,
-        private readonly importerService: ImporterService,
         private readonly connectionsService: ConnectionsService,
         private readonly librariesService: LibrariesService,
-        private readonly notificationsQueueService: NotificationsQueueService,
     ) {}
 
     public async findNotification(userId: string, notificationId: number) {
@@ -59,15 +43,14 @@ export class ImporterWatchService {
 
     @Timeout(seconds(60))
     onStartup() {
-        this.process();
+        this.registerWatchJobs();
     }
 
     /**
      * Checks for new importable entries from users with valid connections
      */
     @Interval(hours(6))
-    public async process() {
-        this.logger.log(`Starting processing job`);
+    public async registerWatchJobs() {
         const libraries = await this.librariesService.findAllLibraries();
         const userIds = libraries.map((library) => library.userId);
         const connections =
@@ -87,88 +70,22 @@ export class ImporterWatchService {
         );
 
         for (const connection of usableConnections) {
-            this.findUnprocessedEntries(connection)
-                .then()
+            const source = connectionToImporterSource(connection.type);
+
+            this.queue
+                .add(
+                    IMPORTER_WATCH_JOB_NAME,
+                    {
+                        userId: connection.profileUserId,
+                        source: source,
+                    },
+                    {
+                        jobId: `importer-watch-${connection.profileUserId}-${source}`,
+                    },
+                )
                 .catch((err) => {
                     this.logger.error(err);
                 });
-        }
-    }
-
-    private async findUnprocessedEntries(userConnection: UserConnectionDto) {
-        const importerSource = connectionToImporterSource(userConnection.type);
-        const [unprocessedGames] =
-            await this.importerService.findUnprocessedEntries(
-                userConnection.profileUserId,
-                importerSource,
-                {
-                    offset: 0,
-                    limit: 999999,
-                },
-            );
-
-        if (unprocessedGames.length === 0) {
-            this.logger.log(
-                `No unprocessed entries found for userId: ${userConnection.profileUserId} on source ${userConnection.type}`,
-            );
-            return;
-        }
-        const notifiedEntries =
-            await this.importerNotifiedEntryRepository.findBy({
-                libraryUserId: userConnection.profileUserId,
-            });
-
-        const notAlreadyNotifiedGames = unprocessedGames.filter(
-            (externalGame) => {
-                const alreadyNotified = notifiedEntries.some(
-                    (notifiedEntry) => {
-                        return (
-                            notifiedEntry.gameExternalGameId === externalGame.id
-                        );
-                    },
-                );
-                return !alreadyNotified;
-            },
-        );
-
-        if (notAlreadyNotifiedGames.length === 0) {
-            this.logger.log(
-                `Skipping notifying user ${userConnection.profileUserId} because all games in source ${userConnection.type} have already been used in notifications.`,
-            );
-            return;
-        }
-
-        await this.createNotification(
-            userConnection.profileUserId,
-            notAlreadyNotifiedGames,
-            importerSource,
-        );
-    }
-
-    private async createNotification(
-        userId: string,
-        externalGames: GameExternalGame[],
-        source: EImporterSource,
-    ) {
-        const notification = await this.importerNotificationRepository.save({
-            libraryUserId: userId,
-            games: externalGames,
-            source,
-        });
-
-        this.notificationsQueueService.registerNotification({
-            targetUserId: userId,
-            category: ENotificationCategory.WATCH,
-            sourceType: ENotificationSourceType.IMPORTER,
-            userId: undefined,
-            sourceId: notification.id,
-        });
-
-        for (const externalGame of externalGames) {
-            await this.importerNotifiedEntryRepository.save({
-                libraryUserId: userId,
-                gameExternalGameId: externalGame.id,
-            });
         }
     }
 }

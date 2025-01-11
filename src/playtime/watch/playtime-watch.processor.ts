@@ -15,41 +15,9 @@ import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 import { ExternalGameService } from "../../game/game-repository/external-game/external-game.service";
 import { EGameExternalGameCategory } from "../../game/game-repository/game-repository.constants";
 import { PlaytimeService } from "../playtime.service";
-import { UserPlaytime } from "../entity/user-playtime.entity";
 import { UserPlaytimeSource } from "../playtime.constants";
 import dayjs from "dayjs";
-import { DeepPartial } from "typeorm";
-
-const hasChanged = (
-    existingPlaytime: UserPlaytime | null | undefined,
-    currentPlaytime: DeepPartial<UserPlaytime>,
-) => {
-    const comparableProperties: (keyof UserPlaytime)[] = [
-        "firstPlayedDate",
-        "lastPlayedDate",
-        "totalPlayCount",
-        "totalPlaytimeSeconds",
-        "recentPlaytimeSeconds",
-    ];
-
-    if (existingPlaytime == undefined) return true;
-
-    return comparableProperties.some((property) => {
-        // If property is null and is now available in the updated entry
-        if (
-            existingPlaytime[property] == undefined &&
-            currentPlaytime[property] != undefined
-        ) {
-            return true;
-        }
-
-        // Property is not null - check if it's different from the updated one
-        return (
-            existingPlaytime[property] != undefined &&
-            existingPlaytime[property] !== currentPlaytime[property]
-        );
-    });
-};
+import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     limiter: {
@@ -114,24 +82,32 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     externalGame.id,
                 );
 
-            const playtime: DeepPartial<UserPlaytime> = {
+            const playtime: CreateUserPlaytimeDto = {
                 ...existingPlaytimeInfo,
-                lastPlayedDate: relatedUserGame.lastPlayedAt,
+                source: UserPlaytimeSource.STEAM,
+                gameId: externalGame.gameId,
+                externalGameId: externalGame.id,
+                profileUserId: userId,
+                lastPlayedDate: relatedUserGame.lastPlayedTimestamp
+                    ? new Date(relatedUserGame.lastPlayedTimestamp * 1000)
+                    : null,
                 totalPlaytimeSeconds: relatedUserGame.minutes * 60,
                 recentPlaytimeSeconds: relatedUserGame.recentMinutes * 60,
-                gameId: externalGame.gameId,
+                totalPlayCount: 0,
                 firstPlayedDate: undefined,
-                profileUserId: userId,
-                externalGameId: externalGame.id,
             };
 
-            if (hasChanged(existingPlaytimeInfo, playtime)) {
-                playtime.totalPlayCount = playtime.totalPlayCount
-                    ? playtime.totalPlayCount + 1
-                    : 0;
+            const hasChangedTotalPlaytime =
+                existingPlaytimeInfo != undefined &&
+                existingPlaytimeInfo.totalPlaytimeSeconds !=
+                    playtime.totalPlaytimeSeconds;
 
-                await this.playtimeService.save(playtime);
+            if (hasChangedTotalPlaytime) {
+                playtime.totalPlayCount =
+                    existingPlaytimeInfo!.totalPlayCount + 1;
             }
+
+            await this.playtimeService.save(playtime);
         }
     }
 
@@ -151,7 +127,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         const externalGames =
             await this.externalGameService.getExternalGamesForSourceIds(
                 gamesUids,
-                EGameExternalGameCategory.Steam,
+                EGameExternalGameCategory.PlaystationStoreUs,
             );
 
         for (const externalGame of externalGames) {
@@ -165,29 +141,43 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     externalGame.id,
                 );
 
-            const playtime: DeepPartial<UserPlaytime> = {
+            const playtime: CreateUserPlaytimeDto = {
                 ...existingPlaytimeInfo,
+                source: UserPlaytimeSource.PSN,
                 gameId: externalGame.gameId,
+                externalGameId: externalGame.id,
                 firstPlayedDate: new Date(relatedUserGame.firstPlayedDateTime),
                 lastPlayedDate: new Date(relatedUserGame.lastPlayedDateTime),
                 profileUserId: userId,
                 totalPlaytimeSeconds: dayjs
                     .duration(relatedUserGame.playDuration)
                     .asSeconds(),
-                externalGameId: externalGame.id,
+                recentPlaytimeSeconds: 0,
+                totalPlayCount: relatedUserGame.playCount,
             };
 
-            if (hasChanged(existingPlaytimeInfo, playtime)) {
-                let totalPlaytimeDifference = 0;
-                if (existingPlaytimeInfo) {
-                    totalPlaytimeDifference =
-                        existingPlaytimeInfo.totalPlaytimeSeconds -
-                        playtime.totalPlaytimeSeconds!;
-                }
-
-                playtime.recentPlaytimeSeconds = totalPlaytimeDifference;
-                await this.playtimeService.save(playtime);
+            // Calculates 'recent' user playtime
+            // This is not very precise
+            let totalPlaytimeDifference = 0;
+            if (existingPlaytimeInfo) {
+                totalPlaytimeDifference =
+                    playtime.totalPlaytimeSeconds! -
+                    existingPlaytimeInfo.totalPlaytimeSeconds;
             }
+            playtime.recentPlaytimeSeconds += totalPlaytimeDifference;
+
+            // If we lose track of game's last played date
+            // OR it has been more than two weeks (steam-like) since last played date
+            // reset the recent playtime counter.
+            const today = new Date();
+            if (
+                playtime.lastPlayedDate == undefined ||
+                dayjs(playtime.lastPlayedDate).diff(today, "week") >= 2
+            ) {
+                playtime.recentPlaytimeSeconds = 0;
+            }
+
+            await this.playtimeService.save(playtime);
         }
     }
 }

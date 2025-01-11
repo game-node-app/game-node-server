@@ -30,8 +30,11 @@ export class SteamSyncService {
                 return;
             }
             this.client = new p.default(steamKey);
-            this.getAllGames("76561198136665859");
-            // this.getGamePlaytime("76561198136665859", 2694490);
+            // (async () => {
+            //     const test = await this.getAllGames("76561198136665859");
+            //
+            //     console.log(test);
+            // })();
         });
     }
 

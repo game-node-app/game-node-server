@@ -3,7 +3,7 @@ export class ProfileMetricsOverviewDto {
     totalCollections: number;
     totalFinishedGames: number;
     /**
-     * Total playtime spent on finished games, based on available data and HLTB's 'main' profile.
+     * Total playtime spent on finished games, based on available data import from user's connections.
      */
     totalEstimatedPlaytime: number;
 }

@@ -1,4 +1,4 @@
 export enum UserPlaytimeSource {
     STEAM = "steam",
-    PSN = "pns",
+    PSN = "psn",
 }

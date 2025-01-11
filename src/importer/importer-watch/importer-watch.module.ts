@@ -8,6 +8,8 @@ import { LibrariesModule } from "../../libraries/libraries.module";
 import { NotificationsModule } from "../../notifications/notifications.module";
 import { ImporterWatchNotification } from "../entity/importer-notification.entity";
 import { ImporterWatchController } from "./importer-watch.controller";
+import { BullModule } from "@nestjs/bullmq";
+import { IMPORTER_WATCH_QUEUE_NAME } from "./importer-watch.constants";
 
 /**
  * Module of the Importer Watch Service, which is responsible for querying user's
@@ -20,6 +22,14 @@ import { ImporterWatchController } from "./importer-watch.controller";
             ImporterNotifiedEntry,
             ImporterWatchNotification,
         ]),
+        BullModule.registerQueue({
+            name: IMPORTER_WATCH_QUEUE_NAME,
+            defaultJobOptions: {
+                removeOnFail: true,
+                removeOnComplete: true,
+                attempts: 1,
+            },
+        }),
         ImporterModule,
         ConnectionsModule,
         LibrariesModule,

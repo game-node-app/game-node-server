@@ -1,7 +1,6 @@
 import {
     Column,
     Entity,
-    Index,
     ManyToOne,
     PrimaryGeneratedColumn,
     Unique,
@@ -37,7 +36,12 @@ export class UserConnection {
     sourceUsername: string;
     @Column({
         nullable: false,
-        default: false,
+        default: true,
     })
     isImporterEnabled: boolean;
+    @Column({
+        nullable: false,
+        default: true,
+    })
+    isPlaytimeImportEnabled: boolean;
 }
