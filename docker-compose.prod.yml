@@ -92,11 +92,11 @@ services:
       timeout: 20s
       retries: 10
 
-
+  # Redis server for caching
   redis:
     image: redis:latest
     hostname: server-redis
-    command: ["redis-server", "--appendonly", "no", "--maxmemory", "4096mb", "--maxmemory-policy", "allkeys-lru"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "2048mb", "--maxmemory-policy", "allkeys-lru"]
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
 
@@ -114,6 +114,24 @@ services:
     networks:
       - game_node_app
 
+  # Redis server exclusive to BullMQ
+  redis_bullmq:
+    image: redis:latest
+    hostname: server-redis-bullmq
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "6144mb", "--maxmemory-policy", "noeviction"]
+    environment:
+      ALLOW_EMPTY_PASSWORD: 'yes'
+    restart: always
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+    volumes:
+      - redis_bullmq:/var/lib/redis
+
+    networks:
+      - game_node_app
+
+
+
   server:
     image: lamarcke/game-node-server:latest
     hostname: server
@@ -122,6 +140,7 @@ services:
     # the docker resources are accessible.
     environment:
       REDIS_URL: redis://server-redis:6379
+      BULLMQ_REDIS_URL: redis://server-redis-bullmq:6379
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
       SERVER_PORT: 5000
       DOMAIN_API: https://server.gamenode.app
@@ -174,7 +193,6 @@ services:
     image: lamarcke/game-node-server:latest
     hostname: server-migration
     environment:
-      REDIS_URL: redis://server-redis:6379
       DB_HOST: server-db
       DB_DATABASE: gamenode
       DB_PASS: ${DB_PASS}
@@ -183,6 +201,9 @@ services:
 
     restart: always
 
+    # The server process is not meant to actually be started here.
+    # This could be done better, but we need to manually check every migration
+    # before running.
     command: "sleep infinity"
 
     deploy:
@@ -201,6 +222,7 @@ networks:
 
 volumes:
   redis:
+  redis_bullmq:
   db:
   gamenode:
   supertokens-db:

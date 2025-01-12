@@ -35,12 +35,15 @@ import { PlaytimeWatchModule } from "./playtime/watch/playtime-watch.module";
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
  */
-function getRedisConfig() {
+function getRedisConfig(target: "cache" | "bullmq" = "cache") {
     /**
      * While the "redis" property below accepts a string, and it works fine on local,
      * it fails on Docker, so use host and port instead.
      */
-    const redisUrl = process.env.REDIS_URL;
+    let redisUrl = process.env.REDIS_URL;
+    if (target === "bullmq") {
+        redisUrl = process.env.BULLMQ_REDIS_URL;
+    }
     const redisHost = new URL(redisUrl!).hostname;
     const redisPort = new URL(redisUrl!).port;
 
@@ -101,18 +104,19 @@ function getRedisConfig() {
                 };
             },
         }),
-
         CacheModule.registerAsync({
             isGlobal: true,
+            inject: [ConfigService],
             useFactory: async () => ({
                 store: await redisStore({
-                    url: process.env.REDIS_URL,
+                    url: getRedisConfig().url,
                 }),
             }),
         }),
         BullModule.forRootAsync({
+            inject: [ConfigService],
             useFactory: async () => {
-                const { port, host } = getRedisConfig();
+                const { port, host } = getRedisConfig("bullmq");
 
                 return {
                     connection: {
