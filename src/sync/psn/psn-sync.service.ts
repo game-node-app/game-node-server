@@ -15,12 +15,9 @@ import { Cacheable } from "../../utils/cacheable";
 
 @Injectable()
 export class PsnSyncService {
-    private readonly logger = new Logger(PsnSyncAuthService.name);
+    private readonly logger = new Logger(PsnSyncService.name);
 
-    constructor(
-        private readonly authService: PsnSyncAuthService,
-        private readonly cacheManager: Cache,
-    ) {
+    constructor(private readonly authService: PsnSyncAuthService) {
         // this.getGames("5847504196784127951", 0, 1);
         // this.getAllGames("5847504196784127951");
     }
