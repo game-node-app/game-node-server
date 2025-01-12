@@ -47,7 +47,7 @@ export class JwtAuthGuard implements CanActivate {
 
         if (ctxType !== "http") {
             this.logger.warn(
-                `Warning: AuthGuard can't be used in a non-HTTP context!`,
+                `Warning: JwtAuthGuard can't be used in a non-HTTP context!`,
             );
 
             return true;
@@ -75,6 +75,7 @@ export class JwtAuthGuard implements CanActivate {
         if (!decodedToken) {
             return false;
         }
+
         try {
             const jwtHeader = decodedToken.header;
             const signingKey = await this.getSigningKey(jwtHeader);

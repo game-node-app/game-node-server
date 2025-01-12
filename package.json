@@ -27,7 +27,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@golevelup/nestjs-rabbitmq": "^5.6.1",
     "@lamarcke/psn-api": "^1.0.1",
     "@liaoliaots/nestjs-redis-health": "^9.0.4",
     "@nestjs/axios": "^3.0.0",

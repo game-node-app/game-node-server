@@ -3,7 +3,6 @@ import { HealthCheckService, TypeOrmHealthIndicator } from "@nestjs/terminus";
 import * as process from "process";
 import Redis from "ioredis";
 import { RedisHealthIndicator } from "@liaoliaots/nestjs-redis-health";
-import { RabbitMQHealthCheckService } from "./checks/rabbitmq-health-check.service";
 
 @Injectable()
 export class HealthService {
@@ -11,11 +10,15 @@ export class HealthService {
         private healthCheckService: HealthCheckService,
         private redisHealthCheck: RedisHealthIndicator,
         private typeOrmHealthCheck: TypeOrmHealthIndicator,
-        private rabbitMqHealthCheck: RabbitMQHealthCheckService,
     ) {}
 
-    private buildRedisInstance() {
-        const redisUrl = process.env.REDIS_URL;
+    private buildRedisInstance(target: "cache" | "bullmq" = "cache") {
+        let redisUrl = process.env.REDIS_URL;
+
+        if (target === "bullmq") {
+            redisUrl = process.env.BULLMQ_REDIS_URL;
+        }
+
         const redisHost = new URL(redisUrl!).hostname;
         const redisPortString = new URL(redisUrl!).port;
 
@@ -25,7 +28,14 @@ export class HealthService {
         });
     }
 
-    private checkRedisHealth() {
+    private checkRedisHealth(target: "cache" | "bullmq" = "cache") {
+        if (target === "bullmq") {
+            return this.redisHealthCheck.checkHealth("bullmq-redis", {
+                type: "redis",
+                client: this.buildRedisInstance("bullmq"),
+            });
+        }
+
         return this.redisHealthCheck.checkHealth("redis", {
             type: "redis",
             client: this.buildRedisInstance(),
@@ -39,8 +49,8 @@ export class HealthService {
     async checkHealth() {
         return this.healthCheckService.check([
             () => this.checkRedisHealth(),
+            () => this.checkRedisHealth("bullmq"),
             () => this.checkTypeOrmHealth(),
-            () => this.rabbitMqHealthCheck.check(),
         ]);
     }
 }
