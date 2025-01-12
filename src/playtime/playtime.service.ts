@@ -7,6 +7,7 @@ import { FindPlaytimeOptionsDto } from "./dto/find-all-playtime.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
+import { UserPlaytimeSource } from "./playtime.constants";
 
 const toCumulativePlaytime = (
     userId: string,
@@ -144,5 +145,12 @@ export class PlaytimeService {
 
     async save(playtime: CreateUserPlaytimeDto) {
         return await this.userPlaytimeRepository.save(playtime);
+    }
+
+    async deleteForSource(userId: string, source: UserPlaytimeSource) {
+        return await this.userPlaytimeRepository.delete({
+            profileUserId: userId,
+            source: source,
+        });
     }
 }

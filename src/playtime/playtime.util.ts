@@ -9,3 +9,13 @@ export function connectionToPlaytimeSource(connectionType: EConnectionType) {
             return UserPlaytimeSource.STEAM;
     }
 }
+
+export function playtimeSourceToConnection(source: UserPlaytimeSource) {
+    switch (source) {
+        case UserPlaytimeSource.PSN:
+            return EConnectionType.PSN;
+
+        case UserPlaytimeSource.STEAM:
+            return EConnectionType.STEAM;
+    }
+}

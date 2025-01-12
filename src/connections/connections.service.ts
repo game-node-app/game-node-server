@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserConnection } from "./entity/user-connection.entity";
 import { In, Repository } from "typeorm";
@@ -13,6 +13,9 @@ import { SteamSyncService } from "../sync/steam/steam-sync.service";
 import { FindAvailableConnectionsResponseDto } from "./dto/find-available-connections-response.dto";
 import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { UserConnectionDto } from "./dto/user-connection.dto";
+import { PlaytimeService } from "../playtime/playtime.service";
+import { HttpStatusCode } from "axios";
+import { connectionToPlaytimeSource } from "../playtime/playtime.util";
 
 const toDto = (userConnection: UserConnection): UserConnectionDto => ({
     ...userConnection,
@@ -27,11 +30,14 @@ const toDto = (userConnection: UserConnection): UserConnectionDto => ({
 
 @Injectable()
 export class ConnectionsService {
+    private readonly logger = new Logger(ConnectionsService.name);
+
     constructor(
         @InjectRepository(UserConnection)
         private readonly userConnectionRepository: Repository<UserConnection>,
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
+        private readonly playtimeService: PlaytimeService,
     ) {}
 
     public findOneById(id: number) {
@@ -163,9 +169,31 @@ export class ConnectionsService {
     }
 
     public async delete(userId: string, id: number) {
-        return await this.userConnectionRepository.delete({
+        const connection = await this.findOneById(id);
+
+        if (!connection || connection.profileUserId !== userId) {
+            throw new HttpException(
+                "No connection found for the given criteria.",
+                HttpStatusCode.NotFound,
+            );
+        }
+
+        await this.userConnectionRepository.delete({
             id,
             profileUserId: userId,
         });
+
+        this.onConnectionDelete(connection);
+    }
+
+    private onConnectionDelete(deletedConnection: UserConnection) {
+        this.playtimeService
+            .deleteForSource(
+                deletedConnection.profileUserId,
+                connectionToPlaytimeSource(deletedConnection.type),
+            )
+            .catch((err) => {
+                this.logger.error(err);
+            });
     }
 }
