@@ -23,8 +23,8 @@ import { getPreviousDate } from "./statistics.utils";
 import { hours } from "@nestjs/throttler";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 import { Cache } from "@nestjs/cache-manager";
-import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 import isEmptyObject from "../utils/isEmptyObject";
+import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 
 @Injectable()
 export class GameStatisticsService implements StatisticsService {
@@ -180,12 +180,12 @@ export class GameStatisticsService implements StatisticsService {
     }
 
     async findTrending(
-        data: FindStatisticsTrendingGamesDto,
+        dto: FindStatisticsTrendingGamesDto,
     ): Promise<TPaginationData<GameStatistics>> {
-        const { period, criteria, offset, limit } = data;
+        const { period, criteria, offset, limit } = dto;
         const offsetToUse = offset || 0;
-        // We save up to this N statistics entities on cache to improve load performance.
-        const fixedStatisticsLimit = 25000;
+
+        const FIXED_STATISTICS_LIMIT = 50000;
         // User supplied limit
         const limitToUse = limit || 20;
         const minusDays = StatisticsPeriodToMinusDays[period];
@@ -194,31 +194,46 @@ export class GameStatisticsService implements StatisticsService {
         let statistics = await this.getCachedStatistics(period);
 
         if (statistics == undefined) {
-            const queryBuilder =
-                this.gameStatisticsRepository.createQueryBuilder("s");
-
             /**
              * Made with query builder, so we can further optimize the query
              */
+            const queryBuilder =
+                this.gameStatisticsRepository.createQueryBuilder("gs");
+
+            const userViewSubQuery = this.userViewRepository
+                .createQueryBuilder("uv")
+                .select("uv.gameStatisticsId, COUNT(uv.id) AS total")
+                .where("uv.gameStatisticsId IS NOT NULL")
+                .groupBy("uv.gameStatisticsId");
+
+            if (period !== StatisticsPeriod.ALL) {
+                userViewSubQuery.andWhere("uv.createdAt >= :viewsStartDate");
+            }
+
             const query = queryBuilder
-                .select()
-                .leftJoin(UserView, `uv`, `uv.gameStatisticsId = s.id`)
-                .where(`(uv.createdAt >= :uvDate OR s.viewsCount = 0)`, {
-                    uvDate: viewsStartDate,
-                })
-                // Excludes games with mature theme
-                .andWhere(
-                    `NOT EXISTS (SELECT 1 FROM game_themes_game_theme AS gtgt WHERE gtgt.gameId = s.gameId 
-                AND gtgt.gameThemeId = :excludedThemeId)`,
-                    {
-                        excludedThemeId: MATURE_THEME_ID,
-                    },
+                .addSelect("IFNULL(in_period.total, 0) AS views_in_period")
+                .leftJoin(
+                    `(${userViewSubQuery.getQuery()})`,
+                    "in_period",
+                    "in_period.gameStatisticsId = gs.id",
                 )
-                .addOrderBy(`s.viewsCount`, `DESC`)
-                .skip(0)
-                .take(fixedStatisticsLimit);
+                .where(
+                    // Excludes games with mature theme
+                    `NOT EXISTS (SELECT 1 FROM game_themes_game_theme AS gtgt WHERE gtgt.gameId = gs.gameId
+                AND gtgt.gameThemeId = :excludedThemeId)`,
+                )
+                .orderBy("views_in_period", "DESC")
+                .addOrderBy("gs.viewsCount", "DESC")
+                .limit(FIXED_STATISTICS_LIMIT);
+
+            query.setParameters({
+                viewsStartDate: viewsStartDate,
+                excludedThemeId: MATURE_THEME_ID,
+            });
 
             statistics = await query.getMany();
+            // Storing the entire table takes roughly ~16mb in Redis.
+            // 16mb * 7 = ~112mb to store statistics for all periods
             this.setCachedStatistics(period, statistics);
         }
 
@@ -228,7 +243,7 @@ export class GameStatisticsService implements StatisticsService {
                 offsetToUse,
                 offsetToUse + limitToUse,
             );
-            return [slicedStatistics, fixedStatisticsLimit];
+            return [slicedStatistics, FIXED_STATISTICS_LIMIT];
         }
 
         const gameIds = statistics.map((s) => s.gameId);
@@ -236,7 +251,7 @@ export class GameStatisticsService implements StatisticsService {
             ...criteria,
             ids: gameIds,
             // We need to return all entities to maintain pagination order
-            limit: fixedStatisticsLimit,
+            limit: FIXED_STATISTICS_LIMIT,
             offset: 0,
         });
         const totalAvailableGames = games.length;

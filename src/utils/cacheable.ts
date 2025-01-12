@@ -32,10 +32,10 @@ export function Cacheable(
 
             const cache: Cache = this.cacheManager;
 
-            if (!cache) {
-                throw new Error(
-                    "Cannot use Cacheable() decorator without injecting the cache manager.",
-                );
+            // This can happen if "cacheManager" is not defined in class, or if we "this" is not the actual class
+            // reference.
+            if (cache == undefined) {
+                return originalMethod.apply(this, args);
             }
 
             // Try to get cached data

@@ -44,6 +44,8 @@ export class UserView {
         nullable: true,
     })
     gameStatistics: GameStatistics | null;
+    @Column()
+    gameStatisticsId: number | null;
     @ManyToOne(() => ReviewStatistics, (rs) => rs.views, {
         onDelete: "CASCADE",
         nullable: true,
