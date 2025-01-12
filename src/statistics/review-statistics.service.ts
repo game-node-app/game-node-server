@@ -8,19 +8,13 @@ import {
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
 import { InjectRepository } from "@nestjs/typeorm";
-import {
-    FindOptionsWhere,
-    IsNull,
-    LessThanOrEqual,
-    MoreThanOrEqual,
-    Not,
-    Repository,
-} from "typeorm";
+import { Repository } from "typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
 import {
     StatisticsActionType,
+    StatisticsPeriod,
     StatisticsPeriodToMinusDays,
     StatisticsSourceType,
 } from "./statistics.constants";
@@ -32,12 +26,15 @@ import {
     ENotificationCategory,
     ENotificationSourceType,
 } from "../notifications/notifications.constants";
-import { minutes } from "@nestjs/throttler";
+import { hours } from "@nestjs/throttler";
 import { getPreviousDate } from "./statistics.utils";
+import { Cacheable } from "../utils/cacheable";
+import { Cache } from "@nestjs/cache-manager";
 
 @Injectable()
 export class ReviewStatisticsService implements StatisticsService {
     constructor(
+        private readonly cacheManager: Cache,
         @InjectRepository(ReviewStatistics)
         private readonly reviewStatisticsRepository: Repository<ReviewStatistics>,
         @InjectRepository(UserLike)
@@ -46,6 +43,7 @@ export class ReviewStatisticsService implements StatisticsService {
         private readonly userViewRepository: Repository<UserView>,
         private readonly notificationsQueueService: NotificationsQueueService,
     ) {}
+
     public async create(data: StatisticsCreateAction) {
         const sourceId = data.sourceId as string;
         const entry = await this.findOne(sourceId);
@@ -204,46 +202,71 @@ export class ReviewStatisticsService implements StatisticsService {
         };
     }
 
+    /**
+     * Finds trending reviews, giving preference to most 'liked' in 'period'.
+     * @param dto
+     */
+    @Cacheable(ReviewStatisticsService.name, hours(1))
     public async findTrending(
         dto: FindStatisticsTrendingReviewsDto,
-    ): Promise<TPaginationData<any>> {
-        const baseFindOptions = buildBaseFindOptions(dto);
-        const reviewFindOptionsWhere: FindOptionsWhere<Review> = {
-            gameId: dto?.gameId,
-            profileUserId: dto?.userId,
-            id: dto?.reviewId,
-        };
-        const findOptionsWhere: FindOptionsWhere<ReviewStatistics> = {
-            review: reviewFindOptionsWhere,
-        };
+    ): Promise<TPaginationData<ReviewStatistics>> {
+        const baseFindOptions = buildBaseFindOptions<ReviewStatistics>(dto);
+
         const periodMinusDays = StatisticsPeriodToMinusDays[dto.period];
-        const periodDate = getPreviousDate(periodMinusDays);
-        const reviewsMinimumLikeCounts = 1;
-        return await this.reviewStatisticsRepository.findAndCount({
-            ...baseFindOptions,
-            where: [
-                {
-                    ...findOptionsWhere,
-                    likes: {
-                        createdAt: MoreThanOrEqual(periodDate),
-                    },
-                },
-                {
-                    ...findOptionsWhere,
-                    likesCount: LessThanOrEqual(reviewsMinimumLikeCounts),
-                },
-            ],
-            // Order by likesCount THEN review create date
-            order: {
-                likesCount: "DESC",
-                review: {
-                    createdAt: "DESC",
-                },
-            },
-            relations: {
-                review: true,
-            },
-            cache: minutes(5),
+        const periodStartDate = getPreviousDate(periodMinusDays);
+
+        const likesInPeriodSubQuery = this.userLikeRepository
+            .createQueryBuilder("ul")
+            .select("ul.reviewStatisticsId, COUNT(ul.id) as total")
+            .where("ul.reviewStatisticsId IS NOT NULL")
+            .groupBy("ul.reviewStatisticsId");
+
+        // Improves performance by only querying with createdAt date
+        // when necessary
+        if (dto.period !== StatisticsPeriod.ALL) {
+            likesInPeriodSubQuery.andWhere("ul.createdAt >= :periodStartDate");
+        }
+
+        const statisticsQuery = this.reviewStatisticsRepository
+            .createQueryBuilder("rs")
+            .addSelect("IFNULL(in_period.total, 0) AS likes_in_period")
+            .leftJoin(
+                `(${likesInPeriodSubQuery.getQuery()})`,
+                "in_period",
+                "in_period.reviewStatisticsId = rs.id",
+            )
+            .orderBy("likes_in_period", "DESC")
+            .addOrderBy("rs.likesCount", "DESC")
+            .skip(baseFindOptions.skip)
+            .limit(baseFindOptions.take);
+
+        if (dto.userId || dto.gameId || dto.reviewId) {
+            statisticsQuery.innerJoinAndSelect(
+                Review,
+                "r",
+                "r.id = rs.reviewId",
+            );
+            // statisticsQuery.addSelect("r.id, r.profileUserId, r.gameId");
+
+            if (dto.userId) {
+                statisticsQuery.andWhere("r.profileUserId = :userId");
+            }
+            if (dto.gameId) {
+                statisticsQuery.andWhere("r.gameId = :gameId");
+            }
+            if (dto.reviewId) {
+                statisticsQuery.andWhere("r.id = :reviewId");
+            }
+        }
+
+        // Sets all parameters for query and subqueries
+        statisticsQuery.setParameters({
+            periodStartDate: periodStartDate,
+            userId: dto.userId,
+            gameId: dto.gameId,
+            reviewId: dto.reviewId,
         });
+
+        return await statisticsQuery.getManyAndCount();
     }
 }
