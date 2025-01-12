@@ -10,6 +10,7 @@ import { ImporterWatchNotification } from "../entity/importer-notification.entit
 import { ImporterWatchController } from "./importer-watch.controller";
 import { BullModule } from "@nestjs/bullmq";
 import { IMPORTER_WATCH_QUEUE_NAME } from "./importer-watch.constants";
+import { ImporterWatchProcessor } from "./importer-watch.processor";
 
 /**
  * Module of the Importer Watch Service, which is responsible for querying user's
@@ -35,7 +36,7 @@ import { IMPORTER_WATCH_QUEUE_NAME } from "./importer-watch.constants";
         LibrariesModule,
         NotificationsModule,
     ],
-    providers: [ImporterWatchService],
+    providers: [ImporterWatchService, ImporterWatchProcessor],
     controllers: [ImporterWatchController],
 })
 export class ImporterWatchModule {}

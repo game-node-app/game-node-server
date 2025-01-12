@@ -1,5 +1,4 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { RabbitSubscribe } from "@golevelup/nestjs-rabbitmq";
 import { InjectQueue } from "@nestjs/bullmq";
 import {
     IGDB_SYNC_JOB_NAME,
@@ -38,24 +37,12 @@ export class IgdbSyncService {
         return chunks;
     }
 
-    /**
-     * Subscription to events sent by game-node-sync-igdb trough RabbitMQ.
-     * @param msg - array of 'Game' objects, following IGDB API specification.
-     */
-    @RabbitSubscribe({
-        exchange: "sync",
-        routingKey: "sync-igdb",
-        queue: "sync",
-        name: "sync",
-    })
-    async subscribe(msg: NonNullable<object[]>) {
-        if (msg == undefined || !Array.isArray(msg)) {
-            this.logger.error(
-                `Ignoring malformed message on subscribe: ${msg}`,
-            );
+    async registerUpdateJob(job: NonNullable<object[]>) {
+        if (job == undefined || !Array.isArray(job)) {
+            this.logger.error(`Ignoring malformed message in update: ${job}`);
             return;
         }
-        const chunks = this.msgToChunks(msg);
+        const chunks = this.msgToChunks(job);
         for (const chunk of chunks) {
             await this.igdbSyncQueue.add(IGDB_SYNC_JOB_NAME, chunk);
         }

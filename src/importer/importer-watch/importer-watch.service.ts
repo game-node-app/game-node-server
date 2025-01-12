@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Interval, Timeout } from "@nestjs/schedule";
-import { hours, seconds } from "@nestjs/throttler";
+import { hours, minutes, seconds } from "@nestjs/throttler";
 import { ConnectionsService } from "../../connections/connections.service";
 import { LibrariesService } from "../../libraries/libraries.service";
 import { IMPORTER_WATCH_VIABLE_CONNECTIONS } from "../../connections/connections.constants";
@@ -41,8 +41,8 @@ export class ImporterWatchService {
         });
     }
 
-    @Timeout(seconds(60))
-    onStartup() {
+    @Timeout(minutes(5))
+    public onStartup() {
         this.registerWatchJobs();
     }
 

@@ -41,7 +41,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
     async process(job: Job<PlaytimeWatchJob>) {
         if (job.name === PLAYTIME_WATCH_QUEUE_JOB_NAME) {
             this.logger.log(
-                `Started playtime update for ${job.data.userId} in source ${job.data.source} at ${new Date().toISOString()}`,
+                `Started playtime update for ${job.data.userId} in source ${job.data.source}`,
             );
             switch (job.data.source) {
                 case UserPlaytimeSource.STEAM:

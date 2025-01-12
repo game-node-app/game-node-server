@@ -26,9 +26,9 @@ export class AuthGuard implements CanActivate {
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const ctxType = context.getType<"http" | "rmq">();
 
-        if (ctxType === "rmq") {
+        if (ctxType !== "http") {
             this.logger.warn(
-                `Warning: AuthGuard can't be used in a RabbitMQ service/handler`,
+                `Warning: AuthGuard can't be used in a non-HTTP context!`,
             );
 
             return true;
