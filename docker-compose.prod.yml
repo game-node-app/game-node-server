@@ -48,30 +48,6 @@ services:
       timeout: 5s
       retries: 5
 
-  rabbitmq:
-    image: rabbitmq:3.13-management
-    hostname: rabbitmq
-    volumes:
-      - rabbitmq:/var/lib/rabbitmq/
-
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-
-    restart: always
-
-    deploy:
-      replicas: 1
-
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 30s
-      timeout: 30s
-      retries: 3
-
-    networks:
-      - game_node_app
-
   db:
     image: mysql:8.3
     hostname: server-db
@@ -226,5 +202,4 @@ volumes:
   db:
   gamenode:
   supertokens-db:
-  rabbitmq:
 

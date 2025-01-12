@@ -3,7 +3,7 @@ import { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Interval, Timeout } from "@nestjs/schedule";
 import { ConnectionsService } from "../../connections/connections.service";
-import { hours, seconds } from "@nestjs/throttler";
+import { hours, minutes, seconds } from "@nestjs/throttler";
 import {
     PLAYTIME_WATCH_QUEUE_JOB_NAME,
     PLAYTIME_WATCH_QUEUE_NAME,
@@ -23,7 +23,7 @@ export class PlaytimeWatchService {
         private readonly connectionsService: ConnectionsService,
     ) {}
 
-    @Timeout(seconds(60))
+    @Timeout(minutes(5))
     public onStartup() {
         this.registerWatchJobs();
     }

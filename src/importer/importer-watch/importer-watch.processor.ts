@@ -49,6 +49,9 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
     }
 
     private async findUnprocessedEntries(data: ImporterWatchJob) {
+        this.logger.log(
+            `Started importer update for ${data.userId} in source ${data.source}`,
+        );
         const [unprocessedGames] =
             await this.importerService.findUnprocessedEntries(
                 data.userId,
