@@ -23,7 +23,7 @@ export class PlaytimeWatchService {
         private readonly connectionsService: ConnectionsService,
     ) {}
 
-    @Timeout(minutes(5))
+    @Timeout(minutes(1))
     public onStartup() {
         this.registerWatchJobs();
     }

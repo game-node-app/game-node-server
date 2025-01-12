@@ -41,7 +41,7 @@ export class ImporterWatchService {
         });
     }
 
-    @Timeout(minutes(5))
+    @Timeout(minutes(1))
     public onStartup() {
         this.registerWatchJobs();
     }
