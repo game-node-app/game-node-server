@@ -1,6 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DeepPartial, FindOptionsRelations, Repository } from "typeorm";
+import {
+    DeepPartial,
+    FindManyOptions,
+    FindOptionsRelations,
+    MoreThanOrEqual,
+    Repository,
+} from "typeorm";
 import { UserPlaytime } from "./entity/user-playtime.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { FindPlaytimeOptionsDto } from "./dto/find-all-playtime.dto";
@@ -8,6 +14,7 @@ import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
 import { UserPlaytimeSource } from "./playtime.constants";
+import { getPreviousDate } from "../statistics/statistics.utils";
 
 const toCumulativePlaytime = (
     userId: string,
@@ -105,11 +112,11 @@ export class PlaytimeService {
 
     public async findAllByUserId(
         userId: string,
-        options?: FindPlaytimeOptionsDto,
+        dto?: FindPlaytimeOptionsDto,
     ): Promise<TPaginationData<UserPlaytime>> {
-        const baseFindOptions = buildBaseFindOptions(options);
+        const baseFindOptions = buildBaseFindOptions(dto);
 
-        return await this.userPlaytimeRepository.findAndCount({
+        const options: FindManyOptions<UserPlaytime> = {
             ...baseFindOptions,
             where: {
                 profileUserId: userId,
@@ -118,7 +125,16 @@ export class PlaytimeService {
             order: {
                 lastPlayedDate: "DESC",
             },
-        });
+        };
+
+        if (dto?.onlyLatest) {
+            options.where = {
+                ...options.where,
+                lastPlayedDate: MoreThanOrEqual(getPreviousDate(90)),
+            };
+        }
+
+        return await this.userPlaytimeRepository.findAndCount(options);
     }
 
     /**

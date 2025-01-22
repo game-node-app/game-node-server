@@ -6,7 +6,7 @@ import {
     exchangeCodeForAccessToken,
     exchangeNpssoForCode,
     exchangeRefreshTokenForAuthTokens,
-} from "@lamarcke/psn-api";
+} from "psn-api";
 import { PSNTokenInfo } from "./psn-sync-auth.types";
 
 @Injectable()

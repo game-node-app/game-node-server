@@ -674,13 +674,6 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@lamarcke/psn-api@^1.0.1":
-  version "1.0.3"
-  resolved "https://registry.yarnpkg.com/@lamarcke/psn-api/-/psn-api-1.0.3.tgz#9188e01ddb6eeb630ceb711e6cb3c21291bb4b16"
-  integrity sha512-2rXDsCImi1G1cF6ZmY6Rve5rliSCuvnOkN1jJdIqDVxtRUisjCQJr5Wh1Wos82FNrZuYLTJChsMjHVOZcXLMtw==
-  dependencies:
-    isomorphic-unfetch "^3.1.0"
-
 "@liaoliaots/nestjs-redis-health@^9.0.4":
   version "9.0.4"
   resolved "https://registry.yarnpkg.com/@liaoliaots/nestjs-redis-health/-/nestjs-redis-health-9.0.4.tgz#f62ec53288d8bdba2225607c4fe968ea5ad7b057"
@@ -4894,6 +4887,13 @@ psl@1.8.0:
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/psl/-/psl-1.8.0.tgz#9326f8bcfb013adcc005fdff056acce020e51c24"
   integrity sha512-RIdOzyoavK+hA18OGGWDqUTsCLhtA7IcZ/6NCs4fFJaHBDab+pDDmDIByWFRQJq2Cd7r1OoQxBGKOaztq+hjIQ==
+
+psn-api@^2.11.0:
+  version "2.11.0"
+  resolved "https://registry.yarnpkg.com/psn-api/-/psn-api-2.11.0.tgz#bc819b623594aab5af45560349004ec0601ee745"
+  integrity sha512-RO1vstTzA+wPWOxws3O0auvdZ1/CHAnB8XwDRKS7HoefNT0E7DNIwTq802zPsXxjJ+QcJom8hx6a/s1HjcWqeg==
+  dependencies:
+    isomorphic-unfetch "^3.1.0"
 
 punycode@^2.1.0:
   version "2.3.1"

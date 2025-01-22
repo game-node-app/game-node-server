@@ -235,19 +235,14 @@ export class ReviewStatisticsService implements StatisticsService {
                 "in_period",
                 "in_period.reviewStatisticsId = rs.id",
             )
+            .innerJoinAndSelect(Review, "r", "r.id = rs.reviewId")
             .orderBy("likes_in_period", "DESC")
-            .addOrderBy("rs.likesCount", "DESC")
+            .addOrderBy("r.createdAt", "DESC")
             .skip(baseFindOptions.skip)
             .limit(baseFindOptions.take);
 
         if (dto.userId || dto.gameId || dto.reviewId) {
-            statisticsQuery.innerJoinAndSelect(
-                Review,
-                "r",
-                "r.id = rs.reviewId",
-            );
             // statisticsQuery.addSelect("r.id, r.profileUserId, r.gameId");
-
             if (dto.userId) {
                 statisticsQuery.andWhere("r.profileUserId = :userId");
             }
