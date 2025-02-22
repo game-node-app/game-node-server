@@ -23,9 +23,13 @@ export class PsnSyncAuthService {
         this.NPSSO_KEY = this.configService.get("PSN_NPSSO_KEY");
         if (!this.NPSSO_KEY) {
             this.logger.warn(
-                "PSN NPSSO key not provied! Services related to PSN.",
+                "PSN NPSSO key not provied! Services related to PSN will not work.",
             );
         }
+    }
+
+    private getAccessTokenKey() {
+        return `${this.ACCESS_TOKEN_STORE_KEY}-${this.NPSSO_KEY}`;
     }
 
     private setToStore(authResponse: AuthTokensResponse) {
@@ -44,11 +48,7 @@ export class PsnSyncAuthService {
             authResponse.refreshTokenExpiresIn * 1000;
 
         this.cacheManager
-            .set(
-                this.ACCESS_TOKEN_STORE_KEY,
-                tokenInfo,
-                refreshTokenExpiresInMs,
-            )
+            .set(this.getAccessTokenKey(), tokenInfo, refreshTokenExpiresInMs)
             .then(() => {
                 const validUntil = new Date(
                     Date.now() + authResponse.refreshTokenExpiresIn * 1000,
@@ -71,7 +71,7 @@ export class PsnSyncAuthService {
      */
     private async getFromStore(): Promise<PSNTokenInfo | undefined> {
         return await this.cacheManager.get<PSNTokenInfo>(
-            this.ACCESS_TOKEN_STORE_KEY,
+            this.getAccessTokenKey(),
         );
     }
 
