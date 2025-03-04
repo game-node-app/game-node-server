@@ -25,7 +25,20 @@ export class PaginationInfo {
     hasNextPage: boolean;
 }
 
+export class CursorPaginationInfo {
+    @ApiProperty({
+        type: "boolean",
+        description: "If this query allows for a next page",
+    })
+    hasNextPage: boolean;
+}
+
 export class PaginationResponseDto<T = any> {
     data: T[];
     pagination: PaginationInfo;
+}
+
+export class CursorPaginationResponseDto<T = any> {
+    data: T[];
+    pagination: CursorPaginationInfo;
 }

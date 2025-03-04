@@ -1,5 +1,6 @@
 import { BaseFindDto } from "../base-find.dto";
 import {
+    CursorPaginationResponseDto,
     PaginationInfo,
     PaginationResponseDto,
     TPaginationData,
@@ -7,13 +8,14 @@ import {
 import { mixin, Type } from "@nestjs/common";
 import { ObjectLiteral } from "typeorm";
 import { ApiProperty, ApiPropertyOptions } from "@nestjs/swagger";
+import { BaseCursorFindDto } from "../base-cursor-find.dto";
 
 /**
  * Builds pagination data from a 'paginable' data array and a DTO.
  * @param data
  * @param dto
  */
-export default function buildPaginationResponse<T>(
+export function buildPaginationResponse<T>(
     data: TPaginationData<T>,
     dto?: BaseFindDto<T>,
 ): PaginationResponseDto<T> {
@@ -37,6 +39,30 @@ export default function buildPaginationResponse<T>(
             pagination: {
                 totalItems: total,
                 totalPages,
+                hasNextPage,
+            },
+        };
+    }
+
+    throw new Error(
+        `Pagination data must be an tuple of an array and a number. 
+        Got: ${JSON.stringify(data)} for DTO: ${JSON.stringify(dto)}`,
+    );
+}
+
+export function buildCursorPaginationResponse<T>(
+    data: TPaginationData<T>,
+    dto?: BaseCursorFindDto,
+): CursorPaginationResponseDto {
+    // Best-effort runtime check to ensure that data is an array with two elements.
+    if (Array.isArray(data) && data.length === 2) {
+        const [results] = data;
+        const limit = dto?.limit || 10;
+
+        const hasNextPage = results.length === limit; // If we have fetched exactly `limit` records, there might be a next page
+        return {
+            data: results,
+            pagination: {
                 hasNextPage,
             },
         };

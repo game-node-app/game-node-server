@@ -11,7 +11,7 @@ import { HandleReportRequestDto } from "./dto/handle-report-request.dto";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import {
     ENotificationCategory,
-    ENotificationSourceType,
+    NotificationSourceType,
 } from "../notifications/notifications.constants";
 import { SuspensionService } from "../suspension/suspension.service";
 import { CommentService } from "../comment/comment.service";
@@ -188,7 +188,7 @@ export class ReportService {
         this.notificationsQueueService.registerNotification({
             sourceId: report.id,
             userId: undefined,
-            sourceType: ENotificationSourceType.REPORT,
+            sourceType: NotificationSourceType.REPORT,
             category: ENotificationCategory.ALERT,
             targetUserId: report.targetProfileUserId,
         });

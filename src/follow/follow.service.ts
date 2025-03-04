@@ -6,7 +6,7 @@ import { FollowStatusDto } from "./dto/follow-status.dto";
 import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import {
     ENotificationCategory,
-    ENotificationSourceType,
+    NotificationSourceType,
 } from "../notifications/notifications.constants";
 import { FollowInfoRequestDto } from "./dto/follow-info-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
@@ -68,7 +68,7 @@ export class FollowService {
                 userId: followerUserId,
                 targetUserId: followedUserId,
                 category: ENotificationCategory.FOLLOW,
-                sourceType: ENotificationSourceType.PROFILE,
+                sourceType: NotificationSourceType.PROFILE,
                 sourceId: followerUserId,
             });
 

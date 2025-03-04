@@ -4,16 +4,15 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { NotificationsModule } from "../notifications/notifications.module";
-import { GameStatisticsService } from "./game-statistics.service";
-import { ReviewStatisticsService } from "./review-statistics.service";
 import { GameStatistics } from "./entity/game-statistics.entity";
 import { ReviewStatistics } from "./entity/review-statistics.entity";
 import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
-import { ActivityStatisticsService } from "./activity-statistics.service";
 import { ActivityStatistics } from "./entity/activity-statistics.entity";
-import { CommentStatisticsService } from "./comment-statistics.service";
 import { CommentStatistics } from "./entity/comment-statistics.entity";
 import { GameFilterModule } from "../game/game-filter/game-filter.module";
+import { StatisticsService } from "./statistics.service";
+import { StatisticsTrendingService } from "./statistics-trending.service";
+import { PostStatistics } from "./entity/post-statistics.entity";
 
 @Module({
     imports: [
@@ -24,23 +23,14 @@ import { GameFilterModule } from "../game/game-filter/game-filter.module";
             ReviewStatistics,
             ActivityStatistics,
             CommentStatistics,
+            PostStatistics,
         ]),
         NotificationsModule,
         forwardRef(() => GameRepositoryModule),
         GameFilterModule,
     ],
-    providers: [
-        GameStatisticsService,
-        ReviewStatisticsService,
-        ActivityStatisticsService,
-        CommentStatisticsService,
-    ],
+    providers: [StatisticsService, StatisticsTrendingService],
     controllers: [StatisticsController],
-    exports: [
-        GameStatisticsService,
-        ReviewStatisticsService,
-        ActivityStatisticsService,
-        CommentStatisticsService,
-    ],
+    exports: [StatisticsService],
 })
 export class StatisticsModule {}

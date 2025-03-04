@@ -18,10 +18,7 @@ import {
 import { ProfileBanner } from "./entities/profile-banner.entity";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { SuspensionService } from "../suspension/suspension.service";
-
-const getImageFilePath = (filename: string, extension: string) => {
-    return `${publicImagesDir}/uploads/${filename}.${extension}`;
-};
+import { getPersistedImagePath } from "../utils/getPersistedImagePath";
 
 @Injectable()
 export class ProfileService {
@@ -62,7 +59,7 @@ export class ProfileService {
         const fileName = crypto.randomBytes(16).toString("hex");
         const fileExt = mimetype.extension(file.mimetype) || "jpeg";
 
-        const filePath = getImageFilePath(fileName, fileExt);
+        const filePath = getPersistedImagePath(fileName, fileExt);
         try {
             await fs.writeFile(filePath, file.buffer);
         } catch (e) {
@@ -126,7 +123,7 @@ export class ProfileService {
         await targetRepository.delete(targetEntity.id);
 
         if (removeFile) {
-            const filePath = getImageFilePath(
+            const filePath = getPersistedImagePath(
                 targetEntity.filename,
                 targetEntity.extension,
             );

@@ -10,7 +10,7 @@ import {
 import { Profile } from "../../profile/entities/profile.entity";
 import {
     ENotificationCategory,
-    ENotificationSourceType,
+    NotificationSourceType,
 } from "../notifications.constants";
 import { Review } from "../../reviews/entities/review.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
@@ -28,7 +28,7 @@ export class Notification {
     @Column({
         nullable: false,
     })
-    sourceType: ENotificationSourceType;
+    sourceType: NotificationSourceType;
     /**
      * What this notification's about. E.g.: a new like, a new follower, a game launch, etc.
      */

@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     ManyToOne,
     PrimaryGeneratedColumn,
     Unique,
@@ -18,6 +19,7 @@ import { Collection } from "../../../collections/entities/collection.entity";
 @Unique(["profile", "collectionEntry", "collection"])
 @Unique(["profile", "userFollow"])
 @Unique(["profile", "review"])
+@Index(["createdAt", "id"])
 export class Activity {
     @PrimaryGeneratedColumn("uuid")
     id: string;

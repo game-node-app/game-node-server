@@ -12,7 +12,12 @@ import {
     UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
-import { ApiOkResponse, ApiTags, getSchemaPath } from "@nestjs/swagger";
+import {
+    ApiOkResponse,
+    ApiResponse,
+    ApiTags,
+    getSchemaPath,
+} from "@nestjs/swagger";
 import { CommentService } from "./comment.service";
 import { CreateCommentDto } from "./dto/create-comment.dto";
 import { Session } from "../auth/session.decorator";
@@ -28,8 +33,11 @@ import { DeleteCommentDto } from "./dto/delete-comment.dto";
 import { SuspensionGuard } from "../suspension/suspension.guard";
 import { BaseFindDto } from "../utils/base-find.dto";
 import { UserComment } from "./entity/user-comment.entity";
-import { ReviewComment } from "./entity/review-comment.entity";
-import { ActivityComment } from "./entity/activity-comment.entity";
+import {
+    ActivityCommentDto,
+    PostCommentDto,
+    ReviewCommentDto,
+} from "./dto/comment.dto";
 
 @Controller("comment")
 @ApiTags("comment")
@@ -50,11 +58,14 @@ export class CommentController {
     }
 
     @Get(":sourceType/:id")
-    @ApiOkResponse({
+    @ApiResponse({
+        status: 200,
+        description: "Successful response",
         schema: {
             oneOf: [
-                { type: getSchemaPath(ReviewComment) },
-                { type: getSchemaPath(ActivityComment) },
+                { $ref: getSchemaPath(ActivityCommentDto) },
+                { $ref: getSchemaPath(ReviewCommentDto) },
+                { $ref: getSchemaPath(PostCommentDto) },
             ],
         },
     })

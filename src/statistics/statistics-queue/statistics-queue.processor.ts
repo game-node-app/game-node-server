@@ -7,25 +7,15 @@ import {
 } from "./statistics-queue.types";
 import { STATISTICS_QUEUE_NAME } from "./statistics-queue.constants";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
-import { GameStatisticsService } from "../game-statistics.service";
-import { StatisticsSourceType } from "../statistics.constants";
-import { ReviewStatisticsService } from "../review-statistics.service";
-import { ActivityStatisticsService } from "../activity-statistics.service";
 import { Logger } from "@nestjs/common";
-import { StatisticsService } from "../statistics.types";
-import { CommentStatisticsService } from "../comment-statistics.service";
+import { StatisticsService } from "../statistics.service";
 
 @Processor(STATISTICS_QUEUE_NAME, {
     concurrency: 5,
 })
 export class StatisticsQueueProcessor extends WorkerHostProcessor {
     logger = new Logger(StatisticsQueueProcessor.name);
-    constructor(
-        private readonly gameStatisticsService: GameStatisticsService,
-        private readonly reviewStatisticsService: ReviewStatisticsService,
-        private readonly activityStatisticsService: ActivityStatisticsService,
-        private readonly commentStatisticsService: CommentStatisticsService,
-    ) {
+    constructor(private readonly statisticsService: StatisticsService) {
         super();
     }
 
@@ -34,37 +24,18 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
             StatisticsLikeAction | StatisticsViewAction | StatisticsCreateAction
         >,
     ) {
-        let targetService: StatisticsService;
-        switch (job.data.sourceType) {
-            case StatisticsSourceType.GAME:
-                targetService = this.gameStatisticsService;
-                break;
-            case StatisticsSourceType.REVIEW:
-                targetService = this.reviewStatisticsService;
-                break;
-            case StatisticsSourceType.ACTIVITY:
-                targetService = this.activityStatisticsService;
-                break;
-            case StatisticsSourceType.REVIEW_COMMENT:
-                targetService = this.commentStatisticsService;
-                break;
-            case StatisticsSourceType.ACTIVITY_COMMENT:
-                targetService = this.commentStatisticsService;
-                break;
-            default:
-                throw new Error(
-                    `Invalid sourceType for job: ${job.id} - ${JSON.stringify(job.data)}`,
-                );
-        }
-
         if (job.name === "like") {
-            await targetService.handleLike(job.data as StatisticsLikeAction);
+            await this.statisticsService.handleLike(
+                job.data as StatisticsLikeAction,
+            );
         } else if (job.name === "view") {
-            await targetService.handleView(job.data as StatisticsViewAction);
+            await this.statisticsService.handleView(
+                job.data as StatisticsViewAction,
+            );
         } else if (job.name === "create") {
-            await targetService.create(job.data);
+            await this.statisticsService.create(job.data);
         }
 
-        return `${job.data.sourceType}-${job.data.sourceId}`;
+        return `${job.name}-${job.data.sourceType}-${job.data.sourceId}`;
     }
 }

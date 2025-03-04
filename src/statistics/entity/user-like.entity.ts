@@ -1,27 +1,14 @@
-import {
-    Entity,
-    ManyToOne,
-    PrimaryGeneratedColumn,
-    Unique,
-    CreateDateColumn,
-    UpdateDateColumn,
-    Index,
-    Column,
-} from "typeorm";
+import { Column, Entity, ManyToOne, Unique } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
-import { GameStatistics } from "./game-statistics.entity";
-import { ReviewStatistics } from "./review-statistics.entity";
-import { ActivityStatistics } from "./activity-statistics.entity";
-import { CommentStatistics } from "./comment-statistics.entity";
+import { StatisticsAction } from "./statistics-action.entity";
 
 @Entity()
 @Unique(["profile", "gameStatistics"])
 @Unique(["profile", "reviewStatistics"])
 @Unique(["profile", "activityStatistics"])
 @Unique(["profile", "commentStatistics"])
-export class UserLike {
-    @PrimaryGeneratedColumn()
-    id: number;
+@Unique(["profile", "postStatistics"])
+export class UserLike extends StatisticsAction {
     @ManyToOne(() => Profile, {
         nullable: false,
         onDelete: "CASCADE",
@@ -31,50 +18,4 @@ export class UserLike {
         nullable: false,
     })
     profileUserId: string;
-    @CreateDateColumn({
-        type: "timestamp",
-    })
-    @Index()
-    createdAt: Date;
-    @UpdateDateColumn({
-        type: "timestamp",
-    })
-    updatedAt: Date;
-    @ManyToOne(() => GameStatistics, (gs) => gs.likes, {
-        onDelete: "CASCADE",
-        nullable: true,
-    })
-    gameStatistics: GameStatistics | null;
-    @Column({
-        nullable: true,
-    })
-    gameStatisticsId: number | null;
-    @ManyToOne(() => ReviewStatistics, (rs) => rs.likes, {
-        onDelete: "CASCADE",
-        nullable: true,
-    })
-    reviewStatistics: ReviewStatistics | null;
-    @Column({
-        nullable: true,
-    })
-    reviewStatisticsId: number | null;
-    @ManyToOne(() => ActivityStatistics, (as) => as.likes, {
-        onDelete: "CASCADE",
-        nullable: true,
-    })
-    activityStatistics: ActivityStatistics | null;
-    @Column({
-        nullable: true,
-    })
-    activityStatisticsId: number | null;
-
-    @ManyToOne(() => CommentStatistics, (cs) => cs.likes, {
-        onDelete: "CASCADE",
-        nullable: true,
-    })
-    commentStatistics: CommentStatistics | null;
-    @Column({
-        nullable: true,
-    })
-    commentStatisticsId: number | null;
 }
