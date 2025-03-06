@@ -16,10 +16,7 @@ import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
 import { buildFilterFindOptions } from "./utils/build-filter-find-options";
 import { days, minutes } from "@nestjs/throttler";
 import { GameExternalGame } from "./entities/game-external-game.entity";
-import {
-    EGameExternalGameCategory,
-    platformAbbreviationToIconMap,
-} from "./game-repository.constants";
+import { platformAbbreviationToIconMap } from "./game-repository.constants";
 import { GameExternalStoreDto } from "./dto/game-external-store.dto";
 import {
     getIconNameForExternalGameCategory,
@@ -49,15 +46,12 @@ export class GameRepositoryService {
 
     /**
      * @param dataSource
-     * @param gameRepository
      * @param gamePlatformRepository
      * @param gameExternalGameRepository
      * @param gameRepositoryCacheService
      */
     constructor(
         private readonly dataSource: DataSource,
-        @InjectRepository(Game)
-        private readonly gameRepository: Repository<Game>,
         @InjectRepository(GamePlatform)
         private readonly gamePlatformRepository: Repository<GamePlatform>,
         @InjectRepository(GameExternalGame)

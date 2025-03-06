@@ -1,16 +1,14 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { CACHE_MANAGER, CacheStore } from "@nestjs/cache-manager";
+import { Injectable } from "@nestjs/common";
+import { Cache } from "@nestjs/cache-manager";
 import jwt from "supertokens-node/recipe/jwt";
 
 @Injectable()
 export class JwtAuthService {
     private readonly JWT_CACHE_KEY = "jwt-token";
 
-    constructor(
-        @Inject(CACHE_MANAGER) private readonly cacheManager: CacheStore,
-    ) {}
+    constructor(private readonly cacheManager: Cache) {}
 
-    private async getKeyFromCache(): Promise<string | undefined> {
+    private async getKeyFromCache(): Promise<string | null> {
         return this.cacheManager.get(this.JWT_CACHE_KEY);
     }
 

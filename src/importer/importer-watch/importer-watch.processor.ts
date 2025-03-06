@@ -14,12 +14,11 @@ import { Repository } from "typeorm";
 import { ImporterWatchNotification } from "../entity/importer-notification.entity";
 import { ImporterService } from "../importer.service";
 import { NotificationsQueueService } from "../../notifications/notifications-queue.service";
-import { UserConnectionDto } from "../../connections/dto/user-connection.dto";
 import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
 import { EImporterSource } from "../importer.constants";
 import {
     ENotificationCategory,
-    ENotificationSourceType,
+    NotificationSourceType,
 } from "../../notifications/notifications.constants";
 
 @Processor(IMPORTER_WATCH_QUEUE_NAME, {
@@ -115,7 +114,7 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
         this.notificationsQueueService.registerNotification({
             targetUserId: userId,
             category: ENotificationCategory.WATCH,
-            sourceType: ENotificationSourceType.IMPORTER,
+            sourceType: NotificationSourceType.IMPORTER,
             userId: undefined,
             sourceId: notification.id,
         });

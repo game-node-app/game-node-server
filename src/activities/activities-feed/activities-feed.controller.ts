@@ -12,7 +12,7 @@ import { PaginationInterceptor } from "../../interceptor/pagination.interceptor"
 import { ActivitiesFeedPaginatedResponseDto } from "./dto/activities-feed-paginated-response.dto";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
-import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
+import { CacheTTL } from "@nestjs/cache-manager";
 import { minutes } from "@nestjs/throttler";
 import { Public } from "../../auth/public.decorator";
 import { AuthGuard } from "../../auth/auth.guard";

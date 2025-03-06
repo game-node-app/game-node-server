@@ -18,6 +18,12 @@ export class StatisticsQueueService {
         private readonly statisticsQueue: Queue,
     ) {}
 
+    /**
+     * <strong>Important</strong>: it's not always the best call to use this whenever a new entry is created
+     * e.g. when a game is imported via {@link IgdbSyncService} - clogging this queue will make all the others
+     * not work until everything is processed.
+     * @param data
+     */
     createStatistics(data: StatisticsCreateAction) {
         this.statisticsQueue
             .add("create", data)

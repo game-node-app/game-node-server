@@ -1,11 +1,11 @@
 import { CallHandler, ExecutionContext, NestInterceptor } from "@nestjs/common";
-import { map, Observable } from "rxjs";
-import buildPaginationResponse from "../utils/pagination/buildPaginationResponse";
+import { map } from "rxjs";
 import { BaseFindDto } from "../utils/base-find.dto";
 import {
     PaginationResponseDto,
     TPaginationData,
 } from "../utils/pagination/pagination-response.dto";
+import { buildPaginationResponse } from "../utils/pagination/buildPaginationResponse";
 
 /**
  * Interceptor that automatically builds pagination data based on results.<br>
@@ -60,11 +60,7 @@ export class PaginationInterceptor<T>
                     // Does nothing for non GET and POST methods
                     return data;
                 }
-                const response = buildPaginationResponse<T>(
-                    data,
-                    simplifiedDto,
-                );
-                return response;
+                return buildPaginationResponse<T>(data, simplifiedDto);
             }),
         );
     }

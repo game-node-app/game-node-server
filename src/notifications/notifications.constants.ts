@@ -21,20 +21,18 @@ export enum ENotificationCategory {
  * @example a 'follow' notification related to a 'profile'
  * @example a 'alert' notification related to a 'report'
  */
-export enum ENotificationSourceType {
+export enum NotificationSourceType {
     GAME = "game",
     REVIEW = "review",
-    // Used with 'comment' category to indicate it's a notification related to a review comment (not the review itself)
+    POST = "post",
+    POST_COMMENT = "post_comment",
     REVIEW_COMMENT = "review_comment",
     ACTIVITY = "activity",
-    // Used with 'comment' category to indicate it's a notification related to a activity comment (not the activity itself)
-    // e.g. deep nested activity comment
     ACTIVITY_COMMENT = "activity_comment",
     /**
      * Generally used for followers related notifications
      */
     PROFILE = "profile",
-
     IMPORTER = "importer",
     REPORT = "report",
 }

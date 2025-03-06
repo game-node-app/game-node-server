@@ -5,11 +5,9 @@ import { Profile } from "./entities/profile.entity";
 import { Repository } from "typeorm";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
 import * as crypto from "crypto";
-import { publicImagesDir } from "../utils/constants";
 import * as fs from "fs/promises";
 import { generateUsername } from "unique-username-generator";
 import mimetype from "mime-types";
-import { filterBadWords } from "../utils/filterBadWords";
 import {
     PROFILE_IMAGE_ALLOWED_IDENTIFIERS,
     ProfileImageIdentifier,
@@ -18,10 +16,7 @@ import {
 import { ProfileBanner } from "./entities/profile-banner.entity";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { SuspensionService } from "../suspension/suspension.service";
-
-const getImageFilePath = (filename: string, extension: string) => {
-    return `${publicImagesDir}/uploads/${filename}.${extension}`;
-};
+import { getPersistedImagePath } from "../utils/getPersistedImagePath";
 
 @Injectable()
 export class ProfileService {
@@ -62,7 +57,7 @@ export class ProfileService {
         const fileName = crypto.randomBytes(16).toString("hex");
         const fileExt = mimetype.extension(file.mimetype) || "jpeg";
 
-        const filePath = getImageFilePath(fileName, fileExt);
+        const filePath = getPersistedImagePath(fileName, fileExt);
         try {
             await fs.writeFile(filePath, file.buffer);
         } catch (e) {
@@ -126,7 +121,7 @@ export class ProfileService {
         await targetRepository.delete(targetEntity.id);
 
         if (removeFile) {
-            const filePath = getImageFilePath(
+            const filePath = getPersistedImagePath(
                 targetEntity.filename,
                 targetEntity.extension,
             );
@@ -249,10 +244,6 @@ export class ProfileService {
             }
             profile.username = updateProfileDto.username;
             profile.usernameLastUpdatedAt = new Date();
-        }
-
-        if (updateProfileDto.bio) {
-            profile.bio = filterBadWords(updateProfileDto.bio);
         }
 
         await this.profileRepository.save(profile);

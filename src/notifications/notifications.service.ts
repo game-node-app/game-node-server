@@ -2,11 +2,9 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindOptionsRelations,
-    FindOptionsWhere,
     In,
     IsNull,
     MoreThanOrEqual,
-    Or,
     Repository,
 } from "typeorm";
 import { Notification } from "./entity/notification.entity";
@@ -17,7 +15,7 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { NotificationAggregateDto } from "./dto/notification-aggregate.dto";
 import {
     ENotificationCategory,
-    ENotificationSourceType,
+    NotificationSourceType,
 } from "./notifications.constants";
 import { CreateNotificationDto } from "./dto/create-notification.dto";
 import { minutes } from "@nestjs/throttler";
@@ -117,8 +115,10 @@ export class NotificationsService {
                     const comparableSourceIds: (keyof Notification)[] = [
                         "reviewId",
                         "activityId",
+                        "postId",
                         "reviewCommentId",
                         "activityCommentId",
+                        "postCommentId",
                     ];
 
                     const hasSameCategory =
@@ -167,10 +167,12 @@ export class NotificationsService {
                 sourceId:
                     notification.reviewId! ||
                     notification.activityId! ||
+                    notification.postId ||
                     notification.importerNotificationId! ||
                     notification.reportId! ||
                     notification.reviewCommentId! ||
                     notification.activityCommentId! ||
+                    notification.postCommentId ||
                     // profileUserId should be last, otherwise you will get weird issues.
                     notification.profileUserId!,
 
@@ -243,10 +245,6 @@ export class NotificationsService {
                     JSON.stringify(dto),
             );
         } else if (dto.userId === dto.targetUserId) {
-            this.logger.warn(
-                `Skipping attempt to make user notify itself: ${dto.userId} -> ${dto.targetUserId}`,
-            );
-            this.logger.warn(`On DTO: ${JSON.stringify(dto)}}`);
             throw new UnrecoverableError(
                 `Skipping attempt to make user notify itself: ${JSON.stringify(dto)}}`,
             );
@@ -260,29 +258,35 @@ export class NotificationsService {
         });
 
         switch (dto.sourceType) {
-            case ENotificationSourceType.GAME:
+            case NotificationSourceType.GAME:
                 entity.gameId = dto.sourceId as number;
                 break;
-            case ENotificationSourceType.REVIEW:
+            case NotificationSourceType.REVIEW:
                 entity.reviewId = dto.sourceId as string;
                 break;
-            case ENotificationSourceType.ACTIVITY:
+            case NotificationSourceType.ACTIVITY:
                 entity.activityId = dto.sourceId as string;
                 break;
-            case ENotificationSourceType.IMPORTER:
+            case NotificationSourceType.IMPORTER:
                 entity.importerNotificationId = dto.sourceId as number;
                 break;
-            case ENotificationSourceType.PROFILE:
+            case NotificationSourceType.PROFILE:
                 entity.profileUserId = dto.sourceId as string;
                 break;
-            case ENotificationSourceType.REPORT:
+            case NotificationSourceType.REPORT:
                 entity.reportId = dto.sourceId as number;
                 break;
-            case ENotificationSourceType.ACTIVITY_COMMENT:
+            case NotificationSourceType.ACTIVITY_COMMENT:
                 entity.activityCommentId = dto.sourceId as string;
                 break;
-            case ENotificationSourceType.REVIEW_COMMENT:
+            case NotificationSourceType.REVIEW_COMMENT:
                 entity.reviewCommentId = dto.sourceId as string;
+                break;
+            case NotificationSourceType.POST:
+                entity.postId = dto.sourceId as string;
+                break;
+            case NotificationSourceType.POST_COMMENT:
+                entity.postCommentId = dto.sourceId as string;
                 break;
             default:
                 throw new UnrecoverableError(

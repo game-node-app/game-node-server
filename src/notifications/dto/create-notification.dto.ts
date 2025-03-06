@@ -1,6 +1,6 @@
 import {
     ENotificationCategory,
-    ENotificationSourceType,
+    NotificationSourceType,
 } from "../notifications.constants";
 
 export class CreateNotificationDto {
@@ -13,6 +13,6 @@ export class CreateNotificationDto {
      */
     targetUserId: string;
     category: ENotificationCategory;
-    sourceType: ENotificationSourceType;
+    sourceType: NotificationSourceType;
     sourceId: string | number;
 }

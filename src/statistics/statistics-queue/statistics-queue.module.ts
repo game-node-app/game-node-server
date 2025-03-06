@@ -1,4 +1,4 @@
-import { forwardRef, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { StatisticsQueueService } from "./statistics-queue.service";
 import { StatisticsQueueController } from "./statistics-queue.controller";
 import { BullModule } from "@nestjs/bullmq";
@@ -18,10 +18,10 @@ import { StatisticsQueueProcessor } from "./statistics-queue.processor";
             defaultJobOptions: {
                 removeOnComplete: true,
                 removeOnFail: true,
-                attempts: 5,
+                attempts: 2,
             },
         }),
-        forwardRef(() => StatisticsModule),
+        StatisticsModule,
     ],
     providers: [StatisticsQueueService, StatisticsQueueProcessor],
     controllers: [StatisticsQueueController],

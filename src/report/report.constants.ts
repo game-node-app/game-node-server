@@ -1,8 +1,10 @@
 export enum ReportSourceType {
     REVIEW = "review",
     PROFILE = "profile",
+    POST = "post",
     REVIEW_COMMENT = "review_comment",
     ACTIVITY_COMMENT = "activity_comment",
+    POST_COMMENT = "post_comment"
 }
 
 export enum ReportCategory {

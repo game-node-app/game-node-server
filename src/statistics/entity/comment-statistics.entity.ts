@@ -1,16 +1,11 @@
 import { Statistics } from "./statistics.entity";
-import { Column, Entity, JoinColumn, OneToMany, OneToOne } from "typeorm";
-import { UserView } from "./user-view.entity";
-import { UserLike } from "./user-like.entity";
+import { Column, Entity, JoinColumn, OneToOne } from "typeorm";
 import { ReviewComment } from "../../comment/entity/review-comment.entity";
 import { ActivityComment } from "../../comment/entity/activity-comment.entity";
+import { PostComment } from "../../comment/entity/post-comment.entity";
 
 @Entity()
 export class CommentStatistics extends Statistics {
-    @OneToMany(() => UserView, (uv) => uv.commentStatistics)
-    views: UserView[];
-    @OneToMany(() => UserLike, (ul) => ul.commentStatistics)
-    likes: UserLike[];
     @OneToOne(() => ReviewComment, {
         nullable: true,
         onDelete: "CASCADE",
@@ -31,4 +26,14 @@ export class CommentStatistics extends Statistics {
         nullable: true,
     })
     activityCommentId: string | null;
+    @OneToOne(() => PostComment, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    @JoinColumn()
+    postComment: PostComment | null;
+    @Column({
+        nullable: true,
+    })
+    postCommentId: string | null;
 }

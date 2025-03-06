@@ -6,7 +6,7 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 import { Profile } from "./profile.entity";
-import { PersistedImageDetails } from "../../utils/persisted-image-details.entity";
+import { PersistedImageDetails } from "../../utils/db/persisted-image-details.entity";
 
 @Entity()
 export class ProfileAvatar extends PersistedImageDetails {
@@ -14,8 +14,4 @@ export class ProfileAvatar extends PersistedImageDetails {
     id: number;
     @OneToOne(() => Profile, (profile) => profile.avatar)
     profile: Profile;
-    @CreateDateColumn()
-    createdAt: Date;
-    @UpdateDateColumn()
-    updatedAt: Date;
 }

@@ -1,10 +1,11 @@
 import { Column } from "typeorm";
+import { BaseEntity } from "./base.entity";
 
 /**
  * Abstract entity that contains required metadata for user uploaded images. <br>
  * Must be extended by a class decorated with @Entity to have effect.
  */
-export abstract class PersistedImageDetails {
+export abstract class PersistedImageDetails extends BaseEntity {
     @Column({ nullable: false })
     mimetype: string;
     @Column({ nullable: false })

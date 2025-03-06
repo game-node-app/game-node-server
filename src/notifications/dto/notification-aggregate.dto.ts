@@ -2,7 +2,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { Notification } from "../entity/notification.entity";
 import {
     ENotificationCategory,
-    ENotificationSourceType,
+    NotificationSourceType,
 } from "../notifications.constants";
 
 /**
@@ -15,6 +15,6 @@ export class NotificationAggregateDto {
     })
     sourceId: string | number;
     category: ENotificationCategory;
-    sourceType: ENotificationSourceType;
+    sourceType: NotificationSourceType;
     notifications: Notification[];
 }

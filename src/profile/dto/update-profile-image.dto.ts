@@ -7,7 +7,7 @@ export type ProfileImageIdentifier =
     (typeof PROFILE_IMAGE_ALLOWED_IDENTIFIERS)[number];
 
 export class UpdateProfileImageDto {
-    file: any;
+    file: Blob;
     @ApiProperty({
         type: "string",
     })
