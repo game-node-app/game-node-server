@@ -16,6 +16,8 @@ import {
 } from "../report.constants";
 import { ReviewComment } from "../../comment/entity/review-comment.entity";
 import { ActivityComment } from "../../comment/entity/activity-comment.entity";
+import { Post } from "../../posts/entity/post.entity";
+import { PostComment } from "../../comment/entity/post-comment.entity";
 
 @Entity()
 export class Report {
@@ -111,6 +113,18 @@ export class Report {
         nullable: true,
     })
     targetActivityCommentId: string | null;
+    @ManyToOne(() => Post, { nullable: true, onDelete: "SET NULL" })
+    targetPost: Post | null;
+    @Column({
+        nullable: true,
+    })
+    targetPostId: string | null;
+    @ManyToOne(() => PostComment, { nullable: true, onDelete: "SET NULL" })
+    targetPostComment: PostComment | null;
+    @Column({
+        nullable: true,
+    })
+    targetPostCommentId: string | null;
 
     @Column({
         nullable: false,

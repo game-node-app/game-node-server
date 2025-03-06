@@ -19,6 +19,8 @@ import { ImporterWatchNotification } from "../../importer/entity/importer-notifi
 import { Report } from "../../report/entity/report.entity";
 import { ReviewComment } from "../../comment/entity/review-comment.entity";
 import { ActivityComment } from "../../comment/entity/activity-comment.entity";
+import { Post } from "../../posts/entity/post.entity";
+import { PostComment } from "../../comment/entity/post-comment.entity";
 
 @Entity()
 @Index(["targetProfileUserId", "createdAt"])
@@ -64,6 +66,16 @@ export class Notification {
     })
     activityId: string | null;
 
+    @ManyToOne(() => Post, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    post: Post | null;
+    @Column({
+        nullable: true,
+    })
+    postId: string | null;
+
     @ManyToOne(() => ImporterWatchNotification, {
         nullable: true,
         onDelete: "CASCADE",
@@ -104,6 +116,15 @@ export class Notification {
         nullable: true,
     })
     activityCommentId: string | null;
+    @ManyToOne(() => PostComment, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    postComment: PostComment | null;
+    @Column({
+        nullable: true,
+    })
+    postCommentId: string | null;
 
     @Column({
         default: false,

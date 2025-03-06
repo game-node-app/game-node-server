@@ -8,7 +8,6 @@ import { ActivityType } from "../activities/activities-queue/activities-queue.co
 import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
-import { filterBadWords } from "../utils/filterBadWords";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../achievements/achievements.constants";
 import { StatisticsSourceType } from "../statistics/statistics.constants";
@@ -176,10 +175,6 @@ export class ReviewsService {
             userId,
             createReviewDto.gameId,
         );
-
-        if (createReviewDto.content) {
-            createReviewDto.content = filterBadWords(createReviewDto.content);
-        }
 
         if (possibleExistingReview) {
             const mergedEntry = this.reviewsRepository.merge(

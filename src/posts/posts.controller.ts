@@ -28,7 +28,7 @@ import {
 } from "./dto/get-posts.dto";
 import { CursorPaginationInterceptor } from "../interceptor/cursor-pagination.interceptor";
 
-@Controller("posts")
+@Controller("posts/repository")
 @ApiTags("posts")
 @UseGuards(AuthGuard)
 export class PostsController {

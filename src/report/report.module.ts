@@ -7,6 +7,7 @@ import { ReviewsModule } from "../reviews/reviews.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { SuspensionModule } from "../suspension/suspension.module";
 import { CommentModule } from "../comment/comment.module";
+import { PostsModule } from "../posts/posts.module";
 
 @Module({
     imports: [
@@ -15,6 +16,7 @@ import { CommentModule } from "../comment/comment.module";
         NotificationsModule,
         SuspensionModule,
         CommentModule,
+        PostsModule,
     ],
     providers: [ReportService],
     controllers: [ReportController],

@@ -16,6 +16,7 @@ import {
 import { SuspensionService } from "../suspension/suspension.service";
 import { CommentService } from "../comment/comment.service";
 import { CommentSourceType } from "../comment/comment.constants";
+import { PostsService } from "../posts/posts.service";
 
 @Injectable()
 export class ReportService {
@@ -28,6 +29,7 @@ export class ReportService {
         private readonly reviewsService: ReviewsService,
         private readonly commentService: CommentService,
         private readonly suspensionService: SuspensionService,
+        private readonly postsService: PostsService,
     ) {}
 
     findOneById(reportId: number) {
@@ -50,15 +52,15 @@ export class ReportService {
     }
 
     async create(userId: string, dto: CreateReportRequestDto) {
-        const { sourceType, sourceId } = dto;
+        const { sourceType, sourceId, category, reason } = dto;
         const createdReport = this.reportRepository.create({
             profileUserId: userId,
             sourceType: sourceType,
-            category: dto.category,
-            reason: dto.reason,
+            category: category,
+            reason: reason,
         });
 
-        switch (dto.sourceType) {
+        switch (sourceType) {
             case ReportSourceType.REVIEW: {
                 const review =
                     await this.reviewsService.findOneByIdOrFail(sourceId);
@@ -89,6 +91,25 @@ export class ReportService {
                 createdReport.targetProfileUserId = sourceId;
                 break;
             }
+            case ReportSourceType.POST:
+                const post =
+                    await this.postsService.findOneByIdOrFail(sourceId);
+                createdReport.targetProfileUserId = post.profileUserId;
+                createdReport.targetPostId = post.id;
+                break;
+            case ReportSourceType.POST_COMMENT:
+                const postComment = await this.commentService.findOneByIdOrFail(
+                    CommentSourceType.POST,
+                    sourceId,
+                );
+                createdReport.targetProfileUserId = postComment.profileUserId;
+                createdReport.targetPostCommentId = postComment.id;
+                break;
+            default:
+                throw new HttpException(
+                    "Unmapped report source type!",
+                    HttpStatus.BAD_REQUEST,
+                );
         }
 
         if (createdReport.targetProfileUserId === userId) {

@@ -3,6 +3,7 @@ import { CursorPaginationResponseDto } from "../../utils/pagination/pagination-r
 import { BaseCursorFindDto } from "../../utils/base-cursor-find.dto";
 
 export class GetPostsRequestDto extends BaseCursorFindDto {
+    postId?: string;
     gameId?: number;
     profileUserId?: string;
 }

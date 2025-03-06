@@ -5,11 +5,9 @@ import { Profile } from "./entities/profile.entity";
 import { Repository } from "typeorm";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
 import * as crypto from "crypto";
-import { publicImagesDir } from "../utils/constants";
 import * as fs from "fs/promises";
 import { generateUsername } from "unique-username-generator";
 import mimetype from "mime-types";
-import { filterBadWords } from "../utils/filterBadWords";
 import {
     PROFILE_IMAGE_ALLOWED_IDENTIFIERS,
     ProfileImageIdentifier,
@@ -246,10 +244,6 @@ export class ProfileService {
             }
             profile.username = updateProfileDto.username;
             profile.usernameLastUpdatedAt = new Date();
-        }
-
-        if (updateProfileDto.bio) {
-            profile.bio = filterBadWords(updateProfileDto.bio);
         }
 
         await this.profileRepository.save(profile);

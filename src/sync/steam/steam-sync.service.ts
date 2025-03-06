@@ -1,11 +1,6 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import SteamAPI, {
-    UserSummary,
-    // @ts-expect-error ESModule import in CommonJS file, breaks if used
-    // without 'import()'
-} from "steamapi";
-import { Cache } from "@nestjs/cache-manager";
+import SteamAPI, { UserSummary } from "steamapi";
 import { hours } from "@nestjs/throttler";
 import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
 import { Cacheable } from "../../utils/cacheable";
@@ -15,10 +10,7 @@ export class SteamSyncService {
     private logger = new Logger(SteamSyncService.name);
     private client: SteamAPI;
 
-    constructor(
-        private readonly configService: ConfigService,
-        private readonly cacheManager: Cache,
-    ) {
+    constructor(private readonly configService: ConfigService) {
         const steamKey = this.configService.get("STEAM_API_KEY");
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore

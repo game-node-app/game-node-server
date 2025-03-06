@@ -69,7 +69,7 @@ export class PsnSyncAuthService {
      * <strong>Make sure to convert to ms before transforming in a Javascript Date object</strong>.
      * @private
      */
-    private async getFromStore(): Promise<PSNTokenInfo | undefined> {
+    private async getFromStore(): Promise<PSNTokenInfo | null> {
         return await this.cacheManager.get<PSNTokenInfo>(
             this.getAccessTokenKey(),
         );

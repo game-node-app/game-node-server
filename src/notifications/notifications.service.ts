@@ -115,8 +115,10 @@ export class NotificationsService {
                     const comparableSourceIds: (keyof Notification)[] = [
                         "reviewId",
                         "activityId",
+                        "postId",
                         "reviewCommentId",
                         "activityCommentId",
+                        "postCommentId",
                     ];
 
                     const hasSameCategory =
@@ -165,10 +167,12 @@ export class NotificationsService {
                 sourceId:
                     notification.reviewId! ||
                     notification.activityId! ||
+                    notification.postId ||
                     notification.importerNotificationId! ||
                     notification.reportId! ||
                     notification.reviewCommentId! ||
                     notification.activityCommentId! ||
+                    notification.postCommentId ||
                     // profileUserId should be last, otherwise you will get weird issues.
                     notification.profileUserId!,
 
@@ -277,6 +281,12 @@ export class NotificationsService {
                 break;
             case NotificationSourceType.REVIEW_COMMENT:
                 entity.reviewCommentId = dto.sourceId as string;
+                break;
+            case NotificationSourceType.POST:
+                entity.postId = dto.sourceId as string;
+                break;
+            case NotificationSourceType.POST_COMMENT:
+                entity.postCommentId = dto.sourceId as string;
                 break;
             default:
                 throw new UnrecoverableError(

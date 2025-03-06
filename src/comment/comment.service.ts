@@ -26,7 +26,6 @@ import { match, P } from "ts-pattern";
 import { PostComment } from "./entity/post-comment.entity";
 import { AnyComment } from "./comment.types";
 import { PostsService } from "../posts/posts.service";
-import { AnyCommentDto } from "./dto/comment.dto";
 
 @Injectable()
 export class CommentService {
@@ -67,7 +66,7 @@ export class CommentService {
 
     async findAll(
         dto: FindAllCommentsDto,
-    ): Promise<TPaginationData<AnyCommentDto>> {
+    ): Promise<TPaginationData<AnyComment>> {
         const targetRepository = this.getTargetRepository(dto.sourceType);
 
         const baseFindOptions = buildBaseFindOptions(dto);
@@ -123,7 +122,7 @@ export class CommentService {
     async findOneById(
         sourceType: CommentSourceType,
         commentId: string,
-    ): Promise<AnyCommentDto | null> {
+    ): Promise<AnyComment | null> {
         const targetRepository = this.getTargetRepository(sourceType);
         return targetRepository.findOneBy({
             id: commentId,
@@ -133,7 +132,7 @@ export class CommentService {
     async findOneByIdOrFail(
         sourceType: CommentSourceType,
         commentId: string,
-    ): Promise<AnyCommentDto> {
+    ): Promise<AnyComment> {
         const comment = await this.findOneById(sourceType, commentId);
         if (!comment) {
             throw new HttpException(
@@ -149,7 +148,7 @@ export class CommentService {
         sourceType: CommentSourceType,
         commentId: string,
         dto: BaseFindDto<UserComment>,
-    ): Promise<AnyCommentDto[]> {
+    ): Promise<AnyComment[]> {
         const targetRepository = this.getTargetRepository(sourceType);
 
         const baseFindOptions = buildBaseFindOptions(dto);

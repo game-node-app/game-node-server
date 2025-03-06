@@ -19,29 +19,40 @@ export class PostsRepository extends Repository<Post> {
     public async findAllPaginated({
         lastCreatedAt,
         lastId,
+        postId,
         gameId,
         profileUserId,
         limit = 20,
     }: GetPostsRequestDto) {
-        const qb = this.createQueryBuilder("p")
-            .orderBy("p.createdAt", "DESC")
-            .addOrderBy("p.id", "DESC") // Tie-breaker
-            .limit(limit);
+        const qb = this.createQueryBuilder("p").limit(limit);
 
         if (gameId) {
-            qb.andWhere("p.gameId = :gameId", { gameId });
+            qb.andWhere("p.gameId = :gameId");
         }
 
         if (profileUserId) {
-            qb.andWhere("p.profileUserId = :profileUserId", { profileUserId });
+            qb.andWhere("p.profileUserId = :profileUserId");
         }
 
         if (lastCreatedAt && lastId) {
-            qb.andWhere("(p.createdAt, p.id) < (:lastCreatedAt, :lastId)", {
-                lastCreatedAt,
-                lastId,
-            });
+            qb.andWhere("(p.createdAt, p.id) < (:lastCreatedAt, :lastId)");
         }
+
+        if (postId) {
+            qb.orderBy(`CASE WHEN p.id = :postId THEN 0 ELSE 1 END`, "ASC")
+                .addOrderBy("p.createdAt", "DESC")
+                .addOrderBy("p.id", "DESC"); // Tie-breaker
+        } else {
+            qb.orderBy("p.createdAt", "DESC").addOrderBy("p.id", "DESC"); // Tie-breaker
+        }
+
+        qb.setParameters({
+            postId,
+            lastCreatedAt,
+            lastId,
+            profileUserId,
+            gameId,
+        });
 
         return qb.getManyAndCount();
     }

@@ -13,6 +13,7 @@ import {
     UseInterceptors,
 } from "@nestjs/common";
 import {
+    ApiExtraModels,
     ApiOkResponse,
     ApiResponse,
     ApiTags,
@@ -41,6 +42,7 @@ import {
 
 @Controller("comment")
 @ApiTags("comment")
+@ApiExtraModels(ActivityCommentDto, ReviewCommentDto, PostCommentDto)
 @UseGuards(AuthGuard)
 export class CommentController {
     constructor(private readonly commentService: CommentService) {}

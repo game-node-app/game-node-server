@@ -2,7 +2,6 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GameStatistics } from "./entity/game-statistics.entity";
 import { Repository } from "typeorm";
-import { ActivityStatistics } from "./entity/activity-statistics.entity";
 import { ReviewStatistics } from "./entity/review-statistics.entity";
 import { Cacheable } from "../utils/cacheable";
 import { hours } from "@nestjs/throttler";
@@ -32,8 +31,6 @@ export class StatisticsTrendingService {
         private readonly cacheManager: Cache,
         @InjectRepository(GameStatistics)
         private readonly gameStatisticsRepository: Repository<GameStatistics>,
-        @InjectRepository(ActivityStatistics)
-        private activityStatisticsRepository: Repository<ActivityStatistics>,
         @InjectRepository(ReviewStatistics)
         private readonly reviewStatisticsRepository: Repository<ReviewStatistics>,
         @InjectRepository(UserLike)
@@ -71,7 +68,7 @@ export class StatisticsTrendingService {
     }
 
     /**
-     * Finds trending reviews, giving preference to most 'liked' in 'period'.
+     * Finds trending reviews, giving preference to a specific review (if provided) by boosting it to the top.
      * @param dto
      */
     @Cacheable(StatisticsTrendingService.name, hours(1))
@@ -104,22 +101,27 @@ export class StatisticsTrendingService {
                 "in_period.reviewStatisticsId = rs.id",
             )
             .innerJoinAndSelect(Review, "r", "r.id = rs.reviewId")
-            .orderBy("likes_in_period", "DESC")
-            .addOrderBy("r.createdAt", "DESC")
             .skip(baseFindOptions.skip)
             .limit(baseFindOptions.take);
 
-        if (dto.userId || dto.gameId || dto.reviewId) {
-            // statisticsQuery.addSelect("r.id, r.profileUserId, r.gameId");
-            if (dto.userId) {
-                statisticsQuery.andWhere("r.profileUserId = :userId");
-            }
-            if (dto.gameId) {
-                statisticsQuery.andWhere("r.gameId = :gameId");
-            }
-            if (dto.reviewId) {
-                statisticsQuery.andWhere("r.id = :reviewId");
-            }
+        if (dto.userId) {
+            statisticsQuery.andWhere("r.profileUserId = :userId");
+        }
+        if (dto.gameId) {
+            statisticsQuery.andWhere("r.gameId = :gameId");
+        }
+
+        // Build the ordering:
+        // If a reviewId is provided, use a CASE expression to bring that review to the top.
+        if (dto.reviewId) {
+            statisticsQuery
+                .orderBy(`CASE WHEN r.id = :reviewId THEN 0 ELSE 1 END`, "ASC")
+                .addOrderBy("likes_in_period", "DESC")
+                .addOrderBy("r.createdAt", "DESC");
+        } else {
+            statisticsQuery
+                .orderBy("likes_in_period", "DESC")
+                .addOrderBy("r.createdAt", "DESC");
         }
 
         // Sets all parameters for query and subqueries
