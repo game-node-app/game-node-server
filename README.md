@@ -27,12 +27,6 @@
 
 A NestJS API responsible for handling all GameNode requests.
 
-## Architecture
-This diagram provides a simplified overview of our backend architecture.
-![GameNode Backend Diagram](https://github.com/user-attachments/assets/ab0dd943-e6c8-4c74-a6ca-fab297a4e9b8)
-
-A fullscreen version is available [here](https://excalidraw.com/#json=d-sgA41-e1KA7gIA3XnCN,BRZ-Ndv7sRUNjLjkLhccPA).
-
 ## Docker
 
 You can use the `docker-compose.yml` file in the root folder to start a local instance of GameNode.  
