@@ -175,17 +175,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         GameFilterModule,
         PsnSyncModule,
         PostsFeedModule,
-        UploadModule.registerAsync({
-            useFactory: (configService: ConfigService) => {
-                return {
-                    storage: configService.get(
-                        "UPLOAD_MODULE_STORAGE",
-                        "filesystem",
-                    ),
-                };
-            },
-            inject: [ConfigService],
-        }),
+        UploadModule,
     ],
 })
 export class AppModule implements NestModule {

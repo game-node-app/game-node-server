@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { UploadPostImageResponseDto } from "./dto/upload-post-image.dto";
 import { FindManyOptions, FindOneOptions, Repository } from "typeorm";
 import { PostImage } from "./entity/post-image.entity";
@@ -7,8 +7,7 @@ import { Post } from "./entity/post.entity";
 import { CreatePostDto } from "./dto/create-post.dto";
 import { PostsRepository } from "./posts.repository";
 import { GetPostsRequestDto } from "./dto/get-posts.dto";
-import { UPLOAD_SERVICE } from "../upload/upload.constants";
-import { UploadService } from "../upload/upload.interface";
+import { UploadService } from "../upload/upload.service";
 
 @Injectable()
 export class PostsService {
@@ -18,7 +17,6 @@ export class PostsService {
         private readonly postRepository: PostsRepository,
         @InjectRepository(PostImage)
         private readonly postImageRepository: Repository<PostImage>,
-        @Inject(UPLOAD_SERVICE)
         private readonly uploadService: UploadService,
     ) {}
 

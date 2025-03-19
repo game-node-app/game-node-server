@@ -3,12 +3,11 @@ import { ConfigService } from "@nestjs/config";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import mimetype from "mime-types";
-import { UploadService } from "../../upload.interface";
-import { ImageCompressorService } from "../../image-compressor/image-compressor.service";
+import { ImageCompressorService } from "./image-compressor/image-compressor.service";
 
 @Injectable()
-export class S3UploadService implements UploadService {
-    private logger = new Logger(S3UploadService.name);
+export class UploadService {
+    private logger = new Logger(UploadService.name);
     private client: S3Client;
     private readonly BUCKET_NAME = "gamenode-user-uploads";
 
@@ -31,10 +30,14 @@ export class S3UploadService implements UploadService {
         });
     }
 
-    async save(userId: string, file: Express.Multer.File) {
+    async save(
+        userId: string,
+        file: Express.Multer.File,
+        prefix: string = "uploads",
+    ) {
         const fileName = crypto.randomBytes(16).toString("hex");
         const fileExt = mimetype.extension(file.mimetype) || "jpeg";
-        const key = `${fileName}.${fileExt}`;
+        const key = `${prefix}/${fileName}.${fileExt}`;
 
         const compressedBuffer = await this.imageCompressorService.compress(
             file.buffer,
