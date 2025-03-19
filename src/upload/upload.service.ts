@@ -27,17 +27,14 @@ export class UploadService {
             },
             requestChecksumCalculation: "WHEN_REQUIRED",
             responseChecksumValidation: "WHEN_REQUIRED",
+            forcePathStyle: true,
         });
     }
 
-    async save(
-        userId: string,
-        file: Express.Multer.File,
-        prefix: string = "uploads",
-    ) {
+    async save(userId: string, file: Express.Multer.File) {
         const fileName = crypto.randomBytes(16).toString("hex");
         const fileExt = mimetype.extension(file.mimetype) || "jpeg";
-        const key = `${prefix}/${fileName}.${fileExt}`;
+        const fileNameWithExtension = `${fileName}.${fileExt}`;
 
         const compressedBuffer = await this.imageCompressorService.compress(
             file.buffer,
@@ -46,7 +43,7 @@ export class UploadService {
         const command = new PutObjectCommand({
             Bucket: this.BUCKET_NAME,
             Body: compressedBuffer,
-            Key: key,
+            Key: fileNameWithExtension,
             ContentType: file.mimetype,
             Metadata: {
                 userId: userId,
@@ -55,6 +52,10 @@ export class UploadService {
 
         await this.client.send(command);
 
-        return key;
+        return {
+            fileNameWithExtension: fileNameWithExtension,
+            fileName,
+            fileExt,
+        } as const;
     }
 }

@@ -5,6 +5,7 @@ import {
     FileTypeValidator,
     Get,
     HttpCode,
+    MaxFileSizeValidator,
     Param,
     ParseFilePipe,
     Post,
@@ -27,6 +28,7 @@ import {
     GetPostsRequestDto,
 } from "./dto/get-posts.dto";
 import { CursorPaginationInterceptor } from "../interceptor/cursor-pagination.interceptor";
+import { ThrottlerGuard } from "@nestjs/throttler";
 
 @Controller("posts/repository")
 @ApiTags("posts")
@@ -59,6 +61,7 @@ export class PostsController {
     @Post("image")
     @ApiConsumes("multipart/form-data")
     @UseInterceptors(FileInterceptor("file"))
+    @UseGuards(ThrottlerGuard)
     async uploadPostImage(
         @Session() session: SessionContainer,
         @Body() dto: UploadPostImageRequestDto,
@@ -68,6 +71,9 @@ export class PostsController {
                 validators: [
                     new FileTypeValidator({
                         fileType: "image",
+                    }),
+                    new MaxFileSizeValidator({
+                        maxSize: 5 * 1024 * 1000,
                     }),
                 ],
             }),

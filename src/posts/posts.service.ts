@@ -1,8 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { UploadPostImageResponseDto } from "./dto/upload-post-image.dto";
-import { FindManyOptions, FindOneOptions, Repository } from "typeorm";
-import { PostImage } from "./entity/post-image.entity";
-import { InjectRepository } from "@nestjs/typeorm";
+import { FindManyOptions, FindOneOptions } from "typeorm";
 import { Post } from "./entity/post.entity";
 import { CreatePostDto } from "./dto/create-post.dto";
 import { PostsRepository } from "./posts.repository";
@@ -15,8 +13,6 @@ export class PostsService {
 
     constructor(
         private readonly postRepository: PostsRepository,
-        @InjectRepository(PostImage)
-        private readonly postImageRepository: Repository<PostImage>,
         private readonly uploadService: UploadService,
     ) {}
 
@@ -58,11 +54,13 @@ export class PostsService {
         userId: string,
         file: Express.Multer.File,
     ): Promise<UploadPostImageResponseDto> {
-        const filename = await this.uploadService.save(userId, file);
+        const { fileNameWithExtension } = await this.uploadService.save(
+            userId,
+            file,
+        );
 
         return {
-            filename: filename,
-            id: Math.random() * 1000,
+            filename: fileNameWithExtension,
         };
     }
 

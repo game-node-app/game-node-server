@@ -4,6 +4,7 @@ import {
     Delete,
     FileTypeValidator,
     Get,
+    MaxFileSizeValidator,
     Param,
     ParseFilePipe,
     Patch,
@@ -60,6 +61,9 @@ export class ProfileController {
                 validators: [
                     new FileTypeValidator({
                         fileType: "image",
+                    }),
+                    new MaxFileSizeValidator({
+                        maxSize: 5 * 1024 * 1000,
                     }),
                 ],
             }),
