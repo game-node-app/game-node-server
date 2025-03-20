@@ -15,9 +15,10 @@ export class UploadService {
         configService: ConfigService,
         private readonly imageCompressorService: ImageCompressorService,
     ) {
+        const endpoint = configService.getOrThrow<string>("S3_ENDPOINT");
         this.client = new S3Client({
             region: "auto",
-            endpoint: configService.getOrThrow<string>("S3_ENDPOINT"),
+            endpoint: endpoint,
             credentials: {
                 accessKeyId:
                     configService.getOrThrow<string>("S3_ACCESS_KEY_ID"),
@@ -27,7 +28,7 @@ export class UploadService {
             },
             requestChecksumCalculation: "WHEN_REQUIRED",
             responseChecksumValidation: "WHEN_REQUIRED",
-            forcePathStyle: true,
+            forcePathStyle: endpoint.includes("localhost"),
         });
     }
 
