@@ -32,6 +32,7 @@ import { GameFilterModule } from "./game/game-filter/game-filter.module";
 import { PsnSyncModule } from "./sync/psn/psn-sync.module";
 import { PlaytimeWatchModule } from "./playtime/watch/playtime-watch.module";
 import { PostsFeedModule } from "./posts/posts-feed/posts-feed.module";
+import { UploadModule } from "./upload/upload.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -174,6 +175,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         GameFilterModule,
         PsnSyncModule,
         PostsFeedModule,
+        UploadModule,
     ],
 })
 export class AppModule implements NestModule {

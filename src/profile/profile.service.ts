@@ -4,10 +4,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Profile } from "./entities/profile.entity";
 import { Repository } from "typeorm";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
-import * as crypto from "crypto";
 import * as fs from "fs/promises";
 import { generateUsername } from "unique-username-generator";
-import mimetype from "mime-types";
 import {
     PROFILE_IMAGE_ALLOWED_IDENTIFIERS,
     ProfileImageIdentifier,
@@ -17,6 +15,7 @@ import { ProfileBanner } from "./entities/profile-banner.entity";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { SuspensionService } from "../suspension/suspension.service";
 import { getPersistedImagePath } from "../utils/getPersistedImagePath";
+import { UploadService } from "../upload/upload.service";
 
 @Injectable()
 export class ProfileService {
@@ -29,6 +28,7 @@ export class ProfileService {
         @InjectRepository(ProfileBanner)
         private profileBannerRepository: Repository<ProfileBanner>,
         private readonly suspensionService: SuspensionService,
+        private readonly uploadService: UploadService,
     ) {}
 
     /**
@@ -51,15 +51,16 @@ export class ProfileService {
     }
 
     private async persistImage(
+        userId: string,
         type: ProfileImageIdentifier,
         file: Express.Multer.File,
     ) {
-        const fileName = crypto.randomBytes(16).toString("hex");
-        const fileExt = mimetype.extension(file.mimetype) || "jpeg";
-
-        const filePath = getPersistedImagePath(fileName, fileExt);
+        let fileName: string;
+        let fileExt: string;
         try {
-            await fs.writeFile(filePath, file.buffer);
+            const imageData = await this.uploadService.save(userId, file);
+            fileName = imageData.fileName;
+            fileExt = imageData.fileExt;
         } catch (e) {
             this.logger.error(e);
             throw new HttpException("Error saving profile image.", 500);
@@ -153,9 +154,17 @@ export class ProfileService {
             }
             await this.detachImage(userId, dto.type, true);
             if (dto.type === "avatar") {
-                profile.avatar = await this.persistImage(dto.type, file);
+                profile.avatar = await this.persistImage(
+                    userId,
+                    dto.type,
+                    file,
+                );
             } else {
-                profile.banner = await this.persistImage(dto.type, file);
+                profile.banner = await this.persistImage(
+                    userId,
+                    dto.type,
+                    file,
+                );
             }
         }
 

@@ -27,16 +27,11 @@
 
 A NestJS API responsible for handling all GameNode requests.
 
-## Architecture
-This diagram provides a simplified overview of our backend architecture.
-![GameNode Backend Diagram](https://github.com/user-attachments/assets/ab0dd943-e6c8-4c74-a6ca-fab297a4e9b8)
-
-A fullscreen version is available [here](https://excalidraw.com/#json=d-sgA41-e1KA7gIA3XnCN,BRZ-Ndv7sRUNjLjkLhccPA).
-
 ## Docker
 
 You can use the `docker-compose.yml` file in the root folder to start a local instance of GameNode.  
-It will automatically set up a Supertokens instance, the NestJS server, a MySQL database and a Redis instance.  
+It will automatically set up a Supertokens instance, the NestJS server, a MySQL database, a Redis instance, 
+and a S3-compatible ObjectStorage service (MinIO).  
 If you are looking to self-host GameNode (server), this is the easiest way to do it.
 
 #### Important:
@@ -111,6 +106,35 @@ We use TypeORM to handle everything related to database. You only need to run mi
 
 ALWAYS check your migrations before running them. Typeorm may sometimes drop important tables and columns.
 
+### S3 and ObjectStorage
+We store user uploads in a S3 compatible Object Storage service.  
+For local development, we recommend [MinIO](), which is already provisioned when you use the default `docker-compose.yml` file.  
+For production, you are free to use any service, as long as it's S3 API compatible, like Cloudflare R2, or AWS S3.  
+The MinIO Browser interface is exposed in port `9001` by default, and the API is exposed at `9000`.
+
+#### Creating a bucket
+In the MinIO interface, create a bucket named `gamenode-user-uploads`. This name is mandatory.  
+In your bucket settings, visit the 'Anonymous' tab, and add a `ruleset` to allow anonymous reads in your bucket:
+![](.github/img/minio_bucket_anonymous.png)  
+This will make all content in your bucket accessible/downloadable, and 
+is necessary since the API doesn't provide a 'read' endpoint.  
+If you were upload a file named `my_nice_file.png`, it would be available at 
+`http://localhost:9000/gamenode-user-uploads/my_nice-file.png`
+
+
+#### Creating MinIO credentials
+After starting your `MinIO` instance, it will be made available at `localhost:9001`, which you can visit in your browser.  
+The default username and password is `gamenode`.  
+You may create an access token and secret key directly in MinIO interface:
+![](.github/img/minio_create_access_token.png)
+
+After creating, edit your `.env` to reflect your new credentials:
+```
+S3_ENDPOINT=http://localhost:9000
+S3_ACCESS_KEY_ID=RHfLD2qR3MmD2cngzJRE
+S3_SECRET_ACCESS_KEY=eRyW1PuHRVRSsqS2RrytugItZNyczDEvTRvhjQJI
+```
+ 
 ### IGDB
 
 GameNode's games metadata are powered by IGDB. To use it, you need to set
