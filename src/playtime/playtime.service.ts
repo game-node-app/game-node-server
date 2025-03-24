@@ -14,6 +14,7 @@ import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
 import {
     PlaytimeFilterPeriodToMinusDays,
+    PlaytimeFiterPeriod,
     UserPlaytimeSource,
 } from "./playtime.constants";
 import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
@@ -137,17 +138,24 @@ export class PlaytimeService {
         userId: string,
         options: FindAllPlaytimeFiltersDto,
     ): Promise<TPaginationData<UserPlaytime>> {
+        const baseFindOptions = buildBaseFindOptions<UserPlaytime>(options);
+
         const periodToMinusDay =
             PlaytimeFilterPeriodToMinusDays[options.period];
 
         const periodDate = getPreviousDate(periodToMinusDay);
 
+        const periodFilter =
+            options.period !== PlaytimeFiterPeriod.ALL
+                ? MoreThanOrEqual(periodDate)
+                : undefined;
+
         return this.userPlaytimeRepository.findAndCount({
+            ...baseFindOptions,
             where: {
                 profileUserId: userId,
-                lastPlayedDate: MoreThanOrEqual(periodDate),
+                lastPlayedDate: periodFilter,
             },
-            order: options.orderBy,
             relations: this.relations,
         });
     }
