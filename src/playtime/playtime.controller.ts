@@ -1,5 +1,13 @@
-import { Controller, Get, Param, Query, UseInterceptors } from "@nestjs/common";
-import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import {
+    Body,
+    Controller,
+    Get,
+    Param,
+    Post,
+    Query,
+    UseInterceptors,
+} from "@nestjs/common";
+import { ApiOkResponse, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PlaytimeService } from "./playtime.service";
 import {
     FindAllPlaytimeByGameIdRequestDto,
@@ -8,6 +16,7 @@ import {
     FindPlaytimeOptionsDto,
 } from "./dto/find-all-playtime.dto";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
+import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
 
 @Controller("playtime")
 @ApiTags("playtime")
@@ -44,5 +53,20 @@ export class PlaytimeController {
         @Query() options?: FindPlaytimeOptionsDto,
     ) {
         return this.playtimeService.findAllByUserId(dto.userId, options);
+    }
+
+    @Post("user/:userId")
+    @UseInterceptors(PaginationInterceptor)
+    @ApiResponse({
+        type: FindAllPlaytimeResponseDto,
+    })
+    async findAllByUserIdWithFilters(
+        @Param("userId") userId: string,
+        @Body() dto: FindAllPlaytimeFiltersDto,
+    ) {
+        return (await this.playtimeService.findAllByUserIdWithFilters(
+            userId,
+            dto,
+        )) as unknown as FindAllPlaytimeResponseDto;
     }
 }
