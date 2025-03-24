@@ -1,13 +1,23 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindManyOptions, FindOptionsRelations, Repository } from "typeorm";
+import {
+    FindManyOptions,
+    FindOptionsRelations,
+    MoreThanOrEqual,
+    Repository,
+} from "typeorm";
 import { UserPlaytime } from "./entity/user-playtime.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { FindPlaytimeOptionsDto } from "./dto/find-all-playtime.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
-import { UserPlaytimeSource } from "./playtime.constants";
+import {
+    PlaytimeFilterPeriodToMinusDays,
+    UserPlaytimeSource,
+} from "./playtime.constants";
+import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
+import { getPreviousDate } from "../statistics/statistics.utils";
 
 const toCumulativePlaytime = (
     userId: string,
@@ -121,6 +131,25 @@ export class PlaytimeService {
         };
 
         return await this.userPlaytimeRepository.findAndCount(options);
+    }
+
+    public async findAllByUserIdWithFilters(
+        userId: string,
+        options: FindAllPlaytimeFiltersDto,
+    ): Promise<TPaginationData<UserPlaytime>> {
+        const periodToMinusDay =
+            PlaytimeFilterPeriodToMinusDays[options.period];
+
+        const periodDate = getPreviousDate(periodToMinusDay);
+
+        return this.userPlaytimeRepository.findAndCount({
+            where: {
+                profileUserId: userId,
+                lastPlayedDate: MoreThanOrEqual(periodDate),
+            },
+            order: options.orderBy,
+            relations: this.relations,
+        });
     }
 
     /**
