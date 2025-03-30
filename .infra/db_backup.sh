@@ -20,15 +20,21 @@ MYSQL_IMAGE="mysql:8.3"
 
 # Backup filename
 BACKUP_FILENAME="$BACKUP_DIR/$DB_NAME-$DATE.sql"
+COMPRESSED_BACKUP_FILENAME="$BACKUP_FILENAME.zst"
+
+# S3 bucket name
+BUCKET_NAME="my-sql-backup"
+RCLONE_CONFIG_NAME="sql-backup"
 
 # Run mysqldump within a new Docker container
-docker run --rm --network $NETWORK $MYSQL_IMAGE mysqldump -h $DB_HOST -u $DB_USER -p$DB_PASSWORD $DB_NAME > $BACKUP_FILENAME
+docker run --rm --network $NETWORK $MYSQL_IMAGE mysqldump --compact -h $DB_HOST -u $DB_USER -p$DB_PASSWORD $DB_NAME > $BACKUP_FILENAME
 
 # Compress the backup file
-gzip $BACKUP_FILENAME
+zstd -19 "$BACKUP_FILENAME" -o "$COMPRESSED_BACKUP_FILENAME"
 
-# Removes backup file after compression
+# Removes SQL backup file after compression
 rm $BACKUP_FILENAME
 
-# Removes files older than X (30) days in backup folder
-find $BACKUP_DIR -type f -mtime +30 | xargs rm
+rclone copy $COMPRESSED_BACKUP_FILENAME $RCLONE_CONFIG_NAME:$BUCKET_NAME
+
+rm $COMPRESSED_BACKUP_FILENAME
