@@ -61,7 +61,7 @@ import { TurnstileModule } from "../turnstile/turnstile.module";
                                             "PROVIDER_DISCORD_CLIENT_ID",
                                         ),
                                         clientSecret: configService.getOrThrow(
-                                            "PROVIDER_DISCORD_CLIENT_ID",
+                                            "PROVIDER_DISCORD_CLIENT_SECRET",
                                         ),
                                     },
                                 ],
