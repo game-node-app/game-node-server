@@ -24,7 +24,7 @@ services:
 
 
   supertokens:
-    image: registry.supertokens.io/supertokens/supertokens-mysql:9.1.1
+    image: registry.supertokens.io/supertokens/supertokens-mysql:10.1.2
     depends_on:
       db:
         condition: service_healthy
@@ -33,7 +33,6 @@ services:
 
     environment:
       MYSQL_CONNECTION_URI: mysql://gamenode:gamenode@db:3306/gamenode
-
 
     restart: no
 

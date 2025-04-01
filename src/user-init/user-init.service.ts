@@ -9,7 +9,6 @@ import { LevelService } from "../level/level.service";
 import { Timeout } from "@nestjs/schedule";
 import { AUTH_ERRORS } from "../auth/auth.constants";
 import retry from "async-retry";
-import { QueryFailedError } from "typeorm";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
