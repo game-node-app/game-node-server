@@ -26,7 +26,7 @@ services:
 
   supertokens:
     hostname: supertokens
-    image: registry.supertokens.io/supertokens/supertokens-mysql:10.1.2
+    image: registry.supertokens.io/supertokens/supertokens-mysql:10.1.3
 
     environment:
       MYSQL_CONNECTION_URI: mysql://${SUPERTOKENS_DB_USER}:${SUPERTOKENS_DB_PASS}@supertokens-db:3306/supertokens
