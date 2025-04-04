@@ -156,27 +156,6 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 totalPlayCount: relatedUserGame.playCount,
             };
 
-            // Calculates 'recent' user playtime
-            // This is not very precise
-            let totalPlaytimeDifference = 0;
-            if (existingPlaytimeInfo) {
-                totalPlaytimeDifference =
-                    playtime.totalPlaytimeSeconds! -
-                    existingPlaytimeInfo.totalPlaytimeSeconds;
-            }
-            playtime.recentPlaytimeSeconds += totalPlaytimeDifference;
-
-            // If we lose track of game's last played date
-            // OR it has been more than two weeks (steam-like) since last played date
-            // reset the recent playtime counter.
-            const today = new Date();
-            if (
-                playtime.lastPlayedDate == undefined ||
-                dayjs(playtime.lastPlayedDate).diff(today, "week") >= 2
-            ) {
-                playtime.recentPlaytimeSeconds = 0;
-            }
-
             await this.playtimeService.save(playtime);
         }
     }

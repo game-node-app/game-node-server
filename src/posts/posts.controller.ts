@@ -29,6 +29,7 @@ import {
 } from "./dto/get-posts.dto";
 import { CursorPaginationInterceptor } from "../interceptor/cursor-pagination.interceptor";
 import { ThrottlerGuard } from "@nestjs/throttler";
+import { Public } from "../auth/public.decorator";
 
 @Controller("posts/repository")
 @ApiTags("posts")
@@ -37,6 +38,7 @@ export class PostsController {
     constructor(private readonly postsService: PostsService) {}
 
     @Get()
+    @Public()
     @UseInterceptors(CursorPaginationInterceptor)
     @ApiOkResponse({
         type: GetPostsPaginatedReponseDto,
@@ -46,6 +48,7 @@ export class PostsController {
     }
 
     @Get(":postId")
+    @Public()
     async findOne(@Param("postId") postId: string) {
         return this.postsService.findOneByIdOrFail(postId);
     }

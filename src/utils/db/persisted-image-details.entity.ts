@@ -1,4 +1,4 @@
-import { Column } from "typeorm";
+import { Column, PrimaryGeneratedColumn } from "typeorm";
 import { BaseEntity } from "./base.entity";
 
 /**
@@ -6,6 +6,8 @@ import { BaseEntity } from "./base.entity";
  * Must be extended by a class decorated with @Entity to have effect.
  */
 export abstract class PersistedImageDetails extends BaseEntity {
+    @PrimaryGeneratedColumn()
+    id: number;
     @Column({ nullable: false })
     mimetype: string;
     @Column({ nullable: false })

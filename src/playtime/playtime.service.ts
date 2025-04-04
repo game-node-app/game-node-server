@@ -19,6 +19,7 @@ import {
 } from "./playtime.constants";
 import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
 import { getPreviousDate } from "../statistics/statistics.utils";
+import { PlaytimeHistoryService } from "./playtime-history.service";
 
 const toCumulativePlaytime = (
     userId: string,
@@ -77,6 +78,7 @@ export class PlaytimeService {
     constructor(
         @InjectRepository(UserPlaytime)
         private readonly userPlaytimeRepository: Repository<UserPlaytime>,
+        private readonly playtimeHistoryService: PlaytimeHistoryService,
     ) {}
 
     public async findOneByExternalGame(userId: string, externalGameId: number) {
@@ -183,7 +185,21 @@ export class PlaytimeService {
     }
 
     async save(playtime: CreateUserPlaytimeDto) {
-        return await this.userPlaytimeRepository.save(playtime);
+        await this.playtimeHistoryService.save(playtime);
+
+        const weekAgoDate = getPreviousDate(7);
+
+        const recentPlaytimeSeconds =
+            await this.playtimeHistoryService.getRecentPlaytimeSincePeriod(
+                playtime.profileUserId,
+                playtime.externalGameId,
+                weekAgoDate,
+            );
+
+        return await this.userPlaytimeRepository.save({
+            ...playtime,
+            recentPlaytimeSeconds,
+        });
     }
 
     async deleteForSource(userId: string, source: UserPlaytimeSource) {
