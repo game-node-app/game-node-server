@@ -2,11 +2,13 @@ import {
     Body,
     Controller,
     FileTypeValidator,
+    Get,
     HttpCode,
     HttpStatus,
     MaxFileSizeValidator,
     ParseFilePipe,
     Post,
+    Query,
     UploadedFile,
     UseGuards,
     UseInterceptors,
@@ -19,12 +21,26 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { CreateBlogPostDto } from "./dto/create-blog-post.dto";
 import { BlogPostService } from "./blog-post.service";
-import { ApiConsumes } from "@nestjs/swagger";
+import { ApiConsumes, ApiOkResponse } from "@nestjs/swagger";
+import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
+import {
+    FindAllBlogPostRequestDto,
+    FindAllBlogPostResponseDto,
+} from "./dto/find-blog-post.dto";
 
 @Controller("blog/post")
 @UseGuards(AuthGuard)
 export class BlogPostController {
     constructor(private readonly blogPostService: BlogPostService) {}
+
+    @Get()
+    @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponse({
+        type: FindAllBlogPostResponseDto,
+    })
+    public async findAll(@Query() dto: FindAllBlogPostRequestDto) {
+        return this.blogPostService.findAll(dto);
+    }
 
     @Post()
     @Roles([EUserRoles.ADMIN, EUserRoles.MOD])

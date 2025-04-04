@@ -1,4 +1,5 @@
 import {
+    IsBooleanString,
     IsNotEmpty,
     IsOptional,
     IsString,
@@ -32,4 +33,7 @@ export class CreateBlogPostDto {
         format: "binary",
     })
     image?: Blob;
+    @IsNotEmpty()
+    @IsBooleanString()
+    isDraft: boolean;
 }

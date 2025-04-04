@@ -15,7 +15,7 @@ import { BlogPostTag } from "./blog-post-tag.entity";
 import { BlogPostImage } from "./blog-post-image.entity";
 
 @Entity()
-@Index(["id", "createdAt"])
+@Index(["id", "createdAt", "isDraft"])
 export class BlogPost extends BaseEntity {
     @PrimaryGeneratedColumn("uuid")
     id: string;
@@ -27,6 +27,12 @@ export class BlogPost extends BaseEntity {
         type: "longtext",
     })
     content: string;
+
+    @Column({
+        nullable: false,
+        default: false,
+    })
+    isDraft: boolean;
 
     @ManyToOne(() => Profile, {
         nullable: false,
