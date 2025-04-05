@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CreateBlogPostDto } from "./dto/create-blog-post.dto";
-import { In, Repository } from "typeorm";
+import { FindOptionsRelations, Repository } from "typeorm";
 import { BlogPost } from "./entity/blog-post.entity";
 import { BlogPostTag } from "./entity/blog-post-tag.entity";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -8,9 +8,16 @@ import { UploadService } from "../../upload/upload.service";
 import { BlogPostImage } from "./entity/blog-post-image.entity";
 import { FindAllBlogPostRequestDto } from "./dto/find-blog-post.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { EUserRoles } from "../../utils/constants";
+import { checkUserHasRole } from "../../utils/checkUserHasRole";
 
 @Injectable()
 export class BlogPostService {
+    private readonly relations: FindOptionsRelations<BlogPost> = {
+        image: true,
+        tags: true,
+    };
+
     constructor(
         @InjectRepository(BlogPost)
         private readonly blogPostRepository: Repository<BlogPost>,
@@ -20,6 +27,34 @@ export class BlogPostService {
         private readonly blogPostImageRepository: Repository<BlogPostImage>,
         private readonly uploadService: UploadService,
     ) {}
+
+    public async findOneOrFail(userId: string | undefined, postId: string) {
+        const post = await this.blogPostRepository.findOneOrFail({
+            where: {
+                id: postId,
+            },
+            relations: this.relations,
+        });
+
+        if (post.isDraft) {
+            if (userId) {
+                const hasPermission = await checkUserHasRole(userId, [
+                    EUserRoles.ADMIN,
+                    EUserRoles.MOD,
+                ]);
+                if (hasPermission) {
+                    return post;
+                }
+            }
+
+            throw new HttpException(
+                "This post is a draft and can't be viewed yet.",
+                HttpStatus.FORBIDDEN,
+            );
+        }
+
+        return post;
+    }
 
     private async processTags(tags: string[]) {
         const blogPostTags = tags.map((tag) => {
@@ -53,56 +88,69 @@ export class BlogPostService {
         image: Express.Multer.File | undefined,
     ) {
         const tags = await this.processTags(dto.tags);
-        let imageFilename: BlogPostImage | undefined;
+        let postImage: BlogPostImage | undefined;
         if (image) {
-            imageFilename = await this.processImage(userId, image);
+            postImage = await this.processImage(userId, image);
         }
 
-        await this.blogPostRepository.insert({
+        await this.blogPostRepository.save({
+            title: dto.title,
+            isDraft: dto.isDraft,
             profileUserId: userId,
-            image: imageFilename,
+            image: postImage,
             tags: tags,
             content: dto.content,
         });
     }
 
-    public async findAllDrafts(dto: FindAllBlogPostRequestDto) {
+    public async findAll(
+        userId: string | undefined,
+        dto: FindAllBlogPostRequestDto,
+    ) {
+        if (dto.includeDraft) {
+            if (!userId) {
+                throw new HttpException(
+                    "User lacks permission to this resource.",
+                    HttpStatus.FORBIDDEN,
+                );
+            }
+            const hasPermission = await checkUserHasRole(userId, [
+                EUserRoles.ADMIN,
+                EUserRoles.MOD,
+            ]);
+
+            if (!hasPermission) {
+                throw new HttpException(
+                    "User lacks permission to this resource.",
+                    HttpStatus.FORBIDDEN,
+                );
+            }
+        }
+
         const baseOptions = buildBaseFindOptions<BlogPost>(dto);
 
-        return this.blogPostRepository.find({
+        return this.blogPostRepository.findAndCount({
             ...baseOptions,
             where: {
-                isDraft: true,
+                isDraft: dto.includeDraft ? undefined : false,
                 tags: dto.tag
                     ? {
                           id: dto.tag.toLowerCase(),
                       }
                     : undefined,
             },
-            relations: ["tags", "image"],
+            relations: this.relations,
             order: {
                 createdAt: "DESC",
             },
         });
     }
 
-    public async findAll(dto: FindAllBlogPostRequestDto) {
-        const baseOptions = buildBaseFindOptions<BlogPost>(dto);
+    public async findAllTags() {
+        return this.blogPostTagRepository.find();
+    }
 
-        return this.blogPostRepository.find({
-            ...baseOptions,
-            where: {
-                isDraft: false,
-                tags: dto.tag
-                    ? {
-                          id: dto.tag.toLowerCase(),
-                      }
-                    : undefined,
-            },
-            relations: ["tags", "image"],
-            order: {
-                createdAt: "DESC",
-            },
-        });
+    async delete(postId: string) {
+        await this.blogPostRepository.delete(postId);
     }
 }

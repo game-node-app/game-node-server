@@ -1,12 +1,15 @@
 import {
-    IsBooleanString,
+    ArrayMaxSize,
+    ArrayMinSize,
+    IsArray,
+    IsBoolean,
     IsNotEmpty,
     IsOptional,
     IsString,
-    MaxLength,
     MinLength,
 } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 
 export class CreateBlogPostDto {
     @IsNotEmpty()
@@ -16,15 +19,19 @@ export class CreateBlogPostDto {
     @MinLength(1)
     title: string;
     @IsNotEmpty()
+    @Transform(({ value }) => {
+        if (typeof value === "string") {
+            return [value];
+        }
+
+        return value;
+    })
+    @IsArray()
     @IsString({
         each: true,
     })
-    @MinLength(1, {
-        each: true,
-    })
-    @MaxLength(10, {
-        each: true,
-    })
+    @ArrayMinSize(1)
+    @ArrayMaxSize(10)
     tags: string[];
     // For OpenAPI reference
     // Do not mention directly
@@ -34,6 +41,6 @@ export class CreateBlogPostDto {
     })
     image?: Blob;
     @IsNotEmpty()
-    @IsBooleanString()
+    @IsBoolean()
     isDraft: boolean;
 }

@@ -1,7 +1,6 @@
 import {
     Body,
     Controller,
-    Delete,
     FileTypeValidator,
     Get,
     MaxFileSizeValidator,
@@ -74,18 +73,6 @@ export class ProfileController {
             session.getUserId(),
             updateImageDto,
             file,
-        );
-    }
-
-    @Delete("image/:type/:id")
-    async removeImage(
-        @Session() session: SessionContainer,
-        @Param("imageType") imageType: string,
-        @Param("imageId") imageId: number,
-    ) {
-        await this.profileService.removeProfileImage(
-            session.getUserId(),
-            imageId,
         );
     }
 

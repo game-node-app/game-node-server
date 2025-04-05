@@ -19,6 +19,10 @@ import { BlogPostImage } from "./blog-post-image.entity";
 export class BlogPost extends BaseEntity {
     @PrimaryGeneratedColumn("uuid")
     id: string;
+    @Column({
+        nullable: false,
+    })
+    title: string;
     /**
      * The post HTML content
      */
@@ -30,12 +34,13 @@ export class BlogPost extends BaseEntity {
 
     @Column({
         nullable: false,
-        default: false,
+        default: true,
     })
     isDraft: boolean;
 
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @Column()

@@ -1,11 +1,13 @@
 import {
     Body,
     Controller,
+    Delete,
     FileTypeValidator,
     Get,
     HttpCode,
     HttpStatus,
     MaxFileSizeValidator,
+    Param,
     ParseFilePipe,
     Post,
     Query,
@@ -27,19 +29,39 @@ import {
     FindAllBlogPostRequestDto,
     FindAllBlogPostResponseDto,
 } from "./dto/find-blog-post.dto";
+import { Public } from "../../auth/public.decorator";
 
 @Controller("blog/post")
 @UseGuards(AuthGuard)
 export class BlogPostController {
     constructor(private readonly blogPostService: BlogPostService) {}
 
+    @Get("tags")
+    @Public()
+    public async findAllTags() {
+        return this.blogPostService.findAllTags();
+    }
+
+    @Get(":postId")
+    @Public()
+    public async findOneById(
+        @Session() session: SessionContainer | undefined,
+        @Param("postId") postId: string,
+    ) {
+        return this.blogPostService.findOneOrFail(session?.getUserId(), postId);
+    }
+
     @Get()
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
         type: FindAllBlogPostResponseDto,
     })
-    public async findAll(@Query() dto: FindAllBlogPostRequestDto) {
-        return this.blogPostService.findAll(dto);
+    @Public()
+    public async findAll(
+        @Session() session: SessionContainer | undefined,
+        @Query() dto: FindAllBlogPostRequestDto,
+    ) {
+        return this.blogPostService.findAll(session?.getUserId(), dto);
     }
 
     @Post()
@@ -66,5 +88,12 @@ export class BlogPostController {
         @Body() dto: CreateBlogPostDto,
     ) {
         await this.blogPostService.create(session.getUserId(), dto, image);
+    }
+
+    @Delete(":postId")
+    @Roles([EUserRoles.ADMIN, EUserRoles.MOD])
+    @HttpCode(HttpStatus.NO_CONTENT)
+    public async delete(@Param("postId") postId: string) {
+        await this.blogPostService.delete(postId);
     }
 }
