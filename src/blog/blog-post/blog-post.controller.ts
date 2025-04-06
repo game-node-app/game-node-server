@@ -21,7 +21,7 @@ import { EUserRoles } from "../../utils/constants";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { CreateBlogPostDto } from "./dto/create-blog-post.dto";
+import { CreateUpdateBlogPostDto } from "./dto/create-update-blog-post.dto";
 import { BlogPostService } from "./blog-post.service";
 import { ApiConsumes, ApiOkResponse } from "@nestjs/swagger";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
@@ -85,9 +85,13 @@ export class BlogPostController {
             }),
         )
         image: Express.Multer.File | undefined,
-        @Body() dto: CreateBlogPostDto,
+        @Body() dto: CreateUpdateBlogPostDto,
     ) {
-        await this.blogPostService.create(session.getUserId(), dto, image);
+        await this.blogPostService.createOrUpdate(
+            session.getUserId(),
+            dto,
+            image,
+        );
     }
 
     @Delete(":postId")

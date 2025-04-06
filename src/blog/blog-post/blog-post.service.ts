@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { CreateBlogPostDto } from "./dto/create-blog-post.dto";
+import { CreateUpdateBlogPostDto } from "./dto/create-update-blog-post.dto";
 import { FindOptionsRelations, Repository } from "typeorm";
 import { BlogPost } from "./entity/blog-post.entity";
 import { BlogPostTag } from "./entity/blog-post-tag.entity";
@@ -58,9 +58,10 @@ export class BlogPostService {
 
     private async processTags(tags: string[]) {
         const blogPostTags = tags.map((tag) => {
+            const tagIdentifier = tag.toLowerCase();
             return this.blogPostTagRepository.create({
-                id: tag.toLowerCase(),
-                name: tag[0].toUpperCase() + tag.slice(1),
+                id: tagIdentifier,
+                name: tagIdentifier,
             });
         });
 
@@ -82,9 +83,9 @@ export class BlogPostService {
         });
     }
 
-    public async create(
+    public async createOrUpdate(
         userId: string,
-        dto: Omit<CreateBlogPostDto, "image">,
+        dto: Omit<CreateUpdateBlogPostDto, "image">,
         image: Express.Multer.File | undefined,
     ) {
         const tags = await this.processTags(dto.tags);
@@ -94,6 +95,7 @@ export class BlogPostService {
         }
 
         await this.blogPostRepository.save({
+            id: dto.postId,
             title: dto.title,
             isDraft: dto.isDraft,
             profileUserId: userId,

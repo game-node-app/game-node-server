@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn } from "typeorm";
+import { Column, Entity, PrimaryColumn } from "typeorm";
 
 @Entity()
 export class BlogPostTag {
@@ -9,5 +9,8 @@ export class BlogPostTag {
     @PrimaryColumn()
     id: string;
 
+    @Column({
+        nullable: false,
+    })
     name: string;
 }

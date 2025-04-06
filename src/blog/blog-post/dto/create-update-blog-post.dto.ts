@@ -2,16 +2,21 @@ import {
     ArrayMaxSize,
     ArrayMinSize,
     IsArray,
-    IsBoolean,
     IsNotEmpty,
     IsOptional,
     IsString,
+    Length,
     MinLength,
 } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
+import { ToBoolean } from "../../../utils/toBoolean";
 
-export class CreateBlogPostDto {
+export class CreateUpdateBlogPostDto {
+    @IsOptional()
+    @IsString()
+    @Length(36)
+    postId?: string;
     @IsNotEmpty()
     @MinLength(4)
     content: string;
@@ -41,6 +46,6 @@ export class CreateBlogPostDto {
     })
     image?: Blob;
     @IsNotEmpty()
-    @IsBoolean()
+    @ToBoolean()
     isDraft: boolean;
 }
