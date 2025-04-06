@@ -153,6 +153,8 @@ export class BlogPostService {
     }
 
     async delete(postId: string) {
-        await this.blogPostRepository.delete(postId);
+        await this.blogPostRepository.softRemove({
+            id: postId,
+        });
     }
 }
