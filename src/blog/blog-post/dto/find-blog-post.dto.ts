@@ -2,7 +2,8 @@ import { PickType } from "@nestjs/swagger";
 import { BaseFindDto } from "../../../utils/base-find.dto";
 import { BlogPost } from "../entity/blog-post.entity";
 import { PaginationResponseDto } from "../../../utils/pagination/pagination-response.dto";
-import { IsBoolean, IsOptional, IsString } from "class-validator";
+import { IsOptional, IsString } from "class-validator";
+import { ToBoolean } from "../../../utils/toBoolean";
 
 export class FindAllBlogPostRequestDto extends PickType(BaseFindDto<BlogPost>, [
     "limit",
@@ -12,7 +13,7 @@ export class FindAllBlogPostRequestDto extends PickType(BaseFindDto<BlogPost>, [
     @IsString()
     tag?: string;
     @IsOptional()
-    @IsBoolean()
+    @ToBoolean()
     includeDraft: boolean = false;
 }
 
