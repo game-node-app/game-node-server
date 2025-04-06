@@ -4,7 +4,6 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Profile } from "./entities/profile.entity";
 import { Repository } from "typeorm";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
-import * as fs from "fs/promises";
 import { generateUsername } from "unique-username-generator";
 import {
     PROFILE_IMAGE_ALLOWED_IDENTIFIERS,
@@ -14,7 +13,6 @@ import {
 import { ProfileBanner } from "./entities/profile-banner.entity";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { SuspensionService } from "../suspension/suspension.service";
-import { getPersistedImagePath } from "../utils/getPersistedImagePath";
 import { UploadService } from "../upload/upload.service";
 
 @Injectable()
@@ -84,11 +82,7 @@ export class ProfileService {
         return await targetRepository.save(profileImage);
     }
 
-    private async detachImage(
-        userId: string,
-        type: ProfileImageIdentifier,
-        removeFile = true,
-    ) {
+    private async detachImage(userId: string, type: ProfileImageIdentifier) {
         let targetEntity: ProfileAvatar | ProfileBanner;
         let targetRepository: Repository<ProfileAvatar | ProfileBanner>;
         if (type === "avatar") {
@@ -120,19 +114,6 @@ export class ProfileService {
             .set(null);
 
         await targetRepository.delete(targetEntity.id);
-
-        if (removeFile) {
-            const filePath = getPersistedImagePath(
-                targetEntity.filename,
-                targetEntity.extension,
-            );
-            try {
-                await fs.access(filePath, fs.constants.F_OK);
-                await fs.unlink(filePath);
-            } catch (e) {
-                console.warn(e);
-            }
-        }
     }
 
     public async updateProfileImage(
@@ -152,7 +133,7 @@ export class ProfileService {
                     },
                 );
             }
-            await this.detachImage(userId, dto.type, true);
+            await this.detachImage(userId, dto.type);
             if (dto.type === "avatar") {
                 profile.avatar = await this.persistImage(
                     userId,
@@ -257,6 +238,4 @@ export class ProfileService {
 
         await this.profileRepository.save(profile);
     }
-
-    async removeProfileImage(userId: string, imageId: number) {}
 }

@@ -24,7 +24,7 @@ services:
 
 
   supertokens:
-    image: registry.supertokens.io/supertokens/supertokens-mysql:10.1.2
+    image: registry.supertokens.io/supertokens/supertokens-mysql:10.1
     depends_on:
       db:
         condition: service_healthy

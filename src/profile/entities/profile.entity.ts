@@ -3,13 +3,11 @@ import {
     CreateDateColumn,
     Entity,
     JoinColumn,
-    ManyToMany,
     OneToOne,
     PrimaryColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { ProfileAvatar } from "./profile-avatar.entity";
-import { UserFollow } from "../../follow/entity/user-follow.entity";
 import { ProfileBanner } from "./profile-banner.entity";
 
 /**
@@ -38,12 +36,12 @@ export class Profile {
         length: 240,
     })
     bio: string;
-    @OneToOne(() => ProfileAvatar, (avatar) => avatar.profile, {
+    @OneToOne(() => ProfileAvatar, {
         nullable: true,
     })
     @JoinColumn()
     avatar: ProfileAvatar | null;
-    @OneToOne(() => ProfileBanner, (banner) => banner.profile, {
+    @OneToOne(() => ProfileBanner, {
         nullable: true,
     })
     @JoinColumn()

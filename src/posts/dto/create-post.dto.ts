@@ -1,10 +1,4 @@
-import {
-    IsArray,
-    IsNotEmpty,
-    IsNumber,
-    IsOptional,
-    IsString,
-} from "class-validator";
+import { IsNotEmpty, IsNumber, IsString } from "class-validator";
 
 export class CreatePostDto {
     @IsNotEmpty()
@@ -13,11 +7,4 @@ export class CreatePostDto {
     @IsNotEmpty()
     @IsNumber()
     gameId: number;
-    @IsOptional()
-    @IsNotEmpty()
-    @IsArray()
-    @IsNumber(undefined, {
-        each: true,
-    })
-    associatedImageIds: number[] = [];
 }
