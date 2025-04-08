@@ -5,7 +5,6 @@ import Dashboard from "supertokens-node/recipe/dashboard";
 import ThirdParty from "supertokens-node/recipe/thirdparty";
 import Passwordless from "supertokens-node/recipe/passwordless";
 import UserRoles from "supertokens-node/recipe/userroles";
-import WebAuthN from "supertokens-node/recipe/webauthn";
 import {
     SupertokensConfig,
     SupertokensConfigInjectionToken,
@@ -39,80 +38,6 @@ export class AuthService {
                 apiKey: this.config.apiKey,
             },
             recipeList: [
-                WebAuthN.init({
-                    emailDelivery: this.getEmailDeliverySettings(
-                        this.emailConfig,
-                    ),
-                    /**
-                     * Custom logic implemented here:
-                     * - Implements user initialization logic
-                     */
-                    override: {
-                        apis: (originalImplementation) => {
-                            return {
-                                ...originalImplementation,
-                                signUpPOST: async (input) => {
-                                    try {
-                                        const result =
-                                            await originalImplementation.signUpPOST!(
-                                                input,
-                                            );
-                                        if (result.status === "OK") {
-                                            await this.userInitService.init(
-                                                result.user.id,
-                                            );
-                                        }
-
-                                        return result;
-                                    } catch (err) {
-                                        this.logger.error(err);
-                                        switch (err.message) {
-                                            case AUTH_ERRORS.USER_INIT_ERROR:
-                                                return {
-                                                    status: "GENERAL_ERROR",
-                                                    message:
-                                                        "Our internal user initialization process failed. Please go back and try again.",
-                                                };
-                                        }
-                                        throw err;
-                                    }
-                                },
-                                signInPOST: async (input) => {
-                                    try {
-                                        const result =
-                                            await originalImplementation.signInPOST!(
-                                                input,
-                                            );
-                                        if (result.status === "OK") {
-                                            await this.userInitService.init(
-                                                result.user.id,
-                                            );
-                                        }
-                                        return result;
-                                    } catch (err: any) {
-                                        this.logger.error(err);
-                                        switch (err.message) {
-                                            case AUTH_ERRORS.DUPLICATE_ACCOUNT_ERROR:
-                                                return {
-                                                    status: "GENERAL_ERROR",
-                                                    message:
-                                                        "It seems like you already have an account with us. Please sign-in with the usual method.",
-                                                };
-                                            case AUTH_ERRORS.USER_INIT_ERROR:
-                                                return {
-                                                    status: "GENERAL_ERROR",
-                                                    message:
-                                                        "Our internal user initialization process failed. Please try again.",
-                                                };
-                                        }
-
-                                        throw err;
-                                    }
-                                },
-                            };
-                        },
-                    },
-                }),
                 Passwordless.init({
                     flowType: "USER_INPUT_CODE",
                     contactMethod: "EMAIL",
