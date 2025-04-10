@@ -41,6 +41,7 @@ export class BlogPostService {
                 const hasPermission = await checkUserHasRole(userId, [
                     EUserRoles.ADMIN,
                     EUserRoles.MOD,
+                    EUserRoles.EDITOR,
                 ]);
                 if (hasPermission) {
                     return post;
@@ -119,6 +120,7 @@ export class BlogPostService {
             const hasPermission = await checkUserHasRole(userId, [
                 EUserRoles.ADMIN,
                 EUserRoles.MOD,
+                EUserRoles.EDITOR,
             ]);
 
             if (!hasPermission) {
