@@ -65,7 +65,7 @@ export class BlogPostController {
     }
 
     @Post()
-    @Roles([EUserRoles.ADMIN, EUserRoles.MOD])
+    @Roles([EUserRoles.ADMIN, EUserRoles.MOD, EUserRoles.EDITOR])
     @UseInterceptors(FileInterceptor("image"))
     @ApiConsumes("multipart/form-data")
     @HttpCode(HttpStatus.CREATED)
@@ -95,7 +95,7 @@ export class BlogPostController {
     }
 
     @Delete(":postId")
-    @Roles([EUserRoles.ADMIN, EUserRoles.MOD])
+    @Roles([EUserRoles.ADMIN, EUserRoles.MOD, EUserRoles.EDITOR])
     @HttpCode(HttpStatus.NO_CONTENT)
     public async delete(@Param("postId") postId: string) {
         await this.blogPostService.delete(postId);
