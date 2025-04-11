@@ -10,6 +10,7 @@ import {
     Param,
     ParseFilePipe,
     Post,
+    Put,
     Query,
     UploadedFile,
     UseGuards,
@@ -90,6 +91,35 @@ export class BlogPostController {
         await this.blogPostService.createOrUpdate(
             session.getUserId(),
             dto,
+            image,
+        );
+    }
+
+    @Put(":postId/image")
+    @Roles([EUserRoles.ADMIN, EUserRoles.MOD, EUserRoles.EDITOR])
+    @ApiConsumes("multipart/form-data")
+    @HttpCode(HttpStatus.NO_CONTENT)
+    public async updatePostImage(
+        @Session() session: SessionContainer,
+        @Param("postId") postId: string,
+        @UploadedFile(
+            new ParseFilePipe({
+                fileIsRequired: true,
+                validators: [
+                    new FileTypeValidator({
+                        fileType: "image",
+                    }),
+                    new MaxFileSizeValidator({
+                        maxSize: 5 * 1024 * 1000,
+                    }),
+                ],
+            }),
+        )
+        image: Express.Multer.File,
+    ) {
+        await this.blogPostService.updatePostImage(
+            session.getUserId(),
+            postId,
             image,
         );
     }

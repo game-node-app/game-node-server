@@ -106,6 +106,23 @@ export class BlogPostService {
         });
     }
 
+    public async updatePostImage(
+        userId: string,
+        postId: string,
+        image: Express.Multer.File,
+    ) {
+        const postImage = await this.processImage(userId, image);
+
+        await this.blogPostRepository.update(
+            {
+                id: postId,
+            },
+            {
+                image: postImage,
+            },
+        );
+    }
+
     public async findAll(
         userId: string | undefined,
         dto: FindAllBlogPostRequestDto,

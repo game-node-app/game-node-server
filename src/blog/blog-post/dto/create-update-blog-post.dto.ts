@@ -8,7 +8,7 @@ import {
     Length,
     MinLength,
 } from "class-validator";
-import { ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiPropertyOptional, OmitType } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
 import { ToBoolean } from "../../../utils/toBoolean";
 
@@ -49,3 +49,8 @@ export class CreateUpdateBlogPostDto {
     @ToBoolean()
     isDraft: boolean;
 }
+
+export class CreateUpdateBlogPostV2Dto extends OmitType(
+    CreateUpdateBlogPostDto,
+    ["image"],
+) {}
