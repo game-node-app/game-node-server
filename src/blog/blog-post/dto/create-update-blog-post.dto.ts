@@ -10,6 +10,7 @@ import {
 } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
+import { ToBoolean } from "../../../utils/toBoolean";
 
 export class CreateUpdateBlogPostDto {
     @IsOptional()
@@ -45,5 +46,6 @@ export class CreateUpdateBlogPostDto {
     })
     image?: Blob;
     @IsNotEmpty()
+    @ToBoolean()
     isDraft: boolean;
 }
