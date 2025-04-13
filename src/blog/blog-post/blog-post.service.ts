@@ -95,7 +95,7 @@ export class BlogPostService {
             postImage = await this.processImage(userId, image);
         }
 
-        await this.blogPostRepository.save({
+        const result = await this.blogPostRepository.save({
             id: dto.postId,
             title: dto.title,
             isDraft: dto.isDraft,
@@ -104,6 +104,25 @@ export class BlogPostService {
             tags: tags,
             content: dto.content,
         });
+
+        return result.id;
+    }
+
+    public async updatePostImage(
+        userId: string,
+        postId: string,
+        image: Express.Multer.File,
+    ) {
+        const postImage = await this.processImage(userId, image);
+
+        await this.blogPostRepository.update(
+            {
+                id: postId,
+            },
+            {
+                image: postImage,
+            },
+        );
     }
 
     public async findAll(
