@@ -24,13 +24,14 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { CreateUpdateBlogPostDto } from "./dto/create-update-blog-post.dto";
 import { BlogPostService } from "./blog-post.service";
-import { ApiConsumes, ApiOkResponse } from "@nestjs/swagger";
+import { ApiBody, ApiConsumes, ApiOkResponse } from "@nestjs/swagger";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import {
     FindAllBlogPostRequestDto,
     FindAllBlogPostResponseDto,
 } from "./dto/find-blog-post.dto";
 import { Public } from "../../auth/public.decorator";
+import { UpdateBlogPostImageDto } from "./dto/update-blog-post-image.dto";
 
 @Controller("blog/post")
 @UseGuards(AuthGuard)
@@ -98,7 +99,12 @@ export class BlogPostController {
     @Put(":postId/image")
     @Roles([EUserRoles.ADMIN, EUserRoles.MOD, EUserRoles.EDITOR])
     @ApiConsumes("multipart/form-data")
+    @UseInterceptors(FileInterceptor("image"))
     @HttpCode(HttpStatus.NO_CONTENT)
+    @ApiBody({
+        type: UpdateBlogPostImageDto,
+        required: true,
+    })
     public async updatePostImage(
         @Session() session: SessionContainer,
         @Param("postId") postId: string,

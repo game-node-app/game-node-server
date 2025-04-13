@@ -95,7 +95,7 @@ export class BlogPostService {
             postImage = await this.processImage(userId, image);
         }
 
-        await this.blogPostRepository.save({
+        const result = await this.blogPostRepository.save({
             id: dto.postId,
             title: dto.title,
             isDraft: dto.isDraft,
@@ -104,6 +104,8 @@ export class BlogPostService {
             tags: tags,
             content: dto.content,
         });
+
+        return result.id;
     }
 
     public async updatePostImage(
