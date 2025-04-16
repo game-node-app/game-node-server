@@ -1,4 +1,4 @@
-import { OmitType } from "@nestjs/swagger";
+import { OmitType, PickType } from "@nestjs/swagger";
 import { UserPlaytime } from "../entity/user-playtime.entity";
 
 export class CreateUserPlaytimeDto extends OmitType(UserPlaytime, [
@@ -7,5 +7,11 @@ export class CreateUserPlaytimeDto extends OmitType(UserPlaytime, [
     "game",
     "createdAt",
     "updatedAt",
-    "externalGame",
+    "recentPlaytimeSeconds",
+]) {}
+
+export class SubmitUserPlaytimeDto extends OmitType(CreateUserPlaytimeDto, [
+    "profileUserId",
+    "firstPlayedDate",
+    "totalPlayCount",
 ]) {}

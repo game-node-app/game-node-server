@@ -77,22 +77,21 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             })!;
 
             const existingPlaytimeInfo =
-                await this.playtimeService.findOneByExternalGame(
+                await this.playtimeService.findOneBySource(
                     userId,
-                    externalGame.id,
+                    externalGame.gameId,
+                    UserPlaytimeSource.STEAM,
                 );
 
             const playtime: CreateUserPlaytimeDto = {
                 ...existingPlaytimeInfo,
                 source: UserPlaytimeSource.STEAM,
                 gameId: externalGame.gameId,
-                externalGameId: externalGame.id,
                 profileUserId: userId,
                 lastPlayedDate: relatedUserGame.lastPlayedTimestamp
                     ? new Date(relatedUserGame.lastPlayedTimestamp * 1000)
                     : null,
                 totalPlaytimeSeconds: relatedUserGame.minutes * 60,
-                recentPlaytimeSeconds: relatedUserGame.recentMinutes * 60,
                 totalPlayCount: 0,
                 firstPlayedDate: undefined,
             };
@@ -136,23 +135,22 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             })!;
 
             const existingPlaytimeInfo =
-                await this.playtimeService.findOneByExternalGame(
+                await this.playtimeService.findOneBySource(
                     userId,
-                    externalGame.id,
+                    externalGame.gameId,
+                    UserPlaytimeSource.PSN,
                 );
 
             const playtime: CreateUserPlaytimeDto = {
                 ...existingPlaytimeInfo,
                 source: UserPlaytimeSource.PSN,
                 gameId: externalGame.gameId,
-                externalGameId: externalGame.id,
                 firstPlayedDate: new Date(relatedUserGame.firstPlayedDateTime),
                 lastPlayedDate: new Date(relatedUserGame.lastPlayedDateTime),
                 profileUserId: userId,
                 totalPlaytimeSeconds: dayjs
                     .duration(relatedUserGame.playDuration)
                     .asSeconds(),
-                recentPlaytimeSeconds: 0,
                 totalPlayCount: relatedUserGame.playCount,
             };
 

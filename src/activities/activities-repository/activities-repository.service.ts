@@ -1,12 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Activity } from "./entities/activity.entity";
-import {
-    FindManyOptions,
-    FindOneOptions,
-    QueryFailedError,
-    Repository,
-} from "typeorm";
+import { FindManyOptions, FindOneOptions, Repository } from "typeorm";
 import {
     ActivityCreate,
     ActivityType,
@@ -20,7 +15,6 @@ import { SuspensionService } from "../../suspension/suspension.service";
 import { ReviewsService } from "../../reviews/reviews.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { UnrecoverableError } from "bullmq";
-import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -38,10 +32,10 @@ export class ActivitiesRepositoryService {
 
     /**
      * Check if the activity can be created.
-     * - target entry really exists
      * - user is not suspended/banned
      * - game is not excluded
-     * - game is not nsfw
+     * - game is not nsfw <br >
+     * <i>Duplicates are checked by unique constraints directly in DB.</i>
      * @param dto
      * @private
      */
@@ -50,6 +44,7 @@ export class ActivitiesRepositoryService {
             await this.suspensionService.checkIsSuspendedOrBanned(
                 dto.profileUserId,
             );
+
         if (isSuspendedOrBanned) {
             throw new UnrecoverableError("User is suspended or banned.");
         }

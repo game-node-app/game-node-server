@@ -14,11 +14,13 @@ import { CollectionEntry } from "../../../collections/collections-entries/entiti
 import { Review } from "../../../reviews/entities/review.entity";
 import { UserFollow } from "../../../follow/entity/user-follow.entity";
 import { Collection } from "../../../collections/entities/collection.entity";
+import { Post } from "../../../posts/entity/post.entity";
 
 @Entity()
 @Unique(["profile", "collectionEntry", "collection"])
 @Unique(["profile", "userFollow"])
 @Unique(["profile", "review"])
+@Unique(["profile", "post"])
 @Index(["createdAt", "id"])
 export class Activity {
     @PrimaryGeneratedColumn("uuid")
@@ -73,6 +75,15 @@ export class Activity {
         nullable: true,
     })
     userFollowId: number | null;
+    @ManyToOne(() => Post, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    post: Post | null;
+    @Column({
+        nullable: true,
+    })
+    postId: string | null;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

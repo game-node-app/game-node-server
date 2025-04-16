@@ -11,7 +11,10 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { FindPlaytimeOptionsDto } from "./dto/find-all-playtime.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
-import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
+import {
+    SubmitUserPlaytimeDto,
+    CreateUserPlaytimeDto,
+} from "./dto/create-user-playtime.dto";
 import {
     PlaytimeFilterPeriodToMinusDays,
     PlaytimeFiterPeriod,
@@ -20,53 +23,7 @@ import {
 import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
 import { getPreviousDate } from "../statistics/statistics.utils";
 import { PlaytimeHistoryService } from "./playtime-history.service";
-
-const toCumulativePlaytime = (
-    userId: string,
-    gameId: number,
-    userPlaytimes: UserPlaytime[],
-): UserCumulativePlaytimeDto => {
-    const cumulativePlaytime: UserCumulativePlaytimeDto = {
-        profileUserId: userId,
-        gameId: gameId,
-        recentPlaytimeSeconds: 0,
-        totalPlayCount: 0,
-        totalPlaytimeSeconds: 0,
-        lastPlayedDate: undefined,
-        firstPlayedDate: undefined,
-    };
-
-    if (userPlaytimes == undefined || userPlaytimes.length === 0) {
-        return cumulativePlaytime;
-    }
-
-    for (const userPlaytime of userPlaytimes) {
-        cumulativePlaytime.recentPlaytimeSeconds +=
-            userPlaytime.recentPlaytimeSeconds;
-        cumulativePlaytime.totalPlaytimeSeconds +=
-            userPlaytime.totalPlaytimeSeconds;
-        cumulativePlaytime.totalPlayCount += userPlaytime.totalPlayCount;
-        if (
-            userPlaytime.firstPlayedDate != undefined &&
-            (cumulativePlaytime.firstPlayedDate == undefined ||
-                cumulativePlaytime.firstPlayedDate.getTime() <
-                    userPlaytime.firstPlayedDate.getTime())
-        ) {
-            cumulativePlaytime.firstPlayedDate = userPlaytime.firstPlayedDate;
-        }
-
-        if (
-            userPlaytime.lastPlayedDate != undefined &&
-            (cumulativePlaytime.lastPlayedDate == undefined ||
-                cumulativePlaytime.lastPlayedDate.getTime() <
-                    userPlaytime.lastPlayedDate.getTime())
-        ) {
-            cumulativePlaytime.lastPlayedDate = userPlaytime.lastPlayedDate;
-        }
-    }
-
-    return cumulativePlaytime;
-};
+import { toCumulativePlaytime } from "./playtime.util";
 
 @Injectable()
 export class PlaytimeService {
@@ -88,6 +45,20 @@ export class PlaytimeService {
                 externalGameId: externalGameId,
             },
             relations: this.relations,
+        });
+    }
+
+    public async findOneBySource(
+        userId: string,
+        gameId: number,
+        source: UserPlaytimeSource,
+    ) {
+        return this.userPlaytimeRepository.findOne({
+            where: {
+                profileUserId: userId,
+                gameId,
+                source,
+            },
         });
     }
 
@@ -184,20 +155,35 @@ export class PlaytimeService {
         return playtimeMap;
     }
 
+    async saveManual(userId: string, dto: SubmitUserPlaytimeDto) {
+        const { gameId, lastPlayedDate, totalPlaytimeSeconds } = dto;
+    }
+
     async save(playtime: CreateUserPlaytimeDto) {
-        await this.playtimeHistoryService.save(playtime);
+        const existingPlaytime = this.findOneBySource(
+            playtime.profileUserId,
+            playtime.gameId,
+            playtime.source,
+        );
+
+        const updatedPlaytime = {
+            ...existingPlaytime,
+            ...playtime,
+        };
+
+        await this.playtimeHistoryService.save(updatedPlaytime);
 
         const weekAgoDate = getPreviousDate(7);
 
         const recentPlaytimeSeconds =
             await this.playtimeHistoryService.getRecentPlaytimeSincePeriod(
                 playtime.profileUserId,
-                playtime.externalGameId,
+                playtime.source,
                 weekAgoDate,
             );
 
         return await this.userPlaytimeRepository.save({
-            ...playtime,
+            ...updatedPlaytime,
             recentPlaytimeSeconds,
         });
     }
