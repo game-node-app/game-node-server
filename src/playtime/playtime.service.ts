@@ -28,9 +28,7 @@ import { toCumulativePlaytime } from "./playtime.util";
 @Injectable()
 export class PlaytimeService {
     private logger = new Logger(PlaytimeService.name);
-    private readonly relations: FindOptionsRelations<UserPlaytime> = {
-        externalGame: true,
-    };
+    private readonly relations: FindOptionsRelations<UserPlaytime> = {};
 
     constructor(
         @InjectRepository(UserPlaytime)
@@ -42,7 +40,6 @@ export class PlaytimeService {
         return this.userPlaytimeRepository.findOne({
             where: {
                 profileUserId: userId,
-                externalGameId: externalGameId,
             },
             relations: this.relations,
         });
@@ -155,10 +152,6 @@ export class PlaytimeService {
         return playtimeMap;
     }
 
-    async saveManual(userId: string, dto: SubmitUserPlaytimeDto) {
-        const { gameId, lastPlayedDate, totalPlaytimeSeconds } = dto;
-    }
-
     async save(playtime: CreateUserPlaytimeDto) {
         const existingPlaytime = this.findOneBySource(
             playtime.profileUserId,
@@ -185,6 +178,18 @@ export class PlaytimeService {
         return await this.userPlaytimeRepository.save({
             ...updatedPlaytime,
             recentPlaytimeSeconds,
+        });
+    }
+
+    async submit(userId: string, dto: SubmitUserPlaytimeDto) {
+        return await this.save({
+            profileUserId: userId,
+            gameId: dto.gameId,
+            source: dto.source,
+            lastPlayedDate: dto.lastPlayedDate,
+            totalPlaytimeSeconds: dto.totalPlaytimeSeconds,
+            firstPlayedDate: undefined,
+            totalPlayCount: undefined,
         });
     }
 

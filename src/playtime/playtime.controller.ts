@@ -66,7 +66,7 @@ export class PlaytimeController {
         @Session() session: SessionContainer,
         @Body() dto: SubmitUserPlaytimeDto,
     ) {
-        await this.playtimeService.save({});
+        await this.playtimeService.submit(session.getUserId(), dto);
     }
 
     @Post("user/:userId")
