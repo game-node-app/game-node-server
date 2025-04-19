@@ -11,6 +11,7 @@ import { PlaytimeWatchProcessor } from "./playtime-watch.processor";
 import { PlaytimeModule } from "../playtime.module";
 import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 import { SteamSyncModule } from "../../sync/steam/steam-sync.module";
+import { seconds } from "@nestjs/throttler";
 
 @Module({
     imports: [
@@ -21,6 +22,10 @@ import { SteamSyncModule } from "../../sync/steam/steam-sync.module";
                 attempts: 1,
                 removeOnFail: true,
                 removeOnComplete: true,
+                backoff: {
+                    type: "fixed",
+                    delay: seconds(30),
+                },
             },
         }),
         PlaytimeModule,

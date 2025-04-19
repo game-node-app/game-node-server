@@ -22,7 +22,7 @@ import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: seconds(2),
+        duration: seconds(5),
     },
 })
 export class PlaytimeWatchProcessor extends WorkerHostProcessor {
