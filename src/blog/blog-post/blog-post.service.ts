@@ -95,11 +95,15 @@ export class BlogPostService {
             postImage = await this.processImage(userId, image);
         }
 
+        const existingPost = await this.blogPostRepository.findOneBy({
+            id: dto.postId,
+        });
+
         const result = await this.blogPostRepository.save({
             id: dto.postId,
             title: dto.title,
             isDraft: dto.isDraft,
-            profileUserId: userId,
+            profileUserId: existingPost ? existingPost.profileUserId : userId,
             image: postImage,
             tags: tags,
             content: dto.content,
