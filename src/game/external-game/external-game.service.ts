@@ -1,18 +1,24 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { GameExternalGame } from "../entities/game-external-game.entity";
-import { In, Repository } from "typeorm";
+import { GameExternalGame } from "./entity/game-external-game.entity";
+import { DeepPartial, In, Repository } from "typeorm";
 import { days } from "@nestjs/throttler";
-import { EGameExternalGameCategory } from "../game-repository.constants";
-import { toMap } from "../../../utils/toMap";
-import { Game } from "../entities/game.entity";
+import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
+import { toMap } from "../../utils/toMap";
+import { UnmappedExternalGame } from "./entity/unmapped-external-game.entity";
 
 @Injectable()
 export class ExternalGameService {
     constructor(
         @InjectRepository(GameExternalGame)
         private readonly gameExternalGameRepository: Repository<GameExternalGame>,
+        @InjectRepository(UnmappedExternalGame)
+        private readonly unmappedExternalGameRepository: Repository<UnmappedExternalGame>,
     ) {}
+
+    public async upsert(entity: DeepPartial<GameExternalGame>) {
+        await this.gameExternalGameRepository.upsert(entity, ["id"]);
+    }
 
     private reOrderBySourceIds(
         originalIds: string[],
@@ -60,5 +66,34 @@ export class ExternalGameService {
         });
 
         return this.reOrderBySourceIds(sourceIds, externalGames);
+    }
+
+    public async getUnmappedGames() {
+        return this.unmappedExternalGameRepository.find({
+            where: {
+                isActive: true,
+            },
+        });
+    }
+
+    public async registerUnmappedGame(
+        sourceUid: string,
+        category: EGameExternalGameCategory,
+    ) {
+        const existingEntry =
+            await this.unmappedExternalGameRepository.findOneBy({
+                sourceUid,
+                category,
+            });
+
+        if (existingEntry) {
+            return;
+        }
+
+        await this.unmappedExternalGameRepository.insert({
+            sourceUid,
+            category,
+            isActive: true,
+        });
     }
 }

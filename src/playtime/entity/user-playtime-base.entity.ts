@@ -31,7 +31,6 @@ export abstract class UserPlaytimeBase {
     game: Game;
     @Column()
     gameId: number;
-
     /**
      * Total playtime for this game, in seconds.
      */

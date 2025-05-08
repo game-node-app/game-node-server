@@ -12,7 +12,7 @@ import { ConnectionsService } from "../../connections/connections.service";
 import { EConnectionType } from "../../connections/connections.constants";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
-import { ExternalGameService } from "../../game/game-repository/external-game/external-game.service";
+import { ExternalGameService } from "../../game/external-game/external-game.service";
 import { EGameExternalGameCategory } from "../../game/game-repository/game-repository.constants";
 import { PlaytimeService } from "../playtime.service";
 import { UserPlaytimeSource } from "../playtime.constants";
@@ -22,7 +22,7 @@ import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: seconds(2),
+        duration: seconds(4),
     },
 })
 export class PlaytimeWatchProcessor extends WorkerHostProcessor {
@@ -70,6 +70,19 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 gamesUids,
                 EGameExternalGameCategory.Steam,
             );
+
+        const unmappedEntries = userGames.filter((userGame) => {
+            return !externalGames.some(
+                (externalGame) => externalGame.uid === `${userGame.game.id}`,
+            );
+        });
+
+        for (const unmappedEntry of unmappedEntries) {
+            await this.externalGameService.registerUnmappedGame(
+                `${unmappedEntry.game.id}`,
+                EGameExternalGameCategory.Steam,
+            );
+        }
 
         for (const externalGame of externalGames) {
             const relatedUserGame = userGames.find((item) => {
@@ -128,6 +141,19 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 gamesUids,
                 EGameExternalGameCategory.PlaystationStoreUs,
             );
+
+        const unmappedEntries = userGames.filter((userGame) => {
+            return !externalGames.some(
+                (externalGame) => externalGame.uid === `${userGame.concept.id}`,
+            );
+        });
+
+        for (const unmappedEntry of unmappedEntries) {
+            await this.externalGameService.registerUnmappedGame(
+                `${unmappedEntry.concept.id}`,
+                EGameExternalGameCategory.Steam,
+            );
+        }
 
         for (const externalGame of externalGames) {
             const relatedUserGame = userGames.find((item) => {

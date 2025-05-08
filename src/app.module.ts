@@ -34,6 +34,7 @@ import { PlaytimeWatchModule } from "./playtime/watch/playtime-watch.module";
 import { PostsFeedModule } from "./posts/posts-feed/posts-feed.module";
 import { UploadModule } from "./upload/upload.module";
 import { BlogPostModule } from "./blog/blog-post/blog-post.module";
+import { ExternalGameModule } from './game/external-game/external-game.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -178,6 +179,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         PostsFeedModule,
         UploadModule,
         BlogPostModule,
+        ExternalGameModule,
     ],
 })
 export class AppModule implements NestModule {

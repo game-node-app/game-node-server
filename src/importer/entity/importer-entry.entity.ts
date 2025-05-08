@@ -6,7 +6,7 @@ import {
     Unique,
     UpdateDateColumn,
 } from "typeorm";
-import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
+import { GameExternalGame } from "../../game/external-game/entity/game-external-game.entity";
 import { Library } from "../../libraries/entities/library.entity";
 
 @Unique(["gameExternalGame", "library"])

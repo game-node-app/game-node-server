@@ -14,8 +14,7 @@ import { GameMode } from "./entities/game-mode.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
 import { buildFilterFindOptions } from "./utils/build-filter-find-options";
-import { days, minutes } from "@nestjs/throttler";
-import { GameExternalGame } from "./entities/game-external-game.entity";
+import { days } from "@nestjs/throttler";
 import { platformAbbreviationToIconMap } from "./game-repository.constants";
 import { GameExternalStoreDto } from "./dto/game-external-store.dto";
 import {
@@ -25,6 +24,7 @@ import {
 import { toMap } from "../../utils/toMap";
 import { getRelationLoadStrategy } from "../../utils/getRelationLoadStrategy";
 import { GameRepositoryCacheService } from "./game-repository-cache.service";
+import { ExternalGameService } from "../external-game/external-game.service";
 
 /**
  * Look-up table between resource names and their respective entities
@@ -47,15 +47,14 @@ export class GameRepositoryService {
     /**
      * @param dataSource
      * @param gamePlatformRepository
-     * @param gameExternalGameRepository
+     * @param externalGameService
      * @param gameRepositoryCacheService
      */
     constructor(
         private readonly dataSource: DataSource,
         @InjectRepository(GamePlatform)
         private readonly gamePlatformRepository: Repository<GamePlatform>,
-        @InjectRepository(GameExternalGame)
-        private readonly gameExternalGameRepository: Repository<GameExternalGame>,
+        private readonly externalGameService: ExternalGameService,
         private readonly gameRepositoryCacheService: GameRepositoryCacheService,
     ) {}
 
@@ -145,9 +144,8 @@ export class GameRepositoryService {
     }
 
     async findGameExternalStores(gameId: number) {
-        const externalGames = await this.gameExternalGameRepository.findBy({
-            gameId,
-        });
+        const externalGames =
+            await this.externalGameService.getExternalGamesForGameIds([gameId]);
         if (externalGames.length === 0) {
             throw new HttpException(
                 "Game has no external stores registered",
@@ -155,14 +153,11 @@ export class GameRepositoryService {
             );
         }
 
-        const uniqueExternalGamesMap = externalGames.reduce((acc, current) => {
-            if (current.category) {
-                acc.set(current.category, current);
-            }
-            return acc;
-        }, new Map<number, GameExternalGame>());
+        const uniqueExternalGamesMap = toMap(externalGames, "category");
+
         const uniqueExternalGames = Array.from(uniqueExternalGamesMap.values());
-        const externalStoreDtos = uniqueExternalGames.map((externalGame) => {
+
+        return uniqueExternalGames.map((externalGame) => {
             const icon = getIconNameForExternalGameCategory(
                 externalGame.category?.valueOf(),
             );
@@ -177,8 +172,6 @@ export class GameRepositoryService {
 
             return storeDto;
         });
-
-        return externalStoreDtos;
     }
 
     async getResource(resource: TAllowedResource): Promise<any> {

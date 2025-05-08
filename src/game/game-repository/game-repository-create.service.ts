@@ -8,7 +8,6 @@ import { GameCollection } from "./entities/game-collection.entity";
 import { GameCover } from "./entities/game-cover.entity";
 import { GameScreenshot } from "./entities/game-screenshot.entity";
 import { GameFranchise } from "./entities/game-franchise.entity";
-import { GameExternalGame } from "./entities/game-external-game.entity";
 import { GameLocalization } from "./entities/game-localization.entity";
 import { GameMode } from "./entities/game-mode.entity";
 import { GameGenre } from "./entities/game-genre.entity";
@@ -24,7 +23,7 @@ import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { PartialGame } from "./game-repository.types";
 import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
-import { days } from "@nestjs/throttler";
+import { ExternalGameService } from "../external-game/external-game.service";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -73,8 +72,6 @@ export class GameRepositoryCreateService {
         private readonly gameScreenshotRepository: Repository<GameScreenshot>,
         @InjectRepository(GameFranchise)
         private readonly gameFranchiseRepository: Repository<GameFranchise>,
-        @InjectRepository(GameExternalGame)
-        private readonly gameExternalGameRepository: Repository<GameExternalGame>,
         @InjectRepository(GameLocalization)
         private readonly gameLocalizationRepository: Repository<GameLocalization>,
         @InjectRepository(GameMode)
@@ -100,6 +97,7 @@ export class GameRepositoryCreateService {
         @InjectRepository(GameEngineLogo)
         private readonly gameEngineLogoRepository: Repository<GameEngineLogo>,
         private readonly statisticsQueueService: StatisticsQueueService,
+        private readonly externalGameService: ExternalGameService,
     ) {}
 
     async shouldUpdate(game: PartialGame) {
@@ -255,13 +253,10 @@ export class GameRepositoryCreateService {
         if (game.externalGames) {
             for (const externalGame of game.externalGames) {
                 try {
-                    const externalGameEntity =
-                        this.gameExternalGameRepository.create(externalGame);
-                    externalGameEntity.gameId = game.id;
-                    await this.gameExternalGameRepository.upsert(
-                        externalGameEntity,
-                        ["id"],
-                    );
+                    await this.externalGameService.upsert({
+                        ...externalGame,
+                        gameId: game.id,
+                    });
                 } catch (e) {}
             }
         }
@@ -270,7 +265,7 @@ export class GameRepositoryCreateService {
             for (const franchise of game.franchises) {
                 await this.gameFranchiseRepository.upsert(franchise, ["id"]);
                 try {
-                    await this.gameExternalGameRepository
+                    await this.gameRepository
                         .createQueryBuilder()
                         .relation(Game, "franchises")
                         .of(game)
