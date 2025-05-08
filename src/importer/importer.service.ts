@@ -15,7 +15,7 @@ import { ImporterEntry } from "./entity/importer-entry.entity";
 import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { HttpStatusCode } from "axios";
 import { ImporterResponseItemDto } from "./dto/importer-response-item.dto";
-import { ExternalGameService } from "../game/game-repository/external-game/external-game.service";
+import { ExternalGameService } from "../game/external-game/external-game.service";
 
 @Injectable()
 export class ImporterService {

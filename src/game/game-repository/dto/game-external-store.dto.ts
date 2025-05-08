@@ -1,5 +1,5 @@
 import { OmitType } from "@nestjs/swagger";
-import { GameExternalGame } from "../entities/game-external-game.entity";
+import { GameExternalGame } from "../../external-game/entity/game-external-game.entity";
 
 /**
  * DTO representing a (external) game available in another service

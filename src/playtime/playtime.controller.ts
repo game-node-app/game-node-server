@@ -2,6 +2,7 @@ import {
     Body,
     Controller,
     Get,
+    HttpCode,
     Param,
     Post,
     Query,
@@ -17,6 +18,10 @@ import {
 } from "./dto/find-all-playtime.dto";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
+import { HttpStatusCode } from "axios";
+import { SubmitUserPlaytimeDto } from "./dto/create-user-playtime.dto";
+import { Session } from "../auth/session.decorator";
+import { SessionContainer } from "supertokens-node/recipe/session";
 
 @Controller("playtime")
 @ApiTags("playtime")
@@ -53,6 +58,15 @@ export class PlaytimeController {
         @Query() options?: FindPlaytimeOptionsDto,
     ) {
         return this.playtimeService.findAllByUserId(dto.userId, options);
+    }
+
+    @Post()
+    @HttpCode(HttpStatusCode.Created)
+    async submit(
+        @Session() session: SessionContainer,
+        @Body() dto: SubmitUserPlaytimeDto,
+    ) {
+        await this.playtimeService.submit(session.getUserId(), dto);
     }
 
     @Post("user/:userId")

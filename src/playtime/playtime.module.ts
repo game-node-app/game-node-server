@@ -5,9 +5,15 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { UserPlaytime } from "./entity/user-playtime.entity";
 import { PlaytimeHistoryService } from "./playtime-history.service";
 import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
+import { PlaytimeEstimateModule } from "./playtime-estimate/playtime-estimate.module";
+import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([UserPlaytime, UserPlaytimeHistory])],
+    imports: [
+        TypeOrmModule.forFeature([UserPlaytime, UserPlaytimeHistory]),
+        PlaytimeEstimateModule,
+        GameRepositoryModule,
+    ],
     providers: [PlaytimeService, PlaytimeHistoryService],
     controllers: [PlaytimeController],
     exports: [PlaytimeService],

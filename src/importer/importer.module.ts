@@ -6,8 +6,8 @@ import { ConnectionsModule } from "../connections/connections.module";
 import { ImporterProcessedEntry } from "./entity/importer-processed-entry.entity";
 import { ImporterIgnoredEntry } from "./entity/importer-ignored-entry.entity";
 import { SteamSyncModule } from "../sync/steam/steam-sync.module";
-import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
 import { PsnSyncModule } from "../sync/psn/psn-sync.module";
+import { ExternalGameModule } from "../game/external-game/external-game.module";
 
 @Module({
     imports: [
@@ -18,7 +18,7 @@ import { PsnSyncModule } from "../sync/psn/psn-sync.module";
         ConnectionsModule,
         SteamSyncModule,
         PsnSyncModule,
-        GameRepositoryModule,
+        ExternalGameModule,
     ],
     providers: [ImporterService],
     controllers: [ImporterController],

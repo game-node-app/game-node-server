@@ -10,8 +10,8 @@ import {
 import {
     EGameExternalGameCategory,
     EGameExternalGameMedia,
-} from "../game-repository.constants";
-import { Game } from "./game.entity";
+} from "../../game-repository/game-repository.constants";
+import { Game } from "../../game-repository/entities/game.entity";
 
 @Entity()
 // This index avoids table scan in 'importer' services.

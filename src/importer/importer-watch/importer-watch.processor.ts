@@ -14,7 +14,7 @@ import { Repository } from "typeorm";
 import { ImporterWatchNotification } from "../entity/importer-notification.entity";
 import { ImporterService } from "../importer.service";
 import { NotificationsQueueService } from "../../notifications/notifications-queue.service";
-import { GameExternalGame } from "../../game/game-repository/entities/game-external-game.entity";
+import { GameExternalGame } from "../../game/external-game/entity/game-external-game.entity";
 import { EImporterSource } from "../importer.constants";
 import {
     ENotificationCategory,

@@ -12,7 +12,7 @@ import { ConnectionsService } from "../../connections/connections.service";
 import { EConnectionType } from "../../connections/connections.constants";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
-import { ExternalGameService } from "../../game/game-repository/external-game/external-game.service";
+import { ExternalGameService } from "../../game/external-game/external-game.service";
 import { EGameExternalGameCategory } from "../../game/game-repository/game-repository.constants";
 import { PlaytimeService } from "../playtime.service";
 import { UserPlaytimeSource } from "../playtime.constants";
@@ -22,7 +22,7 @@ import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     limiter: {
         max: 1,
-        duration: seconds(2),
+        duration: seconds(4),
     },
 })
 export class PlaytimeWatchProcessor extends WorkerHostProcessor {
@@ -71,28 +71,40 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 EGameExternalGameCategory.Steam,
             );
 
+        const unmappedEntries = userGames.filter((userGame) => {
+            return !externalGames.some(
+                (externalGame) => externalGame.uid === `${userGame.game.id}`,
+            );
+        });
+
+        for (const unmappedEntry of unmappedEntries) {
+            await this.externalGameService.registerUnmappedGame(
+                `${unmappedEntry.game.id}`,
+                EGameExternalGameCategory.Steam,
+            );
+        }
+
         for (const externalGame of externalGames) {
             const relatedUserGame = userGames.find((item) => {
                 return Number.parseInt(externalGame.uid) === item.game.id;
             })!;
 
             const existingPlaytimeInfo =
-                await this.playtimeService.findOneByExternalGame(
+                await this.playtimeService.findOneBySource(
                     userId,
-                    externalGame.id,
+                    externalGame.gameId,
+                    UserPlaytimeSource.STEAM,
                 );
 
             const playtime: CreateUserPlaytimeDto = {
                 ...existingPlaytimeInfo,
                 source: UserPlaytimeSource.STEAM,
                 gameId: externalGame.gameId,
-                externalGameId: externalGame.id,
                 profileUserId: userId,
                 lastPlayedDate: relatedUserGame.lastPlayedTimestamp
                     ? new Date(relatedUserGame.lastPlayedTimestamp * 1000)
                     : null,
                 totalPlaytimeSeconds: relatedUserGame.minutes * 60,
-                recentPlaytimeSeconds: relatedUserGame.recentMinutes * 60,
                 totalPlayCount: 0,
                 firstPlayedDate: undefined,
             };
@@ -130,29 +142,41 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 EGameExternalGameCategory.PlaystationStoreUs,
             );
 
+        const unmappedEntries = userGames.filter((userGame) => {
+            return !externalGames.some(
+                (externalGame) => externalGame.uid === `${userGame.concept.id}`,
+            );
+        });
+
+        for (const unmappedEntry of unmappedEntries) {
+            await this.externalGameService.registerUnmappedGame(
+                `${unmappedEntry.concept.id}`,
+                EGameExternalGameCategory.Steam,
+            );
+        }
+
         for (const externalGame of externalGames) {
             const relatedUserGame = userGames.find((item) => {
                 return Number.parseInt(externalGame.uid) === item.concept.id;
             })!;
 
             const existingPlaytimeInfo =
-                await this.playtimeService.findOneByExternalGame(
+                await this.playtimeService.findOneBySource(
                     userId,
-                    externalGame.id,
+                    externalGame.gameId,
+                    UserPlaytimeSource.PSN,
                 );
 
             const playtime: CreateUserPlaytimeDto = {
                 ...existingPlaytimeInfo,
                 source: UserPlaytimeSource.PSN,
                 gameId: externalGame.gameId,
-                externalGameId: externalGame.id,
                 firstPlayedDate: new Date(relatedUserGame.firstPlayedDateTime),
                 lastPlayedDate: new Date(relatedUserGame.lastPlayedDateTime),
                 profileUserId: userId,
                 totalPlaytimeSeconds: dayjs
                     .duration(relatedUserGame.playDuration)
                     .asSeconds(),
-                recentPlaytimeSeconds: 0,
                 totalPlayCount: relatedUserGame.playCount,
             };
 

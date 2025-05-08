@@ -1,6 +1,9 @@
 export enum UserPlaytimeSource {
     STEAM = "steam",
     PSN = "psn",
+    EPICGAMES = "epicgames",
+    GOG = "gog",
+    BATTLENET = "battlenet",
 }
 
 export enum PlaytimeFiterPeriod {

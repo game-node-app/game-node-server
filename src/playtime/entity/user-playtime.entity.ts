@@ -6,5 +6,5 @@ import { UserPlaytimeBase } from "./user-playtime-base.entity";
  * stores like Steam and PSN.
  */
 @Entity()
-@Unique(["profile", "externalGame"])
+@Unique(["profile", "game", "source"])
 export class UserPlaytime extends UserPlaytimeBase {}

@@ -7,7 +7,6 @@ import { GameCollection } from "./entities/game-collection.entity";
 import { GameCover } from "./entities/game-cover.entity";
 import { GameArtwork } from "./entities/game-artwork.entity";
 import { GameScreenshot } from "./entities/game-screenshot.entity";
-import { GameExternalGame } from "./entities/game-external-game.entity";
 import { GameFranchise } from "./entities/game-franchise.entity";
 import { GameGenre } from "./entities/game-genre.entity";
 import { GameLocalization } from "./entities/game-localization.entity";
@@ -25,7 +24,7 @@ import { GamePlayerPerspective } from "./entities/game-player-perspective.entity
 import { GameRepositoryCreateService } from "./game-repository-create.service";
 import { StatisticsQueueModule } from "../../statistics/statistics-queue/statistics-queue.module";
 import { GameRepositoryCacheService } from "./game-repository-cache.service";
-import { ExternalGameService } from "./external-game/external-game.service";
+import { ExternalGameModule } from "../external-game/external-game.module";
 
 /**
  * This is a pretty big module, with lots of dependencies.
@@ -39,7 +38,6 @@ import { ExternalGameService } from "./external-game/external-game.service";
             GameCover,
             GameArtwork,
             GameScreenshot,
-            GameExternalGame,
             GameFranchise,
             GameGenre,
             GameLocalization,
@@ -55,18 +53,14 @@ import { ExternalGameService } from "./external-game/external-game.service";
             GamePlayerPerspective,
         ]),
         forwardRef(() => StatisticsQueueModule),
+        ExternalGameModule,
     ],
     providers: [
         GameRepositoryService,
         GameRepositoryCreateService,
         GameRepositoryCacheService,
-        ExternalGameService,
     ],
-    exports: [
-        GameRepositoryService,
-        GameRepositoryCreateService,
-        ExternalGameService,
-    ],
+    exports: [GameRepositoryService, GameRepositoryCreateService],
     controllers: [GameRepositoryController],
 })
 export class GameRepositoryModule {}

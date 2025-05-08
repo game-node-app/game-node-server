@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
 import { Repository } from "typeorm";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
+import { UserPlaytimeSource } from "./playtime.constants";
 
 @Injectable()
 export class PlaytimeHistoryService {
@@ -20,7 +21,7 @@ export class PlaytimeHistoryService {
 
     public async getRecentPlaytimeSincePeriod(
         userId: string,
-        externalGameId: number,
+        source: UserPlaytimeSource,
         startDate: Date,
     ) {
         const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
@@ -30,10 +31,10 @@ export class PlaytimeHistoryService {
                 "MAX(ph.totalPlaytimeSeconds) - MIN(ph.totalPlaytimeSeconds) AS RECENT_PLAYTIME_SECONDS",
             )
             .where(
-                "profileUserId = :profileUserId AND externalGameId = :externalGameId AND lastPlayedDate >= :startDate",
+                "profileUserId = :profileUserId AND source = :source AND lastPlayedDate >= :startDate",
                 {
                     profileUserId: userId,
-                    externalGameId,
+                    source,
                     startDate,
                 },
             )
