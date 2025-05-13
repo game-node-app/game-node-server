@@ -99,6 +99,22 @@ export class BlogPostService {
             id: dto.postId,
         });
 
+        if (
+            existingPost != undefined &&
+            existingPost.profileUserId != dto.postId
+        ) {
+            const hasEditPermission = checkUserHasRole(userId, [
+                EUserRoles.ADMIN,
+                EUserRoles.MOD,
+            ]);
+            if (!hasEditPermission) {
+                throw new HttpException(
+                    "User doesn't have permission to edit a non-authored post.",
+                    HttpStatus.FORBIDDEN,
+                );
+            }
+        }
+
         const result = await this.blogPostRepository.save({
             id: dto.postId,
             title: dto.title,
