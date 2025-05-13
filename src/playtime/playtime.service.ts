@@ -3,7 +3,9 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindManyOptions,
     FindOptionsRelations,
+    IsNull,
     MoreThanOrEqual,
+    Or,
     Repository,
 } from "typeorm";
 import { UserPlaytime } from "./entity/user-playtime.entity";
@@ -17,7 +19,6 @@ import {
 } from "./dto/create-user-playtime.dto";
 import {
     PlaytimeFilterPeriodToMinusDays,
-    PlaytimeFiterPeriod,
     UserPlaytimeSource,
 } from "./playtime.constants";
 import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
@@ -115,16 +116,17 @@ export class PlaytimeService {
 
         const periodDate = getPreviousDate(periodToMinusDay);
 
-        const periodFilter =
-            options.period !== PlaytimeFiterPeriod.ALL
-                ? MoreThanOrEqual(periodDate)
-                : undefined;
+        let lastPlayedDateFilter = MoreThanOrEqual(periodDate);
+
+        if (options.includeNullableLastPlayedDate) {
+            lastPlayedDateFilter = Or(lastPlayedDateFilter, IsNull());
+        }
 
         return this.userPlaytimeRepository.findAndCount({
             ...baseFindOptions,
             where: {
                 profileUserId: userId,
-                lastPlayedDate: periodFilter,
+                lastPlayedDate: lastPlayedDateFilter,
             },
             relations: this.relations,
         });

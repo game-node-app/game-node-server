@@ -21,7 +21,6 @@ import { IgdbSyncModule } from "./sync/igdb/igdb-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { SteamSyncModule } from "./sync/steam/steam-sync.module";
-import { ConnectionsModule } from "./connections/connections.module";
 import { CommentModule } from "./comment/comment.module";
 import { ImporterWatchModule } from "./importer/importer-watch/importer-watch.module";
 import { ReportModule } from "./report/report.module";
@@ -34,7 +33,7 @@ import { PlaytimeWatchModule } from "./playtime/watch/playtime-watch.module";
 import { PostsFeedModule } from "./posts/posts-feed/posts-feed.module";
 import { UploadModule } from "./upload/upload.module";
 import { BlogPostModule } from "./blog/blog-post/blog-post.module";
-import { ExternalGameModule } from './game/external-game/external-game.module';
+import { ExternalGameModule } from "./game/external-game/external-game.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -168,7 +167,6 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         NotificationsModule,
         SteamSyncModule,
         ImporterWatchModule,
-        ConnectionsModule,
         CommentModule,
         ReportModule,
         SuspensionModule,

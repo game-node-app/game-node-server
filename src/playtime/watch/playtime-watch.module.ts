@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { UserPlaytime } from "../entity/user-playtime.entity";
 import { BullModule } from "@nestjs/bullmq";
@@ -26,10 +26,11 @@ import { ExternalGameModule } from "../../game/external-game/external-game.modul
         PlaytimeModule,
         ExternalGameModule,
         LibrariesModule,
-        ConnectionsModule,
+        forwardRef(() => ConnectionsModule),
         PsnSyncModule,
         SteamSyncModule,
     ],
     providers: [PlaytimeWatchService, PlaytimeWatchProcessor],
+    exports: [PlaytimeWatchService],
 })
 export class PlaytimeWatchModule {}

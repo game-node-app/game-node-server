@@ -109,24 +109,6 @@ export class GameRepositoryCreateService {
                 game.alternativeNames.length === 0)
         ) {
             return false;
-        } else if (
-            (await this.gameRepository.existsBy({ id: game.id })) &&
-            game.updatedAt != undefined
-        ) {
-            const now = new Date();
-            const lastUpdateDate = game.updatedAt as Date;
-            const dayInMs = 1000 * 3600 * 24;
-
-            const differenceInTime = now.getTime() - lastUpdateDate.getTime();
-            const approximateDifferenceInDays = Math.round(
-                differenceInTime / dayInMs,
-            );
-
-            // game already exists, and it has been more than fifteen days since it's last update
-            // this logic only works if the 'updated_at' property is being returned by igdb-sync.
-            if (approximateDifferenceInDays >= 15) {
-                return false;
-            }
         }
 
         return true;
@@ -143,9 +125,7 @@ export class GameRepositoryCreateService {
         const shouldProcess = await this.shouldUpdate(game);
 
         if (!shouldProcess) {
-            this.logger.log(
-                `Skipping game ${game.id} because it's not recently updated or invalid.`,
-            );
+            this.logger.log(`Skipping game ${game.id} because it's invalid.`);
             return;
         }
 
