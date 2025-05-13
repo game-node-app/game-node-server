@@ -3,9 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindManyOptions,
     FindOptionsRelations,
-    IsNull,
-    MoreThanOrEqual,
-    Or,
+    OrderByCondition,
     Repository,
 } from "typeorm";
 import { UserPlaytime } from "./entity/user-playtime.entity";
@@ -36,15 +34,6 @@ export class PlaytimeService {
         private readonly userPlaytimeRepository: Repository<UserPlaytime>,
         private readonly playtimeHistoryService: PlaytimeHistoryService,
     ) {}
-
-    public async findOneByExternalGame(userId: string, externalGameId: number) {
-        return this.userPlaytimeRepository.findOne({
-            where: {
-                profileUserId: userId,
-            },
-            relations: this.relations,
-        });
-    }
 
     public async findOneBySource(
         userId: string,
@@ -116,20 +105,35 @@ export class PlaytimeService {
 
         const periodDate = getPreviousDate(periodToMinusDay);
 
-        let lastPlayedDateFilter = MoreThanOrEqual(periodDate);
+        const qb = this.userPlaytimeRepository
+            .createQueryBuilder("up")
+            .where("up.profileUserId = :profileUserId")
+            /**
+             * This is a compromise for users which the source API's won't return the lastPlayedDate parameter correctly (e.g. due to privacy settings).
+             * This basically means we ignore the period filter if the entry also has 'recentPlaytimeSeconds'.
+             */
+            .andWhere(
+                "(up.lastPlayedDate >= :lastPlayedDate OR (up.lastPlayedDate IS NULL AND up.recentPlaytimeSeconds > 0))",
+            )
+            .skip(baseFindOptions.skip)
+            .limit(baseFindOptions.take);
 
-        if (options.includeNullableLastPlayedDate) {
-            lastPlayedDateFilter = Or(lastPlayedDateFilter, IsNull());
+        const orderObj: OrderByCondition = {};
+
+        for (const [key, v] of Object.entries(options.orderBy)) {
+            if (v) {
+                orderObj[key] = v;
+            }
         }
 
-        return this.userPlaytimeRepository.findAndCount({
-            ...baseFindOptions,
-            where: {
-                profileUserId: userId,
-                lastPlayedDate: lastPlayedDateFilter,
-            },
-            relations: this.relations,
+        qb.orderBy(orderObj);
+
+        qb.setParameters({
+            profileUserId: userId,
+            lastPlayedDate: periodDate,
         });
+
+        return await qb.getManyAndCount();
     }
 
     /**
@@ -170,12 +174,16 @@ export class PlaytimeService {
 
         const weekAgoDate = getPreviousDate(7);
 
-        const recentPlaytimeSeconds =
-            await this.playtimeHistoryService.getRecentPlaytimeSincePeriod(
-                playtime.profileUserId,
-                playtime.source,
-                weekAgoDate,
-            );
+        let recentPlaytimeSeconds = playtime.recentPlaytimeSeconds;
+
+        if (recentPlaytimeSeconds == undefined || recentPlaytimeSeconds === 0) {
+            recentPlaytimeSeconds =
+                await this.playtimeHistoryService.getRecentPlaytimeSincePeriod(
+                    playtime.profileUserId,
+                    playtime.source,
+                    weekAgoDate,
+                );
+        }
 
         return await this.userPlaytimeRepository.save({
             ...updatedPlaytime,
@@ -190,6 +198,7 @@ export class PlaytimeService {
             source: dto.source,
             lastPlayedDate: dto.lastPlayedDate,
             totalPlaytimeSeconds: dto.totalPlaytimeSeconds,
+            recentPlaytimeSeconds: undefined,
             firstPlayedDate: undefined,
             totalPlayCount: undefined,
         });
