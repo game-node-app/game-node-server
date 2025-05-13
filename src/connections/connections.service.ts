@@ -1,4 +1,11 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+    forwardRef,
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+    Logger,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserConnection } from "./entity/user-connection.entity";
 import { In, Repository } from "typeorm";
@@ -16,6 +23,7 @@ import { UserConnectionDto } from "./dto/user-connection.dto";
 import { PlaytimeService } from "../playtime/playtime.service";
 import { HttpStatusCode } from "axios";
 import { connectionToPlaytimeSource } from "../playtime/playtime.util";
+import { PlaytimeWatchService } from "../playtime/watch/playtime-watch.service";
 
 const toDto = (userConnection: UserConnection): UserConnectionDto => ({
     ...userConnection,
@@ -38,6 +46,8 @@ export class ConnectionsService {
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
         private readonly playtimeService: PlaytimeService,
+        @Inject(forwardRef(() => PlaytimeWatchService))
+        private readonly playtimeWatchService: PlaytimeWatchService,
     ) {}
 
     public findOneById(id: number) {
@@ -156,7 +166,7 @@ export class ConnectionsService {
             ? isPlaytimeImportEnabled
             : false;
 
-        await this.userConnectionRepository.save({
+        const createdConnection = await this.userConnectionRepository.save({
             ...possibleExistingConnection,
             type,
             profileUserId: userId,
@@ -166,6 +176,8 @@ export class ConnectionsService {
             isImporterEnabled: finalIsImporterEnabled,
             isPlaytimeImportEnabled: finalIsPlaytimeImportEnabled,
         });
+
+        this.onConnectionCreate(createdConnection);
     }
 
     public async delete(userId: string, id: number) {
@@ -184,6 +196,17 @@ export class ConnectionsService {
         });
 
         this.onConnectionDelete(connection);
+    }
+
+    private onConnectionCreate(createdConnection: UserConnection) {
+        this.playtimeWatchService
+            .registerManualJob(
+                createdConnection.profileUserId,
+                createdConnection.type,
+            )
+            .catch((err) => {
+                this.logger.error(err);
+            });
     }
 
     private onConnectionDelete(deletedConnection: UserConnection) {

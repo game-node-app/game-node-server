@@ -1,9 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Interval, Timeout } from "@nestjs/schedule";
 import { ConnectionsService } from "../../connections/connections.service";
-import { hours, minutes, seconds } from "@nestjs/throttler";
+import { hours, minutes } from "@nestjs/throttler";
 import {
     PLAYTIME_WATCH_QUEUE_JOB_NAME,
     PLAYTIME_WATCH_QUEUE_NAME,
@@ -11,6 +11,7 @@ import {
 } from "./playtime-watch.constants";
 import { LibrariesService } from "../../libraries/libraries.service";
 import { connectionToPlaytimeSource } from "../playtime.util";
+import { EConnectionType } from "../../connections/connections.constants";
 
 @Injectable()
 export class PlaytimeWatchService {
@@ -20,6 +21,7 @@ export class PlaytimeWatchService {
         @InjectQueue(PLAYTIME_WATCH_QUEUE_NAME)
         private readonly playtimeWatchQueue: Queue<PlaytimeWatchJob>,
         private readonly librariesService: LibrariesService,
+        @Inject(forwardRef(() => ConnectionsService))
         private readonly connectionsService: ConnectionsService,
     ) {}
 
@@ -64,5 +66,24 @@ export class PlaytimeWatchService {
                     this.logger.error(err);
                 });
         }
+    }
+
+    async registerManualJob(userId: string, source: EConnectionType) {
+        const playtimeSource = connectionToPlaytimeSource(source);
+
+        this.playtimeWatchQueue
+            .add(
+                PLAYTIME_WATCH_QUEUE_JOB_NAME,
+                {
+                    userId: userId,
+                    source: playtimeSource,
+                },
+                {
+                    jobId: `playtime-watch-${userId}-${source}`,
+                },
+            )
+            .catch((err) => {
+                this.logger.error(err);
+            });
     }
 }

@@ -1,6 +1,5 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from "@nestjs/common";
-import { IgdbSyncService } from "./igdb-sync.service";
-import { PartialGame } from "../../game/game-repository/game-repository.types";
+import { IgdbSyncService, NonParsedGame } from "./igdb-sync.service";
 import { JwtAuthGuard } from "../../auth/jwt-auth/jwt-auth.guard";
 import { HttpStatusCode } from "axios";
 import { ApiTags } from "@nestjs/swagger";
@@ -13,7 +12,7 @@ export class IgdbSyncController {
 
     @Post()
     @HttpCode(HttpStatusCode.NoContent)
-    async registerUpdateJob(@Body() games: PartialGame[]) {
+    async registerUpdateJob(@Body() games: NonParsedGame[]) {
         await this.igdbSyncService.registerUpdateJob(games);
     }
 }
