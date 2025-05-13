@@ -2,7 +2,6 @@ import { IsEnum, IsNotEmpty, IsOptional } from "class-validator";
 import { PlaytimeFiterPeriod } from "../playtime.constants";
 import { ApiProperty, PickType } from "@nestjs/swagger";
 import { BaseFindDto } from "../../utils/base-find.dto";
-import { ToBoolean } from "../../utils/toBoolean";
 
 export class PlaytimeFilterOrderBy {
     @ApiProperty({
@@ -31,14 +30,9 @@ export class FindAllPlaytimeFiltersDto extends PickType(BaseFindDto, [
     @IsEnum(PlaytimeFiterPeriod)
     period: PlaytimeFiterPeriod;
     @IsOptional()
-    orderBy?: PlaytimeFilterOrderBy = {
+    orderBy: PlaytimeFilterOrderBy = {
         lastPlayedDate: "DESC",
+        recentPlaytimeSeconds: "DESC",
+        totalPlaytimeSeconds: "DESC",
     };
-    /**
-     * The source API's may return the lastPlayedDate as null.
-     * This will change the default filtering to include items in period OR nullables.
-     */
-    @IsOptional()
-    @ToBoolean()
-    includeNullableLastPlayedDate = true;
 }

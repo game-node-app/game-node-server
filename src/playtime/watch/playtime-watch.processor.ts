@@ -107,6 +107,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 totalPlaytimeSeconds: relatedUserGame.minutes * 60,
                 totalPlayCount: 0,
                 firstPlayedDate: undefined,
+                recentPlaytimeSeconds: relatedUserGame.recentMinutes * 60,
             };
 
             const hasChangedTotalPlaytime =
@@ -178,6 +179,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     .duration(relatedUserGame.playDuration)
                     .asSeconds(),
                 totalPlayCount: relatedUserGame.playCount,
+                recentPlaytimeSeconds: undefined,
             };
 
             await this.playtimeService.save(playtime);
