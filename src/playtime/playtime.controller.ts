@@ -6,6 +6,7 @@ import {
     Param,
     Post,
     Query,
+    UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
 import { ApiOkResponse, ApiResponse, ApiTags } from "@nestjs/swagger";
@@ -22,13 +23,17 @@ import { HttpStatusCode } from "axios";
 import { SubmitUserPlaytimeDto } from "./dto/create-user-playtime.dto";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
+import { AuthGuard } from "../auth/auth.guard";
+import { Public } from "../auth/public.decorator";
 
 @Controller("playtime")
 @ApiTags("playtime")
+@UseGuards(AuthGuard)
 export class PlaytimeController {
     constructor(private readonly playtimeService: PlaytimeService) {}
 
     @Get("user/:userId/:gameId/accumulated")
+    @Public()
     async findAccumulatedForUserIdAndGameId(
         @Param() dto: FindAllPlaytimeByGameIdRequestDto,
     ) {
@@ -39,6 +44,7 @@ export class PlaytimeController {
     }
 
     @Get("user/:userId/:gameId")
+    @Public()
     async findAllByUserIdAndGameId(
         @Param() dto: FindAllPlaytimeByGameIdRequestDto,
     ) {
@@ -53,6 +59,7 @@ export class PlaytimeController {
     @ApiOkResponse({
         type: FindAllPlaytimeResponseDto,
     })
+    @Public()
     async findAllByUserId(
         @Param() dto: FindAllPlaytimeRequestDto,
         @Query() options?: FindPlaytimeOptionsDto,
@@ -74,6 +81,7 @@ export class PlaytimeController {
     @ApiResponse({
         type: FindAllPlaytimeResponseDto,
     })
+    @Public()
     async findAllByUserIdWithFilters(
         @Param("userId") userId: string,
         @Body() dto: FindAllPlaytimeFiltersDto,

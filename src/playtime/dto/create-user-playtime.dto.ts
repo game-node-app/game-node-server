@@ -10,7 +10,6 @@ export class CreateUserPlaytimeDto extends OmitType(UserPlaytime, [
     "totalPlayCount",
     "recentPlaytimeSeconds",
 ]) {
-    recentPlaytimeSeconds: number | undefined;
     totalPlayCount: number | undefined;
 }
 
@@ -18,5 +17,4 @@ export class SubmitUserPlaytimeDto extends OmitType(CreateUserPlaytimeDto, [
     "profileUserId",
     "firstPlayedDate",
     "totalPlayCount",
-    "recentPlaytimeSeconds",
 ]) {}

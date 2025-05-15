@@ -6,6 +6,7 @@ import { days } from "@nestjs/throttler";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 import { toMap } from "../../utils/toMap";
 import { UnmappedExternalGame } from "./entity/unmapped-external-game.entity";
+import { SubmitExternalGameDto } from "./dto/submit-external-game.dto";
 
 @Injectable()
 export class ExternalGameService {
@@ -95,5 +96,9 @@ export class ExternalGameService {
             category,
             isActive: true,
         });
+    }
+
+    submit(dto: SubmitExternalGameDto) {
+        return Promise.resolve(undefined);
     }
 }

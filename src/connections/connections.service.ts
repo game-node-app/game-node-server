@@ -22,7 +22,6 @@ import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { UserConnectionDto } from "./dto/user-connection.dto";
 import { PlaytimeService } from "../playtime/playtime.service";
 import { HttpStatusCode } from "axios";
-import { connectionToPlaytimeSource } from "../playtime/playtime.util";
 import { PlaytimeWatchService } from "../playtime/watch/playtime-watch.service";
 
 const toDto = (userConnection: UserConnection): UserConnectionDto => ({
@@ -194,8 +193,6 @@ export class ConnectionsService {
             id,
             profileUserId: userId,
         });
-
-        this.onConnectionDelete(connection);
     }
 
     private onConnectionCreate(createdConnection: UserConnection) {
@@ -203,17 +200,6 @@ export class ConnectionsService {
             .registerManualJob(
                 createdConnection.profileUserId,
                 createdConnection.type,
-            )
-            .catch((err) => {
-                this.logger.error(err);
-            });
-    }
-
-    private onConnectionDelete(deletedConnection: UserConnection) {
-        this.playtimeService
-            .deleteForSource(
-                deletedConnection.profileUserId,
-                connectionToPlaytimeSource(deletedConnection.type),
             )
             .catch((err) => {
                 this.logger.error(err);
