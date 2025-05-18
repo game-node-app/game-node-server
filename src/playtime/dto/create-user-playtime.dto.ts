@@ -8,9 +8,7 @@ export class CreateUserPlaytimeDto extends OmitType(UserPlaytime, [
     "createdAt",
     "updatedAt",
     "totalPlayCount",
-    "recentPlaytimeSeconds",
 ]) {
-    recentPlaytimeSeconds: number | undefined;
     totalPlayCount: number | undefined;
 }
 

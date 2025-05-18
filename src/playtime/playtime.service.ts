@@ -159,7 +159,7 @@ export class PlaytimeService {
     }
 
     async save(playtime: CreateUserPlaytimeDto) {
-        const existingPlaytime = this.findOneBySource(
+        const existingPlaytime = await this.findOneBySource(
             playtime.profileUserId,
             playtime.gameId,
             playtime.source,
@@ -172,7 +172,8 @@ export class PlaytimeService {
 
         await this.playtimeHistoryService.save(updatedPlaytime);
 
-        const weekAgoDate = getPreviousDate(7);
+        // 2 weeks ago
+        const recentPlaytimeCriteriaDate = getPreviousDate(14);
 
         let recentPlaytimeSeconds = playtime.recentPlaytimeSeconds;
 
@@ -181,7 +182,7 @@ export class PlaytimeService {
                 await this.playtimeHistoryService.getRecentPlaytimeSincePeriod(
                     playtime.profileUserId,
                     playtime.source,
-                    weekAgoDate,
+                    recentPlaytimeCriteriaDate,
                 );
         }
 
@@ -198,16 +199,9 @@ export class PlaytimeService {
             source: dto.source,
             lastPlayedDate: dto.lastPlayedDate,
             totalPlaytimeSeconds: dto.totalPlaytimeSeconds,
-            recentPlaytimeSeconds: undefined,
+            recentPlaytimeSeconds: 0,
             firstPlayedDate: undefined,
             totalPlayCount: undefined,
-        });
-    }
-
-    async deleteForSource(userId: string, source: UserPlaytimeSource) {
-        return await this.userPlaytimeRepository.delete({
-            profileUserId: userId,
-            source: source,
         });
     }
 }

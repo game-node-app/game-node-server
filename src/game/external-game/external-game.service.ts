@@ -6,6 +6,10 @@ import { days } from "@nestjs/throttler";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 import { toMap } from "../../utils/toMap";
 import { UnmappedExternalGame } from "./entity/unmapped-external-game.entity";
+import { SubmitExternalGameDto } from "./dto/submit-external-game.dto";
+import { FindExternalGamesRequestDto } from "./dto/find-external-games.dto";
+import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
+import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 
 @Injectable()
 export class ExternalGameService {
@@ -68,6 +72,24 @@ export class ExternalGameService {
         return this.reOrderBySourceIds(sourceIds, externalGames);
     }
 
+    public async findAll(
+        dto: FindExternalGamesRequestDto,
+    ): Promise<TPaginationData<GameExternalGame>> {
+        const findOptions = buildBaseFindOptions<GameExternalGame>(dto);
+
+        return this.gameExternalGameRepository.findAndCount({
+            ...findOptions,
+            order: {
+                updatedAt: "DESC",
+            },
+            relations: {
+                game: {
+                    cover: true,
+                },
+            },
+        });
+    }
+
     public async getUnmappedGames() {
         return this.unmappedExternalGameRepository.find({
             where: {
@@ -95,5 +117,41 @@ export class ExternalGameService {
             category,
             isActive: true,
         });
+    }
+
+    async submit(dto: SubmitExternalGameDto) {
+        const existingEntry = await this.gameExternalGameRepository.findOneBy({
+            category: dto.category,
+            gameId: dto.gameId,
+        });
+
+        const randomNumber = Math.floor(Math.random() * 1000000);
+
+        await this.gameExternalGameRepository.save({
+            id: existingEntry ? existingEntry.id : randomNumber,
+            uid: dto.sourceId,
+            url: dto.sourceUrl,
+            category: dto.category,
+            gameId: dto.gameId,
+        });
+
+        // Deactivates related unmapped entry
+        const possibleUnmappedEntry =
+            await this.unmappedExternalGameRepository.findOneBy({
+                sourceUid: dto.sourceId,
+                category: dto.category,
+                isActive: true,
+            });
+
+        if (possibleUnmappedEntry) {
+            await this.unmappedExternalGameRepository.update(
+                {
+                    id: possibleUnmappedEntry.id,
+                },
+                {
+                    isActive: false,
+                },
+            );
+        }
     }
 }

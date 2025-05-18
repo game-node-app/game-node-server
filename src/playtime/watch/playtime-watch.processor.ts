@@ -105,9 +105,9 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     ? new Date(relatedUserGame.lastPlayedTimestamp * 1000)
                     : null,
                 totalPlaytimeSeconds: relatedUserGame.minutes * 60,
+                recentPlaytimeSeconds: relatedUserGame.recentMinutes * 60,
                 totalPlayCount: 0,
                 firstPlayedDate: undefined,
-                recentPlaytimeSeconds: relatedUserGame.recentMinutes * 60,
             };
 
             const hasChangedTotalPlaytime =
@@ -152,7 +152,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         for (const unmappedEntry of unmappedEntries) {
             await this.externalGameService.registerUnmappedGame(
                 `${unmappedEntry.concept.id}`,
-                EGameExternalGameCategory.Steam,
+                EGameExternalGameCategory.PlaystationStoreUs,
             );
         }
 
@@ -178,8 +178,8 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 totalPlaytimeSeconds: dayjs
                     .duration(relatedUserGame.playDuration)
                     .asSeconds(),
+                recentPlaytimeSeconds: 0,
                 totalPlayCount: relatedUserGame.playCount,
-                recentPlaytimeSeconds: undefined,
             };
 
             await this.playtimeService.save(playtime);
