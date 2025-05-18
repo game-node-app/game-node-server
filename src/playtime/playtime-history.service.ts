@@ -21,6 +21,7 @@ export class PlaytimeHistoryService {
 
     public async getRecentPlaytimeSincePeriod(
         userId: string,
+        gameId: number,
         source: UserPlaytimeSource,
         startDate: Date,
     ) {
@@ -31,9 +32,10 @@ export class PlaytimeHistoryService {
                 "MAX(ph.totalPlaytimeSeconds) - MIN(ph.totalPlaytimeSeconds) AS RECENT_PLAYTIME_SECONDS",
             )
             .where(
-                "profileUserId = :profileUserId AND source = :source AND lastPlayedDate >= :startDate",
+                "ph.profileUserId = :profileUserId AND ph.gameId = :gameId AND ph.source = :source AND ph.lastPlayedDate >= :startDate",
                 {
                     profileUserId: userId,
+                    gameId,
                     source,
                     startDate,
                 },
