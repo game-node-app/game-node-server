@@ -19,7 +19,6 @@ export class SubmitExternalGameDto {
     @IsNotEmpty()
     @IsNumber()
     gameId: number;
-
     @IsNotEmpty()
     @IsEnum(EGameExternalGameCategory)
     category: EGameExternalGameCategory;

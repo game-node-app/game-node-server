@@ -175,12 +175,16 @@ export class PlaytimeService {
         // 2 weeks ago
         const recentPlaytimeCriteriaDate = getPreviousDate(14);
 
-        const recentPlaytimeSeconds =
-            await this.playtimeHistoryService.getRecentPlaytimeSincePeriod(
-                playtime.profileUserId,
-                playtime.source,
-                recentPlaytimeCriteriaDate,
-            );
+        let recentPlaytimeSeconds = playtime.recentPlaytimeSeconds;
+
+        if (recentPlaytimeSeconds == undefined || recentPlaytimeSeconds === 0) {
+            recentPlaytimeSeconds =
+                await this.playtimeHistoryService.getRecentPlaytimeSincePeriod(
+                    playtime.profileUserId,
+                    playtime.source,
+                    recentPlaytimeCriteriaDate,
+                );
+        }
 
         return await this.userPlaytimeRepository.save({
             ...updatedPlaytime,
@@ -195,6 +199,7 @@ export class PlaytimeService {
             source: dto.source,
             lastPlayedDate: dto.lastPlayedDate,
             totalPlaytimeSeconds: dto.totalPlaytimeSeconds,
+            recentPlaytimeSeconds: 0,
             firstPlayedDate: undefined,
             totalPlayCount: undefined,
         });

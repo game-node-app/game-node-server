@@ -4,6 +4,10 @@ export enum UserPlaytimeSource {
     EPICGAMES = "epicgames",
     GOG = "gog",
     BATTLENET = "battlenet",
+    EMULATOR = "emulator",
+    NWII = "nwii",
+    NWIIU = "nwiiu",
+    NSWITCH = "nswitch",
 }
 
 export enum PlaytimeFiterPeriod {
