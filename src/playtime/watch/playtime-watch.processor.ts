@@ -178,7 +178,8 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 totalPlaytimeSeconds: dayjs
                     .duration(relatedUserGame.playDuration)
                     .asSeconds(),
-                recentPlaytimeSeconds: 0,
+                // Recent playtime will be calculated on our side
+                recentPlaytimeSeconds: undefined,
                 totalPlayCount: relatedUserGame.playCount,
             };
 
