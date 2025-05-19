@@ -2907,6 +2907,26 @@
     "@webassemblyjs/ast" "1.14.1"
     "@xtuc/long" "4.2.2"
 
+"@xboxreplay/errors@^0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/@xboxreplay/errors/-/errors-0.1.0.tgz#e8daceb3c88c104872301d4193f54dc141a8d35a"
+  integrity sha512-Tgz1d/OIPDWPeyOvuL5+aai5VCcqObhPnlI3skQuf80GVF3k1I0lPCnGC+8Cm5PV9aLBT5m8qPcJoIUQ2U4y9g==
+
+"@xboxreplay/xboxlive-api@^3.4.3":
+  version "3.4.3"
+  resolved "https://registry.yarnpkg.com/@xboxreplay/xboxlive-api/-/xboxlive-api-3.4.3.tgz#0c2f7ceb7fff3641b31b8adf957b7d3891dd3b41"
+  integrity sha512-+iSmNCN4RHXZXBc48e0tJB+tvUs6XEwEWcXTcECrIttgDVN9fsFxroo+6ET+K38FobEM+5xUOfCVNqQoWQthxQ==
+  dependencies:
+    "@xboxreplay/errors" "^0.1.0"
+    axios "^0.21.1"
+
+"@xboxreplay/xboxlive-auth@^4.1.0":
+  version "4.1.0"
+  resolved "https://registry.yarnpkg.com/@xboxreplay/xboxlive-auth/-/xboxlive-auth-4.1.0.tgz#1ca0b0a6aa708fb99ddf06badb10b9a4971176fb"
+  integrity sha512-UHp1esZgnNIIIG0zOZhF8VvRxcykL6qnAmnL2qP7DRaHS7pQb1p9TZZE1asQ3tJvMj0c0fHco2ZJxbnHliAiag==
+  dependencies:
+    axios "1.7.9"
+
 "@xtuc/ieee754@^1.2.0":
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/@xtuc/ieee754/-/ieee754-1.2.0.tgz#eef014a3145ae477a1cbc00cd1e552336dceb790"
@@ -3138,12 +3158,28 @@ aws-ssl-profiles@^1.1.1:
   resolved "https://registry.yarnpkg.com/aws-ssl-profiles/-/aws-ssl-profiles-1.1.1.tgz#21ef8ad77d753927f6c01b144c5ef4cc4f150cdc"
   integrity sha512-+H+kuK34PfMaI9PNU/NSjBKL5hh/KDM9J72kwYeYEm0A8B1AC4fuCy3qsjnA7lxklgyXsB68yn8Z2xoZEjgwCQ==
 
+axios@1.7.9:
+  version "1.7.9"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-1.7.9.tgz#d7d071380c132a24accda1b2cfc1535b79ec650a"
+  integrity sha512-LhLcE7Hbiryz8oMDdDptSrWowmB4Bl6RCt6sIJKpRB4XtVf0iEgewX3au/pJqm+Py1kCASkb/FFKjxQaLtxJvw==
+  dependencies:
+    follow-redirects "^1.15.6"
+    form-data "^4.0.0"
+    proxy-from-env "^1.1.0"
+
 axios@^0.19.0:
   version "0.19.2"
   resolved "https://registry.yarnpkg.com/axios/-/axios-0.19.2.tgz#3ea36c5d8818d0d5f8a8a97a6d36b86cdc00cb27"
   integrity sha512-fjgm5MvRHLhx+osE2xoekY70AhARk3a6hkN+3Io1jc00jtquGvxYlKlsFUhmUET0V5te6CcZI7lcv2Ym61mjHA==
   dependencies:
     follow-redirects "1.5.10"
+
+axios@^0.21.1:
+  version "0.21.4"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-0.21.4.tgz#c67b90dc0568e5c1cf2b0b858c43ba28e2eda575"
+  integrity sha512-ut5vewkiu8jjGBdqpM44XxjuCjq9LAKeHVmoVfHVzy8eHgxxq8SbAVQNovDA8mVi05kP0Ea/n/UzcSHcTJQfNg==
+  dependencies:
+    follow-redirects "^1.14.0"
 
 axios@^1.6.0:
   version "1.6.8"
@@ -4506,6 +4542,11 @@ follow-redirects@1.5.10:
   integrity sha512-0V5l4Cizzvqt5D44aTXbFZz+FtyXV1vrDN6qrelxtfYQKW0KO0W2T/hkE8xvGa/540LkZlkaUjO4ailYTFtHVQ==
   dependencies:
     debug "=3.1.0"
+
+follow-redirects@^1.14.0:
+  version "1.15.9"
+  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.15.9.tgz#a604fa10e443bf98ca94228d9eebcc2e8a2c8ee1"
+  integrity sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==
 
 follow-redirects@^1.15.6:
   version "1.15.6"

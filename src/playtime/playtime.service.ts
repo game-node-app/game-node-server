@@ -179,7 +179,7 @@ export class PlaytimeService {
 
         if (recentPlaytimeSeconds == undefined) {
             recentPlaytimeSeconds =
-                await this.playtimeHistoryService.getRecentPlaytimeSincePeriod(
+                await this.playtimeHistoryService.getRecentPlaytimeForGame(
                     playtime.profileUserId,
                     playtime.gameId,
                     playtime.source,

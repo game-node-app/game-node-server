@@ -52,3 +52,4 @@ dist
 /build/
 
 .idea
+/src/sync/xbox/xbox-sync.service.ts

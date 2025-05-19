@@ -10,6 +10,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { AuthController } from "./auth.controller";
 import { TurnstileModule } from "../turnstile/turnstile.module";
+import axios from "axios";
 
 @Module({
     imports: [UserInitModule, TurnstileModule],
@@ -81,6 +82,98 @@ import { TurnstileModule } from "../turnstile/turnstile.module";
                                     },
                                 ],
                             },
+                            override: (originalImplementation) => {
+                                return {
+                                    ...originalImplementation,
+                                    exchangeAuthCodeForOAuthTokens: async (
+                                        input,
+                                    ) => {
+                                        const result =
+                                            await originalImplementation.exchangeAuthCodeForOAuthTokens!(
+                                                input,
+                                            );
+                                        return result;
+                                    },
+                                };
+                            },
+                        },
+                        {
+                            config: {
+                                thirdPartyId: "epicgames",
+                                name: "EpicGames",
+                                clients: [
+                                    {
+                                        clientId: configService.getOrThrow(
+                                            "PROVIDER_EPICGAMES_CLIENT_ID",
+                                        ),
+                                        clientSecret: configService.getOrThrow(
+                                            "PROVIDER_EPICGAMES_CLIENT_SECRET",
+                                        ),
+                                        scope: ["basic_profile", "email"],
+                                    },
+                                ],
+                                tokenEndpoint:
+                                    "https://api.epicgames.dev/epic/oauth/v2/token",
+                                tokenEndpointBodyParams: {},
+                                authorizationEndpoint:
+                                    "https://www.epicgames.com/id/authorize",
+                                jwksURI:
+                                    "https://api.epicgames.dev/epic/oauth/v2/.well-known/jwks.json",
+                                requireEmail: false,
+                                generateFakeEmail: (input) => {
+                                    return Promise.resolve(
+                                        `${input.tenantId}-${input.thirdPartyUserId}@fakemail.com`,
+                                    );
+                                },
+                            },
+                            override: (originalImplementation) => ({
+                                ...originalImplementation,
+                                getUserInfo: async (input) => {
+                                    return Promise.resolve({
+                                        thirdPartyUserId:
+                                            input.oAuthTokens["account_id"],
+                                        rawUserInfoFromProvider:
+                                            input.oAuthTokens,
+                                    });
+                                },
+                                exchangeAuthCodeForOAuthTokens: async (
+                                    input,
+                                ) => {
+                                    const { code } =
+                                        input.redirectURIInfo
+                                            .redirectURIQueryParams;
+
+                                    const clientId: string =
+                                        configService.getOrThrow(
+                                            "PROVIDER_EPICGAMES_CLIENT_ID",
+                                        );
+                                    const clientSecret: string =
+                                        configService.getOrThrow(
+                                            "PROVIDER_EPICGAMES_CLIENT_SECRET",
+                                        );
+
+                                    const authBase64 = Buffer.from(
+                                        `${clientId}:${clientSecret}`,
+                                    ).toString("base64");
+
+                                    const req = await axios.post(
+                                        "https://api.epicgames.dev/epic/oauth/v2/token",
+                                        {
+                                            grant_type: "authorization_code",
+                                            code: code,
+                                        },
+                                        {
+                                            headers: {
+                                                Authorization: `Basic ${authBase64}`,
+                                                "Content-Type":
+                                                    "application/x-www-form-urlencoded",
+                                            },
+                                        },
+                                    );
+
+                                    return req.data;
+                                },
+                            }),
                         },
                     ],
                 } satisfies SupertokensConfig;
