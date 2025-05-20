@@ -42,7 +42,6 @@ export class GameRepositoryCreateService {
      * @param gameCoverRepository
      * @param gameScreenshotRepository
      * @param gameFranchiseRepository
-     * @param gameExternalGameRepository
      * @param gameLocalizationRepository
      * @param gameModeRepository
      * @param gameGenreRepository
@@ -56,6 +55,7 @@ export class GameRepositoryCreateService {
      * @param gameEngineRepository
      * @param gameEngineLogoRepository
      * @param statisticsQueueService
+     * @param externalGameService
      */
     constructor(
         @InjectRepository(Game)
@@ -136,7 +136,6 @@ export class GameRepositoryCreateService {
         await this.buildParentRelationships(game);
         await this.gameRepository.upsert(game, ["id"]);
         await this.buildChildRelationships(game);
-        this.logger.log(`Upserted game ${game.id} and it's relationships`);
 
         this.dispatchCreateUpdateEvent(game, isUpdateAction);
     }

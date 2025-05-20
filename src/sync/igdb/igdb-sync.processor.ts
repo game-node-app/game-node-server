@@ -57,7 +57,9 @@ function normalizeIgdbResults(results: any[]) {
     return normalizedResults;
 }
 
-@Processor(IGDB_SYNC_QUEUE_NAME)
+@Processor(IGDB_SYNC_QUEUE_NAME, {
+    concurrency: 5,
+})
 export class IgdbSyncProcessor extends WorkerHostProcessor {
     logger = new Logger(IgdbSyncProcessor.name);
 
@@ -73,9 +75,11 @@ export class IgdbSyncProcessor extends WorkerHostProcessor {
 
             const normalizedResults = normalizeIgdbResults(results);
 
-            for (const result of normalizedResults) {
-                await this.gameRepositoryCreateService.createOrUpdate(result);
-            }
+            const promises = normalizedResults.map((result) =>
+                this.gameRepositoryCreateService.createOrUpdate(result),
+            );
+
+            await Promise.all(promises);
         }
     }
 }

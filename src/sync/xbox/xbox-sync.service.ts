@@ -26,9 +26,7 @@ export class XboxSyncService {
         private readonly authService: XboxSyncAuthService,
         @Inject(CACHE_MANAGER)
         private readonly cacheManager: Cache,
-    ) {
-        // this.resolveUserInfo("smrnov");
-    }
+    ) {}
 
     public async resolveUserInfo(
         gamertag: string,
