@@ -1,8 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { Interval, Timeout } from "@nestjs/schedule";
-import { hours, minutes, seconds } from "@nestjs/throttler";
 import { ConnectionsService } from "../../connections/connections.service";
 import { LibrariesService } from "../../libraries/libraries.service";
 import { IMPORTER_WATCH_VIABLE_CONNECTIONS } from "../../connections/connections.constants";
@@ -41,15 +39,16 @@ export class ImporterWatchService {
         });
     }
 
-    @Timeout(minutes(1))
-    public onStartup() {
-        this.registerWatchJobs();
-    }
+    // @Timeout(minutes(1))
+    // public onStartup() {
+    //     this.registerWatchJobs();
+    // }
 
     /**
      * Checks for new importable entries from users with valid connections
+     * Temporarily disabled. TODO: See how relevant this is.
      */
-    @Interval(hours(6))
+    // @Interval(hours(6))
     public async registerWatchJobs() {
         const libraries = await this.librariesService.findAllLibraries();
         const userIds = libraries.map((library) => library.userId);

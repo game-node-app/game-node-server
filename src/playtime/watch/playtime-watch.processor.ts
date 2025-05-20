@@ -7,7 +7,7 @@ import {
 import { seconds } from "@nestjs/throttler";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { Logger } from "@nestjs/common";
-import { Job } from "bullmq";
+import { Job, UnrecoverableError } from "bullmq";
 import { ConnectionsService } from "../../connections/connections.service";
 import { EConnectionType } from "../../connections/connections.constants";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
@@ -18,12 +18,14 @@ import { PlaytimeService } from "../playtime.service";
 import { UserPlaytimeSource } from "../playtime.constants";
 import dayjs from "dayjs";
 import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
+import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     limiter: {
         max: 1,
         duration: seconds(4),
     },
+    concurrency: 10,
 })
 export class PlaytimeWatchProcessor extends WorkerHostProcessor {
     logger = new Logger(PlaytimeWatchProcessor.name);
@@ -34,6 +36,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly externalGameService: ExternalGameService,
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
+        private readonly xboxSyncService: XboxSyncService,
     ) {
         super();
     }
@@ -48,6 +51,12 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     return this.updateSteamPlaytimeInfo(job.data.userId);
                 case UserPlaytimeSource.PSN:
                     return this.updatePsnPlaytimeInfo(job.data.userId);
+                case UserPlaytimeSource.XBOX:
+                    return this.updateXboxPlaytimeInfo(job.data.userId);
+                default:
+                    throw new UnrecoverableError(
+                        `Playtime source not supported: ${job.data.source}`,
+                    );
             }
         }
     }
@@ -182,6 +191,85 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 recentPlaytimeSeconds: undefined,
                 totalPlayCount: relatedUserGame.playCount,
             };
+
+            await this.playtimeService.save(playtime);
+        }
+    }
+
+    async updateXboxPlaytimeInfo(userId: string) {
+        const connection =
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.XBOX,
+            );
+
+        const allGames = await this.xboxSyncService.getAllGames(
+            connection.sourceUserId,
+        );
+
+        const sourceUids = allGames.map((game) => game.productId);
+
+        const externalGames =
+            await this.externalGameService.getExternalGamesForSourceIds(
+                sourceUids,
+                EGameExternalGameCategory.Microsoft,
+            );
+
+        const relevantTitleIds = allGames
+            // Get only games with matches
+            .filter((game) =>
+                externalGames.some(
+                    (externalGame) => externalGame.uid === game.productId,
+                ),
+            )
+            .map((game) => game.titleId);
+
+        // A small portion of the items may not have stats, and some will not have the 'value' defined anyway.
+        const playtimeStats = await this.xboxSyncService.getBatchMinutesPlayed(
+            connection.sourceUserId,
+            relevantTitleIds,
+        );
+
+        for (const stats of playtimeStats) {
+            if (stats.value == undefined) continue;
+
+            const relevantGame = allGames.find(
+                (game) => game.titleId === stats.titleid,
+            )!;
+            const relevantExternalGame = externalGames.find(
+                (externalGame) => externalGame.uid === relevantGame.productId,
+            )!;
+
+            const existingPlaytimeInfo =
+                await this.playtimeService.findOneBySource(
+                    userId,
+                    relevantExternalGame.gameId,
+                    UserPlaytimeSource.XBOX,
+                );
+
+            const playtime: CreateUserPlaytimeDto = {
+                ...existingPlaytimeInfo,
+                source: UserPlaytimeSource.XBOX,
+                gameId: relevantExternalGame.gameId,
+                profileUserId: userId,
+                lastPlayedDate: relevantGame.titleHistory?.lastTimePlayed
+                    ? new Date(relevantGame.titleHistory?.lastTimePlayed)
+                    : null,
+                recentPlaytimeSeconds: undefined,
+                totalPlaytimeSeconds: Number.parseInt(stats.value) * 60,
+                totalPlayCount: 0,
+                firstPlayedDate: undefined,
+            };
+
+            const hasChangedTotalPlaytime =
+                existingPlaytimeInfo != undefined &&
+                existingPlaytimeInfo.totalPlaytimeSeconds !=
+                    playtime.totalPlaytimeSeconds;
+
+            if (hasChangedTotalPlaytime) {
+                playtime.totalPlayCount =
+                    existingPlaytimeInfo!.totalPlayCount + 1;
+            }
 
             await this.playtimeService.save(playtime);
         }

@@ -5,14 +5,18 @@ import {
     Injectable,
     Logger,
 } from "@nestjs/common";
-import { XboxGameTitle, XboxMinutesPlayedStatsItem } from "./xbox-sync.types";
+import {
+    XboxBatchMinutesPlayedResponse,
+    XboxGameTitle,
+    XboxMinutesPlayedStatsItem,
+} from "./xbox-sync.types";
 import { XboxSyncAuthService } from "./auth/xbox-sync-auth.service";
 import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
-import { Cacheable } from "../../utils/cacheable";
-import { hours } from "@nestjs/throttler";
 import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { getXboxPlayerXUID } from "./client/getXboxPlayerXUID";
 import { callXboxAPI } from "./client/callXboxApi";
+import { Cacheable } from "../../utils/cacheable";
+import { hours } from "@nestjs/throttler";
 
 @Injectable()
 export class XboxSyncService {
@@ -83,76 +87,70 @@ export class XboxSyncService {
     }
 
     @Cacheable(`${XboxSyncService.name}#getBatchMinutesPlayed`, hours(1))
-    public async getBatchMinutesPlayed(playerXUID: string, titleIds: number[]) {
+    public async getBatchMinutesPlayed(playerXUID: string, titleIds: string[]) {
         const items: XboxMinutesPlayedStatsItem[] = [];
-        const MAX_REQUEST_SIZE = 500;
-        let currentOffset = 0;
 
         if (titleIds == undefined || titleIds.length === 0) {
             // Returns empty list
             return items;
         }
-    }
 
-    // public async test() {
-    //     const playerXUID = await getPlayerXUID("darkling1542", {
-    //         XSTSToken: auth.xsts_token,
-    //         userHash: auth.user_hash,
-    //     });
-    //
-    //     const playerSettings = await getPlayerSettings(
-    //         "smrnov",
-    //         {
-    //             XSTSToken: auth.xsts_token,
-    //             userHash: auth.user_hash,
-    //         },
-    //         ["Gamertag", "ModernGamertag"],
-    //     );
-    //
-    //     const resp: {
-    //         titles: XboxGameTitle[];
-    //     } = await call(
-    //         {
-    //             url: `https://titlehub.xboxlive.com/users/xuid(${playerXUID})/titles/titlehistory/decoration/productId`,
-    //             params: {
-    //                 maxItems: 5000,
-    //             },
-    //         },
-    //         {
-    //             XSTSToken: auth.xsts_token,
-    //             userHash: auth.user_hash,
-    //         },
-    //         2,
-    //     );
-    //
-    //     const titleIds = resp.titles.map((title) => title.titleId);
-    //
-    //     const statsRequest = titleIds
-    //         .map((titleId) => ({
-    //             name: "MinutesPlayed",
-    //             titleId: titleId,
-    //         }))
-    //         .slice(0, 501);
-    //
-    //     // @see https://github.com/OpenXbox/xbox-webapi-python/blob/master/xbox/webapi/api/provider/userstats/__init__.py
-    //     // MAX OF 500 ITEMS PER REQUEST!!
-    //     const statsBatch = await call(
-    //         {
-    //             method: "POST",
-    //             url: `https://userstats.xboxlive.com/batch`,
-    //             data: {
-    //                 arrangebyfield: "xuid",
-    //                 xuids: [playerXUID],
-    //                 stats: statsRequest,
-    //             },
-    //         },
-    //         {
-    //             XSTSToken: auth.xsts_token,
-    //             userHash: auth.user_hash,
-    //         },
-    //         2,
-    //     );
-    //
-    //     return statsBatch;
-    // }
+        const auth = await this.authService.getAuthCredentials();
+
+        const MAX_REQUEST_SIZE = 1000;
+        let currentOffset = 0;
+
+        const statsRequestItems = titleIds.map((titleId) => ({
+            name: "MinutesPlayed",
+            titleId: titleId,
+        }));
+
+        while (currentOffset < statsRequestItems.length) {
+            try {
+                const slicedItems = statsRequestItems.slice(
+                    currentOffset,
+                    currentOffset + MAX_REQUEST_SIZE + 1,
+                );
+
+                if (slicedItems.length === 0) {
+                    break;
+                }
+
+                // Request
+                const statsBatch =
+                    await callXboxAPI<XboxBatchMinutesPlayedResponse>(
+                        {
+                            method: "POST",
+                            url: `https://userstats.xboxlive.com/batch`,
+                            data: {
+                                arrangebyfield: "xuid",
+                                xuids: [playerXUID],
+                                stats: slicedItems,
+                            },
+                        },
+                        auth,
+                        2,
+                    );
+
+                if (
+                    statsBatch.statlistscollection == undefined ||
+                    statsBatch.statlistscollection.length === 0 ||
+                    statsBatch.statlistscollection[0].stats.length === 0
+                ) {
+                    continue;
+                }
+
+                const resultingStats = statsBatch.statlistscollection[0].stats;
+
+                items.push(...resultingStats);
+
+                currentOffset += MAX_REQUEST_SIZE;
+            } catch (err) {
+                this.logger.error(err);
+                break;
+            }
+        }
+
+        return items;
+    }
 }
