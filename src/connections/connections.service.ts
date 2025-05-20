@@ -20,9 +20,9 @@ import { SteamSyncService } from "../sync/steam/steam-sync.service";
 import { FindAvailableConnectionsResponseDto } from "./dto/find-available-connections-response.dto";
 import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { UserConnectionDto } from "./dto/user-connection.dto";
-import { PlaytimeService } from "../playtime/playtime.service";
 import { HttpStatusCode } from "axios";
 import { PlaytimeWatchService } from "../playtime/watch/playtime-watch.service";
+import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
 
 const toDto = (userConnection: UserConnection): UserConnectionDto => ({
     ...userConnection,
@@ -44,7 +44,7 @@ export class ConnectionsService {
         private readonly userConnectionRepository: Repository<UserConnection>,
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
-        private readonly playtimeService: PlaytimeService,
+        private readonly xboxSyncService: XboxSyncService,
         @Inject(forwardRef(() => PlaytimeWatchService))
         private readonly playtimeWatchService: PlaytimeWatchService,
     ) {}
@@ -148,6 +148,13 @@ export class ConnectionsService {
                 sourceUsername = psnUserInfo.username;
                 break;
             }
+            case EConnectionType.XBOX: {
+                const xboxUserInfo =
+                    await this.xboxSyncService.resolveUserInfo(userIdentifier);
+                sourceUserId = xboxUserInfo.userId;
+                sourceUsername = xboxUserInfo.username;
+                break;
+            }
             default:
                 throw new HttpException(
                     "Invalid connection type",
@@ -158,6 +165,7 @@ export class ConnectionsService {
         const isImporterViable = IMPORTER_VIABLE_CONNECTIONS.includes(type);
         const isPlaytimeImporterViable =
             PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(type);
+
         const finalIsImporterEnabled = isImporterViable
             ? isImporterEnabled
             : false;

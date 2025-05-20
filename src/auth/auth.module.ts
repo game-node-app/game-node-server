@@ -81,6 +81,20 @@ import { TurnstileModule } from "../turnstile/turnstile.module";
                                     },
                                 ],
                             },
+                            override: (originalImplementation) => {
+                                return {
+                                    ...originalImplementation,
+                                    exchangeAuthCodeForOAuthTokens: async (
+                                        input,
+                                    ) => {
+                                        const result =
+                                            await originalImplementation.exchangeAuthCodeForOAuthTokens!(
+                                                input,
+                                            );
+                                        return result;
+                                    },
+                                };
+                            },
                         },
                     ],
                 } satisfies SupertokensConfig;

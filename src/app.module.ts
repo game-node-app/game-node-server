@@ -4,7 +4,6 @@ import * as process from "process";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ScheduleModule } from "@nestjs/schedule";
-import { redisStore } from "cache-manager-redis-yet";
 import { BullModule } from "@nestjs/bullmq";
 import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { GlobalModule } from "./global/global.module";
@@ -34,6 +33,8 @@ import { PostsFeedModule } from "./posts/posts-feed/posts-feed.module";
 import { UploadModule } from "./upload/upload.module";
 import { BlogPostModule } from "./blog/blog-post/blog-post.module";
 import { ExternalGameModule } from "./game/external-game/external-game.module";
+import { XboxSyncModule } from "./sync/xbox/xbox-sync.module";
+import { createKeyv } from "@keyv/redis";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -110,11 +111,13 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         CacheModule.registerAsync({
             isGlobal: true,
             inject: [ConfigService],
-            useFactory: async () => ({
-                store: await redisStore({
-                    url: getRedisConfig().url,
-                }),
-            }),
+            useFactory: async () => {
+                const url = getRedisConfig("cache").url;
+
+                return {
+                    stores: [createKeyv(url)],
+                };
+            },
         }),
         BullModule.forRootAsync({
             inject: [ConfigService],
@@ -178,6 +181,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         UploadModule,
         BlogPostModule,
         ExternalGameModule,
+        XboxSyncModule,
     ],
 })
 export class AppModule implements NestModule {

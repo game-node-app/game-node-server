@@ -8,6 +8,7 @@ import { ImporterIgnoredEntry } from "./entity/importer-ignored-entry.entity";
 import { SteamSyncModule } from "../sync/steam/steam-sync.module";
 import { PsnSyncModule } from "../sync/psn/psn-sync.module";
 import { ExternalGameModule } from "../game/external-game/external-game.module";
+import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { ExternalGameModule } from "../game/external-game/external-game.module";
         ConnectionsModule,
         SteamSyncModule,
         PsnSyncModule,
+        XboxSyncModule,
         ExternalGameModule,
     ],
     providers: [ImporterService],

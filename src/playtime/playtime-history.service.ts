@@ -19,9 +19,9 @@ export class PlaytimeHistoryService {
         });
     }
 
-    public async getRecentPlaytimeSincePeriod(
+    public async getRecentPlaytimeForGame(
         userId: string,
-        gameId: number,
+        gameId: number | undefined,
         source: UserPlaytimeSource,
         startDate: Date,
     ) {
