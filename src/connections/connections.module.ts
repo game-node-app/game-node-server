@@ -7,6 +7,7 @@ import { SteamSyncModule } from "../sync/steam/steam-sync.module";
 import { PsnSyncModule } from "../sync/psn/psn-sync.module";
 import { PlaytimeModule } from "../playtime/playtime.module";
 import { PlaytimeWatchModule } from "../playtime/watch/playtime-watch.module";
+import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { PlaytimeWatchModule } from "../playtime/watch/playtime-watch.module";
         SteamSyncModule,
         PsnSyncModule,
         PlaytimeModule,
+        XboxSyncModule,
         forwardRef(() => PlaytimeWatchModule),
     ],
     providers: [ConnectionsService],

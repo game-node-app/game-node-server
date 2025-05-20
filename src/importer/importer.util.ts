@@ -7,5 +7,7 @@ export const connectionToImporterSource = (connectionType: EConnectionType) => {
             return EImporterSource.STEAM;
         case EConnectionType.PSN:
             return EImporterSource.PSN;
+        case EConnectionType.XBOX:
+            return EImporterSource.XBOX;
     }
 };

@@ -1,17 +1,55 @@
+export interface XboxLiveAuthorization {
+    userHash: string;
+    XSTSToken: string;
+}
+
+export type ProfileResponse = {
+    profileUsers: [
+        {
+            id: string;
+            hostId: string;
+            settings: Array<{
+                id:
+                    | "GameDisplayPicRaw"
+                    | "Gamerscore"
+                    | "Gamertag"
+                    | "AccountTier"
+                    | "XboxOneRep"
+                    | "PreferredColor"
+                    | "RealName"
+                    | "Bio"
+                    | "Location"
+                    | "ModernGamertag"
+                    | "ModernGamertagSuffix"
+                    | "UniqueModernGamertag"
+                    | "RealNameOverride"
+                    | "TenureLevel"
+                    | "Watermarks"
+                    | "IsQuarantined"
+                    | "DisplayedLinkedAccounts";
+                value: string;
+            }>;
+            isSponsoredUser: false;
+        },
+    ];
+};
+
+type XboxGameTitleDeviceType = "Xbox360" | "XboxOne" | "XboxSeries" | "PC";
+
 export interface XboxGameTitle {
     titleId: string;
     productId: string;
     productIds: string[];
     productIdsWithDeviceTypes: {
         productId: string;
-        devices: string[];
+        devices: XboxGameTitleDeviceType[];
     }[];
     pfn: string;
     bingId: string;
     windowsPhoneProductId: string | null;
     name: string;
     type: string;
-    devices: string[];
+    devices: XboxGameTitleDeviceType[];
     displayImage: string;
     mediaItemType: string;
     modernTitleId: string;
@@ -33,7 +71,7 @@ export interface XboxGameTitle {
     xboxLiveTier: string;
 }
 
-export interface XboxStatsItem {
+export interface XboxMinutesPlayedStatsItem {
     groupproperties: Record<string, unknown>;
     // User's XUID
     xuid: string;
@@ -44,4 +82,14 @@ export interface XboxStatsItem {
     type: string;
     value?: string;
     properties: Record<string, unknown>;
+}
+
+export interface XboxBatchMinutesPlayedResponse {
+    groups: unknown[];
+    // If only MinutesPlayed are being requested, this is a single item list.
+    statlistscollection: {
+        arrangebyfield: string;
+        arrangebyfieldid: string;
+        stats: XboxMinutesPlayedStatsItem[];
+    }[];
 }

@@ -16,6 +16,7 @@ import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { HttpStatusCode } from "axios";
 import { ImporterResponseItemDto } from "./dto/importer-response-item.dto";
 import { ExternalGameService } from "../game/external-game/external-game.service";
+import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
 
 @Injectable()
 export class ImporterService {
@@ -28,6 +29,7 @@ export class ImporterService {
         private readonly steamSyncService: SteamSyncService,
         private readonly externalGameService: ExternalGameService,
         private readonly psnSyncService: PsnSyncService,
+        private readonly xboxSyncService: XboxSyncService,
     ) {}
 
     private async getProcessedEntries(
@@ -172,6 +174,67 @@ export class ImporterService {
         });
     }
 
+    public async findUnprocessedXboxEntries(userId: string) {
+        const processedEntries = await this.getProcessedEntries(userId);
+
+        const ignoredExternalGamesIds = processedEntries.map((entry) => {
+            return entry.gameExternalGameId;
+        });
+
+        const userConnection =
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.XBOX,
+            );
+
+        if (!userConnection.isImporterEnabled) {
+            throw new HttpException(
+                "Steam connection importing is disabled.",
+                HttpStatus.PRECONDITION_FAILED,
+            );
+        }
+
+        const allGames = await this.xboxSyncService.getAllGames(
+            userConnection.sourceUserId,
+        );
+
+        const sourceUids = allGames.map((game) => game.productId);
+
+        const externalGames =
+            await this.externalGameService.getExternalGamesForSourceIds(
+                sourceUids,
+                EGameExternalGameCategory.Microsoft,
+            );
+
+        const filteredGames = externalGames.filter(
+            (externalGame) =>
+                !ignoredExternalGamesIds.includes(externalGame.id),
+        );
+
+        return filteredGames.map((externalGame): ImporterResponseItemDto => {
+            const relatedOriginalGame = allGames.find(
+                (game) => game.productId === externalGame.uid,
+            )!;
+
+            /*
+             * @see GamePlatform#id
+             */
+            let targetPlatformId: number;
+            if (relatedOriginalGame.mediaItemType === "Xbox360Game") {
+                targetPlatformId = 12;
+            } else if (relatedOriginalGame.devices.includes("XboxSeries")) {
+                targetPlatformId = 169;
+            } else {
+                targetPlatformId = 49;
+            }
+
+            return {
+                ...externalGame,
+                preferredPlatformId: targetPlatformId,
+            };
+        });
+    }
+
     public async findUnprocessedEntries(
         userId: string,
         source: EImporterSource,
@@ -184,6 +247,9 @@ export class ImporterService {
                 break;
             case EImporterSource.PSN:
                 entries = await this.findUnprocessedPsnEntries(userId);
+                break;
+            case EImporterSource.XBOX:
+                entries = await this.findUnprocessedXboxEntries(userId);
                 break;
             default:
                 throw new HttpException(

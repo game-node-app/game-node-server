@@ -2,8 +2,6 @@ import { EConnectionType } from "../connections/connections.constants";
 import { UserPlaytimeSource } from "./playtime.constants";
 import { UserPlaytime } from "./entity/user-playtime.entity";
 import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
-import { EGameExternalGameCategory } from "../game/game-repository/game-repository.constants";
-import { match } from "ts-pattern";
 
 export function connectionToPlaytimeSource(connectionType: EConnectionType) {
     switch (connectionType) {
@@ -11,6 +9,8 @@ export function connectionToPlaytimeSource(connectionType: EConnectionType) {
             return UserPlaytimeSource.PSN;
         case EConnectionType.STEAM:
             return UserPlaytimeSource.STEAM;
+        case EConnectionType.XBOX:
+            return UserPlaytimeSource.XBOX;
     }
 }
 

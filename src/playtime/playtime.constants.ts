@@ -1,6 +1,7 @@
 export enum UserPlaytimeSource {
     STEAM = "steam",
     PSN = "psn",
+    XBOX = "xbox",
     EPICGAMES = "epicgames",
     GOG = "gog",
     BATTLENET = "battlenet",
