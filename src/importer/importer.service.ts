@@ -17,6 +17,8 @@ import { HttpStatusCode } from "axios";
 import { ImporterResponseItemDto } from "./dto/importer-response-item.dto";
 import { ExternalGameService } from "../game/external-game/external-game.service";
 import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
+import { toMap } from "../utils/toMap";
+import { ImporterSearchService } from "./importer-search/importer-search.service";
 
 @Injectable()
 export class ImporterService {
@@ -25,6 +27,7 @@ export class ImporterService {
         private readonly processedEntryRepository: Repository<ImporterProcessedEntry>,
         @InjectRepository(ImporterIgnoredEntry)
         private readonly ignoredEntryRepository: Repository<ImporterIgnoredEntry>,
+        private readonly importerSearchService: ImporterSearchService,
         private readonly connectionsService: ConnectionsService,
         private readonly steamSyncService: SteamSyncService,
         private readonly externalGameService: ExternalGameService,
@@ -265,16 +268,27 @@ export class ImporterService {
             );
         }
 
-        const { offset, limit } = dto;
+        const uniqueEntriesMap = toMap(entries, "gameId");
+        const uniqueEntries = Array.from(uniqueEntriesMap.values());
+
+        const { offset, limit, search } = dto;
         const offsetToUse = offset || 0;
         const limitToUse = limit || 20;
 
-        const slicedEntries = entries.slice(
+        if (search) {
+            const searchResults = await this.importerSearchService.search(
+                uniqueEntries,
+                search,
+            );
+            return [searchResults, searchResults.length];
+        }
+
+        const slicedEntries = uniqueEntries.slice(
             offsetToUse,
             offsetToUse + limitToUse,
         );
 
-        return [slicedEntries, entries.length];
+        return [slicedEntries, uniqueEntries.length];
     }
 
     public async changeStatus(
