@@ -44,6 +44,24 @@ export class ConnectionsController {
         );
     }
 
+    @Get("user/:userId")
+    @Public()
+    async findAllByUserId(@Param("userId") userId: string) {
+        return this.connectionsService.findAllByUserId(userId);
+    }
+
+    @Get("user/:userId/:type")
+    @Public()
+    async findOneByUserIdAndType(
+        @Param("userId") userId: string,
+        @Param("type") type: EConnectionType,
+    ) {
+        return this.connectionsService.findOneByUserIdAndTypeOrFail(
+            userId,
+            type,
+        );
+    }
+
     @Post()
     async createOrUpdate(
         @Session() session: SessionContainer,

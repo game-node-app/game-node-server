@@ -9,6 +9,7 @@ import { SteamSyncModule } from "../sync/steam/steam-sync.module";
 import { PsnSyncModule } from "../sync/psn/psn-sync.module";
 import { ExternalGameModule } from "../game/external-game/external-game.module";
 import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
+import { ImporterSearchService } from './importer-search/importer-search.service';
 
 @Module({
     imports: [
@@ -22,7 +23,7 @@ import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
         XboxSyncModule,
         ExternalGameModule,
     ],
-    providers: [ImporterService],
+    providers: [ImporterService, ImporterSearchService],
     controllers: [ImporterController],
     exports: [ImporterService],
 })

@@ -30,6 +30,7 @@ import {
 import { CursorPaginationInterceptor } from "../interceptor/cursor-pagination.interceptor";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import { Public } from "../auth/public.decorator";
+import { SuspensionGuard } from "../suspension/suspension.guard";
 
 @Controller("posts/repository")
 @ApiTags("posts")
@@ -54,6 +55,7 @@ export class PostsController {
     }
 
     @Post()
+    @UseGuards(SuspensionGuard)
     async create(
         @Session() session: SessionContainer,
         @Body() dto: CreatePostDto,
@@ -65,6 +67,7 @@ export class PostsController {
     @ApiConsumes("multipart/form-data")
     @UseInterceptors(FileInterceptor("file"))
     @UseGuards(ThrottlerGuard)
+    @UseGuards(SuspensionGuard)
     async uploadPostImage(
         @Session() session: SessionContainer,
         @Body() dto: UploadPostImageRequestDto,

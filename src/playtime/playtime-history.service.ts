@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
-import { Repository } from "typeorm";
+import { Between, Repository } from "typeorm";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
 import { UserPlaytimeSource } from "./playtime.constants";
+import dayjs from "dayjs";
 
 @Injectable()
 export class PlaytimeHistoryService {
@@ -13,6 +14,20 @@ export class PlaytimeHistoryService {
     ) {}
 
     public async save(playtime: CreateUserPlaytimeDto) {
+        const dayStart = dayjs().startOf("day");
+        const dayEnd = dayStart.endOf("day");
+
+        const existsInDay = await this.playtimeHistoryRepository.existsBy({
+            profileUserId: playtime.profileUserId,
+            source: playtime.source,
+            gameId: playtime.gameId,
+            createdAt: Between(dayStart.toDate(), dayEnd.toDate()),
+        });
+
+        if (existsInDay) {
+            return;
+        }
+
         await this.playtimeHistoryRepository.insert({
             ...playtime,
             id: undefined,

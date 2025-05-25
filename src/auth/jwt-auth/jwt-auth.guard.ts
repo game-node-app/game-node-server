@@ -18,6 +18,9 @@ import { Reflector } from "@nestjs/core";
 export class JwtAuthGuard implements CanActivate {
     private logger = new Logger(JwtAuthGuard.name);
     private readonly JWKS_URI = `${process.env.DOMAIN_API}/v1/auth/jwt/jwks.json`;
+    private readonly jwksClient = jwksClient({
+        jwksUri: this.JWKS_URI,
+    });
 
     constructor(private readonly reflector: Reflector) {}
 
@@ -26,11 +29,10 @@ export class JwtAuthGuard implements CanActivate {
      * @private
      */
     async getSigningKey(jwtHeader: JwtHeader) {
-        const client = jwksClient({
-            jwksUri: this.JWKS_URI,
-        });
         try {
-            const signingKey = await client.getSigningKey(jwtHeader.kid);
+            const signingKey = await this.jwksClient.getSigningKey(
+                jwtHeader.kid,
+            );
             return signingKey.getPublicKey();
         } catch (e) {
             console.error(e);
