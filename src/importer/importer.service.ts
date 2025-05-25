@@ -277,10 +277,16 @@ export class ImporterService {
 
         if (search) {
             const searchResults = await this.importerSearchService.search(
+                userId,
+                source,
                 uniqueEntries,
                 search,
             );
-            return [searchResults, searchResults.length];
+
+            return [
+                searchResults.slice(offsetToUse, offsetToUse + limitToUse),
+                searchResults.length,
+            ];
         }
 
         const slicedEntries = uniqueEntries.slice(
