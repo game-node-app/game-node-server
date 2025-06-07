@@ -122,10 +122,7 @@ export class BlogPostService {
             );
         }
 
-        if (
-            existingPost != undefined &&
-            existingPost.profileUserId != dto.postId
-        ) {
+        if (existingPost != undefined && existingPost.profileUserId != userId) {
             const hasEditPermission = checkUserHasRole(userId, [
                 EUserRoles.ADMIN,
                 EUserRoles.MOD,
@@ -164,6 +161,10 @@ export class BlogPostService {
             image: postImage,
             tags: tags,
             content: dto.content,
+        });
+
+        await this.blogPostReviewRepository.delete({
+            postId: result.id,
         });
 
         if (dto.reviewInfo) {
