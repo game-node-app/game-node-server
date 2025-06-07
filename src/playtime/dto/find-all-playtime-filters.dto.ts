@@ -30,7 +30,7 @@ export class FindAllPlaytimeFiltersDto extends PickType(BaseFindDto, [
     @IsEnum(PlaytimeFiterPeriod)
     period: PlaytimeFiterPeriod;
     @IsOptional()
-    orderBy: PlaytimeFilterOrderBy = {
+    orderBy?: PlaytimeFilterOrderBy = {
         lastPlayedDate: "DESC",
         recentPlaytimeSeconds: "DESC",
         totalPlaytimeSeconds: "DESC",

@@ -118,15 +118,17 @@ export class PlaytimeService {
             .skip(baseFindOptions.skip)
             .limit(baseFindOptions.take);
 
-        const orderObj: OrderByCondition = {};
+        if (options.orderBy) {
+            const orderObj: OrderByCondition = {};
 
-        for (const [key, v] of Object.entries(options.orderBy)) {
-            if (v) {
-                orderObj[key] = v;
+            for (const [key, v] of Object.entries(options.orderBy)) {
+                if (v) {
+                    orderObj[key] = v;
+                }
             }
-        }
 
-        qb.orderBy(orderObj);
+            qb.orderBy(orderObj);
+        }
 
         qb.setParameters({
             profileUserId: userId,

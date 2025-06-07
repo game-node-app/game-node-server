@@ -13,6 +13,7 @@ import { BaseEntity } from "../../../utils/db/base.entity";
 import { Profile } from "../../../profile/entities/profile.entity";
 import { BlogPostTag } from "./blog-post-tag.entity";
 import { BlogPostImage } from "./blog-post-image.entity";
+import { BlogPostReview } from "./blog-post-review.entity";
 
 @Entity()
 @Index(["id", "createdAt", "isDraft"])
@@ -54,11 +55,17 @@ export class BlogPost extends BaseEntity {
 
     /**
      * The main presentation image for this post.
-     * Optional.
      */
     @OneToOne(() => BlogPostImage, {
-        nullable: true,
+        nullable: false,
     })
     @JoinColumn()
-    image: BlogPostImage | null;
+    image: BlogPostImage;
+    /**
+     * If this is present, this blog post is a game review.
+     */
+    @OneToOne(() => BlogPostReview, (bpr) => bpr.post, {
+        nullable: true,
+    })
+    review: BlogPostReview | null;
 }
