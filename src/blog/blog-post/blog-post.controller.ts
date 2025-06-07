@@ -81,7 +81,7 @@ export class BlogPostController {
                         fileType: "image",
                     }),
                     new MaxFileSizeValidator({
-                        maxSize: 5 * 1024 * 1000,
+                        maxSize: 10 * 1024 * 1000,
                     }),
                 ],
             }),

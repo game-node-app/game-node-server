@@ -10,11 +10,13 @@ import { FindAllBlogPostRequestDto } from "./dto/find-blog-post.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { EUserRoles } from "../../utils/constants";
 import { checkUserHasRole } from "../../utils/checkUserHasRole";
+import { BlogPostReview } from "./entity/blog-post-review.entity";
 
 @Injectable()
 export class BlogPostService {
     private readonly relations: FindOptionsRelations<BlogPost> = {
         image: true,
+        review: true,
         tags: true,
     };
 
@@ -25,6 +27,8 @@ export class BlogPostService {
         private readonly blogPostTagRepository: Repository<BlogPostTag>,
         @InjectRepository(BlogPostImage)
         private readonly blogPostImageRepository: Repository<BlogPostImage>,
+        @InjectRepository(BlogPostReview)
+        private readonly blogPostReviewRepository: Repository<BlogPostReview>,
         private readonly uploadService: UploadService,
     ) {}
 
@@ -84,25 +88,41 @@ export class BlogPostService {
         });
     }
 
-    public async createOrUpdate(
+    private async validateCreateUpdate(
         userId: string,
-        dto: Omit<CreateUpdateBlogPostDto, "image">,
+        dto: CreateUpdateBlogPostDto,
         image: Express.Multer.File | undefined,
     ) {
-        const tags = await this.processTags(dto.tags);
-        let postImage: BlogPostImage | undefined;
-        if (image) {
-            postImage = await this.processImage(userId, image);
+        const hasReviewTag = dto.tags.some(
+            (tag) => tag.toLowerCase() === "review",
+        );
+
+        if (dto.reviewInfo != undefined && !hasReviewTag) {
+            throw new HttpException(
+                "Reviews must have a review tag set.",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        if (dto.reviewInfo == undefined && hasReviewTag) {
+            throw new HttpException(
+                "Reviews must have review info set.",
+                HttpStatus.BAD_REQUEST,
+            );
         }
 
         const existingPost = await this.blogPostRepository.findOneBy({
             id: dto.postId,
         });
 
-        if (
-            existingPost != undefined &&
-            existingPost.profileUserId != dto.postId
-        ) {
+        if (existingPost == undefined && image == undefined) {
+            throw new HttpException(
+                "A post must have an associated image.",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        if (existingPost != undefined && existingPost.profileUserId != userId) {
             const hasEditPermission = checkUserHasRole(userId, [
                 EUserRoles.ADMIN,
                 EUserRoles.MOD,
@@ -114,6 +134,24 @@ export class BlogPostService {
                 );
             }
         }
+    }
+
+    public async createOrUpdate(
+        userId: string,
+        dto: Omit<CreateUpdateBlogPostDto, "image">,
+        image: Express.Multer.File | undefined,
+    ) {
+        await this.validateCreateUpdate(userId, dto, image);
+
+        const existingPost = await this.blogPostRepository.findOneBy({
+            id: dto.postId,
+        });
+
+        const tags = await this.processTags(dto.tags);
+        let postImage: BlogPostImage | undefined;
+        if (image) {
+            postImage = await this.processImage(userId, image);
+        }
 
         const result = await this.blogPostRepository.save({
             id: dto.postId,
@@ -124,6 +162,18 @@ export class BlogPostService {
             tags: tags,
             content: dto.content,
         });
+
+        await this.blogPostReviewRepository.delete({
+            postId: result.id,
+        });
+
+        if (dto.reviewInfo) {
+            await this.blogPostReviewRepository.save({
+                postId: result.id,
+                gameId: dto.reviewInfo.gameId,
+                rating: dto.reviewInfo.rating,
+            });
+        }
 
         return result.id;
     }

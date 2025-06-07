@@ -3,14 +3,25 @@ import {
     ArrayMinSize,
     IsArray,
     IsNotEmpty,
+    IsNumber,
     IsOptional,
+    IsPositive,
     IsString,
     Length,
+    Max,
     MinLength,
 } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
 import { ToBoolean } from "../../../utils/toBoolean";
+
+export class CreateUpdateBlogPostReviewInfoDto {
+    @IsNumber()
+    gameId: number;
+    @IsPositive()
+    @Max(5)
+    rating: number;
+}
 
 export class CreateUpdateBlogPostDto {
     @IsOptional()
@@ -48,4 +59,7 @@ export class CreateUpdateBlogPostDto {
     @IsNotEmpty()
     @ToBoolean()
     isDraft: boolean;
+    @IsOptional()
+    @Transform(({ value }) => JSON.parse(value))
+    reviewInfo?: CreateUpdateBlogPostReviewInfoDto;
 }
