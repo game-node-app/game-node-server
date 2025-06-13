@@ -75,8 +75,12 @@ export class StatisticsController {
     })
     @HttpCode(HttpStatus.OK)
     @Public()
-    async findTrendingReviews(@Body() dto: FindStatisticsTrendingReviewsDto) {
+    async findTrendingReviews(
+        @Session() session: SessionContainer | undefined,
+        @Body() dto: FindStatisticsTrendingReviewsDto,
+    ) {
         return (await this.statisticsTrendingService.findTrendingReviews(
+            session?.getUserId(),
             dto,
         )) as unknown as ReviewStatisticsPaginatedResponseDto;
     }

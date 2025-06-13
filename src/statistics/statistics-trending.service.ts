@@ -3,7 +3,6 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { GameStatistics } from "./entity/game-statistics.entity";
 import { Repository } from "typeorm";
 import { ReviewStatistics } from "./entity/review-statistics.entity";
-import { Cacheable } from "../utils/cacheable";
 import { hours } from "@nestjs/throttler";
 import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
@@ -22,6 +21,7 @@ import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-g
 import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 import isEmptyObject from "../utils/isEmptyObject";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
+import { getManyAndCount } from "../utils/pagination/getManyAndCount";
 
 @Injectable()
 export class StatisticsTrendingService {
@@ -69,10 +69,12 @@ export class StatisticsTrendingService {
 
     /**
      * Finds trending reviews, giving preference to a specific review (if provided) by boosting it to the top.
+     * @param userId
      * @param dto
      */
-    @Cacheable(StatisticsTrendingService.name, hours(1))
+    // @Cacheable(StatisticsTrendingService.name, hours(1))
     public async findTrendingReviews(
+        userId: string | undefined,
         dto: FindStatisticsTrendingReviewsDto,
     ): Promise<TPaginationData<ReviewStatistics>> {
         const baseFindOptions = buildBaseFindOptions<ReviewStatistics>(dto);
@@ -94,7 +96,7 @@ export class StatisticsTrendingService {
 
         const statisticsQuery = this.reviewStatisticsRepository
             .createQueryBuilder("rs")
-            .addSelect("IFNULL(in_period.total, 0) AS likes_in_period")
+            .addSelect("IFNULL(in_period.total, 0)", "likes_in_period")
             .leftJoin(
                 `(${likesInPeriodSubQuery.getQuery()})`,
                 "in_period",
@@ -109,6 +111,9 @@ export class StatisticsTrendingService {
         }
         if (dto.gameId) {
             statisticsQuery.andWhere("r.gameId = :gameId");
+        }
+        if (dto.excludeOwn && userId != undefined && userId !== dto.userId) {
+            statisticsQuery.andWhere("r.profileUserId != :ownUserId");
         }
 
         // Build the ordering:
@@ -130,9 +135,10 @@ export class StatisticsTrendingService {
             userId: dto.userId,
             gameId: dto.gameId,
             reviewId: dto.reviewId,
+            ownUserId: userId,
         });
 
-        return await statisticsQuery.getManyAndCount();
+        return await getManyAndCount(statisticsQuery);
     }
 
     async findTrendingGames(
