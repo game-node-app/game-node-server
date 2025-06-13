@@ -11,6 +11,7 @@ import { Profile } from "../profile/entities/profile.entity";
 import { GetAchievementsRequestDto } from "./dto/get-achievements-request.dto";
 import { UpdateFeaturedObtainedAchievementDto } from "./dto/update-featured-obtained-achievement.dto";
 import { LevelService } from "../level/level.service";
+import { ObtainedAchievementDto } from "./dto/obtained-achivement-request.dto";
 
 function validateAchievements() {
     achievementsData.forEach((achievement, index, array) => {
@@ -37,6 +38,19 @@ function validateAchievements() {
             );
         }
     });
+}
+
+function toObtainedAchievementDto(
+    obtainedAchievement: ObtainedAchievement,
+): ObtainedAchievementDto {
+    const relatedAchievement = achievementsData.find(
+        (achievement) => achievement.id === obtainedAchievement.achievementId,
+    )!;
+
+    return {
+        ...obtainedAchievement,
+        achievement: relatedAchievement,
+    };
 }
 
 @Injectable()
@@ -127,24 +141,34 @@ export class AchievementsService {
             },
         );
 
-        if (achievement) return achievement;
+        if (achievement) return toObtainedAchievementDto(achievement);
 
         throw new HttpException("User has not obtained this achievement.", 404);
     }
 
     async getObtainedAchievementsByUserId(targetUserId: string) {
-        return this.obtainedAchievementsRepository.findBy({
-            profile: {
-                userId: targetUserId,
-            },
-        });
+        const obtainedAchievements =
+            await this.obtainedAchievementsRepository.findBy({
+                profile: {
+                    userId: targetUserId,
+                },
+            });
+
+        return obtainedAchievements.map(toObtainedAchievementDto);
     }
 
     async getFeaturedAchievement(userId: string) {
-        return await this.obtainedAchievementsRepository.findOneBy({
-            profileUserId: userId,
-            isFeatured: true,
-        });
+        const featuredAchievement =
+            await this.obtainedAchievementsRepository.findOneBy({
+                profileUserId: userId,
+                isFeatured: true,
+            });
+
+        if (featuredAchievement) {
+            return toObtainedAchievementDto(featuredAchievement);
+        }
+
+        return null;
     }
 
     async updateFeaturedObtainedAchievement(
@@ -198,6 +222,7 @@ export class AchievementsService {
                     targetUserId,
                     achievementId,
                 );
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error: unknown) {}
 
         if (existingAchievement) {
