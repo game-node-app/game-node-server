@@ -24,6 +24,8 @@ export async function getManyAndCount<T extends ObjectLiteral>(
     countQuery
         .skip(undefined)
         .take(undefined)
+        .limit(undefined)
+        .offset(undefined)
         .orderBy()
         .select(`COUNT(DISTINCT ${qb.alias}.${countField})`, "cnt");
 
