@@ -101,8 +101,8 @@ export class StatisticsTrendingService {
                 "in_period.reviewStatisticsId = rs.id",
             )
             .innerJoinAndSelect(Review, "r", "r.id = rs.reviewId")
-            .skip(baseFindOptions.skip)
-            .limit(baseFindOptions.take);
+            .take(baseFindOptions.take)
+            .skip(baseFindOptions.skip);
 
         if (dto.userId) {
             statisticsQuery.andWhere("r.profileUserId = :userId");
