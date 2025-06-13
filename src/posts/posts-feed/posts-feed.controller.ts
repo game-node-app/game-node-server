@@ -1,8 +1,6 @@
 import {
-    Body,
     Controller,
     Get,
-    Post,
     Query,
     UseGuards,
     UseInterceptors,
@@ -14,7 +12,7 @@ import { Public } from "../../auth/public.decorator";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { GetPostsFeedDto } from "./dto/get-posts-feed.dto";
-import { GetPostsPaginatedReponseDto } from "../dto/get-posts.dto";
+import { GetPostsPaginatedResponseDto } from "../dto/get-posts.dto";
 import { CursorPaginationInterceptor } from "../../interceptor/cursor-pagination.interceptor";
 
 @Controller("posts/feed")
@@ -26,7 +24,7 @@ export class PostsFeedController {
     @Get()
     @UseInterceptors(CursorPaginationInterceptor)
     @ApiOkResponse({
-        type: GetPostsPaginatedReponseDto,
+        type: GetPostsPaginatedResponseDto,
     })
     @Public()
     async buildFeed(

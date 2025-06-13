@@ -24,7 +24,7 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
 import { HttpStatusCode } from "axios";
 import {
-    GetPostsPaginatedReponseDto,
+    GetPostsPaginatedResponseDto,
     GetPostsRequestDto,
 } from "./dto/get-posts.dto";
 import { CursorPaginationInterceptor } from "../interceptor/cursor-pagination.interceptor";
@@ -42,7 +42,7 @@ export class PostsController {
     @Public()
     @UseInterceptors(CursorPaginationInterceptor)
     @ApiOkResponse({
-        type: GetPostsPaginatedReponseDto,
+        type: GetPostsPaginatedResponseDto,
     })
     async findAllWithPagination(@Query() dto: GetPostsRequestDto) {
         return this.postsService.findAllPaginated(dto);

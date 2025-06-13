@@ -8,6 +8,6 @@ export class GetPostsRequestDto extends BaseCursorFindDto {
     profileUserId?: string;
 }
 
-export class GetPostsPaginatedReponseDto extends CursorPaginationResponseDto {
+export class GetPostsPaginatedResponseDto extends CursorPaginationResponseDto {
     declare data: Post[];
 }

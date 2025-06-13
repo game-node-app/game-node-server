@@ -9,6 +9,7 @@ import { BaseFindDto } from "../../utils/base-find.dto";
 import { Statistics } from "../entity/statistics.entity";
 import { StatisticsPeriod } from "../statistics.constants";
 import { OmitType } from "@nestjs/swagger";
+import { ToBoolean } from "../../utils/toBoolean";
 
 export class FindStatisticsTrendingReviewsDto extends OmitType(
     BaseFindDto<Statistics>,
@@ -31,4 +32,7 @@ export class FindStatisticsTrendingReviewsDto extends OmitType(
     @IsOptional()
     @IsEnum(StatisticsPeriod)
     period: StatisticsPeriod = StatisticsPeriod.ALL;
+    @IsOptional()
+    @ToBoolean()
+    excludeOwn?: boolean = false;
 }
