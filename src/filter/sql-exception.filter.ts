@@ -21,9 +21,9 @@ const isMySQLException = (err: Error): err is MySQLError => {
 @Catch(TypeORMError)
 export class SQLExceptionFilter implements ExceptionFilter {
     catch(exception: Error, host: ArgumentsHost) {
+        console.error(exception);
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
-
         response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
             statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
             message: isMySQLException(exception)

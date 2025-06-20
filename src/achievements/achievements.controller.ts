@@ -59,10 +59,15 @@ export class AchievementsController {
         @Query() queryDto: GetObtainedAchievementRequestDto,
     ) {
         return this.achievementsService.getObtainedAchievementsByUserId(
-            queryDto.targetUserId,
+            queryDto,
         );
     }
 
+    /**
+     * @deprecated - old API when only one featured achievement was possible <br >
+     * prefer AchievementsController#getAllObtainedAchievements
+     * @param userId
+     */
     @Get(":userId/featured")
     @Public()
     public getFeaturedAchievementForUserId(@Param("userId") userId: string) {

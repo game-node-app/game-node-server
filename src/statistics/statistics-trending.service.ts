@@ -120,7 +120,11 @@ export class StatisticsTrendingService {
         // If a reviewId is provided, use a CASE expression to bring that review to the top.
         if (dto.reviewId) {
             statisticsQuery
-                .orderBy(`CASE WHEN r.id = :reviewId THEN 0 ELSE 1 END`, "ASC")
+                .addSelect(
+                    "CASE WHEN r.id = :reviewId THEN 0 ELSE 1 END",
+                    "priority",
+                )
+                .orderBy(`priority`, "ASC")
                 .addOrderBy("likes_in_period", "DESC")
                 .addOrderBy("r.createdAt", "DESC");
         } else {
@@ -137,6 +141,8 @@ export class StatisticsTrendingService {
             reviewId: dto.reviewId,
             ownUserId: userId,
         });
+
+        const sql = statisticsQuery.getQuery();
 
         return await getManyAndCount(statisticsQuery);
     }

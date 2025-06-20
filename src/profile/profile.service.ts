@@ -235,6 +235,7 @@ export class ProfileService {
             profile.username = updateProfileDto.username;
             profile.usernameLastUpdatedAt = new Date();
         }
+        profile.bio = updateProfileDto.bio ?? profile.bio;
 
         await this.profileRepository.save(profile);
     }
