@@ -112,7 +112,8 @@ export class ProfileMetricsDistributionService {
                     );
 
                     const releaseDate = relatedGame.firstReleaseDate;
-                    if (!releaseDate) continue;
+                    if (!releaseDate || !(releaseDate instanceof Date))
+                        continue;
                     const releaseYear = releaseDate.getFullYear();
 
                     const previousData =

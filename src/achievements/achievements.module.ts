@@ -11,6 +11,7 @@ import { LevelModule } from "../level/level.module";
 import { AchievementsCodeService } from "./achievements-code.service";
 import { AchievementsCodeController } from "./achievements-code.controller";
 import { AchievementCode } from "./entities/achievement-code.entity";
+import { AchievementsV2Controller } from './v2/achievements-v2.controller';
 
 @Module({
     imports: [
@@ -20,7 +21,7 @@ import { AchievementCode } from "./entities/achievement-code.entity";
         }),
         LevelModule,
     ],
-    controllers: [AchievementsController, AchievementsCodeController],
+    controllers: [AchievementsController, AchievementsCodeController, AchievementsV2Controller],
     providers: [
         AchievementsService,
         AchievementsQueueService,

@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
-import { DataSource, Not, Repository } from "typeorm";
+import { DataSource, In, Not, Repository } from "typeorm";
 import { achievementsData } from "./data/achievements.data";
 import { Achievement } from "./models/achievement.model";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
@@ -9,9 +9,16 @@ import { listToPaginationData } from "../utils/pagination/listToPaginationData";
 import { AchievementCategory } from "./achievements.constants";
 import { Profile } from "../profile/entities/profile.entity";
 import { GetAchievementsRequestDto } from "./dto/get-achievements-request.dto";
-import { UpdateFeaturedObtainedAchievementDto } from "./dto/update-featured-obtained-achievement.dto";
+import {
+    UpdateFeaturedObtainedAchievementDto,
+    UpdateFeaturedObtainedAchievementV2Dto,
+} from "./dto/update-featured-obtained-achievement.dto";
 import { LevelService } from "../level/level.service";
-import { ObtainedAchievementDto } from "./dto/obtained-achivement-request.dto";
+import {
+    GetObtainedAchievementRequestDto,
+    ObtainedAchievementDto,
+} from "./dto/obtained-achivement-request.dto";
+import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 
 function validateAchievements() {
     achievementsData.forEach((achievement, index, array) => {
@@ -129,9 +136,6 @@ export class AchievementsService {
         targetUserId: string,
         achievementId: string,
     ) {
-        if (!targetUserId) {
-            throw new HttpException("", 404);
-        }
         const achievement = await this.obtainedAchievementsRepository.findOneBy(
             {
                 profile: {
@@ -146,17 +150,29 @@ export class AchievementsService {
         throw new HttpException("User has not obtained this achievement.", 404);
     }
 
-    async getObtainedAchievementsByUserId(targetUserId: string) {
+    async getObtainedAchievementsByUserId(
+        dto: GetObtainedAchievementRequestDto,
+    ) {
+        const baseFindOptions = buildBaseFindOptions(dto);
+
         const obtainedAchievements =
-            await this.obtainedAchievementsRepository.findBy({
-                profile: {
-                    userId: targetUserId,
+            await this.obtainedAchievementsRepository.find({
+                ...baseFindOptions,
+                where: {
+                    profile: {
+                        userId: dto.targetUserId,
+                    },
+                    isFeatured: dto.isFeatured,
                 },
             });
 
         return obtainedAchievements.map(toObtainedAchievementDto);
     }
 
+    /**
+     * @deprecated - old API when only one featured achievement was possible
+     * @param userId
+     */
     async getFeaturedAchievement(userId: string) {
         const featuredAchievement =
             await this.obtainedAchievementsRepository.findOneBy({
@@ -171,6 +187,12 @@ export class AchievementsService {
         return null;
     }
 
+    /**
+     * @deprecated - old API when only one featured achievement was possible
+     * @param userId
+     * @param achievementId
+     * @param dto
+     */
     async updateFeaturedObtainedAchievement(
         userId: string,
         achievementId: string,
@@ -189,6 +211,7 @@ export class AchievementsService {
                 isFeatured: dto.isFeatured,
             },
         );
+
         /**
          * Disables isFeatured flag of any other obtained achievement
          */
@@ -204,6 +227,37 @@ export class AchievementsService {
                 },
             );
         }
+    }
+
+    /**
+     * Marks provided achievements ids as featured for a user,
+     * and automatically disables the isFeatured flag from everything else.
+     * @param userId
+     * @param dto
+     */
+    async updateFeaturedObtainedAchievements(
+        userId: string,
+        dto: UpdateFeaturedObtainedAchievementV2Dto,
+    ) {
+        await this.obtainedAchievementsRepository.update(
+            {
+                achievementId: In(dto.featuredAchievementIds),
+                profileUserId: userId,
+            },
+            {
+                isFeatured: true,
+            },
+        );
+
+        await this.obtainedAchievementsRepository.update(
+            {
+                achievementId: Not(In(dto.featuredAchievementIds)),
+                profileUserId: userId,
+            },
+            {
+                isFeatured: false,
+            },
+        );
     }
 
     async grantAchievement(targetUserId: string, achievementId: string) {
