@@ -8,10 +8,15 @@ import { GamePlatform } from "../../game/game-repository/entities/game-platform.
 import { AchievementsModule } from "../../achievements/achievements.module";
 import { LevelModule } from "../../level/level.module";
 import { CollectionsModule } from "../collections.module";
+import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([CollectionEntry, GamePlatform]),
+        TypeOrmModule.forFeature([
+            CollectionEntry,
+            GamePlatform,
+            CollectionEntryToCollection,
+        ]),
         ActivitiesQueueModule,
         AchievementsModule,
         LevelModule,

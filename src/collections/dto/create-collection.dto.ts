@@ -1,4 +1,7 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { ToBoolean } from "../../utils/toBoolean";
+import { CollectionEntryStatus } from "../collections-entries/collections-entries.constants";
+import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateCollectionDto {
     @IsString()
@@ -8,12 +11,15 @@ export class CreateCollectionDto {
     @IsOptional()
     description?: string;
     @IsOptional()
-    @IsBoolean()
-    isPublic: boolean;
+    @ToBoolean()
+    isPublic?: boolean = true;
     @IsOptional()
-    @IsBoolean()
-    isFeatured: boolean;
+    @ToBoolean()
+    isFeatured?: boolean = false;
     @IsOptional()
-    @IsBoolean()
-    isFinished: boolean;
+    @IsString()
+    @ApiProperty({
+        type: "string",
+    })
+    defaultEntryStatus?: CollectionEntryStatus | null;
 }

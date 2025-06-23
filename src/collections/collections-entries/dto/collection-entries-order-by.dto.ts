@@ -9,4 +9,8 @@ export class FindCollectionEntriesOrderBy {
         type: "string",
     })
     releaseDate?: "ASC" | "DESC";
+    @ApiPropertyOptional({
+        type: "string",
+    })
+    userCustom?: "ASC" | "DESC";
 }

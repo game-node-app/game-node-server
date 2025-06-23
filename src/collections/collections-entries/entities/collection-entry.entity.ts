@@ -5,39 +5,35 @@ import {
     JoinTable,
     ManyToMany,
     ManyToOne,
-    OneToOne,
+    OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { Collection } from "../../entities/collection.entity";
 import { Game } from "../../../game/game-repository/entities/game.entity";
 import { GamePlatform } from "../../../game/game-repository/entities/game-platform.entity";
-import { Review } from "../../../reviews/entities/review.entity";
+import { CollectionEntryToCollection } from "./collection-entry-to-collection.entity";
+import { Expose } from "class-transformer";
+import { CollectionEntryStatus } from "../collections-entries.constants";
+import { ApiProperty } from "@nestjs/swagger";
 
-@Entity()
 /**
- * Represents an entry in a collection. <br>
- * Each CollectionEntry corresponds to a single game.
+ * Represents an entry (game) in one or multiple collections. <br>
+ * Each CollectionEntry corresponds to a single game, but may be available in multiple collections.
  * @class CollectionEntry
  */
+@Entity()
 export class CollectionEntry {
+    @Expose()
     @PrimaryGeneratedColumn("uuid")
     id: string;
-
-    @ManyToMany(() => Collection, (collection) => collection.entries, {
-        nullable: false,
-        onDelete: "CASCADE",
-    })
-    @JoinTable()
-    collections: Collection[];
-
     @ManyToOne(() => Game, {
         nullable: false,
     })
     game: Game;
+    @Expose()
     @Column({ nullable: false })
     gameId: number;
-
     /**
      * The platforms on which the user owns the game.
      */
@@ -45,27 +41,69 @@ export class CollectionEntry {
         nullable: false,
     })
     @JoinTable()
+    @Expose()
     ownedPlatforms: GamePlatform[];
 
-    @OneToOne(() => Review, (review) => review.collectionEntry, {
-        nullable: true,
+    @OneToMany(() => CollectionEntryToCollection, (map) => map.collectionEntry)
+    collectionsMap: CollectionEntryToCollection[];
+
+    @Expose()
+    @ApiProperty({
+        type: () => Collection, // important: wrap in function to avoid circular refs
+        description: "Collections this entry belongs to",
+        required: true,
+        isArray: true,
     })
-    review: Review | null;
+    public get collections(): Collection[] {
+        return this.collectionsMap?.map((map) => map.collection) ?? [];
+    }
 
     @Column({
         default: false,
     })
+    @Expose()
     isFavorite: boolean;
+    @Column({
+        nullable: false,
+        default: CollectionEntryStatus.PLANNED,
+        type: "varchar",
+    })
+    @Expose()
+    status: CollectionEntryStatus;
 
     @Column({
         nullable: true,
         type: "timestamp",
     })
+    @Expose()
     finishedAt: Date | null;
 
+    @Column({
+        nullable: true,
+        type: "timestamp",
+    })
+    @Expose()
+    startedAt: Date | null;
+
+    @Column({
+        nullable: true,
+        type: "timestamp",
+    })
+    @Expose()
+    droppedAt: Date | null;
+
+    @Column({
+        nullable: true,
+        type: "timestamp",
+    })
+    @Expose()
+    plannedAt: Date | null;
+
     @CreateDateColumn()
+    @Expose()
     createdAt: Date;
 
     @UpdateDateColumn()
+    @Expose()
     updatedAt: Date;
 }

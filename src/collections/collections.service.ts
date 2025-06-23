@@ -123,13 +123,8 @@ export class CollectionsService {
     }
 
     async create(userId: string, createCollectionDto: CreateCollectionDto) {
-        const userLibrary = await this.librariesService.findOneById(userId);
-        if (!userLibrary) {
-            throw new HttpException(
-                "User has no library defined.",
-                HttpStatus.PRECONDITION_REQUIRED,
-            );
-        }
+        const userLibrary =
+            await this.librariesService.findOneByIdOrFail(userId);
 
         if (createCollectionDto.isFeatured && !createCollectionDto.isPublic) {
             throw new HttpException(
@@ -142,16 +137,13 @@ export class CollectionsService {
             name: createCollectionDto.name,
             description: createCollectionDto.description,
             library: userLibrary,
+            libraryUserId: userLibrary.userId,
             isPublic: createCollectionDto.isPublic,
             isFeatured: createCollectionDto.isFeatured,
-            isFinished: createCollectionDto.isFinished,
+            defaultEntryStatus: createCollectionDto.defaultEntryStatus,
         });
 
-        try {
-            await this.collectionsRepository.save(collectionEntity);
-        } catch (e) {
-            throw new HttpException(e, 500);
-        }
+        await this.collectionsRepository.save(collectionEntity);
 
         this.achievementsQueueService.addTrackingJob({
             targetUserId: userId,
@@ -168,10 +160,10 @@ export class CollectionsService {
             library: true,
         });
 
-        if (collection.library.userId !== userId) {
+        if (collection.libraryUserId !== userId) {
             throw new HttpException(
                 "User is not the owner of the library.",
-                HttpStatus.NOT_ACCEPTABLE,
+                HttpStatus.FORBIDDEN,
             );
         }
 
@@ -194,15 +186,10 @@ export class CollectionsService {
             updateCollectionDto,
         );
 
-        try {
-            return await this.collectionsRepository.save({
-                ...updatedCollection,
-                id: collection.id,
-            });
-        } catch (e) {
-            console.error(e);
-            throw new HttpException(e, 500);
-        }
+        return await this.collectionsRepository.save({
+            ...updatedCollection,
+            id: collection.id,
+        });
     }
 
     /**
@@ -213,17 +200,9 @@ export class CollectionsService {
     async delete(userId: string, collectionId: string) {
         const collection = await this.collectionsRepository.findOne({
             where: {
-                library: {
-                    userId,
-                },
+                libraryUserId: userId,
                 id: collectionId,
             },
-            relations: {
-                entries: {
-                    collections: true,
-                },
-            },
-            relationLoadStrategy: "query",
         });
         if (!collection) {
             throw new HttpException(
@@ -231,31 +210,9 @@ export class CollectionsService {
                 HttpStatus.NOT_FOUND,
             );
         }
-
-        if (collection.entries.length > 0) {
-            // Only delete entries that are only in this collection
-            const entriesToRemove = collection.entries.filter((entry) => {
-                return entry.collections && entry.collections.length <= 1;
-            });
-
-            for (const collectionEntry of entriesToRemove) {
-                try {
-                    /**
-                     * This needs to be awaited because 'delete' checks if the entry actually belongs to the user, and will fail
-                     * if the code below this for loop executes.
-                     */
-                    await this.collectionEntriesService.delete(
-                        userId,
-                        collectionEntry.id,
-                    );
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-        }
-
         await this.collectionsRepository.delete({
             id: collection.id,
         });
+        await this.collectionEntriesService.deleteDandling();
     }
 }

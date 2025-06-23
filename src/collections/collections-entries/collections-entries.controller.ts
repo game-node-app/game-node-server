@@ -1,5 +1,6 @@
 import {
     Body,
+    ClassSerializerInterceptor,
     Controller,
     Delete,
     Get,
@@ -30,6 +31,7 @@ import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-e
 @Controller("collections-entries")
 @ApiTags("collections-entries")
 @UseGuards(AuthGuard)
+@UseInterceptors(ClassSerializerInterceptor)
 export class CollectionsEntriesController {
     constructor(private collectionsEntriesService: CollectionsEntriesService) {}
 
