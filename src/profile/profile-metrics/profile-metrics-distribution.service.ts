@@ -17,6 +17,7 @@ import {
 import { getGameCategoryName } from "../../game/game-repository/game-repository.utils";
 import { ReviewsService } from "../../reviews/reviews.service";
 import { PlaytimeService } from "../../playtime/playtime.service";
+import dayjs from "dayjs";
 
 @Injectable()
 export class ProfileMetricsDistributionService {
@@ -31,6 +32,14 @@ export class ProfileMetricsDistributionService {
         userId: string,
         dto: ProfileMetricsYearDistributionRequestDto,
     ): Promise<ProfileMetricsYearDistributionResponseDto> {
+        /**
+         * A map connecting a year (number) to a distribution item object.
+         */
+        const distributionMap = new Map<
+            number,
+            ProfileMetricsYearDistributionItem
+        >();
+
         const [collectionEntries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
                 userId,
@@ -49,13 +58,31 @@ export class ProfileMetricsDistributionService {
                 gameIds,
             );
 
-        /**
-         * A map connecting a year (number) to a distribution item object.
-         */
-        const distributionByYearData = new Map<
-            number,
-            ProfileMetricsYearDistributionItem
-        >();
+        const isReviewed = (gameId: number) =>
+            reviewedGames.some((review) => review.gameId === gameId);
+
+        const incrementDistribution = (
+            year: number,
+            count: number,
+            isReviewed: boolean,
+        ) => {
+            const existing = distributionMap.get(year);
+            if (!existing) {
+                distributionMap.set(year, {
+                    year,
+                    count,
+                    reviewedCount: isReviewed ? 1 : 0,
+                });
+                return;
+            }
+            distributionMap.set(year, {
+                year,
+                count: existing.count + count,
+                reviewedCount: isReviewed
+                    ? (existing.reviewedCount ?? 0) + 1
+                    : existing.reviewedCount,
+            });
+        };
 
         switch (dto.by) {
             case ProfileMetricsYearDistributionBy.FINISH_YEAR: {
@@ -64,33 +91,13 @@ export class ProfileMetricsDistributionService {
                 );
 
                 for (const entry of finishedGames) {
-                    const isReviewed = reviewedGames.some(
-                        (review) => review.gameId === entry.gameId,
+                    const finishYear = dayjs(entry.finishedAt).year();
+
+                    incrementDistribution(
+                        finishYear,
+                        1,
+                        isReviewed(entry.gameId),
                     );
-                    const finishDate: Date = entry.finishedAt!;
-                    const finishYear = finishDate.getFullYear();
-
-                    const previousData = distributionByYearData.get(finishYear);
-
-                    if (!previousData) {
-                        distributionByYearData.set(finishYear, {
-                            year: finishYear,
-                            count: 1,
-                            reviewedCount: isReviewed ? 1 : 0,
-                        });
-
-                        continue;
-                    }
-
-                    const updatedData: ProfileMetricsYearDistributionItem = {
-                        ...previousData,
-                        count: previousData.count + 1,
-                        reviewedCount: isReviewed
-                            ? previousData.reviewedCount! + 1
-                            : previousData.reviewedCount,
-                    };
-
-                    distributionByYearData.set(finishYear, updatedData);
                 }
                 break;
             }
@@ -101,84 +108,40 @@ export class ProfileMetricsDistributionService {
                     gameIds: gamesIds,
                 });
 
-                const gamesMap = toMap(games, "id");
-
-                for (const entry of collectionEntries) {
-                    const relatedGame = gamesMap.get(entry.gameId);
-                    // Technically impossible
-                    if (!relatedGame) continue;
-                    const isReviewed = reviewedGames.some(
-                        (review) => review.gameId === entry.gameId,
-                    );
-
-                    const releaseDate = relatedGame.firstReleaseDate;
-                    if (!releaseDate || !(releaseDate instanceof Date))
-                        continue;
-                    const releaseYear = releaseDate.getFullYear();
-
-                    const previousData =
-                        distributionByYearData.get(releaseYear);
-
-                    if (!previousData) {
-                        distributionByYearData.set(releaseYear, {
-                            year: releaseYear,
-                            count: 1,
-                            reviewedCount: isReviewed ? 1 : 0,
-                        });
-
+                for (const game of games) {
+                    if (game.firstReleaseDate == undefined) {
                         continue;
                     }
 
-                    distributionByYearData.set(releaseYear, {
-                        ...previousData,
-                        count: previousData.count + 1,
-                        reviewedCount: isReviewed
-                            ? previousData.reviewedCount! + 1
-                            : previousData.reviewedCount,
-                    });
+                    const releaseYear = dayjs(game.firstReleaseDate).year();
+                    incrementDistribution(releaseYear, 1, isReviewed(game.id));
                 }
 
                 break;
             }
 
             case ProfileMetricsYearDistributionBy.PLAYTIME: {
-                const playtimeMap = await this.playtimeService.getPlaytimesMap(
+                const [playtimes] = await this.playtimeService.findAllByUserId(
                     userId,
-                    gameIds,
+                    {
+                        limit: 9999999,
+                    },
                 );
 
-                for (const collectionEntry of collectionEntries) {
-                    const playtime = playtimeMap.get(collectionEntry.gameId);
+                for (const playtime of playtimes) {
+                    const registeredYear = dayjs(playtime.createdAt).year();
 
-                    if (!playtime) continue;
-
-                    const addedYear = collectionEntry.createdAt.getFullYear();
-
-                    const previousData = distributionByYearData.get(addedYear);
-
-                    if (!previousData) {
-                        distributionByYearData.set(addedYear, {
-                            year: addedYear,
-                            count: playtime.totalPlaytimeSeconds,
-                        });
-                        continue;
-                    }
-
-                    const totalPlaytime =
-                        previousData.count + playtime.totalPlaytimeSeconds;
-
-                    distributionByYearData.set(addedYear, {
-                        ...previousData,
-                        count: totalPlaytime,
-                    });
+                    incrementDistribution(
+                        registeredYear,
+                        playtime.totalPlaytimeSeconds,
+                        false,
+                    );
                 }
-
-                break;
             }
         }
 
         const orderedDistributionItems = Array.from(
-            distributionByYearData.values(),
+            distributionMap.values(),
         ).toSorted((a, b) => {
             return a.year - b.year;
         });
