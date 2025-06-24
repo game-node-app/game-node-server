@@ -12,6 +12,10 @@ export enum ProfileMetricsTypeDistributionBy {
      */
     THEME = "theme",
     /**
+     * Planned, finished, played
+     */
+    STATUS = "status",
+    /**
      * PSN, Xbox, etc
      */
     PLATFORM = "platform",
@@ -43,7 +47,8 @@ export class ProfileMetricsTypeDistributionItem {
 
     /**
      * Total number of items of this criteria that have been 'finished'.
-     * E.g. finished 'adventure' genre games.
+     * E.g. finished 'adventure' genre games. <br >
+     * Not avaiable in {@link ProfileMetricsTypeDistributionBy#STATUS}.
      */
     finishedCount: number;
 }

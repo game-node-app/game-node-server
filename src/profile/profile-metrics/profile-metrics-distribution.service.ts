@@ -192,6 +192,14 @@ export class ProfileMetricsDistributionService {
         userId: string,
         dto: ProfileMetricsTypeDistributionRequestDto,
     ): Promise<ProfileMetricsTypeDistributionResponseDto> {
+        /**
+         * Map connecting a criteriaId (e.g. game genre id) to an item object.
+         */
+        const distributionMap = new Map<
+            number,
+            ProfileMetricsTypeDistributionItem
+        >();
+
         const [collectionEntries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
                 userId,
@@ -204,13 +212,35 @@ export class ProfileMetricsDistributionService {
 
         const gameIds = collectionEntries.map((entry) => entry.gameId);
 
-        /**
-         * Map connecting a criteriaId (e.g. game genre id) to an item object.
-         */
-        const distributionCriteriaIdToData = new Map<
-            number,
-            ProfileMetricsTypeDistributionItem
-        >();
+        const isGameFinished = (gameId: number) =>
+            collectionEntries.some(
+                (entry) => entry.gameId === gameId && !!entry.finishedAt,
+            );
+
+        const incrementDistribution = (
+            id: number,
+            name: string,
+            isFinished: boolean,
+        ) => {
+            const existing = distributionMap.get(id);
+            if (!existing) {
+                distributionMap.set(id, {
+                    criteriaId: id,
+                    criteriaName: name,
+                    count: 1,
+                    finishedCount: isFinished ? 1 : 0,
+                });
+                return;
+            }
+
+            distributionMap.set(id, {
+                ...existing,
+                count: existing.count + 1,
+                finishedCount: isFinished
+                    ? existing.finishedCount + 1
+                    : existing.finishedCount,
+            });
+        };
 
         switch (dto.by) {
             case ProfileMetricsTypeDistributionBy.CATEGORY: {
@@ -221,89 +251,28 @@ export class ProfileMetricsDistributionService {
                 for (const game of games) {
                     const categoryId = game.category.valueOf();
                     const categoryName = getGameCategoryName(categoryId);
-                    const isFinished = collectionEntries.some((entry) => {
-                        return (
-                            entry.gameId === game.id &&
-                            entry.finishedAt != undefined
-                        );
-                    });
-
-                    const previousData =
-                        distributionCriteriaIdToData.get(categoryId);
-                    if (!previousData) {
-                        distributionCriteriaIdToData.set(categoryId, {
-                            criteriaId: categoryId,
-                            criteriaName: categoryName!,
-                            count: 1,
-                            finishedCount: isFinished ? 1 : 0,
-                        });
-                        continue;
-                    }
-
-                    const totalFinishedCount = isFinished
-                        ? previousData.finishedCount + 1
-                        : previousData.finishedCount;
-
-                    distributionCriteriaIdToData.set(categoryId, {
-                        ...previousData,
-                        count: previousData.count + 1,
-                        finishedCount: totalFinishedCount,
-                    });
+                    incrementDistribution(categoryId, categoryName!, false);
                 }
-
                 break;
             }
 
             case ProfileMetricsTypeDistributionBy.GENRE: {
                 const games = await this.gameRepositoryService.findAllByIds({
                     gameIds,
-                    relations: {
-                        genres: true,
-                    },
+                    relations: { genres: true },
                 });
 
                 for (const game of games) {
-                    const isFinished = collectionEntries.some((entry) => {
-                        return (
-                            entry.gameId === game.id &&
-                            entry.finishedAt != undefined
-                        );
-                    });
-
-                    if (!game.genres) {
-                        continue;
-                    }
-
+                    if (!game.genres) continue;
                     for (const genre of game.genres) {
-                        const genreId = genre.id;
-                        const genreName = genre.name;
-                        if (!genreName) continue;
-
-                        const previousData =
-                            distributionCriteriaIdToData.get(genreId);
-
-                        if (!previousData) {
-                            distributionCriteriaIdToData.set(genreId, {
-                                criteriaId: genreId,
-                                criteriaName: genreName,
-                                count: 1,
-                                finishedCount: isFinished ? 1 : 0,
-                            });
-                            continue;
-                        }
-
-                        const totalFinishedCount = isFinished
-                            ? previousData.finishedCount + 1
-                            : previousData.finishedCount;
-
-                        distributionCriteriaIdToData.set(genreId, {
-                            ...previousData,
-                            count: previousData.count + 1,
-                            finishedCount: totalFinishedCount,
-                        });
+                        if (!genre.name) continue;
+                        incrementDistribution(
+                            genre.id,
+                            genre.name,
+                            isGameFinished(game.id),
+                        );
                     }
                 }
-
                 break;
             }
 
@@ -316,38 +285,15 @@ export class ProfileMetricsDistributionService {
                 });
 
                 for (const game of games) {
-                    const isFinished = collectionEntries.some((entry) => {
-                        return (
-                            entry.gameId === game.id &&
-                            entry.finishedAt != undefined
-                        );
-                    });
-
                     for (const mode of game.gameModes!) {
                         if (mode.name == undefined) continue;
-
-                        const previousData = distributionCriteriaIdToData.get(
-                            mode.id,
+                        const criteriaId = mode.id;
+                        const criteriaName = mode.name;
+                        incrementDistribution(
+                            criteriaId,
+                            criteriaName,
+                            isGameFinished(game.id),
                         );
-                        if (!previousData) {
-                            distributionCriteriaIdToData.set(mode.id, {
-                                criteriaId: mode.id,
-                                criteriaName: mode.name,
-                                count: 1,
-                                finishedCount: isFinished ? 1 : 0,
-                            });
-                            continue;
-                        }
-
-                        const totalFinishedCount = isFinished
-                            ? previousData.finishedCount + 1
-                            : previousData.finishedCount;
-
-                        distributionCriteriaIdToData.set(mode.id, {
-                            ...previousData,
-                            count: previousData.count + 1,
-                            finishedCount: totalFinishedCount,
-                        });
                     }
                 }
                 break;
@@ -356,76 +302,30 @@ export class ProfileMetricsDistributionService {
             case ProfileMetricsTypeDistributionBy.THEME: {
                 const games = await this.gameRepositoryService.findAllByIds({
                     gameIds,
-                    relations: {
-                        themes: true,
-                    },
+                    relations: { themes: true },
                 });
-
                 for (const game of games) {
-                    const isFinished = collectionEntries.some((entry) => {
-                        return (
-                            entry.gameId === game.id &&
-                            entry.finishedAt != undefined
-                        );
-                    });
-
-                    for (const theme of game.themes!) {
-                        if (theme.name == undefined) continue;
-
-                        const previousData = distributionCriteriaIdToData.get(
+                    for (const theme of game.themes ?? []) {
+                        if (!theme.name) continue;
+                        incrementDistribution(
                             theme.id,
+                            theme.name,
+                            isGameFinished(game.id),
                         );
-                        if (!previousData) {
-                            distributionCriteriaIdToData.set(theme.id, {
-                                criteriaId: theme.id,
-                                criteriaName: theme.name,
-                                count: 1,
-                                finishedCount: isFinished ? 1 : 0,
-                            });
-                            continue;
-                        }
-
-                        const totalFinishedCount = isFinished
-                            ? previousData.finishedCount + 1
-                            : previousData.finishedCount;
-
-                        distributionCriteriaIdToData.set(theme.id, {
-                            ...previousData,
-                            count: previousData.count + 1,
-                            finishedCount: totalFinishedCount,
-                        });
                     }
                 }
                 break;
             }
 
             case ProfileMetricsTypeDistributionBy.PLATFORM: {
-                for (const collectionEntry of collectionEntries) {
-                    const isFinished = collectionEntry.finishedAt != undefined;
-
-                    for (const platform of collectionEntry.ownedPlatforms) {
-                        const platformId = platform.id;
-                        const platformName = platform.name;
-                        const previousData =
-                            distributionCriteriaIdToData.get(platformId);
-
-                        if (!previousData) {
-                            distributionCriteriaIdToData.set(platformId, {
-                                criteriaId: platformId,
-                                criteriaName: platformName,
-                                count: 1,
-                                finishedCount: isFinished ? 1 : 0,
-                            });
-                            continue;
-                        }
-
-                        distributionCriteriaIdToData.set(platformId, {
-                            ...previousData,
-                            count: previousData.count + 1,
-                            finishedCount: isFinished
-                                ? previousData.finishedCount + 1
-                                : previousData.finishedCount,
-                        });
+                for (const entry of collectionEntries) {
+                    const isFinished = !!entry.finishedAt;
+                    for (const platform of entry.ownedPlatforms) {
+                        incrementDistribution(
+                            platform.id,
+                            platform.name,
+                            isFinished,
+                        );
                     }
                 }
                 break;
@@ -433,7 +333,7 @@ export class ProfileMetricsDistributionService {
         }
 
         return {
-            distribution: Array.from(distributionCriteriaIdToData.values()),
+            distribution: Array.from(distributionMap.values()),
         };
     }
 }
