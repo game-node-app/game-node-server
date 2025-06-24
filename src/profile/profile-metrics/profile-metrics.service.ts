@@ -3,6 +3,7 @@ import { CollectionsService } from "../../collections/collections.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
 import { PlaytimeService } from "../../playtime/playtime.service";
+import dayjs from "dayjs";
 
 @Injectable()
 export class ProfileMetricsService {
@@ -13,44 +14,70 @@ export class ProfileMetricsService {
     ) {}
 
     async getStatsOverview(userId: string): Promise<ProfileMetricsOverviewDto> {
-        const collections =
-            await this.collectionsService.findAllByUserIdWithPermissions(
-                undefined,
+        const [
+            collections,
+            [collectionEntries, totalCollectionEntries],
+            totalPlaytimeSeconds,
+        ] = await Promise.all([
+            this.collectionsService.findAllByUserIdWithPermissions(
                 userId,
-            );
-        const [collectionEntries, totalCollectionEntries] =
+                userId,
+            ),
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
-                undefined,
+                userId,
                 userId,
                 {
                     limit: 9999999,
                     offset: 0,
                 },
-            );
+            ),
+            await this.playtimeService.getTotalPlaytimeByUserId(
+                userId,
+                "totalPlaytimeSeconds",
+            ),
+        ]);
 
-        const [userPlaytimes] = await this.playtimeService.findAllByUserId(
-            userId,
-            {
-                offset: 0,
-                limit: 9999999,
-            },
-        );
-
-        const finishedCollectionEntries = collectionEntries.filter((entry) => {
-            return entry.finishedAt != undefined;
-        });
-
-        const totalEstimatedPlaytime = userPlaytimes.reduce((acc, curr) => {
-            acc += curr.totalPlaytimeSeconds;
-
-            return acc;
-        }, 0);
-
-        return {
-            totalCollections: collections.length,
-            totalFinishedGames: finishedCollectionEntries.length,
+        const statsOverview: ProfileMetricsOverviewDto = {
             totalGames: totalCollectionEntries,
-            totalEstimatedPlaytime: totalEstimatedPlaytime,
+            totalCollections: collections.length,
+            totalEstimatedPlaytime: totalPlaytimeSeconds,
+            totalFinishedGames: 0,
+            totalFinishedGamesInYear: 0,
+            totalPlayedGames: 0,
+            totalPlayedGamesInYear: 0,
+            totalPlannedGames: 0,
+            totalPlannedGamesInYear: 0,
         };
+
+        const currentYear = new Date().getFullYear();
+
+        for (const entry of collectionEntries) {
+            const startYear = entry.startedAt?.getFullYear();
+            const finishYear = entry.finishedAt?.getFullYear();
+            const plannedYear = entry.plannedAt?.getFullYear();
+
+            if (finishYear) {
+                statsOverview.totalFinishedGames += 1;
+                if (finishYear === currentYear) {
+                    statsOverview.totalFinishedGamesInYear += 1;
+                }
+            }
+
+            if (startYear) {
+                statsOverview.totalPlayedGames += 1;
+                if (startYear === currentYear) {
+                    statsOverview.totalPlayedGamesInYear += 1;
+                }
+            }
+
+            if (plannedYear) {
+                statsOverview.totalPlannedGames += 1;
+                if (plannedYear === currentYear) {
+                    statsOverview.totalPlannedGamesInYear += 1;
+                }
+            }
+        }
+
+        return statsOverview;
     }
 }

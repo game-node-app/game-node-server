@@ -49,6 +49,25 @@ export class PlaytimeService {
         });
     }
 
+    public async getTotalPlaytimeByUserId(
+        userId: string,
+        criteria: "totalPlaytimeSeconds" | "recentPlaytimeSeconds",
+        source?: UserPlaytimeSource,
+    ): Promise<number> {
+        const qb = this.userPlaytimeRepository.createQueryBuilder("up");
+        qb.select(`SUM(up.${criteria})`, "total").where(
+            "up.profileUserId = :userId",
+            { userId },
+        );
+        if (source) {
+            qb.andWhere("up.source = :source", { source });
+        }
+
+        const result = await qb.getRawOne<{ total: number }>();
+
+        return result?.total ?? 0;
+    }
+
     /**
      * Since a user may have the same game imported from more than one source, this method is preferred.
      * @param userId
