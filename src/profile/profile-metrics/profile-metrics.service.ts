@@ -45,8 +45,6 @@ export class ProfileMetricsService {
             totalFinishedGamesInYear: 0,
             totalPlayedGames: 0,
             totalPlayedGamesInYear: 0,
-            totalPlannedGames: 0,
-            totalPlannedGamesInYear: 0,
         };
 
         const currentYear = new Date().getFullYear();
@@ -54,7 +52,6 @@ export class ProfileMetricsService {
         for (const entry of collectionEntries) {
             const startYear = entry.startedAt?.getFullYear();
             const finishYear = entry.finishedAt?.getFullYear();
-            const plannedYear = entry.plannedAt?.getFullYear();
 
             if (finishYear) {
                 statsOverview.totalFinishedGames += 1;
@@ -67,13 +64,6 @@ export class ProfileMetricsService {
                 statsOverview.totalPlayedGames += 1;
                 if (startYear === currentYear) {
                     statsOverview.totalPlayedGamesInYear += 1;
-                }
-            }
-
-            if (plannedYear) {
-                statsOverview.totalPlannedGames += 1;
-                if (plannedYear === currentYear) {
-                    statsOverview.totalPlannedGamesInYear += 1;
                 }
             }
         }
