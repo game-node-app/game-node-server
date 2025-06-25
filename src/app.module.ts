@@ -1,9 +1,4 @@
-import {
-    ClassSerializerInterceptor,
-    MiddlewareConsumer,
-    Module,
-    NestModule,
-} from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { AuthModule } from "./auth/auth.module";
 import * as process from "process";
 import { TypeOrmModule } from "@nestjs/typeorm";
@@ -40,7 +35,7 @@ import { BlogPostModule } from "./blog/blog-post/blog-post.module";
 import { ExternalGameModule } from "./game/external-game/external-game.module";
 import { XboxSyncModule } from "./sync/xbox/xbox-sync.module";
 import { createKeyv } from "@keyv/redis";
-import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { APP_FILTER } from "@nestjs/core";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
 
 /**
@@ -194,10 +189,6 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         {
             provide: APP_FILTER,
             useClass: SQLExceptionFilter,
-        },
-        {
-            provide: APP_INTERCEPTOR,
-            useClass: ClassSerializerInterceptor,
         },
     ],
 })
