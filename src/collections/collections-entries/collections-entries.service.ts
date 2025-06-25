@@ -182,38 +182,20 @@ export class CollectionsEntriesService {
             orderBy: undefined,
         });
 
-        if (isOwnQuery) {
-            return await this.collectionEntriesRepository.findAndCount({
-                ...findOptions,
-                where: {
-                    collectionsMap: {
-                        collection: {
-                            libraryUserId: targetUserId,
-                        },
-                    },
-                },
-                order: {
-                    createdAt: dto?.orderBy?.addedDate,
-                    game: {
-                        firstReleaseDate: dto?.orderBy?.releaseDate,
-                    },
-                },
-                relations: {
-                    ...this.relations,
-                    game: dto?.orderBy?.releaseDate != undefined,
-                },
-            });
-        }
-
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 collectionsMap: {
-                    collection: {
-                        isPublic: true,
-                        libraryUserId: targetUserId,
-                    },
+                    collection: isOwnQuery
+                        ? {
+                              libraryUserId: targetUserId,
+                          }
+                        : {
+                              isPublic: true,
+                              libraryUserId: targetUserId,
+                          },
                 },
+                status: dto.status,
             },
             order: {
                 createdAt: dto?.orderBy?.addedDate,
@@ -237,30 +219,6 @@ export class CollectionsEntriesService {
             ...dto,
             orderBy: undefined,
         });
-        const isOwnQuery = userId === targetUserId;
-        if (isOwnQuery) {
-            return await this.collectionEntriesRepository.findAndCount({
-                ...findOptions,
-                where: {
-                    isFavorite: true,
-                    collectionsMap: {
-                        collection: {
-                            libraryUserId: targetUserId,
-                        },
-                    },
-                },
-                order: {
-                    createdAt: dto?.orderBy?.addedDate,
-                    game: {
-                        firstReleaseDate: dto?.orderBy?.releaseDate,
-                    },
-                },
-                relations: {
-                    ...this.relations,
-                    game: dto?.orderBy?.releaseDate != undefined,
-                },
-            });
-        }
 
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
@@ -269,9 +227,9 @@ export class CollectionsEntriesService {
                 collectionsMap: {
                     collection: {
                         libraryUserId: targetUserId,
-                        isPublic: true,
                     },
                 },
+                status: dto.status,
             },
             order: {
                 createdAt: dto?.orderBy?.addedDate,

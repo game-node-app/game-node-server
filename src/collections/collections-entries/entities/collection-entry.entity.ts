@@ -24,14 +24,12 @@ import { ApiProperty } from "@nestjs/swagger";
  */
 @Entity()
 export class CollectionEntry {
-    @Expose()
     @PrimaryGeneratedColumn("uuid")
     id: string;
     @ManyToOne(() => Game, {
         nullable: false,
     })
     game: Game;
-    @Expose()
     @Column({ nullable: false })
     gameId: number;
     /**
@@ -41,7 +39,6 @@ export class CollectionEntry {
         nullable: false,
     })
     @JoinTable()
-    @Expose()
     ownedPlatforms: GamePlatform[];
 
     @OneToMany(() => CollectionEntryToCollection, (map) => map.collectionEntry)
@@ -49,7 +46,7 @@ export class CollectionEntry {
 
     @Expose()
     @ApiProperty({
-        type: () => Collection, // important: wrap in function to avoid circular refs
+        type: () => Collection,
         description: "Collections this entry belongs to",
         required: true,
         isArray: true,
@@ -61,42 +58,36 @@ export class CollectionEntry {
     @Column({
         default: false,
     })
-    @Expose()
     isFavorite: boolean;
     @Column({
         nullable: false,
         default: CollectionEntryStatus.PLANNED,
         type: "varchar",
     })
-    @Expose()
     status: CollectionEntryStatus;
 
     @Column({
         nullable: true,
         type: "timestamp",
     })
-    @Expose()
     finishedAt: Date | null;
 
     @Column({
         nullable: true,
         type: "timestamp",
     })
-    @Expose()
     startedAt: Date | null;
 
     @Column({
         nullable: true,
         type: "timestamp",
     })
-    @Expose()
     droppedAt: Date | null;
 
     @Column({
         nullable: true,
         type: "timestamp",
     })
-    @Expose()
     plannedAt: Date | null;
 
     @CreateDateColumn()

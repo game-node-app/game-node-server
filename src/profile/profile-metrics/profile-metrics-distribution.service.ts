@@ -7,7 +7,6 @@ import {
     ProfileMetricsYearDistributionRequestDto,
     ProfileMetricsYearDistributionResponseDto,
 } from "./dto/profile-metrics-year-distribution.dto";
-import { toMap } from "../../utils/toMap";
 import {
     ProfileMetricsTypeDistributionBy,
     ProfileMetricsTypeDistributionItem,
@@ -18,6 +17,7 @@ import { getGameCategoryName } from "../../game/game-repository/game-repository.
 import { ReviewsService } from "../../reviews/reviews.service";
 import { PlaytimeService } from "../../playtime/playtime.service";
 import dayjs from "dayjs";
+import { CollectionEntryStatus } from "../../collections/collections-entries/collections-entries.constants";
 
 @Injectable()
 export class ProfileMetricsDistributionService {
@@ -292,6 +292,16 @@ export class ProfileMetricsDistributionService {
                     }
                 }
                 break;
+            }
+            case ProfileMetricsTypeDistributionBy.STATUS: {
+                for (const entry of collectionEntries) {
+                    const statusValues = Object.values(CollectionEntryStatus);
+                    const statusIndex = statusValues.indexOf(entry.status);
+                    const statusText =
+                        entry.status.charAt(0).toUpperCase() +
+                        entry.status.slice(1);
+                    incrementDistribution(statusIndex, statusText, false);
+                }
             }
         }
 
