@@ -13,6 +13,8 @@ import {
     ImporterWatchJob,
 } from "./importer-watch.constants";
 import { connectionToImporterSource } from "../importer.util";
+import { Interval } from "@nestjs/schedule";
+import { hours } from "@nestjs/throttler";
 
 @Injectable()
 export class ImporterWatchService {
@@ -25,7 +27,9 @@ export class ImporterWatchService {
         private readonly importerNotificationRepository: Repository<ImporterWatchNotification>,
         private readonly connectionsService: ConnectionsService,
         private readonly librariesService: LibrariesService,
-    ) {}
+    ) {
+        this.registerWatchJobs();
+    }
 
     public async findNotification(userId: string, notificationId: number) {
         return this.importerNotificationRepository.findOneOrFail({
@@ -39,16 +43,10 @@ export class ImporterWatchService {
         });
     }
 
-    // @Timeout(minutes(1))
-    // public onStartup() {
-    //     this.registerWatchJobs();
-    // }
-
     /**
      * Checks for new importable entries from users with valid connections
-     * Temporarily disabled. TODO: See how relevant this is.
      */
-    // @Interval(hours(6))
+    @Interval(hours(24))
     public async registerWatchJobs() {
         const libraries = await this.librariesService.findAllLibraries();
         const userIds = libraries.map((library) => library.userId);
