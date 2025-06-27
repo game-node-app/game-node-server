@@ -19,9 +19,9 @@ export const achievementsCollectionsData: Achievement[] = [
                 dataSource.getRepository(CollectionEntry);
             const totalCollectionEntries =
                 await collectionEntriesRepository.countBy({
-                    collections: {
-                        library: {
-                            userId: targetUserId,
+                    collectionsMap: {
+                        collection: {
+                            libraryUserId: targetUserId,
                         },
                     },
                 });
@@ -44,19 +44,23 @@ export const achievementsCollectionsData: Achievement[] = [
                     library: {
                         userId: targetUserId,
                     },
-                    entries: {
-                        game: {
-                            themes: {
-                                // Horror game ID in the game_theme table.
-                                id: ACHIEVEMENTS_GAME_THEMES_IDS.HORROR_ID,
+                    entriesMap: {
+                        collectionEntry: {
+                            game: {
+                                themes: {
+                                    // Horror game ID in the game_theme table.
+                                    id: ACHIEVEMENTS_GAME_THEMES_IDS.HORROR_ID,
+                                },
                             },
                         },
                     },
                 },
                 relations: {
-                    entries: {
-                        game: {
-                            themes: true,
+                    entriesMap: {
+                        collectionEntry: {
+                            game: {
+                                themes: true,
+                            },
                         },
                     },
                 },
@@ -82,6 +86,7 @@ export const achievementsCollectionsData: Achievement[] = [
                                             ACHIEVEMENTS_GAME_THEMES_IDS.HORROR_ID,
                                     )
                                 );
+                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             } catch (e) {}
 
                             return false;
@@ -109,8 +114,10 @@ export const achievementsCollectionsData: Achievement[] = [
 
             return await collectionEntryRepository.existsBy({
                 gameId: ACHIEVEMENTS_GAME_IDS.TOMB_RAIDER_2013,
-                collections: {
-                    libraryUserId: targetUserId,
+                collectionsMap: {
+                    collection: {
+                        libraryUserId: targetUserId,
+                    },
                 },
             });
         },

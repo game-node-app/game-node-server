@@ -12,6 +12,7 @@ import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 import { SteamSyncModule } from "../../sync/steam/steam-sync.module";
 import { ExternalGameModule } from "../../game/external-game/external-game.module";
 import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
+import { seconds } from "@nestjs/throttler";
 
 @Module({
     imports: [
@@ -19,9 +20,10 @@ import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
         BullModule.registerQueue({
             name: PLAYTIME_WATCH_QUEUE_NAME,
             defaultJobOptions: {
-                attempts: 1,
+                attempts: 5,
                 removeOnFail: true,
                 removeOnComplete: true,
+                backoff: seconds(5),
             },
         }),
         PlaytimeModule,

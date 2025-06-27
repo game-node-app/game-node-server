@@ -12,6 +12,7 @@ import {
     FindManyOptions,
     FindOptionsRelations,
     In,
+    Not,
     Repository,
 } from "typeorm";
 import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
@@ -26,11 +27,16 @@ import { LevelService } from "../../level/level.service";
 import { LevelIncreaseActivities } from "../../level/level.constants";
 import { CollectionsService } from "../collections.service";
 import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-entries-for-collection-id.dto";
+import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
+import { CollectionEntryStatus } from "./collections-entries.constants";
+import { match } from "ts-pattern";
 
 @Injectable()
 export class CollectionsEntriesService {
     private readonly relations: FindOptionsRelations<CollectionEntry> = {
-        collections: true,
+        collectionsMap: {
+            collection: true,
+        },
         game: false,
         ownedPlatforms: true,
     };
@@ -38,12 +44,16 @@ export class CollectionsEntriesService {
     constructor(
         @InjectRepository(CollectionEntry)
         private collectionEntriesRepository: Repository<CollectionEntry>,
+        @InjectRepository(CollectionEntryToCollection)
+        private collectionEntryToCollectionRepository: Repository<CollectionEntryToCollection>,
         private activitiesQueueService: ActivitiesQueueService,
         private achievementsQueueService: AchievementsQueueService,
         private levelService: LevelService,
         @Inject(forwardRef(() => CollectionsService))
         private collectionsService: CollectionsService,
-    ) {}
+    ) {
+        this.deleteDandling();
+    }
 
     async findOneById(id: string) {
         return await this.collectionEntriesRepository.findOne({
@@ -69,8 +79,10 @@ export class CollectionsEntriesService {
     async findOneByUserIdAndGameId(userId: string, gameId: number) {
         return await this.collectionEntriesRepository.findOne({
             where: {
-                collections: {
-                    libraryUserId: userId,
+                collectionsMap: {
+                    collection: {
+                        libraryUserId: userId,
+                    },
                 },
                 game: {
                     id: gameId,
@@ -131,18 +143,18 @@ export class CollectionsEntriesService {
         const findOptions: FindManyOptions<CollectionEntry> = {
             ...baseFindOptions,
             where: {
-                collections: [
-                    {
-                        id: collectionId,
-                        isPublic: true,
-                    },
-                    {
-                        id: collectionId,
-                        library: {
-                            userId,
+                collectionsMap: {
+                    collection: [
+                        {
+                            id: collectionId,
+                            isPublic: true,
                         },
-                    },
-                ],
+                        {
+                            id: collectionId,
+                            libraryUserId: userId,
+                        },
+                    ],
+                },
             },
             order: {
                 createdAt: dto?.orderBy?.addedDate,
@@ -170,38 +182,20 @@ export class CollectionsEntriesService {
             orderBy: undefined,
         });
 
-        if (isOwnQuery) {
-            return await this.collectionEntriesRepository.findAndCount({
-                ...findOptions,
-                where: {
-                    collections: {
-                        library: {
-                            userId: targetUserId,
-                        },
-                    },
-                },
-                order: {
-                    createdAt: dto?.orderBy?.addedDate,
-                    game: {
-                        firstReleaseDate: dto?.orderBy?.releaseDate,
-                    },
-                },
-                relations: {
-                    ...this.relations,
-                    game: dto?.orderBy?.releaseDate != undefined,
-                },
-            });
-        }
-
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
-                collections: {
-                    isPublic: true,
-                    library: {
-                        userId: targetUserId,
-                    },
+                collectionsMap: {
+                    collection: isOwnQuery
+                        ? {
+                              libraryUserId: targetUserId,
+                          }
+                        : {
+                              isPublic: true,
+                              libraryUserId: targetUserId,
+                          },
                 },
+                status: dto.status,
             },
             order: {
                 createdAt: dto?.orderBy?.addedDate,
@@ -225,41 +219,17 @@ export class CollectionsEntriesService {
             ...dto,
             orderBy: undefined,
         });
-        const isOwnQuery = userId === targetUserId;
-        if (isOwnQuery) {
-            return await this.collectionEntriesRepository.findAndCount({
-                ...findOptions,
-                where: {
-                    isFavorite: true,
-                    collections: {
-                        library: {
-                            userId: targetUserId,
-                        },
-                    },
-                },
-                order: {
-                    createdAt: dto?.orderBy?.addedDate,
-                    game: {
-                        firstReleaseDate: dto?.orderBy?.releaseDate,
-                    },
-                },
-                relations: {
-                    ...this.relations,
-                    game: dto?.orderBy?.releaseDate != undefined,
-                },
-            });
-        }
 
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 isFavorite: true,
-                collections: {
-                    library: {
-                        userId: targetUserId,
+                collectionsMap: {
+                    collection: {
+                        libraryUserId: targetUserId,
                     },
-                    isPublic: true,
                 },
+                status: dto.status,
             },
             order: {
                 createdAt: dto?.orderBy?.addedDate,
@@ -283,8 +253,14 @@ export class CollectionsEntriesService {
         userId: string,
         createEntryDto: CreateUpdateCollectionEntryDto,
     ) {
-        const { collectionIds, gameId, platformIds, isFavorite, finishedAt } =
-            createEntryDto;
+        const {
+            collectionIds,
+            gameId,
+            platformIds,
+            isFavorite,
+            finishedAt,
+            status,
+        } = createEntryDto;
 
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
         const uniquePlatformIds = Array.from(new Set(platformIds));
@@ -301,48 +277,38 @@ export class CollectionsEntriesService {
             );
         }
 
-        const collections = uniqueCollectionIds.map((id) => ({
-            id: id,
-        }));
-
         const ownedPlatforms = uniquePlatformIds.map((id) => ({
             id: id,
         }));
+
+        const inferredStatusAndDates = await this.inferStatusAndAssociatedDates(
+            uniqueCollectionIds,
+            status,
+            finishedAt,
+        );
 
         const possibleExistingEntry = await this.findOneByUserIdAndGameId(
             userId,
             gameId,
         );
 
-        const collectionEntities =
-            await this.collectionsService.findAllByIds(uniqueCollectionIds);
-
-        const isInFinishedGamesCollection = collectionEntities.some(
-            (collection) => collection.isFinished,
-        );
-
         const updatedPartialEntity: DeepPartial<CollectionEntry> = {
             ...possibleExistingEntry,
             isFavorite,
             finishedAt,
-            collections,
             gameId,
+            // Updated automatically with @ManyToMany
             ownedPlatforms,
+            ...inferredStatusAndDates,
         };
-
-        if (
-            isInFinishedGamesCollection &&
-            updatedPartialEntity.finishedAt == undefined
-        ) {
-            updatedPartialEntity.finishedAt = new Date();
-        }
-
-        const firstFinishedStatusChange =
-            possibleExistingEntry?.finishedAt == undefined &&
-            updatedPartialEntity.finishedAt != undefined;
 
         const upsertedEntry =
             await this.collectionEntriesRepository.save(updatedPartialEntity);
+
+        await this.updateAssociatedCollections(
+            upsertedEntry.id,
+            uniqueCollectionIds,
+        );
 
         if (!possibleExistingEntry) {
             this.levelService.registerLevelExpIncreaseActivity(
@@ -350,6 +316,10 @@ export class CollectionsEntriesService {
                 LevelIncreaseActivities.COLLECTION_ENTRY_CREATED,
             );
         }
+
+        const firstFinishedStatusChange =
+            possibleExistingEntry?.finishedAt === null &&
+            updatedPartialEntity.finishedAt != undefined;
 
         if (firstFinishedStatusChange) {
             this.levelService.registerLevelExpIncreaseActivity(
@@ -371,6 +341,112 @@ export class CollectionsEntriesService {
             targetUserId: userId,
             category: AchievementCategory.COLLECTIONS,
         });
+    }
+
+    private async updateAssociatedCollections(
+        collectionEntryId: string,
+        collectionIds: string[],
+    ) {
+        // Deletes stale relations
+        await this.collectionEntryToCollectionRepository.delete({
+            collectionEntryId,
+            collectionId: Not(In(collectionIds)),
+        });
+
+        const existingMaps =
+            await this.collectionEntryToCollectionRepository.findBy({
+                collectionEntryId,
+            });
+
+        const existingCollectionIds = new Set(
+            existingMaps.map((map) => map.collectionId),
+        );
+
+        const newCollectionIds = collectionIds.filter(
+            (collectionId) => !existingCollectionIds.has(collectionId),
+        );
+
+        if (newCollectionIds.length === 0) return;
+
+        const maxOrdersRaw = await this.collectionEntryToCollectionRepository
+            .createQueryBuilder("cetc")
+            .select("cetc.collectionId", "collectionId")
+            .addSelect("MAX(cetc.order)", "maxOrder")
+            .where("cetc.collectionId IN (:...collectionIds)", {
+                collectionIds: newCollectionIds,
+            })
+            .groupBy("cetc.collectionId")
+            .getRawMany<{ collectionId: string; maxOrder: number }>();
+
+        const maxOrderMap = new Map<string, number>(
+            maxOrdersRaw.map((row) => [row.collectionId, Number(row.maxOrder)]),
+        );
+
+        for (const collectionId of newCollectionIds) {
+            const lastOrder = maxOrderMap.get(collectionId) ?? 0;
+            const newOrder = lastOrder + 10;
+
+            await this.collectionEntryToCollectionRepository.insert({
+                collectionEntryId,
+                collectionId,
+                order: newOrder,
+            });
+        }
+    }
+
+    /**
+     * Infer a collection entry's status from it's parent collection and automatically returns the associated status date
+     * (e.g. startedAt, finishedAt) if relevant.
+     * @private
+     */
+    private async inferStatusAndAssociatedDates(
+        collectionIds: string[],
+        // TODO: remove nullish type after mobile updates
+        status: CollectionEntryStatus | null | undefined,
+        finishedAt: Date | null | undefined,
+    ): Promise<
+        Partial<
+            Pick<
+                CollectionEntry,
+                | "status"
+                | "startedAt"
+                | "finishedAt"
+                | "droppedAt"
+                | "plannedAt"
+            >
+        >
+    > {
+        const associatedCollections =
+            await this.collectionsService.findAllByIds(collectionIds);
+        const firstCollectionWithDefaultStatus = associatedCollections.find(
+            (collection) => collection.defaultEntryStatus != undefined,
+        );
+
+        const matchingStatus =
+            firstCollectionWithDefaultStatus?.defaultEntryStatus ?? status;
+
+        if (matchingStatus == undefined) {
+            return {};
+        }
+
+        return match(matchingStatus)
+            .with(CollectionEntryStatus.PLANNED, () => ({
+                status: CollectionEntryStatus.PLANNED,
+                plannedAt: new Date(),
+            }))
+            .with(CollectionEntryStatus.PLAYING, () => ({
+                status: CollectionEntryStatus.PLAYING,
+                startedAt: new Date(),
+            }))
+            .with(CollectionEntryStatus.DROPPED, () => ({
+                status: CollectionEntryStatus.DROPPED,
+                droppedAt: new Date(),
+            }))
+            .with(CollectionEntryStatus.FINISHED, () => ({
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: finishedAt ?? new Date(),
+            }))
+            .exhaustive();
     }
 
     async changeFavoriteStatus(
@@ -402,15 +478,14 @@ export class CollectionsEntriesService {
         const entry = await this.collectionEntriesRepository.findOne({
             where: {
                 id: entryId,
-                collections: {
-                    library: {
-                        userId,
+                collectionsMap: {
+                    collection: {
+                        libraryUserId: userId,
                     },
                 },
             },
             relations: {
                 ownedPlatforms: true,
-                review: true,
             },
         });
 
@@ -420,6 +495,21 @@ export class CollectionsEntriesService {
 
         // This removes both the associated review (if any) and the entries in the join-tables.
         await this.collectionEntriesRepository.delete(entry.id);
+    }
+
+    /**
+     * Delete collection entries not associated with any collection.
+     */
+    async deleteDandling() {
+        const dandling = await this.collectionEntriesRepository
+            .createQueryBuilder("ce")
+            .select()
+            .where(
+                "NOT EXISTS (SELECT 1 FROM collection_entry_collections_collection AS cecc WHERE cecc.collectionEntryId = ce.id)",
+            )
+            .getMany();
+
+        await this.collectionEntriesRepository.remove(dandling);
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {

@@ -1,9 +1,9 @@
 import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
-import { Interval, Timeout } from "@nestjs/schedule";
+import { Interval } from "@nestjs/schedule";
 import { ConnectionsService } from "../../connections/connections.service";
-import { hours, minutes } from "@nestjs/throttler";
+import { hours } from "@nestjs/throttler";
 import {
     PLAYTIME_WATCH_QUEUE_JOB_NAME,
     PLAYTIME_WATCH_QUEUE_NAME,
@@ -23,10 +23,7 @@ export class PlaytimeWatchService {
         private readonly librariesService: LibrariesService,
         @Inject(forwardRef(() => ConnectionsService))
         private readonly connectionsService: ConnectionsService,
-    ) {}
-
-    @Timeout(minutes(1))
-    public onStartup() {
+    ) {
         this.registerWatchJobs();
     }
 

@@ -39,7 +39,7 @@ export class Review {
     })
     profileUserId: string;
 
-    @OneToOne(() => CollectionEntry, (entry) => entry.review, {
+    @OneToOne(() => CollectionEntry, {
         nullable: false,
         onDelete: "CASCADE",
     })

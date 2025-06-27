@@ -1,13 +1,12 @@
 import {
     IsArray,
     IsBoolean,
-    IsDate,
     IsNotEmpty,
     IsNumber,
     IsOptional,
     IsString,
 } from "class-validator";
-import { ApiProperty } from "@nestjs/swagger";
+import { CollectionEntryStatus } from "../collections-entries.constants";
 
 export class CreateUpdateCollectionEntryDto {
     @IsNotEmpty()
@@ -25,7 +24,9 @@ export class CreateUpdateCollectionEntryDto {
     @IsBoolean()
     isFavorite: boolean = false;
     @IsOptional()
-    @IsDate()
-    @ApiProperty({})
-    finishedAt?: Date;
+    finishedAt?: Date | null;
+    // TODO: Add validation after mobile updates
+    // @IsNotEmpty()
+    // @IsString()
+    status: CollectionEntryStatus;
 }

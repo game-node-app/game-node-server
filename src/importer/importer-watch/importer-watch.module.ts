@@ -11,6 +11,7 @@ import { ImporterWatchController } from "./importer-watch.controller";
 import { BullModule } from "@nestjs/bullmq";
 import { IMPORTER_WATCH_QUEUE_NAME } from "./importer-watch.constants";
 import { ImporterWatchProcessor } from "./importer-watch.processor";
+import { seconds } from "@nestjs/throttler";
 
 /**
  * Module of the Importer Watch Service, which is responsible for querying user's
@@ -26,9 +27,8 @@ import { ImporterWatchProcessor } from "./importer-watch.processor";
         BullModule.registerQueue({
             name: IMPORTER_WATCH_QUEUE_NAME,
             defaultJobOptions: {
-                removeOnFail: true,
-                removeOnComplete: true,
-                attempts: 1,
+                attempts: 5,
+                backoff: seconds(5),
             },
         }),
         ImporterModule,

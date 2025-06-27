@@ -1,7 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Activity } from "./entities/activity.entity";
-import { FindManyOptions, FindOneOptions, Repository } from "typeorm";
+import {
+    FindManyOptions,
+    FindOneOptions,
+    Repository,
+    TypeORMError,
+} from "typeorm";
 import {
     ActivityCreate,
     ActivityType,
@@ -139,8 +144,19 @@ export class ActivitiesRepositoryService {
                 );
         }
 
-        const persistedActivity =
-            await this.activitiesRepository.save(activity);
+        let persistedActivity: Activity;
+        try {
+            persistedActivity = await this.activitiesRepository.save(activity);
+        } catch (err: unknown) {
+            if (err instanceof TypeORMError) {
+                if (err.message.includes("Duplicate entry")) {
+                    throw new UnrecoverableError(
+                        "Entry already has an associated activity.",
+                    );
+                }
+            }
+            throw err;
+        }
 
         this.statisticsQueueService.createStatistics({
             sourceId: persistedActivity.id,
