@@ -23,22 +23,32 @@ export class LevelService {
         private readonly userLevelRepository: Repository<UserLevel>,
     ) {}
 
-    findOneByUserId(userId: string) {
-        return this.userLevelRepository.findOne({
+    /**
+     * Important: do not expose this.
+     * @param userId
+     */
+    async findOneOrCreateByUserId(userId: string): Promise<UserLevel> {
+        const entity = await this.userLevelRepository.findOne({
             where: {
                 userId,
             },
         });
+
+        if (entity == undefined) {
+            return this.create(userId);
+        }
+
+        return entity;
     }
 
     async findOneByUserIdOrFail(userId: string) {
-        const entity = await this.findOneByUserId(userId);
-        if (!entity) throw new HttpException("", 404);
+        const entity = await this.findOneOrCreateByUserId(userId);
+        if (!entity) throw new HttpException("Not available.", 404);
         return entity;
     }
 
     async create(userId: string) {
-        await this.userLevelRepository.save({
+        return await this.userLevelRepository.save({
             userId,
             profile: {
                 userId,
@@ -47,7 +57,7 @@ export class LevelService {
     }
 
     async increaseExp(userId: string, amount: number) {
-        const userLevelEntity = await this.findOneByUserIdOrFail(userId);
+        const userLevelEntity = await this.findOneOrCreateByUserId(userId);
         const multipliedExpAmount = amount * userLevelEntity.expMultiplier;
         let unprocessedExpAmount = structuredClone(multipliedExpAmount);
         const updatedUserLevelEntity =

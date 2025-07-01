@@ -7,8 +7,8 @@ import { EUserRoles } from "../utils/constants";
 import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
 import { LevelService } from "../level/level.service";
 import { Timeout } from "@nestjs/schedule";
-import { AUTH_ERRORS } from "../auth/auth.constants";
 import retry from "async-retry";
+import { seconds } from "@nestjs/throttler";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
@@ -63,28 +63,15 @@ export class UserInitService {
          *   sqlState: '28000',
          *   sqlMessage: "Access denied for user 'xxxxx'@'xxxxxx' (using password: YES)",
          */
-        await retry(async (bail, attempt) => {
-            try {
+        await retry(
+            async () => {
                 await Promise.all(initPromises);
-            } catch (err: unknown) {
-                if (err instanceof Error) {
-                    if (Object.hasOwn(err, "code")) {
-                        // @ts-expect-error verified above
-                        if (err.code === "ER_ACCESS_DENIED_ERROR") {
-                            this.logger.warn(
-                                `User init attempt ${attempt} for ${userId} because of an access denied error`,
-                            );
-                            // Erros thrown without bail will cause a re-attempt
-                            throw err;
-                        }
-                    }
-
-                    bail(err);
-                }
-
-                bail(new Error(AUTH_ERRORS.USER_INIT_ERROR));
-            }
-        }, {});
+            },
+            {
+                retries: 5,
+                maxRetryTime: seconds(60),
+            },
+        );
         this.logger.log(
             `Finished init routine for ${userId} at ${new Date().toISOString()}`,
         );
@@ -136,7 +123,7 @@ export class UserInitService {
 
     private async initLevel(userId: string) {
         const userLevelEntity =
-            await this.userLevelService.findOneByUserId(userId);
+            await this.userLevelService.findOneOrCreateByUserId(userId);
 
         if (userLevelEntity) {
             return;

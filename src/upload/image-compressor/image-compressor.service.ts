@@ -18,7 +18,7 @@ export class ImageCompressorService {
             case "png":
                 return await image
                     .png({
-                        compressionLevel: 7,
+                        compressionLevel: 5,
                     })
                     .toBuffer();
 

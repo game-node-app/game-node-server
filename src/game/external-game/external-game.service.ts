@@ -37,7 +37,19 @@ export class ExternalGameService {
             .filter((game) => game != undefined) as GameExternalGame[];
     }
 
-    async getExternalGamesForGameIds(gameIds: number[]) {
+    public findOneById(id: number) {
+        return this.gameExternalGameRepository.findOneBy({
+            id,
+        });
+    }
+
+    public findOneByIdOrFail(id: number) {
+        return this.gameExternalGameRepository.findOneByOrFail({
+            id,
+        });
+    }
+
+    async findAllForGameId(gameIds: number[]) {
         return this.gameExternalGameRepository.find({
             where: {
                 gameId: In(gameIds),

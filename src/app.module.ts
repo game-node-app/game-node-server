@@ -37,6 +37,7 @@ import { XboxSyncModule } from "./sync/xbox/xbox-sync.module";
 import { createKeyv } from "@keyv/redis";
 import { APP_FILTER } from "@nestjs/core";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
+import { GameAchievementModule } from './game/game-achievement/game-achievement.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -184,6 +185,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         BlogPostModule,
         ExternalGameModule,
         XboxSyncModule,
+        GameAchievementModule,
     ],
     providers: [
         {
