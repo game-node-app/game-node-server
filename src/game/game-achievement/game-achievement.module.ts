@@ -9,6 +9,8 @@ import { seconds } from "@nestjs/throttler";
 import { GameAchievementSyncQueueService } from "./sync/game-achievement-sync-queue.service";
 import { GameAchievementSyncProcessor } from "./sync/game-achievement-sync.processor";
 import { ConnectionsModule } from "../../connections/connections.module";
+import { GameAchievementOverviewModule } from "./overview/game-achievement-overview.module";
+import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 
 @Module({
     imports: [
@@ -21,7 +23,9 @@ import { ConnectionsModule } from "../../connections/connections.module";
         }),
         ExternalGameModule,
         SteamSyncModule,
+        PsnSyncModule,
         ConnectionsModule,
+        GameAchievementOverviewModule,
     ],
     providers: [
         GameAchievementService,

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GameExternalGame } from "./entity/game-external-game.entity";
-import { DeepPartial, In, Repository } from "typeorm";
+import { DeepPartial, FindOptionsRelations, In, Repository } from "typeorm";
 import { days } from "@nestjs/throttler";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 import { toMap } from "../../utils/toMap";
@@ -13,6 +13,10 @@ import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 
 @Injectable()
 export class ExternalGameService {
+    private readonly relations: FindOptionsRelations<GameExternalGame> = {
+        psnExtraMappings: true,
+    };
+
     constructor(
         @InjectRepository(GameExternalGame)
         private readonly gameExternalGameRepository: Repository<GameExternalGame>,
@@ -44,8 +48,9 @@ export class ExternalGameService {
     }
 
     public findOneByIdOrFail(id: number) {
-        return this.gameExternalGameRepository.findOneByOrFail({
-            id,
+        return this.gameExternalGameRepository.findOneOrFail({
+            where: { id },
+            relations: this.relations,
         });
     }
 
@@ -58,6 +63,7 @@ export class ExternalGameService {
                 id: `external-games-ids-${gameIds}`,
                 milliseconds: days(1),
             },
+            relations: this.relations,
         });
     }
 
@@ -79,6 +85,7 @@ export class ExternalGameService {
                 id: `external-games-ids-${category}-${sourceIds}`,
                 milliseconds: days(1),
             },
+            relations: this.relations,
         });
 
         return this.reOrderBySourceIds(sourceIds, externalGames);
@@ -95,6 +102,7 @@ export class ExternalGameService {
                 updatedAt: "DESC",
             },
             relations: {
+                ...this.relations,
                 game: {
                     cover: true,
                 },

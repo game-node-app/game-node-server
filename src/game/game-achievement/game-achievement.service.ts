@@ -8,12 +8,14 @@ import { UnrecoverableError } from "bullmq";
 import { GameObtainedAchievementDto } from "./dto/game-obtained-achievement.dto";
 import { ConnectionsService } from "../../connections/connections.service";
 import { EConnectionType } from "../../connections/connections.constants";
+import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 
 @Injectable()
 export class GameAchievementService {
     constructor(
         private readonly externalGameService: ExternalGameService,
         private readonly steamSyncService: SteamSyncService,
+        private readonly psnSyncService: PsnSyncService,
         private readonly connectionsService: ConnectionsService,
     ) {}
 
@@ -74,6 +76,46 @@ export class GameAchievementService {
                     } satisfies GameAchievementDto;
                 });
             })
+            .with(EGameExternalGameCategory.PlaystationStoreUs, async () => {
+                if (
+                    externalGame.psnExtraMappings == undefined ||
+                    externalGame.psnExtraMappings.length === 0
+                ) {
+                    return [];
+                }
+
+                const mappings = externalGame.psnExtraMappings;
+
+                const promises = mappings.map((mapping) => {
+                    return this.psnSyncService.getGameAchievements(
+                        mapping.npCommunicationId,
+                        mapping.npServiceName,
+                    );
+                });
+
+                const responses = await Promise.all(promises);
+
+                const trophies = responses.flat(1);
+
+                return trophies.map((trophy) => {
+                    return {
+                        externalGameId: externalGame.id,
+                        gameId: externalGame.id,
+                        source: EGameExternalGameCategory.PlaystationStoreUs,
+                        externalId: `${trophy.trophyId}`,
+                        steamDetails: null,
+                        iconUrl: trophy.trophyIconUrl!,
+                        description: trophy.trophyDetail ?? null,
+                        name: trophy.trophyName!,
+                        iconGrayUrl: undefined,
+                        psnDetails: {
+                            trophyIcon: `psn_trophy_rarity_${trophy.trophyType}`,
+                            trophyType: trophy.trophyType,
+                        },
+                    } satisfies GameAchievementDto;
+                });
+            })
+
             .otherwise(() => {
                 throw new UnrecoverableError(
                     "Category mapping not implemented.",
@@ -130,6 +172,51 @@ export class GameAchievementService {
                             ? new Date(achievement.unlockedTimestamp * 1000)
                             : null,
                         source: EGameExternalGameCategory.Steam,
+                    } satisfies GameObtainedAchievementDto;
+                });
+            })
+            .with(EGameExternalGameCategory.PlaystationStoreUs, async () => {
+                if (
+                    externalGame.psnExtraMappings == undefined ||
+                    externalGame.psnExtraMappings.length === 0
+                ) {
+                    return [];
+                }
+
+                const userConnection =
+                    await this.connectionsService.findOneByUserIdAndType(
+                        userId,
+                        EConnectionType.PSN,
+                    );
+
+                if (!userConnection) {
+                    return [];
+                }
+
+                const mappings = externalGame.psnExtraMappings;
+
+                const promises = mappings.map((mapping) => {
+                    return this.psnSyncService.getObtainedAchievements(
+                        userConnection.sourceUserId,
+                        mapping.npCommunicationId,
+                        mapping.npServiceName,
+                    );
+                });
+
+                const responses = await Promise.all(promises);
+
+                const trophies = responses.flat(1);
+
+                return trophies.map((trophy) => {
+                    return {
+                        externalGameId: externalGame.id,
+                        gameId: externalGame.id,
+                        isObtained: trophy.earned ?? false,
+                        obtainedAt: trophy.earnedDateTime
+                            ? new Date(trophy.earnedDateTime)
+                            : null,
+                        source: EGameExternalGameCategory.PlaystationStoreUs,
+                        externalId: `${trophy.trophyId}`,
                     } satisfies GameObtainedAchievementDto;
                 });
             })

@@ -10,7 +10,9 @@ export class GameAchievementDto {
     iconUrl: string;
     iconGrayUrl?: string;
     // Only for steam achievements
-    steamDetails: SteamAchievementDetails | null;
+    steamDetails?: SteamAchievementDetails | null;
+    // Only for psn achievements
+    psnDetails?: PsnAchievementDetails | null;
 }
 
 export class SteamAchievementDetails {
@@ -18,4 +20,9 @@ export class SteamAchievementDetails {
      * Global percentage of users that own this achievement (essentially represents rarity).
      */
     globalPercentage: number;
+}
+
+export class PsnAchievementDetails {
+    trophyType: string;
+    trophyIcon: string;
 }

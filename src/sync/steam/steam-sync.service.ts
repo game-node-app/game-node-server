@@ -99,4 +99,9 @@ export class SteamSyncService {
     public async getUserAchievements(steamUserId: string, appId: number) {
         return await this.client.getUserAchievements(steamUserId, appId);
     }
+
+    @Cacheable(SteamSyncService.name, hours(24))
+    public async getUserBadges(steamUserId: string) {
+        return await this.client.getUserBadges(steamUserId);
+    }
 }

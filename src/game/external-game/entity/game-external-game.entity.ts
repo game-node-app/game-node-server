@@ -4,6 +4,7 @@ import {
     Entity,
     Index,
     ManyToOne,
+    OneToMany,
     PrimaryColumn,
     UpdateDateColumn,
 } from "typeorm";
@@ -12,6 +13,8 @@ import {
     EGameExternalGameMedia,
 } from "../../game-repository/game-repository.constants";
 import { Game } from "../../game-repository/entities/game.entity";
+import { GamePlatform } from "../../game-repository/entities/game-platform.entity";
+import { PsnExtraMappings } from "./psn-extra-mappings.entity";
 
 @Entity()
 // This index avoids table scan in 'importer' services.
@@ -68,4 +71,15 @@ export class GameExternalGame {
         nullable: false,
     })
     gameId: number;
+    @ManyToOne(() => GamePlatform, {
+        nullable: true,
+    })
+    platform: GamePlatform;
+    @Column({
+        nullable: true,
+    })
+    platformId: number;
+
+    @OneToMany(() => PsnExtraMappings, (psm) => psm.externalGame)
+    psnExtraMappings: PsnExtraMappings[] | null;
 }
