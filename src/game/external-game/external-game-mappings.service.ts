@@ -16,11 +16,12 @@ export class ExternalGameMappingsService {
             "id" | "createdAt" | "deletedAt" | "updatedAt" | "externalGame"
         >,
     ) {
-        await this.psnExtraMappingsRepository.upsert(mappings, [
-            "id",
-            "externalGameId",
-            "npServiceName",
-            "npCommunicationId",
-        ]);
+        await this.psnExtraMappingsRepository.upsert(
+            {
+                ...mappings,
+                id: null as never,
+            },
+            ["externalGameId", "npServiceName", "npCommunicationId"],
+        );
     }
 }

@@ -2,6 +2,7 @@ import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { PsnSyncAuthService } from "./auth/psn-sync-auth.service";
 import {
     getTitleTrophies,
+    getTitleTrophyGroups,
     getUserPlayedGames,
     getUserTitles,
     getUserTrophiesEarnedForTitle,
@@ -25,6 +26,7 @@ export class PsnSyncService {
         // this.getAllGames("5847504196784127951");
         // this.getUserTrophyTitles("1588575164307436368");
         // this.getGameAchievements("NPWR21647_00", "trophy2");
+        // this.getGameAchievementGroups("NPWR36088_00", "trophy2");
     }
 
     public async resolveUserInfo(
@@ -146,7 +148,7 @@ export class PsnSyncService {
         return totalTitles;
     }
 
-    // @Cacheable(PsnSyncService.name, hours(24))
+    @Cacheable(PsnSyncService.name, hours(24))
     public async getGameAchievements(
         npCommunicationId: string,
         npServiceName: string,
@@ -167,6 +169,29 @@ export class PsnSyncService {
         }
 
         return response.trophies;
+    }
+
+    public async getGameAchievementGroups(
+        npCommunicationId: string,
+        npServiceName: string,
+    ) {
+        const authorization = await this.authService.getValidAccessToken();
+
+        const response = await getTitleTrophyGroups(
+            authorization,
+            npCommunicationId,
+            {
+                npServiceName: npServiceName as never,
+            },
+        );
+
+        if ("error" in response) {
+            throw new Error(
+                `Error in getGameAchievementGroups: ${response.error}`,
+            );
+        }
+
+        return response;
     }
 
     public async getObtainedAchievements(
@@ -194,7 +219,7 @@ export class PsnSyncService {
      * The {@link GameExternalGame#uid} is not available in this endpoint, so associations may be imprecise.
      * @param accountId
      */
-    @Cacheable(PsnSyncService.name, hours(24))
+    @Cacheable(PsnSyncService.name, hours(1))
     public async getUserTrophyTitles(accountId: string) {
         const authorization = await this.authService.getValidAccessToken();
 

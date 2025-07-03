@@ -11,6 +11,7 @@ import { GameAchievementSyncProcessor } from "./sync/game-achievement-sync.proce
 import { ConnectionsModule } from "../../connections/connections.module";
 import { GameAchievementOverviewModule } from "./overview/game-achievement-overview.module";
 import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
+import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
 
 @Module({
     imports: [
@@ -24,6 +25,7 @@ import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
         ExternalGameModule,
         SteamSyncModule,
         PsnSyncModule,
+        XboxSyncModule,
         ConnectionsModule,
         GameAchievementOverviewModule,
     ],

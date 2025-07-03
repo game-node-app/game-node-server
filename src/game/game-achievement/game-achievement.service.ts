@@ -9,6 +9,8 @@ import { GameObtainedAchievementDto } from "./dto/game-obtained-achievement.dto"
 import { ConnectionsService } from "../../connections/connections.service";
 import { EConnectionType } from "../../connections/connections.constants";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
+import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
+import dayjs from "dayjs";
 
 @Injectable()
 export class GameAchievementService {
@@ -16,6 +18,7 @@ export class GameAchievementService {
         private readonly externalGameService: ExternalGameService,
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
+        private readonly xboxSyncService: XboxSyncService,
         private readonly connectionsService: ConnectionsService,
     ) {}
 
@@ -63,7 +66,6 @@ export class GameAchievementService {
                         name: achievement.displayName,
                         description: achievement.description ?? null,
                         iconUrl: achievement.icon,
-                        iconGrayUrl: achievement.icongray,
                         source: EGameExternalGameCategory.Steam,
                         externalGameId: externalGame.id,
                         gameId: externalGame.gameId,
@@ -81,7 +83,10 @@ export class GameAchievementService {
                     externalGame.psnExtraMappings == undefined ||
                     externalGame.psnExtraMappings.length === 0
                 ) {
-                    return [];
+                    throw new HttpException(
+                        "Achievements are not yet available for this title.",
+                        HttpStatus.NOT_FOUND,
+                    );
                 }
 
                 const mappings = externalGame.psnExtraMappings;
@@ -103,19 +108,53 @@ export class GameAchievementService {
                         gameId: externalGame.id,
                         source: EGameExternalGameCategory.PlaystationStoreUs,
                         externalId: `${trophy.trophyId}`,
-                        steamDetails: null,
                         iconUrl: trophy.trophyIconUrl!,
                         description: trophy.trophyDetail ?? null,
                         name: trophy.trophyName!,
-                        iconGrayUrl: undefined,
                         psnDetails: {
                             trophyIcon: `psn_trophy_rarity_${trophy.trophyType}`,
                             trophyType: trophy.trophyType,
+                            trophyGroupId: trophy.trophyGroupId ?? "default",
                         },
                     } satisfies GameAchievementDto;
                 });
             })
+            .with(EGameExternalGameCategory.Microsoft, async () => {
+                const titlePFN = await this.xboxSyncService.getPFNByProductId(
+                    externalGame.uid,
+                );
+                const titleId =
+                    await this.xboxSyncService.getTitleIdByPFN(titlePFN);
 
+                const achievements =
+                    await this.xboxSyncService.getAvailableAchievements(
+                        titleId,
+                    );
+
+                return achievements.map((achievement) => {
+                    const icon = achievement.mediaAssets.find(
+                        (asset) => asset.type === "Icon",
+                    );
+                    const gamerScore = achievement.rewards.find(
+                        (reward) => reward.type === "Gamerscore",
+                    );
+
+                    return {
+                        externalGameId: externalGame.id,
+                        source: EGameExternalGameCategory.Microsoft,
+                        gameId: externalGame.gameId,
+                        name: achievement.name,
+                        externalId: achievement.id,
+                        description: achievement.description,
+                        iconUrl: icon?.url ?? "xbox_achievement",
+                        xboxDetails: {
+                            gamerScore: gamerScore?.value
+                                ? Number(gamerScore?.value)
+                                : 0,
+                        },
+                    } satisfies GameAchievementDto;
+                });
+            })
             .otherwise(() => {
                 throw new UnrecoverableError(
                     "Category mapping not implemented.",
@@ -217,6 +256,46 @@ export class GameAchievementService {
                             : null,
                         source: EGameExternalGameCategory.PlaystationStoreUs,
                         externalId: `${trophy.trophyId}`,
+                    } satisfies GameObtainedAchievementDto;
+                });
+            })
+            .with(EGameExternalGameCategory.Microsoft, async () => {
+                const userConnection =
+                    await this.connectionsService.findOneByUserIdAndType(
+                        userId,
+                        EConnectionType.XBOX,
+                    );
+
+                if (!userConnection) {
+                    return [];
+                }
+
+                const titlePFN = await this.xboxSyncService.getPFNByProductId(
+                    externalGame.uid,
+                );
+                const titleId =
+                    await this.xboxSyncService.getTitleIdByPFN(titlePFN);
+
+                const achievements =
+                    await this.xboxSyncService.getObtainedAchievements(
+                        userConnection.sourceUserId,
+                        titleId,
+                    );
+
+                return achievements.map((achievement) => {
+                    const isObtained = achievement.progressState === "Achieved";
+
+                    return {
+                        externalGameId: externalGame.id,
+                        gameId: externalGame.gameId,
+                        source: EGameExternalGameCategory.Microsoft,
+                        isObtained: isObtained,
+                        obtainedAt: isObtained
+                            ? dayjs(
+                                  achievement.progression.timeUnlocked,
+                              ).toDate()
+                            : null,
+                        externalId: achievement.id,
                     } satisfies GameObtainedAchievementDto;
                 });
             })

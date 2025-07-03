@@ -8,11 +8,12 @@ export class GameAchievementDto {
     externalGameId: number;
     gameId: number;
     iconUrl: string;
-    iconGrayUrl?: string;
     // Only for steam achievements
     steamDetails?: SteamAchievementDetails | null;
     // Only for psn achievements
     psnDetails?: PsnAchievementDetails | null;
+    // Only for xbox achievements
+    xboxDetails?: XboxAchievementDetails | null;
 }
 
 export class SteamAchievementDetails {
@@ -25,4 +26,15 @@ export class SteamAchievementDetails {
 export class PsnAchievementDetails {
     trophyType: string;
     trophyIcon: string;
+    /**
+     * @example "default", "001", "002"
+     */
+    trophyGroupId: string;
+}
+
+export class XboxAchievementDetails {
+    /**
+     * Gamerscore granted by this achievement.
+     */
+    gamerScore: number;
 }

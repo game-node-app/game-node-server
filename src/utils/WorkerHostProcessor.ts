@@ -24,6 +24,7 @@ export abstract class WorkerHostProcessor extends WorkerHost {
 
     @OnWorkerEvent("failed")
     onFailed(job: Job) {
+        if (job == undefined) return;
         const { id, name, queueName, failedReason } = job;
         this.logger.error(
             `Job id: ${id}, name: ${name} failed in queue ${queueName}. Failed reason: ${failedReason}`,

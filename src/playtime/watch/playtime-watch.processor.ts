@@ -171,9 +171,8 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             })!;
 
             // Matching is imprecise
-            const relatedTrophyTitle = userTrophyTitles.find(
-                (trophyTitle) =>
-                    trophyTitle.trophyTitleName === relatedUserGame.name,
+            const relatedTrophyTitle = userTrophyTitles.find((trophyTitle) =>
+                trophyTitle.trophyTitleName.includes(externalGame.name!),
             );
 
             if (relatedTrophyTitle) {
