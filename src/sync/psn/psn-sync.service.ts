@@ -25,7 +25,7 @@ export class PsnSyncService {
         // this.getGames("5847504196784127951", 0, 1);
         // this.getAllGames("5847504196784127951");
         // this.getUserTrophyTitles("1588575164307436368");
-        // this.getGameAchievements("NPWR21647_00", "trophy2");
+        // this.getGameAchievements("NPWR00951_00", "trophy");
         // this.getGameAchievementGroups("NPWR36088_00", "trophy2");
     }
 
