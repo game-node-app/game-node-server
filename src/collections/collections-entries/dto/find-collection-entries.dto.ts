@@ -27,5 +27,5 @@ export class FindCollectionEntriesDto extends OmitType(
     @IsString()
     status?: CollectionEntryStatus;
     @IsOptional()
-    category: EGameCategory[] = [];
+    category?: EGameCategory[] = [];
 }
