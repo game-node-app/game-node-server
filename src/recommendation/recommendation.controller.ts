@@ -1,7 +1,6 @@
 import {
     Controller,
     Get,
-    Param,
     Query,
     UseGuards,
     UseInterceptors,
@@ -12,7 +11,7 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { GetRecommendationsRequestDto } from "./dto/get-recommendations.dto";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "src/auth/auth.guard";
-import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
+import { CacheTTL } from "@nestjs/cache-manager";
 import { hours, ThrottlerGuard } from "@nestjs/throttler";
 import { SessionAwareCacheInterceptor } from "../interceptor/session-aware-cache/session-aware-cache.interceptor";
 

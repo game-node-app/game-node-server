@@ -1,12 +1,16 @@
 import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { PsnSyncAuthService } from "./auth/psn-sync-auth.service";
-import { Cache } from "@nestjs/cache-manager";
 import {
-    makeUniversalSearch,
+    getTitleTrophies,
+    getTitleTrophyGroups,
     getUserPlayedGames,
-    UniversalSearchResponse,
+    getUserTitles,
+    getUserTrophiesEarnedForTitle,
+    makeUniversalSearch,
     SocialAccountResult,
+    UniversalSearchResponse,
     UserPlayedGamesResponse,
+    UserTitlesResponse,
 } from "psn-api";
 import { HttpStatusCode } from "axios";
 import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
@@ -20,6 +24,9 @@ export class PsnSyncService {
     constructor(private readonly authService: PsnSyncAuthService) {
         // this.getGames("5847504196784127951", 0, 1);
         // this.getAllGames("5847504196784127951");
+        // this.getUserTrophyTitles("1588575164307436368");
+        // this.getGameAchievements("NPWR21647_00", "trophy2");
+        // this.getGameAchievementGroups("NPWR36088_00", "trophy2");
     }
 
     public async resolveUserInfo(
@@ -139,5 +146,121 @@ export class PsnSyncService {
         }
 
         return totalTitles;
+    }
+
+    @Cacheable(PsnSyncService.name, hours(24))
+    public async getGameAchievements(
+        npCommunicationId: string,
+        npServiceName: string,
+    ) {
+        const authorization = await this.authService.getValidAccessToken();
+
+        const response = await getTitleTrophies(
+            authorization,
+            npCommunicationId,
+            "all",
+            {
+                npServiceName: npServiceName as never,
+            },
+        );
+
+        if ("error" in response) {
+            throw new Error(`Error in getGameAchievements: ${response.error}`);
+        }
+
+        return response.trophies;
+    }
+
+    @Cacheable(PsnSyncService.name, hours(24))
+    public async getGameAchievementGroups(
+        npCommunicationId: string,
+        npServiceName: string,
+    ) {
+        const authorization = await this.authService.getValidAccessToken();
+
+        const response = await getTitleTrophyGroups(
+            authorization,
+            npCommunicationId,
+            {
+                npServiceName: npServiceName as never,
+            },
+        );
+
+        if ("error" in response) {
+            throw new Error(
+                `Error in getGameAchievementGroups: ${response.error}`,
+            );
+        }
+
+        return response;
+    }
+
+    @Cacheable(PsnSyncService.name, minutes(15))
+    public async getObtainedAchievements(
+        accountId: string,
+        npCommunicationId: string,
+        npServiceName: string,
+    ) {
+        const authorization = await this.authService.getValidAccessToken();
+
+        const response = await getUserTrophiesEarnedForTitle(
+            authorization,
+            accountId,
+            npCommunicationId,
+            "all",
+            {
+                npServiceName: npServiceName as never,
+            },
+        );
+
+        return response.trophies;
+    }
+
+    /**
+     * An alternative version of 'getUserGames' that returns trophy related information.
+     * The {@link GameExternalGame#uid} is not available in this endpoint, so associations may be imprecise.
+     * @param accountId
+     */
+    @Cacheable(PsnSyncService.name, hours(1))
+    public async getUserTrophyTitles(accountId: string) {
+        const authorization = await this.authService.getValidAccessToken();
+
+        const MAX_PER_PAGE = 800;
+        let currentOffset = 0;
+
+        const titles: UserTitlesResponse["trophyTitles"] = [];
+
+        while (true) {
+            try {
+                const response = await getUserTitles(authorization, accountId, {
+                    offset: currentOffset,
+                });
+
+                const currentQueriedItems = MAX_PER_PAGE - currentOffset;
+
+                if (
+                    response != undefined &&
+                    response.trophyTitles != undefined &&
+                    Array.isArray(response.trophyTitles)
+                ) {
+                    titles.push(...response.trophyTitles);
+                }
+
+                if (
+                    response.totalItemCount != undefined &&
+                    response.totalItemCount - currentQueriedItems >=
+                        MAX_PER_PAGE
+                ) {
+                    currentOffset = response.totalItemCount - MAX_PER_PAGE;
+                    continue;
+                }
+            } catch (err: unknown) {
+                this.logger.error(err);
+            }
+
+            break;
+        }
+
+        return titles;
     }
 }

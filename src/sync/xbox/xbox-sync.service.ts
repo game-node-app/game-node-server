@@ -7,8 +7,11 @@ import {
 } from "@nestjs/common";
 import {
     XboxBatchMinutesPlayedResponse,
+    XboxDisplayCatalogueLookupResponse,
+    XboxGameAchievementsResponse,
     XboxGameTitle,
     XboxMinutesPlayedStatsItem,
+    XboxMSStoreCatalogResponse,
 } from "./xbox-sync.types";
 import { XboxSyncAuthService } from "./auth/xbox-sync-auth.service";
 import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
@@ -16,17 +19,26 @@ import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { getXboxPlayerXUID } from "./client/getXboxPlayerXUID";
 import { callXboxAPI } from "./client/callXboxApi";
 import { Cacheable } from "../../utils/cacheable";
-import { hours } from "@nestjs/throttler";
+import { days, hours, minutes } from "@nestjs/throttler";
 
 @Injectable()
 export class XboxSyncService {
+    private readonly GENERIC_XUID = "2535470385649416";
     private readonly logger = new Logger(XboxSyncService.name);
 
     constructor(
         private readonly authService: XboxSyncAuthService,
         @Inject(CACHE_MANAGER)
         private readonly cacheManager: Cache,
-    ) {}
+    ) {
+        // (async () => {
+        //     const pfn = await this.getPFNByProductId("9ND58LQTG09T");
+        //     const titleId = await this.getTitleIdByPFN(pfn);
+        //     const achievements = await this.getAvailableAchievements(titleId);
+        //
+        //     return achievements;
+        // })();
+    }
 
     public async resolveUserInfo(
         gamertag: string,
@@ -150,5 +162,99 @@ export class XboxSyncService {
         }
 
         return items;
+    }
+
+    @Cacheable(XboxSyncService.name, minutes(15))
+    public async getObtainedAchievements(playerXUID: string, titleId: string) {
+        const auth = await this.authService.getAuthCredentials();
+
+        const result = await callXboxAPI<XboxGameAchievementsResponse>(
+            {
+                url: `https://achievements.xboxlive.com/users/xuid(${playerXUID})/achievements`,
+                params: {
+                    titleId,
+                    maxItems: 1000,
+                },
+            },
+            auth,
+        );
+
+        return result.achievements;
+    }
+
+    /**
+     * Returns all achievements available for a game.
+     * A generic XUID is used, so don't expect 'owned' statistics to be accurate.
+     * @param titleId
+     */
+    @Cacheable(XboxSyncService.name, hours(24))
+    public async getAvailableAchievements(titleId: string) {
+        return this.getObtainedAchievements(this.GENERIC_XUID, titleId);
+    }
+
+    @Cacheable(XboxSyncService.name, days(7))
+    public async getTitleIdByPFN(pfn: string) {
+        const response = await callXboxAPI<XboxDisplayCatalogueLookupResponse>(
+            {
+                url: "https://displaycatalog.mp.microsoft.com/v7.0/products/lookup",
+                headers: {
+                    Authorization: null,
+                },
+                params: {
+                    top: 25,
+                    alternateId: "PackageFamilyName",
+                    fieldsTemplate: "details",
+                    languages: "en-US",
+                    market: "us",
+                    value: pfn,
+                },
+            },
+            // API doesn't demand auth
+            { userHash: "", XSTSToken: "" },
+        );
+
+        if (response != undefined && response.Products?.length > 0) {
+            const alternativeIds = response.Products[0].AlternateIds;
+
+            const titleId = alternativeIds.find(
+                (alt) => alt.IdType === "XboxTitleId",
+            );
+
+            if (titleId) {
+                return titleId.Value;
+            }
+        }
+
+        throw new HttpException(
+            "No titleId match found for PFN: " + pfn,
+            HttpStatus.BAD_REQUEST,
+        );
+    }
+
+    @Cacheable(XboxSyncService.name, days(7))
+    public async getPFNByProductId(productId: string) {
+        const response = await callXboxAPI<XboxMSStoreCatalogResponse>(
+            {
+                method: "POST",
+                url: "https://storeedgefd.dsx.mp.microsoft.com/v8.0/sdk/products?market=US&locale=en-US&deviceFamily=Windows.Xbox",
+                data: { productIds: productId },
+                headers: {
+                    Authorization: null,
+                },
+            },
+            // API doesn't demand auth
+            { userHash: "", XSTSToken: "" },
+        );
+
+        if (response != undefined && response.Products?.length > 0) {
+            if (response.Products[0].Properties?.PackageFamilyName) {
+                return response.Products[0].Properties?.PackageFamilyName;
+            }
+        }
+
+        throw new HttpException(
+            "No PFN match found for productId: " + productId,
+            HttpStatus.BAD_REQUEST,
+        );
     }
 }

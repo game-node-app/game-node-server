@@ -1,9 +1,10 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import SteamAPI, { UserSummary } from "steamapi";
-import { hours } from "@nestjs/throttler";
+import { hours, minutes } from "@nestjs/throttler";
 import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
 import { Cacheable } from "../../utils/cacheable";
+import { GameStatsResponse } from "./steam-sync.types";
 
 @Injectable()
 export class SteamSyncService {
@@ -22,11 +23,6 @@ export class SteamSyncService {
                 return;
             }
             this.client = new p.default(steamKey);
-            // (async () => {
-            //     const test = await this.getAllGames("76561198136665859");
-            //
-            //     console.log(test);
-            // })();
         });
     }
 
@@ -78,5 +74,34 @@ export class SteamSyncService {
         });
 
         return sortedGames;
+    }
+
+    @Cacheable(SteamSyncService.name, hours(24))
+    public async getAvailableAchievements(appId: number) {
+        const response: GameStatsResponse = await this.client.getGameSchema(
+            appId,
+            "english",
+        );
+
+        if (response == undefined || response.availableGameStats == undefined) {
+            return [];
+        }
+
+        return response.availableGameStats.achievements;
+    }
+
+    @Cacheable(SteamSyncService.name, hours(24))
+    public async getAchievementsPercentage(appId: number) {
+        return await this.client.getGameAchievementPercentages(appId);
+    }
+
+    @Cacheable(SteamSyncService.name, minutes(15))
+    public async getUserAchievements(steamUserId: string, appId: number) {
+        return await this.client.getUserAchievements(steamUserId, appId);
+    }
+
+    @Cacheable(SteamSyncService.name, hours(24))
+    public async getUserBadges(steamUserId: string) {
+        return await this.client.getUserBadges(steamUserId);
     }
 }

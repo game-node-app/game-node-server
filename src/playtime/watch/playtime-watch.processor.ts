@@ -4,7 +4,6 @@ import {
     PLAYTIME_WATCH_QUEUE_NAME,
     PlaytimeWatchJob,
 } from "./playtime-watch.constants";
-import { seconds } from "@nestjs/throttler";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { Logger } from "@nestjs/common";
 import { Job, UnrecoverableError } from "bullmq";
@@ -19,13 +18,10 @@ import { UserPlaytimeSource } from "../playtime.constants";
 import dayjs from "dayjs";
 import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
+import { ExternalGameMappingsService } from "../../game/external-game/external-game-mappings.service";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
-    limiter: {
-        max: 1,
-        duration: seconds(4),
-    },
-    concurrency: 10,
+    concurrency: 4,
 })
 export class PlaytimeWatchProcessor extends WorkerHostProcessor {
     logger = new Logger(PlaytimeWatchProcessor.name);
@@ -34,6 +30,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly playtimeService: PlaytimeService,
         private readonly connectionsService: ConnectionsService,
         private readonly externalGameService: ExternalGameService,
+        private readonly externalGameMappingsService: ExternalGameMappingsService,
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
@@ -140,9 +137,10 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 EConnectionType.PSN,
             );
 
-        const userGames = await this.psnSyncService.getAllGames(
-            connection.sourceUserId,
-        );
+        const [userGames, userTrophyTitles] = await Promise.all([
+            this.psnSyncService.getAllGames(connection.sourceUserId),
+            this.psnSyncService.getUserTrophyTitles(connection.sourceUserId),
+        ]);
 
         const gamesUids = userGames.map((item) => `${item.concept.id}`);
 
@@ -159,16 +157,33 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         });
 
         for (const unmappedEntry of unmappedEntries) {
-            await this.externalGameService.registerUnmappedGame(
-                `${unmappedEntry.concept.id}`,
-                EGameExternalGameCategory.PlaystationStoreUs,
-            );
+            this.externalGameService
+                .registerUnmappedGame(
+                    `${unmappedEntry.concept.id}`,
+                    EGameExternalGameCategory.PlaystationStoreUs,
+                )
+                .catch((err) => this.logger.error(err));
         }
 
         for (const externalGame of externalGames) {
             const relatedUserGame = userGames.find((item) => {
                 return Number.parseInt(externalGame.uid) === item.concept.id;
             })!;
+
+            // Matching is imprecise
+            const relatedTrophyTitle = userTrophyTitles.find((trophyTitle) =>
+                trophyTitle.trophyTitleName.includes(externalGame.name!),
+            );
+
+            if (relatedTrophyTitle) {
+                this.externalGameMappingsService
+                    .upsertPsnMappings({
+                        externalGameId: externalGame.id,
+                        npServiceName: relatedTrophyTitle.npServiceName,
+                        npCommunicationId: relatedTrophyTitle.npCommunicationId,
+                    })
+                    .catch((err) => this.logger.error(err));
+            }
 
             const existingPlaytimeInfo =
                 await this.playtimeService.findOneBySource(

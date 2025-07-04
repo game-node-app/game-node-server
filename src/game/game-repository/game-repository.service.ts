@@ -144,8 +144,9 @@ export class GameRepositoryService {
     }
 
     async findGameExternalStores(gameId: number) {
-        const externalGames =
-            await this.externalGameService.getExternalGamesForGameIds([gameId]);
+        const externalGames = await this.externalGameService.findAllForGameId([
+            gameId,
+        ]);
         if (externalGames.length === 0) {
             throw new HttpException(
                 "Game has no external stores registered",

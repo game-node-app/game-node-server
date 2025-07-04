@@ -138,6 +138,8 @@ const externalGameCategoryToIconMap: { [p: string]: number[] } = {
     twitch: [EGameExternalGameCategory.Twitch],
 };
 
+const DEFAULT_GAME_CATEGORIES = [EGameCategory.Main];
+
 export {
     EGameCategory,
     EGameStatus,
