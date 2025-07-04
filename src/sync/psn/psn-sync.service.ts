@@ -171,6 +171,7 @@ export class PsnSyncService {
         return response.trophies;
     }
 
+    @Cacheable(PsnSyncService.name, hours(24))
     public async getGameAchievementGroups(
         npCommunicationId: string,
         npServiceName: string,
@@ -194,6 +195,7 @@ export class PsnSyncService {
         return response;
     }
 
+    @Cacheable(PsnSyncService.name, minutes(15))
     public async getObtainedAchievements(
         accountId: string,
         npCommunicationId: string,

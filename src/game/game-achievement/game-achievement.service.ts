@@ -91,33 +91,43 @@ export class GameAchievementService {
 
                 const mappings = externalGame.psnExtraMappings;
 
-                const promises = mappings.map((mapping) => {
-                    return this.psnSyncService.getGameAchievements(
-                        mapping.npCommunicationId,
-                        mapping.npServiceName,
-                    );
-                });
+                const totalTrophies: GameAchievementDto[] = [];
 
-                const responses = await Promise.all(promises);
+                for (const mapping of mappings) {
+                    const trophies =
+                        await this.psnSyncService.getGameAchievements(
+                            mapping.npCommunicationId,
+                            mapping.npServiceName,
+                        );
 
-                const trophies = responses.flat(1);
+                    const parsedTrophies = trophies.map((trophy) => {
+                        return {
+                            externalGameId: externalGame.id,
+                            gameId: externalGame.id,
+                            source: EGameExternalGameCategory.PlaystationStoreUs,
+                            externalId: `${trophy.trophyId}`,
+                            iconUrl: trophy.trophyIconUrl!,
+                            description: trophy.trophyDetail ?? null,
+                            name: trophy.trophyName!,
+                            psnDetails: {
+                                trophyIcon: `psn_trophy_rarity_${trophy.trophyType}`,
+                                trophyType: trophy.trophyType,
+                                trophyGroupId:
+                                    trophy.trophyGroupId ?? "default",
+                                platformId:
+                                    mapping.npServiceName === "trophy2"
+                                        ? // PS5
+                                          167
+                                        : // PS4
+                                          48,
+                            },
+                        } satisfies GameAchievementDto;
+                    });
 
-                return trophies.map((trophy) => {
-                    return {
-                        externalGameId: externalGame.id,
-                        gameId: externalGame.id,
-                        source: EGameExternalGameCategory.PlaystationStoreUs,
-                        externalId: `${trophy.trophyId}`,
-                        iconUrl: trophy.trophyIconUrl!,
-                        description: trophy.trophyDetail ?? null,
-                        name: trophy.trophyName!,
-                        psnDetails: {
-                            trophyIcon: `psn_trophy_rarity_${trophy.trophyType}`,
-                            trophyType: trophy.trophyType,
-                            trophyGroupId: trophy.trophyGroupId ?? "default",
-                        },
-                    } satisfies GameAchievementDto;
-                });
+                    totalTrophies.push(...parsedTrophies);
+                }
+
+                return totalTrophies;
             })
             .with(EGameExternalGameCategory.Microsoft, async () => {
                 const titlePFN = await this.xboxSyncService.getPFNByProductId(

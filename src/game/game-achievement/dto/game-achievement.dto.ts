@@ -30,6 +30,10 @@ export class PsnAchievementDetails {
      * @example "default", "001", "002"
      */
     trophyGroupId: string;
+    /**
+     * @example 167 - ps5
+     */
+    platformId: number;
 }
 
 export class XboxAchievementDetails {

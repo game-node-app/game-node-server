@@ -19,7 +19,7 @@ import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { getXboxPlayerXUID } from "./client/getXboxPlayerXUID";
 import { callXboxAPI } from "./client/callXboxApi";
 import { Cacheable } from "../../utils/cacheable";
-import { days, hours } from "@nestjs/throttler";
+import { days, hours, minutes } from "@nestjs/throttler";
 
 @Injectable()
 export class XboxSyncService {
@@ -31,13 +31,13 @@ export class XboxSyncService {
         @Inject(CACHE_MANAGER)
         private readonly cacheManager: Cache,
     ) {
-        (async () => {
-            const pfn = await this.getPFNByProductId("9ND58LQTG09T");
-            const titleId = await this.getTitleIdByPFN(pfn);
-            const achievements = await this.getAvailableAchievements(titleId);
-
-            return achievements;
-        })();
+        // (async () => {
+        //     const pfn = await this.getPFNByProductId("9ND58LQTG09T");
+        //     const titleId = await this.getTitleIdByPFN(pfn);
+        //     const achievements = await this.getAvailableAchievements(titleId);
+        //
+        //     return achievements;
+        // })();
     }
 
     public async resolveUserInfo(
@@ -164,6 +164,7 @@ export class XboxSyncService {
         return items;
     }
 
+    @Cacheable(XboxSyncService.name, minutes(15))
     public async getObtainedAchievements(playerXUID: string, titleId: string) {
         const auth = await this.authService.getAuthCredentials();
 
@@ -186,6 +187,7 @@ export class XboxSyncService {
      * A generic XUID is used, so don't expect 'owned' statistics to be accurate.
      * @param titleId
      */
+    @Cacheable(XboxSyncService.name, hours(24))
     public async getAvailableAchievements(titleId: string) {
         return this.getObtainedAchievements(this.GENERIC_XUID, titleId);
     }

@@ -6,6 +6,7 @@ import { IsOptional, IsString } from "class-validator";
 import { CollectionEntryStatus } from "../collections-entries.constants";
 import { Expose, Transform } from "class-transformer";
 import qs from "qs";
+import { EGameCategory } from "../../../game/game-repository/game-repository.constants";
 
 export class FindCollectionEntriesDto extends OmitType(
     BaseFindDto<CollectionEntry>,
@@ -25,4 +26,6 @@ export class FindCollectionEntriesDto extends OmitType(
     @IsOptional()
     @IsString()
     status?: CollectionEntryStatus;
+    @IsOptional()
+    category: EGameCategory[] = [];
 }
