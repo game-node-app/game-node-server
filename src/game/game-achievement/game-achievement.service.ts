@@ -93,7 +93,12 @@ export class GameAchievementService {
 
                 const totalTrophies: GameAchievementDto[] = [];
 
+                const processedNpServiceNames = new Set<string>();
+
                 for (const mapping of mappings) {
+                    if (processedNpServiceNames.has(mapping.npServiceName)) {
+                        continue;
+                    }
                     const trophies =
                         await this.psnSyncService.getGameAchievements(
                             mapping.npCommunicationId,
@@ -125,6 +130,8 @@ export class GameAchievementService {
                     });
 
                     totalTrophies.push(...parsedTrophies);
+
+                    processedNpServiceNames.add(mapping.npServiceName);
                 }
 
                 return totalTrophies;
