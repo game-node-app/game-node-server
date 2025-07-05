@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ExternalGameService } from "../external-game/external-game.service";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { match } from "ts-pattern";
@@ -11,12 +11,15 @@ import { EConnectionType } from "../../connections/connections.constants";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 import dayjs from "dayjs";
+import { UserThinTrophy } from "psn-api";
 
 const getPSNAchievementId = (npCommunicationId: string, trophyId: number) =>
     `${npCommunicationId}_${trophyId}`;
 
 @Injectable()
 export class GameAchievementService {
+    private readonly logger = new Logger(GameAchievementService.name);
+
     constructor(
         private readonly externalGameService: ExternalGameService,
         private readonly steamSyncService: SteamSyncService,
@@ -275,12 +278,17 @@ export class GameAchievementService {
                         continue;
                     }
 
-                    const userTrophies =
-                        await this.psnSyncService.getObtainedAchievements(
-                            userConnection.sourceUserId,
-                            mapping.npCommunicationId,
-                            mapping.npServiceName,
-                        );
+                    let userTrophies: UserThinTrophy[] = [];
+                    try {
+                        userTrophies =
+                            await this.psnSyncService.getObtainedAchievements(
+                                userConnection.sourceUserId,
+                                mapping.npCommunicationId,
+                                mapping.npServiceName,
+                            );
+                    } catch (err) {
+                        this.logger.error(err);
+                    }
 
                     const parsedTrophies = userTrophies.map((trophy) => {
                         return {
