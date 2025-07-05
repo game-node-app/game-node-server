@@ -75,6 +75,7 @@ export class GameAchievementService {
                                 relatedPercentage?.percent ?? 0,
                             ),
                         },
+                        platformIds: [6],
                     } satisfies GameAchievementDto;
                 });
             })
@@ -114,17 +115,18 @@ export class GameAchievementService {
                             iconUrl: trophy.trophyIconUrl!,
                             description: trophy.trophyDetail ?? null,
                             name: trophy.trophyName!,
+                            platformIds: [
+                                mapping.npServiceName === "trophy2"
+                                    ? // PS5
+                                      167
+                                    : // PS4
+                                      48,
+                            ],
                             psnDetails: {
                                 trophyIcon: `psn_trophy_rarity_${trophy.trophyType}`,
                                 trophyType: trophy.trophyType,
                                 trophyGroupId:
                                     trophy.trophyGroupId ?? "default",
-                                platformId:
-                                    mapping.npServiceName === "trophy2"
-                                        ? // PS5
-                                          167
-                                        : // PS4
-                                          48,
                             },
                         } satisfies GameAchievementDto;
                     });
@@ -169,18 +171,22 @@ export class GameAchievementService {
                                 ? Number(gamerScore?.value)
                                 : 0,
                         },
+                        // XONE and X Series S/X
+                        platformIds: [49, 169],
                     } satisfies GameAchievementDto;
                 });
             })
             .otherwise(() => {
-                throw new UnrecoverableError(
+                throw new HttpException(
                     "Category mapping not implemented.",
+                    HttpStatus.BAD_REQUEST,
                 );
             });
 
         if (achievements.length === 0) {
-            throw new UnrecoverableError(
+            throw new HttpException(
                 "Game has no available achievements for this source.",
+                HttpStatus.NOT_FOUND,
             );
         }
 

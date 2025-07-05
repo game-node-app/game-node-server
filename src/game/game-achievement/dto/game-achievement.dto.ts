@@ -8,6 +8,11 @@ export class GameAchievementDto {
     externalGameId: number;
     gameId: number;
     iconUrl: string;
+    /**
+     * Related GamePlatform references.
+     * Usually, an achievement is only related to one platform.
+     */
+    platformIds: number[];
     // Only for steam achievements
     steamDetails?: SteamAchievementDetails | null;
     // Only for psn achievements
@@ -30,10 +35,6 @@ export class PsnAchievementDetails {
      * @example "default", "001", "002"
      */
     trophyGroupId: string;
-    /**
-     * @example 167 - ps5
-     */
-    platformId: number;
 }
 
 export class XboxAchievementDetails {
