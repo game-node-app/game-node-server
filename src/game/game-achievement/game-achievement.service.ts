@@ -12,6 +12,9 @@ import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 import dayjs from "dayjs";
 
+const getPSNAchievementId = (npCommunicationId: string, trophyId: number) =>
+    `${npCommunicationId}_${trophyId}`;
+
 @Injectable()
 export class GameAchievementService {
     constructor(
@@ -111,7 +114,10 @@ export class GameAchievementService {
                             externalGameId: externalGame.id,
                             gameId: externalGame.id,
                             source: EGameExternalGameCategory.PlaystationStoreUs,
-                            externalId: `${trophy.trophyId}`,
+                            externalId: getPSNAchievementId(
+                                mapping.npCommunicationId,
+                                trophy.trophyId,
+                            ),
                             iconUrl: trophy.trophyIconUrl!,
                             description: trophy.trophyDetail ?? null,
                             name: trophy.trophyName!,
@@ -237,6 +243,9 @@ export class GameAchievementService {
                     } satisfies GameObtainedAchievementDto;
                 });
             })
+            /**
+             * TODO: Make this return matches for ALL mappings
+             */
             .with(EGameExternalGameCategory.PlaystationStoreUs, async () => {
                 if (
                     externalGame.psnExtraMappings == undefined ||
@@ -257,30 +266,44 @@ export class GameAchievementService {
 
                 const mappings = externalGame.psnExtraMappings;
 
-                const promises = mappings.map((mapping) => {
-                    return this.psnSyncService.getObtainedAchievements(
-                        userConnection.sourceUserId,
-                        mapping.npCommunicationId,
-                        mapping.npServiceName,
-                    );
-                });
+                const totalObtainedTrophies: GameObtainedAchievementDto[] = [];
 
-                const responses = await Promise.all(promises);
+                const processedNpServiceNames = new Set<string>();
 
-                const trophies = responses.flat(1);
+                for (const mapping of mappings) {
+                    if (processedNpServiceNames.has(mapping.npServiceName)) {
+                        continue;
+                    }
 
-                return trophies.map((trophy) => {
-                    return {
-                        externalGameId: externalGame.id,
-                        gameId: externalGame.id,
-                        isObtained: trophy.earned ?? false,
-                        obtainedAt: trophy.earnedDateTime
-                            ? new Date(trophy.earnedDateTime)
-                            : null,
-                        source: EGameExternalGameCategory.PlaystationStoreUs,
-                        externalId: `${trophy.trophyId}`,
-                    } satisfies GameObtainedAchievementDto;
-                });
+                    const userTrophies =
+                        await this.psnSyncService.getObtainedAchievements(
+                            userConnection.sourceUserId,
+                            mapping.npCommunicationId,
+                            mapping.npServiceName,
+                        );
+
+                    const parsedTrophies = userTrophies.map((trophy) => {
+                        return {
+                            externalGameId: externalGame.id,
+                            gameId: externalGame.id,
+                            isObtained: trophy.earned ?? false,
+                            obtainedAt: trophy.earnedDateTime
+                                ? new Date(trophy.earnedDateTime)
+                                : null,
+                            source: EGameExternalGameCategory.PlaystationStoreUs,
+                            externalId: getPSNAchievementId(
+                                mapping.npCommunicationId,
+                                trophy.trophyId,
+                            ),
+                        } satisfies GameObtainedAchievementDto;
+                    });
+
+                    totalObtainedTrophies.push(...parsedTrophies);
+
+                    processedNpServiceNames.add(mapping.npServiceName);
+                }
+
+                return totalObtainedTrophies;
             })
             .with(EGameExternalGameCategory.Microsoft, async () => {
                 const userConnection =
