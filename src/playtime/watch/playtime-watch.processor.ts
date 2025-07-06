@@ -173,7 +173,10 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             // Matching is imprecise
             const relatedTrophyTitle = userTrophyTitles.find(
                 (trophyTitle) =>
-                    trophyTitle.trophyTitleName === relatedUserGame.name,
+                    trophyTitle.trophyTitleName === relatedUserGame.name &&
+                    relatedUserGame.category.includes(
+                        trophyTitle.trophyTitlePlatform.toLocaleLowerCase(),
+                    ),
             );
 
             if (relatedTrophyTitle) {

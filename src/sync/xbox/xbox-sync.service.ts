@@ -126,7 +126,6 @@ export class XboxSyncService {
                     break;
                 }
 
-                // Request
                 const statsBatch =
                     await callXboxAPI<XboxBatchMinutesPlayedResponse>(
                         {
