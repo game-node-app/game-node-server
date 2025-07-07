@@ -31,13 +31,13 @@ export class XboxSyncService {
         @Inject(CACHE_MANAGER)
         private readonly cacheManager: Cache,
     ) {
-        // (async () => {
-        //     const pfn = await this.getPFNByProductId("9ND58LQTG09T");
-        //     const titleId = await this.getTitleIdByPFN(pfn);
-        //     const achievements = await this.getAvailableAchievements(titleId);
-        //
-        //     return achievements;
-        // })();
+        (async () => {
+            const pfn = await this.getPFNByProductId("BTNPS60N3114");
+            const titleId = await this.getTitleIdByPFN(pfn);
+            const achievements = await this.getAvailableAchievements(titleId);
+
+            return achievements;
+        })();
     }
 
     public async resolveUserInfo(

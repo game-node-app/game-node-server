@@ -232,9 +232,11 @@ export class GameRepositoryCreateService {
         if (game.externalGames) {
             for (const externalGame of game.externalGames) {
                 try {
-                    if (typeof externalGame.platform === "number") {
-                        externalGame.platform = undefined;
-                        externalGame.platformId = externalGame.platform;
+                    if (
+                        externalGame.platform != undefined &&
+                        typeof externalGame.platform.id === "number"
+                    ) {
+                        externalGame.platformId = externalGame.platform.id;
                     }
                     await this.externalGameService.upsert({
                         ...externalGame,

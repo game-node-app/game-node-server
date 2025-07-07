@@ -5,6 +5,9 @@ import { IgdbSyncProcessor } from "./igdb-sync.processor";
 import { IGDB_SYNC_QUEUE_NAME } from "./igdb-sync.constants";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 import { IgdbSyncController } from "./igdb-sync.controller";
+import { IgdbPlaytimeSyncService } from "./playtime/igdb-playtime-sync.service";
+import { IgdbAuthService } from "./auth/igdb-auth.service";
+import { HttpModule } from "@nestjs/axios";
 
 /**
  * This module is responsible for handling the game create/update queue.
@@ -24,8 +27,15 @@ import { IgdbSyncController } from "./igdb-sync.controller";
             },
         }),
         GameRepositoryModule,
+        HttpModule,
     ],
     controllers: [IgdbSyncController],
-    providers: [IgdbSyncService, IgdbSyncProcessor],
+    providers: [
+        IgdbAuthService,
+        IgdbSyncService,
+        IgdbSyncProcessor,
+        IgdbPlaytimeSyncService,
+    ],
+    exports: [IgdbPlaytimeSyncService],
 })
 export class IgdbSyncModule {}

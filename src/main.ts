@@ -12,15 +12,20 @@ import { publicImagesDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
 import * as process from "process";
+import { SQLExceptionFilter } from "./filter/sql-exception.filter";
+import { AxiosExceptionFilter } from "./filter/axios-exception.filter";
 
 dayjs.extend(duration);
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
     app.enableVersioning({
         type: VersioningType.URI,
         defaultVersion: "1",
     });
+
+    app.useGlobalFilters(new SQLExceptionFilter(), new AxiosExceptionFilter());
 
     app.enableCors({
         credentials: true,
