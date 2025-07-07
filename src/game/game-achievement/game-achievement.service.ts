@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ExternalGameService } from "../external-game/external-game.service";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
-import { match } from "ts-pattern";
+import { match, P } from "ts-pattern";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 import { GameAchievementDto } from "./dto/game-achievement.dto";
 import { UnrecoverableError } from "bullmq";
@@ -15,6 +15,23 @@ import { UserThinTrophy } from "psn-api";
 
 const getPSNAchievementId = (npCommunicationId: string, trophyId: number) =>
     `${npCommunicationId}_${trophyId}`;
+
+/**
+ * Checks is an string is a valid Xbox productId.
+ * @example
+ * +------------+
+ * |uid         |
+ * +------------+
+ * |BZLN1W2ML7MG|
+ * |BZJH18QJVDVW|
+ * |BS8M9DCFB5BJ|
+ * +------------+
+ * @param productId
+ */
+const isValidXboxProductId = (productId: string) => {
+    const match = productId.match(/^[A-Z0-9]{12}$/);
+    return match != undefined && match.length > 0;
+};
 
 @Injectable()
 export class GameAchievementService {
@@ -147,44 +164,62 @@ export class GameAchievementService {
 
                 return totalTrophies;
             })
-            .with(EGameExternalGameCategory.Microsoft, async () => {
-                const titlePFN = await this.xboxSyncService.getPFNByProductId(
-                    externalGame.uid,
-                );
-                const titleId =
-                    await this.xboxSyncService.getTitleIdByPFN(titlePFN);
-
-                const achievements =
-                    await this.xboxSyncService.getAvailableAchievements(
-                        titleId,
+            .with(
+                P.union(
+                    EGameExternalGameCategory.Microsoft,
+                    EGameExternalGameCategory.XboxMarketplace,
+                    EGameExternalGameCategory.XboxGamePassUltimateCloud,
+                ),
+                async () => {
+                    const isValidProductId = isValidXboxProductId(
+                        externalGame.uid,
                     );
+                    if (!isValidProductId) {
+                        throw new HttpException(
+                            "Achievements are not yet available for this title.",
+                            HttpStatus.NOT_FOUND,
+                        );
+                    }
 
-                return achievements.map((achievement) => {
-                    const icon = achievement.mediaAssets.find(
-                        (asset) => asset.type === "Icon",
-                    );
-                    const gamerScore = achievement.rewards.find(
-                        (reward) => reward.type === "Gamerscore",
-                    );
+                    const titlePFN =
+                        await this.xboxSyncService.getPFNByProductId(
+                            externalGame.uid,
+                        );
+                    const titleId =
+                        await this.xboxSyncService.getTitleIdByPFN(titlePFN);
 
-                    return {
-                        externalGameId: externalGame.id,
-                        source: EGameExternalGameCategory.Microsoft,
-                        gameId: externalGame.gameId,
-                        name: achievement.name,
-                        externalId: achievement.id,
-                        description: achievement.description,
-                        iconUrl: icon?.url ?? "xbox_achievement",
-                        xboxDetails: {
-                            gamerScore: gamerScore?.value
-                                ? Number(gamerScore?.value)
-                                : 0,
-                        },
-                        // XONE and X Series S/X
-                        platformIds: [49, 169],
-                    } satisfies GameAchievementDto;
-                });
-            })
+                    const achievements =
+                        await this.xboxSyncService.getAvailableAchievements(
+                            titleId,
+                        );
+
+                    return achievements.map((achievement) => {
+                        const icon = achievement.mediaAssets.find(
+                            (asset) => asset.type === "Icon",
+                        );
+                        const gamerScore = achievement.rewards.find(
+                            (reward) => reward.type === "Gamerscore",
+                        );
+
+                        return {
+                            externalGameId: externalGame.id,
+                            source: EGameExternalGameCategory.Microsoft,
+                            gameId: externalGame.gameId,
+                            name: achievement.name,
+                            externalId: achievement.id,
+                            description: achievement.description,
+                            iconUrl: icon?.url ?? "xbox_achievement",
+                            xboxDetails: {
+                                gamerScore: gamerScore?.value
+                                    ? Number(gamerScore?.value)
+                                    : 0,
+                            },
+                            // XONE and X Series S/X
+                            platformIds: [49, 169],
+                        } satisfies GameAchievementDto;
+                    });
+                },
+            )
             .otherwise(() => {
                 throw new HttpException(
                     "Category mapping not implemented.",
@@ -313,46 +348,62 @@ export class GameAchievementService {
 
                 return totalObtainedTrophies;
             })
-            .with(EGameExternalGameCategory.Microsoft, async () => {
-                const userConnection =
-                    await this.connectionsService.findOneByUserIdAndType(
-                        userId,
-                        EConnectionType.XBOX,
+            .with(
+                P.union(
+                    EGameExternalGameCategory.Microsoft,
+                    EGameExternalGameCategory.XboxMarketplace,
+                    EGameExternalGameCategory.XboxGamePassUltimateCloud,
+                ),
+                async () => {
+                    const isValidProductId = isValidXboxProductId(
+                        externalGame.uid,
                     );
+                    if (!isValidProductId) {
+                        return [];
+                    }
 
-                if (!userConnection) {
-                    return [];
-                }
+                    const userConnection =
+                        await this.connectionsService.findOneByUserIdAndType(
+                            userId,
+                            EConnectionType.XBOX,
+                        );
 
-                const titlePFN = await this.xboxSyncService.getPFNByProductId(
-                    externalGame.uid,
-                );
-                const titleId =
-                    await this.xboxSyncService.getTitleIdByPFN(titlePFN);
+                    if (!userConnection) {
+                        return [];
+                    }
 
-                const achievements =
-                    await this.xboxSyncService.getObtainedAchievements(
-                        userConnection.sourceUserId,
-                        titleId,
-                    );
+                    const titlePFN =
+                        await this.xboxSyncService.getPFNByProductId(
+                            externalGame.uid,
+                        );
+                    const titleId =
+                        await this.xboxSyncService.getTitleIdByPFN(titlePFN);
 
-                return achievements.map((achievement) => {
-                    const isObtained = achievement.progressState === "Achieved";
+                    const achievements =
+                        await this.xboxSyncService.getObtainedAchievements(
+                            userConnection.sourceUserId,
+                            titleId,
+                        );
 
-                    return {
-                        externalGameId: externalGame.id,
-                        gameId: externalGame.gameId,
-                        source: EGameExternalGameCategory.Microsoft,
-                        isObtained: isObtained,
-                        obtainedAt: isObtained
-                            ? dayjs(
-                                  achievement.progression.timeUnlocked,
-                              ).toDate()
-                            : null,
-                        externalId: achievement.id,
-                    } satisfies GameObtainedAchievementDto;
-                });
-            })
+                    return achievements.map((achievement) => {
+                        const isObtained =
+                            achievement.progressState === "Achieved";
+
+                        return {
+                            externalGameId: externalGame.id,
+                            gameId: externalGame.gameId,
+                            source: EGameExternalGameCategory.Microsoft,
+                            isObtained: isObtained,
+                            obtainedAt: isObtained
+                                ? dayjs(
+                                      achievement.progression.timeUnlocked,
+                                  ).toDate()
+                                : null,
+                            externalId: achievement.id,
+                        } satisfies GameObtainedAchievementDto;
+                    });
+                },
+            )
             .otherwise(() => {
                 throw new UnrecoverableError(
                     "Category mapping not implemented.",

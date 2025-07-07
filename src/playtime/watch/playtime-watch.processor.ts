@@ -19,9 +19,18 @@ import dayjs from "dayjs";
 import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 import { ExternalGameMappingsService } from "../../game/external-game/external-game-mappings.service";
+import * as process from "process";
+import { seconds } from "@nestjs/throttler";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     concurrency: 4,
+    limiter:
+        process.env.NODE_ENV === "development"
+            ? {
+                  max: 1,
+                  duration: seconds(30),
+              }
+            : undefined,
 })
 export class PlaytimeWatchProcessor extends WorkerHostProcessor {
     logger = new Logger(PlaytimeWatchProcessor.name);

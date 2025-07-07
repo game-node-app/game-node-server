@@ -3,6 +3,7 @@ import {
     Catch,
     ExceptionFilter,
     HttpStatus,
+    Logger,
 } from "@nestjs/common";
 import { Response } from "express";
 import { TypeORMError } from "typeorm";
@@ -20,8 +21,9 @@ const isMySQLException = (err: Error): err is MySQLError => {
 
 @Catch(TypeORMError)
 export class SQLExceptionFilter implements ExceptionFilter {
+    private readonly logger = new Logger(SQLExceptionFilter.name);
     catch(exception: Error, host: ArgumentsHost) {
-        console.error(exception);
+        this.logger.error(exception);
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
         response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
