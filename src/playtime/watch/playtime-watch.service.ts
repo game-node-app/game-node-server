@@ -1,9 +1,8 @@
 import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
-import { Interval } from "@nestjs/schedule";
+import { Cron } from "@nestjs/schedule";
 import { ConnectionsService } from "../../connections/connections.service";
-import { hours } from "@nestjs/throttler";
 import {
     PLAYTIME_WATCH_QUEUE_JOB_NAME,
     PLAYTIME_WATCH_QUEUE_NAME,
@@ -23,11 +22,10 @@ export class PlaytimeWatchService {
         private readonly librariesService: LibrariesService,
         @Inject(forwardRef(() => ConnectionsService))
         private readonly connectionsService: ConnectionsService,
-    ) {
-        this.registerWatchJobs();
-    }
+    ) {}
 
-    @Interval(hours(6))
+    // “At minute 0 past hour 6, 12, 18, and 0.”
+    @Cron("0 6,12,18,0 * * *")
     async registerWatchJobs() {
         const userLibraries = await this.librariesService.findAllLibraries();
         const userIds = userLibraries.map((library) => library.userId);
@@ -47,25 +45,14 @@ export class PlaytimeWatchService {
         }
 
         for (const viableConnection of viableConnections) {
-            const source = connectionToPlaytimeSource(viableConnection.type);
-            this.playtimeWatchQueue
-                .add(
-                    PLAYTIME_WATCH_QUEUE_JOB_NAME,
-                    {
-                        userId: viableConnection.profileUserId,
-                        source: source,
-                    },
-                    {
-                        jobId: `playtime-watch-${viableConnection.profileUserId}-${source}`,
-                    },
-                )
-                .catch((err) => {
-                    this.logger.error(err);
-                });
+            await this.registerJob(
+                viableConnection.profileUserId,
+                viableConnection.type,
+            );
         }
     }
 
-    async registerManualJob(userId: string, source: EConnectionType) {
+    async registerJob(userId: string, source: EConnectionType) {
         const playtimeSource = connectionToPlaytimeSource(source);
 
         this.playtimeWatchQueue

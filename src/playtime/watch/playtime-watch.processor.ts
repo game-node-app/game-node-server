@@ -23,7 +23,7 @@ import * as process from "process";
 import { seconds } from "@nestjs/throttler";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
-    concurrency: 4,
+    concurrency: 1,
     limiter:
         process.env.NODE_ENV === "development"
             ? {
