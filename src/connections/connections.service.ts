@@ -205,7 +205,7 @@ export class ConnectionsService {
 
     private onConnectionCreate(createdConnection: UserConnection) {
         this.playtimeWatchService
-            .registerManualJob(
+            .registerJob(
                 createdConnection.profileUserId,
                 createdConnection.type,
             )

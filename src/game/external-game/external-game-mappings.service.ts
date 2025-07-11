@@ -16,12 +16,16 @@ export class ExternalGameMappingsService {
             "id" | "createdAt" | "deletedAt" | "updatedAt" | "externalGame"
         >,
     ) {
-        await this.psnExtraMappingsRepository.upsert(
+        const existingMapping = await this.psnExtraMappingsRepository.findOneBy(
             {
-                ...mappings,
-                id: null as never,
+                externalGameId: mappings.externalGameId,
+                npServiceName: mappings.npServiceName,
+                npCommunicationId: mappings.npCommunicationId,
             },
-            ["externalGameId", "npServiceName", "npCommunicationId"],
         );
+
+        if (!existingMapping) {
+            await this.psnExtraMappingsRepository.insert(mappings);
+        }
     }
 }
