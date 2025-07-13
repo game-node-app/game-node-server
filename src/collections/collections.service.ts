@@ -213,6 +213,7 @@ export class CollectionsService {
         await this.collectionsRepository.delete({
             id: collection.id,
         });
+
         await this.collectionEntriesService.deleteDandling();
     }
 }

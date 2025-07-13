@@ -36,6 +36,7 @@ import { ExternalGameModule } from "./game/external-game/external-game.module";
 import { XboxSyncModule } from "./sync/xbox/xbox-sync.module";
 import { createKeyv } from "@keyv/redis";
 import { GameAchievementModule } from "./game/game-achievement/game-achievement.module";
+import { JournalModule } from './journal/journal.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -184,6 +185,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         ExternalGameModule,
         XboxSyncModule,
         GameAchievementModule,
+        JournalModule,
     ],
 })
 export class AppModule implements NestModule {
