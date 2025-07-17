@@ -18,9 +18,15 @@ export class JournalController {
         @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
     ) {
-        return this.journalService.getJournalOverview(
-            session?.getUserId(),
-            userId,
-        );
+        return this.journalService.getOverview(session?.getUserId(), userId);
+    }
+
+    @Get("playlog/:userId/:gameId")
+    @Public()
+    public async getJournalPlaylog(
+        @Param("userId") userId: string,
+        @Param("gameId") gameId: number,
+    ) {
+        return this.journalService.getPlaylog(userId, gameId);
     }
 }

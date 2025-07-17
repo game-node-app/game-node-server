@@ -120,24 +120,6 @@ const platformAbbreviationToIconMap: { [p: string]: string[] } = {
     android: ["Android", "iOS"],
 };
 
-/**
- * Look-up table that matches a icon file to a set of external game categories. <br>
- * Check /public/icons for reference. <br>
- * Format: iconName: [category]
- */
-const externalGameCategoryToIconMap: { [p: string]: number[] } = {
-    xbox: [
-        EGameExternalGameCategory.XboxMarketplace,
-        EGameExternalGameCategory.XboxGamePassUltimateCloud,
-        EGameExternalGameCategory.Microsoft,
-    ],
-    steam: [EGameExternalGameCategory.Steam],
-    epicgames: [EGameExternalGameCategory.EpicGamesStore],
-    android: [EGameExternalGameCategory.Android],
-    playstation: [EGameExternalGameCategory.PlaystationStoreUs],
-    twitch: [EGameExternalGameCategory.Twitch],
-};
-
 const DEFAULT_GAME_CATEGORIES = [EGameCategory.Main];
 
 export {
@@ -148,5 +130,4 @@ export {
     EGamePlatformCategory,
     EGameStorageSource,
     platformAbbreviationToIconMap,
-    externalGameCategoryToIconMap,
 };

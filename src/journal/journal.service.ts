@@ -1,11 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
 import {
-    JournalEntriesGroupedDto,
-    JournalEntryDetailsDto,
+    JournalEntryStatusDto,
+    JournalOverviewResponseDto,
 } from "./dto/get-journal-overview.dto";
 import { CollectionEntry } from "../collections/collections-entries/entities/collection-entry.entity";
 import { CollectionEntryStatus } from "src/collections/collections-entries/collections-entries.constants";
+import {
+    JournalPlaylogEntryDto,
+    JournalPlaylogGroupDto,
+} from "./dto/get-journal-playlog.dto";
+import { JournalPlaylogItemType } from "./journal.constants";
+import { GameAchievementService } from "../game/game-achievement/game-achievement.service";
+import dayjs from "dayjs";
+import { GameAchievementWithObtainedInfo } from "../game/game-achievement/dto/game-obtained-achievement.dto";
+import { PlaytimeHistoryService } from "../playtime/playtime-history.service";
 
 function getAssociatedDates(entry: CollectionEntry) {
     const dateStatusPairs: { date: Date; status: CollectionEntryStatus }[] = [];
@@ -42,12 +51,14 @@ function getAssociatedDates(entry: CollectionEntry) {
 export class JournalService {
     constructor(
         private readonly collectionsEntriesService: CollectionsEntriesService,
+        private readonly gameAchievementsService: GameAchievementService,
+        private readonly playtimeHistoryService: PlaytimeHistoryService,
     ) {}
 
-    async getJournalOverview(
+    async getOverview(
         userId: string | undefined,
         targetUserId: string,
-    ): Promise<JournalEntriesGroupedDto> {
+    ): Promise<JournalOverviewResponseDto> {
         const [collectionEntries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
                 userId,
@@ -79,7 +90,7 @@ export class JournalService {
          */
         const groups = new Map<
             number,
-            Map<number, Map<number, JournalEntryDetailsDto[]>>
+            Map<number, Map<number, JournalEntryStatusDto[]>>
         >();
 
         for (const collectionEntry of orderedCollectionEntries) {
@@ -135,5 +146,109 @@ export class JournalService {
                 };
             }),
         };
+    }
+
+    async getPlaylog(
+        userId: string,
+        gameId: number,
+    ): Promise<JournalPlaylogGroupDto[]> {
+        const collectionEntry =
+            await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
+                userId,
+                gameId,
+            );
+
+        const associatedDates = getAssociatedDates(collectionEntry);
+        const statusRelatedEntries = associatedDates.map(
+            ({ date, status }): JournalPlaylogEntryDto => {
+                return {
+                    date: dayjs(date).format("YYYY-MM-DD"),
+                    entryStatus: status,
+                    type: JournalPlaylogItemType.COLLECTION_ENTRY_STATUS,
+                    // The One Piece is the variables we named at midnight
+                    platformIds: collectionEntry.ownedPlatforms.map(
+                        (op) => op.id,
+                    ),
+                    gameId,
+                };
+            },
+        );
+        const playlogAchievements = await this.getPlaylogAchievements(
+            userId,
+            gameId,
+        );
+
+        const playlogEntries = statusRelatedEntries.concat(playlogAchievements);
+
+        const groupedEntries = new Map<string, JournalPlaylogEntryDto[]>();
+
+        const groupingKeySeparator = "__";
+
+        for (const entry of playlogEntries) {
+            const key = `${entry.date}${groupingKeySeparator}${entry.type}`;
+
+            if (!groupedEntries.has(key)) {
+                groupedEntries.set(key, []);
+            }
+
+            const targetEntriesReference = groupedEntries.get(key)!;
+
+            targetEntriesReference.push(entry);
+        }
+
+        return Array.from(groupedEntries.entries()).map(([key, entries]) => {
+            const [date, type] = key.split(groupingKeySeparator);
+
+            const platformIds = entries.at(0)?.platformIds ?? [];
+
+            return {
+                date,
+                type: type as JournalPlaylogItemType,
+                platformIds,
+                entries,
+            };
+        });
+    }
+
+    private async getPlaylogAchievements(
+        userId: string,
+        gameId: number,
+    ): Promise<JournalPlaylogEntryDto[]> {
+        const [availableAchievementsGroups, obtainedAchievements] =
+            await Promise.all([
+                this.gameAchievementsService.findAllByGameId(gameId),
+                this.gameAchievementsService.findAllObtainedByGameId(
+                    userId,
+                    gameId,
+                ),
+            ]);
+
+        const availableAchievements = availableAchievementsGroups.flatMap(
+            (group) => group.achievements,
+        );
+
+        const extendedObtainedAchievements = availableAchievements
+            .map((achievement): GameAchievementWithObtainedInfo => {
+                const relatedObtainedAchievement = obtainedAchievements.find(
+                    (oa) =>
+                        oa.externalGameId === achievement.externalGameId &&
+                        oa.externalId === achievement.externalId,
+                );
+
+                return {
+                    ...achievement,
+                    isObtained: relatedObtainedAchievement?.isObtained ?? false,
+                    obtainedAt: relatedObtainedAchievement?.obtainedAt ?? null,
+                };
+            })
+            .filter((achievement) => achievement.isObtained);
+
+        return extendedObtainedAchievements.map((achievement) => ({
+            date: dayjs(achievement.obtainedAt!).format("YYYY-MM-DD"),
+            type: JournalPlaylogItemType.OBTAINED_ACHIEVEMENT,
+            obtainedAchievement: achievement,
+            platformIds: achievement.platformIds,
+            gameId,
+        }));
     }
 }

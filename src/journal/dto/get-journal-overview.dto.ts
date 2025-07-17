@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { CollectionEntryStatus } from "../../collections/collections-entries/collections-entries.constants";
 
-export class JournalEntriesGroupedDto {
+export class JournalOverviewResponseDto {
     @ApiProperty({ description: "Group of collection entries by year" })
     years: JournalEntryYearGroupDto[];
 }
@@ -29,10 +29,10 @@ export class JournalEntryDayGroupDto {
     @ApiProperty({
         description: "List of games and their statuses for the day",
     })
-    entries: JournalEntryDetailsDto[];
+    entries: JournalEntryStatusDto[];
 }
 
-export class JournalEntryDetailsDto {
+export class JournalEntryStatusDto {
     @ApiProperty({
         description: "UUID of the collection entry",
     })

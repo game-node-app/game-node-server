@@ -1,5 +1,17 @@
 import { EGameExternalGameCategory } from "../../game-repository/game-repository.constants";
 
+/**
+ * All game achievements, grouped by source. <br>
+ * Only available in v2 for gameId query. <br>
+ */
+export class GameAchievementGroupDto {
+    source: EGameExternalGameCategory;
+    sourceName: string;
+    sourceAbbreviatedName: string;
+    iconName: string;
+    achievements: GameAchievementDto[];
+}
+
 export class GameAchievementDto {
     name: string;
     description: string | null;

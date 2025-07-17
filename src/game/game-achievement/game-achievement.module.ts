@@ -12,6 +12,7 @@ import { ConnectionsModule } from "../../connections/connections.module";
 import { GameAchievementOverviewModule } from "./overview/game-achievement-overview.module";
 import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
+import { GameAchievementV2Controller } from "./game-achievement-v2.controller";
 
 @Module({
     imports: [
@@ -34,6 +35,7 @@ import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
         GameAchievementSyncQueueService,
         GameAchievementSyncProcessor,
     ],
-    controllers: [GameAchievementController],
+    exports: [GameAchievementService],
+    controllers: [GameAchievementController, GameAchievementV2Controller],
 })
 export class GameAchievementModule {}
