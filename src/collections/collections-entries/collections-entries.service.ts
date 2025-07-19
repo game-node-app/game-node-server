@@ -488,9 +488,6 @@ export class CollectionsEntriesService {
                     },
                 },
             },
-            relations: {
-                ownedPlatforms: true,
-            },
         });
 
         if (!entry) {
