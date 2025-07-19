@@ -1,10 +1,7 @@
 import {
     EGameCategory,
-    EGameExternalGameCategory,
-    externalGameCategoryToIconMap,
     platformAbbreviationToIconMap,
 } from "./game-repository.constants";
-import { toMap } from "../../utils/toMap";
 
 export function getIconNamesForPlatformAbbreviations(abbreviations: string[]) {
     const iconsNames: string[] = [];
@@ -20,50 +17,6 @@ export function getIconNamesForPlatformAbbreviations(abbreviations: string[]) {
     }
 
     return iconsNames;
-}
-
-export function getIconNameForExternalGameCategory(
-    category: number | undefined,
-) {
-    if (!category) return null;
-    for (const [iconName, categories] of Object.entries(
-        externalGameCategoryToIconMap,
-    )) {
-        const categoryPresent = categories.includes(category);
-        if (categoryPresent) {
-            return iconName;
-        }
-    }
-
-    return null;
-}
-
-export function getStoreNameForExternalGameCategory(
-    category: number | undefined,
-) {
-    if (!category) return null;
-    switch (category) {
-        case EGameExternalGameCategory.Steam:
-            return "Steam";
-        case EGameExternalGameCategory.Gog:
-            return "GOG";
-        case EGameExternalGameCategory.XboxGamePassUltimateCloud:
-            return "Xbox Game Pass Cloud";
-        case EGameExternalGameCategory.XboxMarketplace:
-            return "Xbox Marketplace";
-        case EGameExternalGameCategory.Android:
-            return "PlayStore";
-        case EGameExternalGameCategory.EpicGamesStore:
-            return "Epic Games Store";
-        case EGameExternalGameCategory.Microsoft:
-            return "Microsoft Store";
-        case EGameExternalGameCategory.PlaystationStoreUs:
-            return "Playstation Store";
-        case EGameExternalGameCategory.Twitch:
-            return "Twitch";
-    }
-
-    return null;
 }
 
 /**

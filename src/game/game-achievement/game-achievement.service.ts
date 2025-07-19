@@ -3,7 +3,10 @@ import { ExternalGameService } from "../external-game/external-game.service";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { match, P } from "ts-pattern";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
-import { GameAchievementDto } from "./dto/game-achievement.dto";
+import {
+    GameAchievementDto,
+    GameAchievementGroupDto,
+} from "./dto/game-achievement.dto";
 import { UnrecoverableError } from "bullmq";
 import { GameObtainedAchievementDto } from "./dto/game-obtained-achievement.dto";
 import { ConnectionsService } from "../../connections/connections.service";
@@ -12,6 +15,13 @@ import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 import dayjs from "dayjs";
 import { UserThinTrophy } from "psn-api";
+import { GAME_ACHIEVEMENT_ENABLED_SOURCES } from "./game-achievement.constants";
+
+import {
+    getIconNameForExternalGameCategory,
+    getStoreAbbreviatedNameForExternalGameCategory,
+    getStoreNameForExternalGameCategory,
+} from "../external-game/external-game.utils";
 
 const getPSNAchievementId = (npCommunicationId: string, trophyId: number) =>
     `${npCommunicationId}_${trophyId}`;
@@ -409,5 +419,91 @@ export class GameAchievementService {
                     "Category mapping not implemented.",
                 );
             });
+    }
+
+    /**
+     * Finds and retrieves all associated achievements by a given game ID.
+     */
+    public async findAllByGameId(
+        gameId: number,
+    ): Promise<GameAchievementGroupDto[]> {
+        const externalGames = await this.externalGameService.findAllForGameId([
+            gameId,
+        ]);
+        const enabledExternalGames = externalGames.filter((externalGame) =>
+            GAME_ACHIEVEMENT_ENABLED_SOURCES.includes(externalGame.category!),
+        );
+
+        if (enabledExternalGames.length === 0) {
+            return [];
+        }
+
+        const results: GameAchievementDto[] = [];
+
+        const promises = await Promise.allSettled(
+            enabledExternalGames.map((externalGame) =>
+                this.findAllByExternalGameId(externalGame.id),
+            ),
+        );
+
+        for (const promise of promises) {
+            if (promise.status === "fulfilled") {
+                results.push(...promise.value);
+            }
+        }
+
+        const groupedBySource: Map<
+            EGameExternalGameCategory,
+            GameAchievementDto[]
+        > = Map.groupBy(results, (result) => result.source!);
+
+        return Array.from(groupedBySource.entries()).map(
+            ([source, achievements]) => ({
+                source,
+                sourceName: getStoreNameForExternalGameCategory(source)!,
+                sourceAbbreviatedName:
+                    getStoreAbbreviatedNameForExternalGameCategory(source)!,
+                iconName: getIconNameForExternalGameCategory(source)!,
+                achievements,
+            }),
+        );
+    }
+
+    /**
+     * Retrieves all obtained items related to a specific game ID.
+     */
+    public async findAllObtainedByGameId(
+        userId: string | undefined,
+        gameId: number,
+    ) {
+        const externalGames = await this.externalGameService.findAllForGameId([
+            gameId,
+        ]);
+        const enabledExternalGames = externalGames.filter((externalGame) =>
+            GAME_ACHIEVEMENT_ENABLED_SOURCES.includes(externalGame.category!),
+        );
+        if (enabledExternalGames.length === 0) {
+            return [];
+        }
+
+        if (userId == undefined) {
+            return [];
+        }
+
+        const results: GameObtainedAchievementDto[] = [];
+
+        const promises = await Promise.allSettled(
+            enabledExternalGames.map((externalGame) =>
+                this.findAllObtainedByExternalGameId(userId, externalGame.id),
+            ),
+        );
+
+        for (const promise of promises) {
+            if (promise.status === "fulfilled") {
+                results.push(...promise.value);
+            }
+        }
+
+        return results;
     }
 }

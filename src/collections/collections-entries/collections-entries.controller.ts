@@ -81,6 +81,18 @@ export class CollectionsEntriesController {
         );
     }
 
+    @Get(`/library/:userId/game/:gameId`)
+    @HttpCode(200)
+    async findOneByLibraryIdAndGameId(
+        @Param("userId") userId: string,
+        @Param("gameId") gameId: number,
+    ): Promise<CollectionEntry> {
+        return this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
+            userId,
+            gameId,
+        );
+    }
+
     @Get(":id/platforms/icons")
     @Public()
     async getIconsForOwnedPlatforms(@Param("id") collectionEntryId: string) {

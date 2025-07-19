@@ -17,14 +17,14 @@ import { buildFilterFindOptions } from "./utils/build-filter-find-options";
 import { days } from "@nestjs/throttler";
 import { platformAbbreviationToIconMap } from "./game-repository.constants";
 import { GameExternalStoreDto } from "./dto/game-external-store.dto";
-import {
-    getIconNameForExternalGameCategory,
-    getStoreNameForExternalGameCategory,
-} from "./game-repository.utils";
 import { toMap } from "../../utils/toMap";
 import { getRelationLoadStrategy } from "../../utils/getRelationLoadStrategy";
 import { GameRepositoryCacheService } from "./game-repository-cache.service";
 import { ExternalGameService } from "../external-game/external-game.service";
+import {
+    getIconNameForExternalGameCategory,
+    getStoreNameForExternalGameCategory,
+} from "../external-game/external-game.utils";
 
 /**
  * Look-up table between resource names and their respective entities

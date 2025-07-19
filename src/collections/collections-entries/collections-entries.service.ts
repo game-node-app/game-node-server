@@ -11,6 +11,7 @@ import {
     DeepPartial,
     FindManyOptions,
     FindOptionsRelations,
+    FindOptionsWhere,
     In,
     Not,
     Repository,
@@ -51,15 +52,14 @@ export class CollectionsEntriesService {
         private levelService: LevelService,
         @Inject(forwardRef(() => CollectionsService))
         private collectionsService: CollectionsService,
-    ) {
-        this.deleteDandling();
-    }
+    ) {}
 
     async findOneById(id: string) {
         return await this.collectionEntriesRepository.findOne({
             where: {
                 id,
             },
+            relations: this.relations,
         });
     }
 
@@ -128,6 +128,10 @@ export class CollectionsEntriesService {
                 game: dto?.orderBy?.releaseDate != undefined,
             },
         });
+    }
+
+    async findAllBy(by: FindOptionsWhere<CollectionEntry>) {
+        return this.collectionEntriesRepository.findBy(by);
     }
 
     async findAllByCollectionIdWithPermissions(
@@ -483,9 +487,6 @@ export class CollectionsEntriesService {
                         libraryUserId: userId,
                     },
                 },
-            },
-            relations: {
-                ownedPlatforms: true,
             },
         });
 

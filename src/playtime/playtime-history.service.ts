@@ -13,6 +13,20 @@ export class PlaytimeHistoryService {
         private readonly playtimeHistoryRepository: Repository<UserPlaytimeHistory>,
     ) {}
 
+    public async findAllByUserIdAndGameId(
+        userId: string,
+        gameId: number,
+        source?: UserPlaytimeSource,
+    ) {
+        return await this.playtimeHistoryRepository.find({
+            where: {
+                profileUserId: userId,
+                gameId: gameId,
+                source,
+            },
+        });
+    }
+
     public async save(playtime: CreateUserPlaytimeDto) {
         const dayStart = dayjs().startOf("day");
         const dayEnd = dayStart.endOf("day");
