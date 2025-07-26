@@ -13,8 +13,6 @@ import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 import { GameMode } from "./entities/game-mode.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
-import { buildFilterFindOptions } from "./utils/build-filter-find-options";
-import { days } from "@nestjs/throttler";
 import { platformAbbreviationToIconMap } from "./game-repository.constants";
 import { GameExternalStoreDto } from "./dto/game-external-store.dto";
 import { toMap } from "../../utils/toMap";
@@ -25,6 +23,7 @@ import {
     getIconNameForExternalGameCategory,
     getStoreNameForExternalGameCategory,
 } from "../external-game/external-game.utils";
+import { buildGameFilterFindOptions } from "./utils/build-game-filter-find-options";
 
 /**
  * Look-up table between resource names and their respective entities
@@ -126,15 +125,12 @@ export class GameRepositoryService {
         filterDto: GameRepositoryFilterDto,
     ): Promise<Game[]> {
         const findOptions = buildBaseFindOptions(filterDto);
-        const whereOptions = buildFilterFindOptions(filterDto);
+        const whereOptions = buildGameFilterFindOptions(filterDto);
 
-        const games = await this.gameRepositoryCacheService.find(
-            {
-                ...findOptions,
-                where: whereOptions,
-            },
-            days(1),
-        );
+        const games = await this.gameRepositoryCacheService.find({
+            ...findOptions,
+            where: whereOptions,
+        });
 
         if (filterDto.ids) {
             return this.reOrderByIds(filterDto.ids, games);

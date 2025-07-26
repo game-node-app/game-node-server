@@ -31,6 +31,7 @@ import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-e
 import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
 import { CollectionEntryStatus } from "./collections-entries.constants";
 import { match } from "ts-pattern";
+import { buildGameFilterFindOptions } from "../../game/game-repository/utils/build-game-filter-find-options";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -38,7 +39,7 @@ export class CollectionsEntriesService {
         collectionsMap: {
             collection: true,
         },
-        game: false,
+        game: true,
         ownedPlatforms: true,
     };
 
@@ -123,10 +124,7 @@ export class CollectionsEntriesService {
                     firstReleaseDate: dto?.orderBy?.releaseDate,
                 },
             },
-            relations: {
-                ...this.relations,
-                game: dto?.orderBy?.releaseDate != undefined,
-            },
+            relations: this.relations,
         });
     }
 
@@ -159,6 +157,7 @@ export class CollectionsEntriesService {
                         },
                     ],
                 },
+                game: buildGameFilterFindOptions(dto?.gameFilters),
             },
             order: {
                 createdAt: dto?.orderBy?.addedDate,
@@ -166,10 +165,7 @@ export class CollectionsEntriesService {
                     firstReleaseDate: dto?.orderBy?.releaseDate,
                 },
             },
-            relations: {
-                ...this.relations,
-                game: dto?.orderBy?.releaseDate != undefined,
-            },
+            relations: this.relations,
         };
 
         return await this.collectionEntriesRepository.findAndCount(findOptions);
@@ -200,6 +196,7 @@ export class CollectionsEntriesService {
                           },
                 },
                 status: dto.status,
+                game: buildGameFilterFindOptions(dto.gameFilters),
             },
             order: {
                 createdAt: dto?.orderBy?.addedDate,
@@ -207,10 +204,7 @@ export class CollectionsEntriesService {
                     firstReleaseDate: dto?.orderBy?.releaseDate,
                 },
             },
-            relations: {
-                ...this.relations,
-                game: dto?.orderBy?.releaseDate != undefined,
-            },
+            relations: this.relations,
         });
     }
 
@@ -224,14 +218,21 @@ export class CollectionsEntriesService {
             orderBy: undefined,
         });
 
+        const isOwnQuery = userId != undefined && userId === targetUserId;
+
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
             where: {
                 isFavorite: true,
                 collectionsMap: {
-                    collection: {
-                        libraryUserId: targetUserId,
-                    },
+                    collection: isOwnQuery
+                        ? {
+                              libraryUserId: targetUserId,
+                          }
+                        : {
+                              libraryUserId: targetUserId,
+                              isPublic: true,
+                          },
                 },
                 status: dto.status,
             },
@@ -241,10 +242,7 @@ export class CollectionsEntriesService {
                     firstReleaseDate: dto?.orderBy?.releaseDate,
                 },
             },
-            relations: {
-                ...this.relations,
-                game: dto?.orderBy?.releaseDate != undefined,
-            },
+            relations: this.relations,
         });
     }
 

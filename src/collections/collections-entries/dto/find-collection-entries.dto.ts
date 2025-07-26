@@ -1,12 +1,17 @@
 import { CollectionEntry } from "../entities/collection-entry.entity";
 import { BaseFindDto } from "../../../utils/base-find.dto";
-import { OmitType } from "@nestjs/swagger";
+import { OmitType, PickType } from "@nestjs/swagger";
 import { FindCollectionEntriesOrderBy } from "./collection-entries-order-by.dto";
 import { IsOptional, IsString } from "class-validator";
 import { CollectionEntryStatus } from "../collections-entries.constants";
 import { Expose, Transform } from "class-transformer";
 import qs from "qs";
-import { EGameCategory } from "../../../game/game-repository/game-repository.constants";
+import { GameRepositoryFilterDto } from "../../../game/game-repository/dto/game-repository-filter.dto";
+
+export class FindCollectionEntriesGameFilterDto extends PickType(
+    GameRepositoryFilterDto,
+    ["category", "status"],
+) {}
 
 export class FindCollectionEntriesDto extends OmitType(
     BaseFindDto<CollectionEntry>,
@@ -27,5 +32,5 @@ export class FindCollectionEntriesDto extends OmitType(
     @IsString()
     status?: CollectionEntryStatus;
     @IsOptional()
-    category?: EGameCategory[] = [];
+    gameFilters?: FindCollectionEntriesGameFilterDto;
 }

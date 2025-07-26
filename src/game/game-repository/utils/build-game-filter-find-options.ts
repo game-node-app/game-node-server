@@ -4,7 +4,7 @@ import { Game } from "../entities/game.entity";
 
 const singleValueProperties = ["category", "status"];
 
-export function buildFilterFindOptions(
+export function buildGameFilterFindOptions(
     dto?: GameRepositoryFilterDto,
 ): FindOptionsWhere<Game> {
     let options: FindOptionsWhere<Game> = {};

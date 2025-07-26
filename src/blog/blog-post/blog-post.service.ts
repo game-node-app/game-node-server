@@ -115,7 +115,7 @@ export class BlogPostService {
             id: dto.postId,
         });
 
-        if (existingPost == undefined && image == undefined) {
+        if (existingPost == undefined && image == undefined && !dto.isDraft) {
             throw new HttpException(
                 "A post must have an associated image.",
                 HttpStatus.BAD_REQUEST,
@@ -125,7 +125,6 @@ export class BlogPostService {
         if (existingPost != undefined && existingPost.profileUserId != userId) {
             const hasEditPermission = checkUserHasRole(userId, [
                 EUserRoles.ADMIN,
-                EUserRoles.MOD,
             ]);
             if (!hasEditPermission) {
                 throw new HttpException(
@@ -143,9 +142,16 @@ export class BlogPostService {
     ) {
         await this.validateCreateUpdate(userId, dto, image);
 
-        const existingPost = await this.blogPostRepository.findOneBy({
-            id: dto.postId,
-        });
+        let existingPost: BlogPost | undefined;
+        /**
+         * Avoids an issue where 'dto.postId' is undefined and the last*
+         * blog post is fetched, and the wrong author is used.
+         */
+        if (dto.postId) {
+            existingPost = await this.blogPostRepository.findOneByOrFail({
+                id: dto.postId,
+            });
+        }
 
         const tags = await this.processTags(dto.tags);
         let postImage: BlogPostImage | undefined;

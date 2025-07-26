@@ -5,12 +5,16 @@ import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { JournalService } from "./journal.service";
 import { ApiTags } from "@nestjs/swagger";
+import { JournalPlayLogService } from "./journal-play-log.service";
 
 @Controller("journal")
 @ApiTags("journal")
 @UseGuards(AuthGuard)
 export class JournalController {
-    constructor(private readonly journalService: JournalService) {}
+    constructor(
+        private readonly journalService: JournalService,
+        private readonly journalPlaylogService: JournalPlayLogService,
+    ) {}
 
     @Get("overview/:userId")
     @Public()
@@ -27,6 +31,6 @@ export class JournalController {
         @Param("userId") userId: string,
         @Param("gameId") gameId: number,
     ) {
-        return this.journalService.getPlaylog(userId, gameId);
+        return this.journalPlaylogService.getPlaylog(userId, gameId);
     }
 }

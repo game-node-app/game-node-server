@@ -83,6 +83,7 @@ export class CollectionsEntriesController {
 
     @Get(`/library/:userId/game/:gameId`)
     @HttpCode(200)
+    @Public()
     async findOneByLibraryIdAndGameId(
         @Param("userId") userId: string,
         @Param("gameId") gameId: number,
@@ -145,7 +146,7 @@ export class CollectionsEntriesController {
         );
     }
 
-    @Get("/library/:id/favorites")
+    @Get("/library/:userId/favorites")
     @HttpCode(HttpStatus.OK)
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
@@ -154,7 +155,7 @@ export class CollectionsEntriesController {
     @Public()
     async findFavoritesByLibraryId(
         @Session() session: SessionContainer | undefined,
-        @Param("id") libraryId: string,
+        @Param("userId") libraryId: string,
         @Query() dto: FindCollectionEntriesDto,
     ) {
         return await this.collectionsEntriesService.findFavoritesByUserId(
