@@ -126,4 +126,6 @@ export class JournalPlayLogService {
             gameId,
         }));
     }
+
+    private async getPlaylogPlaytimes(userId: string, gameId: number) {}
 }
