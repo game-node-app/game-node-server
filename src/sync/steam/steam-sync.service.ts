@@ -76,6 +76,18 @@ export class SteamSyncService {
         return sortedGames;
     }
 
+    @Cacheable(SteamSyncService.name, hours(1))
+    public async getRecentlyPlayedGames(steamUserId: string) {
+        const recentGames = await this.client.getUserRecentGames(steamUserId);
+
+        return recentGames.toSorted((a, b) => {
+            const timestampA = a.lastPlayedTimestamp ?? 0;
+            const timestampB = b.lastPlayedTimestamp ?? 0;
+
+            return timestampB - timestampA;
+        });
+    }
+
     @Cacheable(SteamSyncService.name, hours(24))
     public async getAvailableAchievements(appId: number) {
         const response: GameStatsResponse = await this.client.getGameSchema(

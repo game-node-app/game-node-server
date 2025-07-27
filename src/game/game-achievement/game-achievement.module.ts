@@ -13,6 +13,7 @@ import { GameAchievementOverviewModule } from "./overview/game-achievement-overv
 import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
 import { GameAchievementV2Controller } from "./game-achievement-v2.controller";
+import { GameRepositoryModule } from "../game-repository/game-repository.module";
 
 @Module({
     imports: [
@@ -29,6 +30,7 @@ import { GameAchievementV2Controller } from "./game-achievement-v2.controller";
         XboxSyncModule,
         ConnectionsModule,
         GameAchievementOverviewModule,
+        GameRepositoryModule,
     ],
     providers: [
         GameAchievementService,

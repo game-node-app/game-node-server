@@ -5,10 +5,11 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
-import { UserPlaytimeSource } from "../playtime.constants";
 import { Profile } from "../../profile/entities/profile.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
 import { ApiProperty } from "@nestjs/swagger";
+import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
+import { UserPlaytimeSource } from "../playtime.constants";
 
 export abstract class UserPlaytimeBase {
     @PrimaryGeneratedColumn()
@@ -24,7 +25,6 @@ export abstract class UserPlaytimeBase {
     profile: Profile;
     @Column()
     profileUserId: string;
-
     @ManyToOne(() => Game, {
         nullable: false,
     })
@@ -68,6 +68,14 @@ export abstract class UserPlaytimeBase {
         default: 0,
     })
     totalPlayCount: number;
+    @ManyToOne(() => GamePlatform, {
+        nullable: false,
+    })
+    platform: GamePlatform;
+    @Column({
+        nullable: false,
+    })
+    platformId: number;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

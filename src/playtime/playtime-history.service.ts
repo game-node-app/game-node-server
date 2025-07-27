@@ -3,8 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
 import { Between, Repository } from "typeorm";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
-import { UserPlaytimeSource } from "./playtime.constants";
 import dayjs from "dayjs";
+import { UserPlaytimeSource } from "./playtime.constants";
 
 @Injectable()
 export class PlaytimeHistoryService {
@@ -17,12 +17,14 @@ export class PlaytimeHistoryService {
         userId: string,
         gameId: number,
         source?: UserPlaytimeSource,
+        platformId?: number,
     ) {
         return await this.playtimeHistoryRepository.find({
             where: {
                 profileUserId: userId,
                 gameId: gameId,
                 source,
+                platformId,
             },
         });
     }
@@ -33,7 +35,7 @@ export class PlaytimeHistoryService {
 
         const existsInDay = await this.playtimeHistoryRepository.existsBy({
             profileUserId: playtime.profileUserId,
-            source: playtime.source,
+            platformId: playtime.platformId,
             gameId: playtime.gameId,
             createdAt: Between(dayStart.toDate(), dayEnd.toDate()),
         });
@@ -50,8 +52,9 @@ export class PlaytimeHistoryService {
 
     public async getRecentPlaytimeForGame(
         userId: string,
-        gameId: number | undefined,
+        gameId: number,
         source: UserPlaytimeSource,
+        platformId: number,
         startDate: Date,
     ) {
         const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
@@ -61,11 +64,12 @@ export class PlaytimeHistoryService {
                 "MAX(ph.totalPlaytimeSeconds) - MIN(ph.totalPlaytimeSeconds) AS RECENT_PLAYTIME_SECONDS",
             )
             .where(
-                "ph.profileUserId = :profileUserId AND ph.gameId = :gameId AND ph.source = :source AND ph.lastPlayedDate >= :startDate",
+                "ph.profileUserId = :profileUserId AND ph.gameId = :gameId AND ph.source = :source AND ph.platformId = :platformId AND ph.lastPlayedDate >= :startDate",
                 {
                     profileUserId: userId,
                     gameId,
                     source,
+                    platformId,
                     startDate,
                 },
             )

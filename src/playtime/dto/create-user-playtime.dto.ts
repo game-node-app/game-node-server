@@ -5,6 +5,7 @@ export class CreateUserPlaytimeDto extends OmitType(UserPlaytime, [
     "id",
     "profile",
     "game",
+    "platform",
     "createdAt",
     "updatedAt",
     "totalPlayCount",

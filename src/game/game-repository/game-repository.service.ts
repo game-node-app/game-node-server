@@ -13,17 +13,18 @@ import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 import { GameMode } from "./entities/game-mode.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
-import { platformAbbreviationToIconMap } from "./game-repository.constants";
+import { PlatformToIconMap } from "./game-repository.constants";
 import { GameExternalStoreDto } from "./dto/game-external-store.dto";
 import { toMap } from "../../utils/toMap";
 import { getRelationLoadStrategy } from "../../utils/getRelationLoadStrategy";
-import { GameRepositoryCacheService } from "./game-repository-cache.service";
 import { ExternalGameService } from "../external-game/external-game.service";
 import {
     getIconNameForExternalGameCategory,
     getStoreNameForExternalGameCategory,
 } from "../external-game/external-game.utils";
 import { buildGameFilterFindOptions } from "./utils/build-game-filter-find-options";
+import { Cacheable } from "../../utils/cacheable";
+import { hours, minutes } from "@nestjs/throttler";
 
 /**
  * Look-up table between resource names and their respective entities
@@ -47,21 +48,23 @@ export class GameRepositoryService {
      * @param dataSource
      * @param gamePlatformRepository
      * @param externalGameService
-     * @param gameRepositoryCacheService
+     * @param gameRepository
      */
     constructor(
         private readonly dataSource: DataSource,
         @InjectRepository(GamePlatform)
         private readonly gamePlatformRepository: Repository<GamePlatform>,
         private readonly externalGameService: ExternalGameService,
-        private readonly gameRepositoryCacheService: GameRepositoryCacheService,
+        @InjectRepository(Game)
+        private readonly gameRepository: Repository<Game>,
     ) {}
 
+    @Cacheable(GameRepositoryService.name, minutes(5))
     async findOneById(
         id: number,
         dto?: GameRepositoryFindOneDto,
     ): Promise<Game> {
-        const game = await this.gameRepositoryCacheService.findOne({
+        const game = await this.gameRepository.findOne({
             where: {
                 id,
             },
@@ -85,6 +88,7 @@ export class GameRepositoryService {
             .filter((game) => game != undefined) as Game[];
     }
 
+    @Cacheable(GameRepositoryService.name, minutes(5))
     async findAllByIds(dto: GameRepositoryFindAllDto) {
         if (
             dto == undefined ||
@@ -94,7 +98,7 @@ export class GameRepositoryService {
             throw new HttpException("Invalid query.", HttpStatus.BAD_REQUEST);
         }
 
-        const games = await this.gameRepositoryCacheService.find({
+        const games = await this.gameRepository.find({
             where: {
                 id: In(dto?.gameIds),
             },
@@ -114,20 +118,21 @@ export class GameRepositoryService {
 
     async findAll(dto: BaseFindDto<Game>): Promise<TPaginationData<Game>> {
         const findOptions = buildBaseFindOptions(dto);
-        return this.gameRepositoryCacheService.findAndCount(findOptions);
+        return this.gameRepository.findAndCount(findOptions);
     }
 
     /**
      * @warning This operation can be quite expensive.
      * @param filterDto
      */
+    @Cacheable(GameRepositoryService.name, minutes(5))
     async findAllIdsWithFilters(
         filterDto: GameRepositoryFilterDto,
     ): Promise<Game[]> {
         const findOptions = buildBaseFindOptions(filterDto);
         const whereOptions = buildGameFilterFindOptions(filterDto);
 
-        const games = await this.gameRepositoryCacheService.find({
+        const games = await this.gameRepository.find({
             ...findOptions,
             where: whereOptions,
         });
@@ -139,6 +144,7 @@ export class GameRepositoryService {
         return games;
     }
 
+    @Cacheable(GameRepositoryService.name, minutes(30))
     async findGameExternalStores(gameId: number) {
         const externalGames = await this.externalGameService.findAllForGameId([
             gameId,
@@ -171,6 +177,7 @@ export class GameRepositoryService {
         });
     }
 
+    @Cacheable(GameRepositoryService.name, hours(1))
     async getResource(resource: TAllowedResource): Promise<any> {
         const resourceAsEntity = resourceToTargetEntityMap[resource];
         if (resourceAsEntity == undefined) {
@@ -182,6 +189,15 @@ export class GameRepositoryService {
         return await resourceRepository.find();
     }
 
+    async getGamePlatformsMap<T extends "id" | "name" | "abbreviation">(
+        identifier: T,
+    ) {
+        const platforms: GamePlatform[] = await this.getResource("platforms");
+
+        return toMap(platforms, identifier);
+    }
+
+    @Cacheable(GameRepositoryService.name, minutes(30))
     async getIconsNamesForPlatforms(gameId: number) {
         const platforms = await this.gamePlatformRepository.find({
             where: {
@@ -195,9 +211,7 @@ export class GameRepositoryService {
             (platform) => platform.abbreviation,
         );
         const iconsNames: string[] = [];
-        for (const [iconName, platforms] of Object.entries(
-            platformAbbreviationToIconMap,
-        )) {
+        for (const [iconName, platforms] of Object.entries(PlatformToIconMap)) {
             const abbreviationPresent = platformAbbreviations.some(
                 (abbreviation) => platforms.includes(abbreviation),
             );

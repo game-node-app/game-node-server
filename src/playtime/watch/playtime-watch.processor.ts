@@ -21,6 +21,8 @@ import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 import { ExternalGameMappingsService } from "../../game/external-game/external-game-mappings.service";
 import * as process from "process";
 import { seconds } from "@nestjs/throttler";
+import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
+import { match, P } from "ts-pattern";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     concurrency: 1,
@@ -28,7 +30,7 @@ import { seconds } from "@nestjs/throttler";
         process.env.NODE_ENV === "development"
             ? {
                   max: 1,
-                  duration: seconds(30),
+                  duration: seconds(60),
               }
             : undefined,
 })
@@ -43,6 +45,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
+        private readonly gameRepositoryService: GameRepositoryService,
     ) {
         super();
     }
@@ -99,40 +102,93 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             );
         }
 
-        for (const externalGame of externalGames) {
-            const relatedUserGame = userGames.find((item) => {
-                return Number.parseInt(externalGame.uid) === item.game.id;
-            })!;
+        const PC_PLATFORM_ID = 6;
 
-            const existingPlaytimeInfo =
-                await this.playtimeService.findOneBySource(
-                    userId,
-                    externalGame.gameId,
-                    UserPlaytimeSource.STEAM,
-                );
+        /**
+         * In some cases, different game editions (with different app ids) point to the same gameId.
+         * e.g.: Metro Exodus (AppID 412020) and Metro Exodus Enhanced Edition (AppID 1449560). <br >
+         * We group so we may merge playtime for different versions.
+         */
+        const groupedByGameId = Map.groupBy(
+            externalGames,
+            (item) => item.gameId,
+        );
 
-            const playtime: CreateUserPlaytimeDto = {
-                ...existingPlaytimeInfo,
-                source: UserPlaytimeSource.STEAM,
-                gameId: externalGame.gameId,
-                profileUserId: userId,
-                lastPlayedDate: relatedUserGame.lastPlayedTimestamp
-                    ? new Date(relatedUserGame.lastPlayedTimestamp * 1000)
-                    : null,
-                totalPlaytimeSeconds: relatedUserGame.minutes * 60,
-                recentPlaytimeSeconds: relatedUserGame.recentMinutes * 60,
-                totalPlayCount: 0,
-                firstPlayedDate: undefined,
-            };
+        for (const [gameId, items] of groupedByGameId.entries()) {
+            const appIds = items.map((item) => Number.parseInt(item.uid));
+
+            const relatedUserGames = userGames.filter((userGame) => {
+                return appIds.includes(userGame.game.id);
+            });
+
+            const recentPlaytimeSeconds = relatedUserGames.reduce(
+                (acc, item) => {
+                    return acc + item.recentMinutes * 60;
+                },
+                0,
+            );
+
+            const totalPlaytimeSeconds = relatedUserGames.reduce(
+                (acc, item) => {
+                    return acc + item.minutes * 60;
+                },
+                0,
+            );
+
+            const existingPlaytimeInfo = await this.playtimeService.findOne(
+                userId,
+                gameId,
+                UserPlaytimeSource.STEAM,
+                PC_PLATFORM_ID,
+            );
 
             const hasChangedTotalPlaytime =
                 existingPlaytimeInfo != undefined &&
-                existingPlaytimeInfo.totalPlaytimeSeconds !=
-                    playtime.totalPlaytimeSeconds;
+                existingPlaytimeInfo.totalPlaytimeSeconds !==
+                    totalPlaytimeSeconds;
 
+            /**
+             * After a recent Steam API change, most users won't have the 'lastPlayedTimestamp' defined.
+             * This limits most features that rely on the 'lastPlayedDate' being present, like wrapped (recently played games).
+             * We simply define the last played date as the week before last as a fallback if the user has recent playtime.
+             * PS: Steam always considers the two last weeks for "recentMinutes".
+             * PS2: This is also updated below if we detect the game has been played 'today'.
+             */
+            let lastPlayedDate: Date | undefined;
+            if (recentPlaytimeSeconds) {
+                const currentLastPlayedDate =
+                    existingPlaytimeInfo?.lastPlayedDate
+                        ? dayjs(existingPlaytimeInfo?.lastPlayedDate)
+                        : null;
+
+                const weekBeforeLast = dayjs().subtract(2, "weeks");
+
+                // Only manually updates if the last persisted date is older than two weeks ago.
+                if (
+                    currentLastPlayedDate == null ||
+                    weekBeforeLast.isAfter(currentLastPlayedDate)
+                ) {
+                    lastPlayedDate = weekBeforeLast.toDate();
+                }
+            }
+
+            const playtime: CreateUserPlaytimeDto = {
+                totalPlayCount: 0,
+                ...existingPlaytimeInfo,
+                gameId: gameId,
+                profileUserId: userId,
+                lastPlayedDate: lastPlayedDate,
+                totalPlaytimeSeconds: totalPlaytimeSeconds,
+                recentPlaytimeSeconds: recentPlaytimeSeconds,
+                firstPlayedDate: undefined,
+                source: UserPlaytimeSource.STEAM,
+                platformId: PC_PLATFORM_ID,
+            };
+
+            // We infer the game was played 'today'.
             if (hasChangedTotalPlaytime) {
-                playtime.totalPlayCount =
-                    existingPlaytimeInfo!.totalPlayCount + 1;
+                playtime.lastPlayedDate = new Date();
+                playtime.totalPlayCount! += 1;
             }
 
             await this.playtimeService.save(playtime);
@@ -174,53 +230,77 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 .catch((err) => this.logger.error(err));
         }
 
-        for (const externalGame of externalGames) {
-            const relatedUserGame = userGames.find((item) => {
-                return Number.parseInt(externalGame.uid) === item.concept.id;
-            })!;
+        /**
+         * Names are not unique across platforms, so we can use this logic to group all related playtime info for a single game
+         * across PS4 and PS5.
+         */
+        const groupedByName = Map.groupBy(userGames, (item) => item.name);
 
-            // Matching is imprecise
-            const relatedTrophyTitle = userTrophyTitles.find(
-                (trophyTitle) =>
-                    trophyTitle.trophyTitleName === relatedUserGame.name &&
-                    relatedUserGame.category.includes(
-                        trophyTitle.trophyTitlePlatform.toLocaleLowerCase(),
-                    ),
+        const platformsMap =
+            await this.gameRepositoryService.getGamePlatformsMap(
+                "abbreviation",
             );
 
-            if (relatedTrophyTitle) {
+        for (const [name, titles] of groupedByName.entries()) {
+            // First matching external game
+            const relatedExternalGame = externalGames.find((externalGame) => {
+                return titles.some(
+                    (title) =>
+                        title.concept.id === Number.parseInt(externalGame.uid),
+                );
+            });
+
+            if (!relatedExternalGame) {
+                continue;
+            }
+
+            // Matching is imprecise
+            const relatedTrophyTitles = userTrophyTitles.filter(
+                (trophyTitle) => trophyTitle.trophyTitleName === name,
+            );
+
+            for (const trophyTitle of relatedTrophyTitles) {
                 this.externalGameMappingsService
                     .upsertPsnMappings({
-                        externalGameId: externalGame.id,
-                        npServiceName: relatedTrophyTitle.npServiceName,
-                        npCommunicationId: relatedTrophyTitle.npCommunicationId,
+                        externalGameId: relatedExternalGame.id,
+                        npServiceName: trophyTitle.npServiceName,
+                        npCommunicationId: trophyTitle.npCommunicationId,
                     })
                     .catch((err) => this.logger.error(err));
             }
 
-            const existingPlaytimeInfo =
-                await this.playtimeService.findOneBySource(
+            for (const title of titles) {
+                const targetPlatformId = match(title.category)
+                    .with("ps5_native_game", () => platformsMap.get("PS5")!.id)
+                    .with("ps4_game", () => platformsMap.get("PS4")!.id)
+                    .with("pspc_game", () => platformsMap.get("PSP")!.id)
+                    .otherwise(() => platformsMap.get("PS3")!.id);
+
+                const existingPlaytimeInfo = await this.playtimeService.findOne(
                     userId,
-                    externalGame.gameId,
+                    relatedExternalGame.gameId,
                     UserPlaytimeSource.PSN,
+                    targetPlatformId,
                 );
 
-            const playtime: CreateUserPlaytimeDto = {
-                ...existingPlaytimeInfo,
-                source: UserPlaytimeSource.PSN,
-                gameId: externalGame.gameId,
-                firstPlayedDate: new Date(relatedUserGame.firstPlayedDateTime),
-                lastPlayedDate: new Date(relatedUserGame.lastPlayedDateTime),
-                profileUserId: userId,
-                totalPlaytimeSeconds: dayjs
-                    .duration(relatedUserGame.playDuration)
-                    .asSeconds(),
-                // Recent playtime will be calculated on our side
-                recentPlaytimeSeconds: undefined,
-                totalPlayCount: relatedUserGame.playCount,
-            };
+                const playtime: CreateUserPlaytimeDto = {
+                    ...existingPlaytimeInfo,
+                    gameId: relatedExternalGame.gameId,
+                    firstPlayedDate: new Date(title.firstPlayedDateTime),
+                    lastPlayedDate: new Date(title.lastPlayedDateTime),
+                    profileUserId: userId,
+                    totalPlaytimeSeconds: dayjs
+                        .duration(title.playDuration)
+                        .asSeconds(),
+                    // Recent playtime will be calculated on our side
+                    recentPlaytimeSeconds: undefined,
+                    totalPlayCount: title.playCount,
+                    source: UserPlaytimeSource.PSN,
+                    platformId: targetPlatformId,
+                };
 
-            await this.playtimeService.save(playtime);
+                await this.playtimeService.save(playtime);
+            }
         }
     }
 
@@ -258,6 +338,11 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             relevantTitleIds,
         );
 
+        const platformsMap =
+            await this.gameRepositoryService.getGamePlatformsMap(
+                "abbreviation",
+            );
+
         for (const stats of playtimeStats) {
             if (stats.value == undefined) continue;
 
@@ -268,38 +353,56 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 (externalGame) => externalGame.uid === relevantGame.productId,
             )!;
 
-            const existingPlaytimeInfo =
-                await this.playtimeService.findOneBySource(
+            const playedPlatforms = relevantGame.devices.map((device) => {
+                return match(device)
+                    .with(
+                        P.union("PC", "Win32"),
+                        () => platformsMap.get("PC")!.id,
+                    )
+                    .with("Xbox360", () => platformsMap.get("X360")!.id)
+                    .with("XboxOne", () => platformsMap.get("XONE")!.id)
+                    .with(
+                        "XboxSeries",
+                        () => platformsMap.get("Series X|S")!.id,
+                    )
+                    .otherwise(() => platformsMap.get("Series X|S")!.id);
+            });
+
+            for (const platformId of playedPlatforms) {
+                const existingPlaytimeInfo = await this.playtimeService.findOne(
                     userId,
                     relevantExternalGame.gameId,
                     UserPlaytimeSource.XBOX,
+                    platformId,
                 );
 
-            const playtime: CreateUserPlaytimeDto = {
-                ...existingPlaytimeInfo,
-                source: UserPlaytimeSource.XBOX,
-                gameId: relevantExternalGame.gameId,
-                profileUserId: userId,
-                lastPlayedDate: relevantGame.titleHistory?.lastTimePlayed
-                    ? new Date(relevantGame.titleHistory?.lastTimePlayed)
-                    : null,
-                recentPlaytimeSeconds: undefined,
-                totalPlaytimeSeconds: Number.parseInt(stats.value) * 60,
-                totalPlayCount: 0,
-                firstPlayedDate: undefined,
-            };
+                const playtime: CreateUserPlaytimeDto = {
+                    ...existingPlaytimeInfo,
+                    gameId: relevantExternalGame.gameId,
+                    profileUserId: userId,
+                    lastPlayedDate: relevantGame.titleHistory?.lastTimePlayed
+                        ? new Date(relevantGame.titleHistory?.lastTimePlayed)
+                        : null,
+                    recentPlaytimeSeconds: undefined,
+                    totalPlaytimeSeconds: Number.parseInt(stats.value) * 60,
+                    totalPlayCount: 0,
+                    firstPlayedDate: undefined,
+                    source: UserPlaytimeSource.XBOX,
+                    platformId: platformId,
+                };
 
-            const hasChangedTotalPlaytime =
-                existingPlaytimeInfo != undefined &&
-                existingPlaytimeInfo.totalPlaytimeSeconds !=
-                    playtime.totalPlaytimeSeconds;
+                const hasChangedTotalPlaytime =
+                    existingPlaytimeInfo != undefined &&
+                    existingPlaytimeInfo.totalPlaytimeSeconds !=
+                        playtime.totalPlaytimeSeconds;
 
-            if (hasChangedTotalPlaytime) {
-                playtime.totalPlayCount =
-                    existingPlaytimeInfo!.totalPlayCount + 1;
+                if (hasChangedTotalPlaytime) {
+                    playtime.totalPlayCount =
+                        existingPlaytimeInfo!.totalPlayCount + 1;
+                }
+
+                await this.playtimeService.save(playtime);
             }
-
-            await this.playtimeService.save(playtime);
         }
     }
 }
