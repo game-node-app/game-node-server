@@ -33,6 +33,10 @@ export class GameRepositoryController {
         return this.gameRepositoryService.getIconsNamesForPlatforms(gameId);
     }
 
+    /**
+     * TODO: Move this endpoint to {@link ExternalGameService}
+     * @param gameId
+     */
     @Get(":id/external-stores")
     @HttpCode(200)
     getExternalStoresForGameId(@Param("id") gameId: number) {

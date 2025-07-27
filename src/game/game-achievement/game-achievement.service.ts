@@ -22,6 +22,7 @@ import {
     getStoreAbbreviatedNameForExternalGameCategory,
     getStoreNameForExternalGameCategory,
 } from "../external-game/external-game.utils";
+import { GameRepositoryService } from "../game-repository/game-repository.service";
 
 const getPSNAchievementId = (npCommunicationId: string, trophyId: number) =>
     `${npCommunicationId}_${trophyId}`;
@@ -53,6 +54,7 @@ export class GameAchievementService {
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
         private readonly connectionsService: ConnectionsService,
+        private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
     public async findOneByExternalGameId(
@@ -79,11 +81,17 @@ export class GameAchievementService {
         const externalGame =
             await this.externalGameService.findOneByIdOrFail(externalGameId);
 
+        const platformsMap =
+            await this.gameRepositoryService.getGamePlatformsMap(
+                "abbreviation",
+            );
+
         const achievements = await match<
             EGameExternalGameCategory,
             Promise<GameAchievementDto[]>
         >(externalGame.category!)
             .with(EGameExternalGameCategory.Steam, async () => {
+                const PC_PLATFORM_ID = 6;
                 const appId = Number.parseInt(externalGame.uid);
                 const [achievements, achievementsPercentage] =
                     await Promise.all([
@@ -108,7 +116,7 @@ export class GameAchievementService {
                                 relatedPercentage?.percent ?? 0,
                             ),
                         },
-                        platformIds: [6],
+                        platformIds: [PC_PLATFORM_ID],
                     } satisfies GameAchievementDto;
                 });
             })
@@ -211,6 +219,33 @@ export class GameAchievementService {
                             (reward) => reward.type === "Gamerscore",
                         );
 
+                        const availablePlatformIds = achievement.platforms.map(
+                            (platform) => {
+                                return match(platform)
+                                    .with(
+                                        P.union("PC", "Win32"),
+                                        () => platformsMap.get("PC")!.id,
+                                    )
+                                    .with(
+                                        "Xbox360",
+                                        () => platformsMap.get("X360")!.id,
+                                    )
+                                    .with(
+                                        "XboxOne",
+                                        () => platformsMap.get("XONE")!.id,
+                                    )
+                                    .with(
+                                        "XboxSeries",
+                                        () =>
+                                            platformsMap.get("Series X|S")!.id,
+                                    )
+                                    .otherwise(
+                                        () =>
+                                            platformsMap.get("Series X|S")!.id,
+                                    );
+                            },
+                        );
+
                         return {
                             externalGameId: externalGame.id,
                             source: EGameExternalGameCategory.Microsoft,
@@ -225,7 +260,7 @@ export class GameAchievementService {
                                     : 0,
                             },
                             // XONE and X Series S/X
-                            platformIds: [49, 169],
+                            platformIds: availablePlatformIds,
                         } satisfies GameAchievementDto;
                     });
                 },

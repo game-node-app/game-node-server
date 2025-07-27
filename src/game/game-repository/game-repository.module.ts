@@ -23,7 +23,6 @@ import { GameCompanyLogo } from "./entities/game-company-logo.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryCreateService } from "./game-repository-create.service";
 import { StatisticsQueueModule } from "../../statistics/statistics-queue/statistics-queue.module";
-import { GameRepositoryCacheService } from "./game-repository-cache.service";
 import { ExternalGameModule } from "../external-game/external-game.module";
 
 /**
@@ -55,11 +54,7 @@ import { ExternalGameModule } from "../external-game/external-game.module";
         forwardRef(() => StatisticsQueueModule),
         ExternalGameModule,
     ],
-    providers: [
-        GameRepositoryService,
-        GameRepositoryCreateService,
-        GameRepositoryCacheService,
-    ],
+    providers: [GameRepositoryService, GameRepositoryCreateService],
     exports: [GameRepositoryService, GameRepositoryCreateService],
     controllers: [GameRepositoryController],
 })

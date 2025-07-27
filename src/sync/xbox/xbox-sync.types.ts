@@ -34,7 +34,12 @@ export type ProfileResponse = {
     ];
 };
 
-type XboxGameTitleDeviceType = "Xbox360" | "XboxOne" | "XboxSeries" | "PC";
+type XboxGameTitleDeviceType =
+    | "Xbox360"
+    | "XboxOne"
+    | "XboxSeries"
+    | "PC"
+    | "Win32";
 
 export interface XboxGameTitle {
     titleId: string;

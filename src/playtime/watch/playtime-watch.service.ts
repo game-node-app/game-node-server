@@ -9,7 +9,7 @@ import {
     PlaytimeWatchJob,
 } from "./playtime-watch.constants";
 import { LibrariesService } from "../../libraries/libraries.service";
-import { connectionToPlaytimeSource } from "../playtime.util";
+import { connectionToPlaytimeImportSource } from "../playtime.util";
 import { EConnectionType } from "../../connections/connections.constants";
 
 @Injectable()
@@ -53,7 +53,7 @@ export class PlaytimeWatchService {
     }
 
     async registerJob(userId: string, source: EConnectionType) {
-        const playtimeSource = connectionToPlaytimeSource(source);
+        const playtimeSource = connectionToPlaytimeImportSource(source);
 
         this.playtimeWatchQueue
             .add(

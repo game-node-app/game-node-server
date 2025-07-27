@@ -23,11 +23,14 @@ import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
 import { getPreviousDate } from "../statistics/statistics.utils";
 import { PlaytimeHistoryService } from "./playtime-history.service";
 import { toCumulativePlaytime } from "./playtime.util";
+import { UserPlaytimeDto } from "./dto/user-playtime.dto";
 
 @Injectable()
 export class PlaytimeService {
     private logger = new Logger(PlaytimeService.name);
-    private readonly relations: FindOptionsRelations<UserPlaytime> = {};
+    private readonly relations: FindOptionsRelations<UserPlaytime> = {
+        platform: true,
+    };
 
     constructor(
         @InjectRepository(UserPlaytime)
@@ -35,17 +38,20 @@ export class PlaytimeService {
         private readonly playtimeHistoryService: PlaytimeHistoryService,
     ) {}
 
-    public async findOneBySource(
+    public async findOne(
         userId: string,
         gameId: number,
         source: UserPlaytimeSource,
+        platformId: number,
     ) {
-        return this.userPlaytimeRepository.findOne({
+        return await this.userPlaytimeRepository.findOne({
             where: {
                 profileUserId: userId,
                 gameId,
                 source,
+                platformId,
             },
+            relations: this.relations,
         });
     }
 
@@ -53,6 +59,7 @@ export class PlaytimeService {
         userId: string,
         criteria: "totalPlaytimeSeconds" | "recentPlaytimeSeconds",
         source?: UserPlaytimeSource,
+        platformId?: number,
     ): Promise<number> {
         const qb = this.userPlaytimeRepository.createQueryBuilder("up");
         qb.select(`SUM(up.${criteria})`, "total").where(
@@ -61,6 +68,9 @@ export class PlaytimeService {
         );
         if (source) {
             qb.andWhere("up.source = :source", { source });
+        }
+        if (platformId) {
+            qb.andWhere("up.platformId = :platformId", { platformId });
         }
 
         const result = await qb.getRawOne<{ total: number }>();
@@ -96,7 +106,7 @@ export class PlaytimeService {
     public async findAllByUserId(
         userId: string,
         dto?: FindPlaytimeOptionsDto,
-    ): Promise<TPaginationData<UserPlaytime>> {
+    ): Promise<TPaginationData<UserPlaytimeDto>> {
         const baseFindOptions = buildBaseFindOptions(dto);
 
         const options: FindManyOptions<UserPlaytime> = {
@@ -116,7 +126,7 @@ export class PlaytimeService {
     public async findAllByUserIdWithFilters(
         userId: string,
         options: FindAllPlaytimeFiltersDto,
-    ): Promise<TPaginationData<UserPlaytime>> {
+    ): Promise<TPaginationData<UserPlaytimeDto>> {
         const baseFindOptions = buildBaseFindOptions<UserPlaytime>(options);
 
         const periodToMinusDay =
@@ -127,13 +137,8 @@ export class PlaytimeService {
         const qb = this.userPlaytimeRepository
             .createQueryBuilder("up")
             .where("up.profileUserId = :profileUserId")
-            /**
-             * This is a compromise for users which the source API's won't return the lastPlayedDate parameter correctly (e.g. due to privacy settings).
-             * This basically means we ignore the period filter if the entry also has 'recentPlaytimeSeconds'.
-             */
-            .andWhere(
-                "(up.lastPlayedDate >= :lastPlayedDate OR (up.lastPlayedDate IS NULL AND up.recentPlaytimeSeconds > 0))",
-            )
+            .andWhere("up.lastPlayedDate >= :lastPlayedDate")
+            .leftJoinAndSelect("up.platform", "platform")
             .skip(baseFindOptions.skip)
             .limit(baseFindOptions.take);
 
@@ -180,10 +185,11 @@ export class PlaytimeService {
     }
 
     async save(playtime: CreateUserPlaytimeDto) {
-        const existingPlaytime = await this.findOneBySource(
+        const existingPlaytime = await this.findOne(
             playtime.profileUserId,
             playtime.gameId,
             playtime.source,
+            playtime.platformId,
         );
 
         const updatedPlaytime = {
@@ -204,6 +210,7 @@ export class PlaytimeService {
                     playtime.profileUserId,
                     playtime.gameId,
                     playtime.source,
+                    playtime.platformId,
                     recentPlaytimeCriteriaDate,
                 );
         }
@@ -218,10 +225,11 @@ export class PlaytimeService {
         return await this.save({
             profileUserId: userId,
             gameId: dto.gameId,
-            source: dto.source,
             lastPlayedDate: dto.lastPlayedDate,
             totalPlaytimeSeconds: dto.totalPlaytimeSeconds,
-            recentPlaytimeSeconds: 0,
+            platformId: dto.platformId,
+            source: dto.source,
+            recentPlaytimeSeconds: undefined,
             firstPlayedDate: undefined,
             totalPlayCount: undefined,
         });

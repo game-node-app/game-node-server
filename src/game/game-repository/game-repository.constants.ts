@@ -86,7 +86,7 @@ enum EGameStorageSource {
  * Check /public/icons for reference. <br>
  * Format: iconName: [platforms]
  */
-const platformAbbreviationToIconMap: { [p: string]: string[] } = {
+const PlatformToIconMap: { [p: string]: string[] } = {
     windows: ["PC"],
     linux: ["Linux"],
     ps1: ["PS1"],
@@ -120,8 +120,6 @@ const platformAbbreviationToIconMap: { [p: string]: string[] } = {
     android: ["Android", "iOS"],
 };
 
-const DEFAULT_GAME_CATEGORIES = [EGameCategory.Main];
-
 export {
     EGameCategory,
     EGameStatus,
@@ -129,5 +127,5 @@ export {
     EGameExternalGameCategory,
     EGamePlatformCategory,
     EGameStorageSource,
-    platformAbbreviationToIconMap,
+    PlatformToIconMap,
 };

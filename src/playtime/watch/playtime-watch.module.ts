@@ -13,6 +13,7 @@ import { SteamSyncModule } from "../../sync/steam/steam-sync.module";
 import { ExternalGameModule } from "../../game/external-game/external-game.module";
 import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
 import { seconds } from "@nestjs/throttler";
+import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 
 @Module({
     imports: [
@@ -33,6 +34,7 @@ import { seconds } from "@nestjs/throttler";
         PsnSyncModule,
         SteamSyncModule,
         XboxSyncModule,
+        GameRepositoryModule,
     ],
     providers: [PlaytimeWatchService, PlaytimeWatchProcessor],
     exports: [PlaytimeWatchService],

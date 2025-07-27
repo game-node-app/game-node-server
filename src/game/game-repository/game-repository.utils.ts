@@ -1,13 +1,8 @@
-import {
-    EGameCategory,
-    platformAbbreviationToIconMap,
-} from "./game-repository.constants";
+import { EGameCategory, PlatformToIconMap } from "./game-repository.constants";
 
 export function getIconNamesForPlatformAbbreviations(abbreviations: string[]) {
     const iconsNames: string[] = [];
-    for (const [iconName, platforms] of Object.entries(
-        platformAbbreviationToIconMap,
-    )) {
+    for (const [iconName, platforms] of Object.entries(PlatformToIconMap)) {
         const abbreviationPresent = abbreviations.some((abbreviation) =>
             platforms.includes(abbreviation),
         );
