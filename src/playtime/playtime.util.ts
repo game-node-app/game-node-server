@@ -1,4 +1,4 @@
-import { EConnectionType } from "../connections/connections.constants";
+import { EConnectionType } from "../connection/connections.constants";
 import { UserPlaytimeSource } from "./playtime.constants";
 import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
 import { UserPlaytime } from "./entity/user-playtime.entity";

@@ -9,8 +9,8 @@ import {
 } from "./dto/game-achievement.dto";
 import { UnrecoverableError } from "bullmq";
 import { GameObtainedAchievementDto } from "./dto/game-obtained-achievement.dto";
-import { ConnectionsService } from "../../connections/connections.service";
-import { EConnectionType } from "../../connections/connections.constants";
+import { ConnectionsService } from "../../connection/connections.service";
+import { EConnectionType } from "../../connection/connections.constants";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 import dayjs from "dayjs";

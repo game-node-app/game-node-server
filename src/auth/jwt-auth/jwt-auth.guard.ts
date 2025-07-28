@@ -9,10 +9,11 @@ import { JwtHeader } from "jsonwebtoken";
 import jwksClient from "jwks-rsa";
 import * as process from "process";
 import { Reflector } from "@nestjs/core";
+import { WsException } from "@nestjs/websockets";
+import { Socket } from "socket.io";
 
 /**
- * Jwt based auth guard. Checks for valid JWT token which is signed by another service/microservice.
- * Should be used for microservice communication.
+ * Jwt based auth guard. Can be used for microservice-microservice communication, or for websockets.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -39,35 +40,35 @@ export class JwtAuthGuard implements CanActivate {
         }
     }
 
-    /**
-     * This same logic should be applied to all services/microservices.
-     * @param context
-     */
     async canActivate(context: ExecutionContext): Promise<boolean> {
-        const ctx = context.switchToHttp();
-        const ctxType = context.getType<"http" | "rmq">();
+        const ctxType = context.getType<"http" | "ws" | "rpc">();
 
-        if (ctxType !== "http") {
-            this.logger.warn(
-                `Warning: JwtAuthGuard can't be used in a non-HTTP context!`,
-            );
+        if (ctxType === "http") {
+            const request = context.switchToHttp().getRequest();
+            return this.validateToken(request.headers.authorization);
+        }
+
+        if (ctxType === "ws") {
+            const client: Socket = context.switchToWs().getClient();
+            const token: string | undefined =
+                client.handshake?.auth?.token || client.handshake?.query?.token;
+
+            if (!token) throw new WsException("Missing auth token");
+
+            const isValid = await this.validateToken(`Bearer ${token}`);
+            if (!isValid) throw new WsException("Invalid token");
 
             return true;
         }
 
-        const isPublic = this.reflector.get<boolean>(
-            "isPublic",
-            context.getHandler(),
-        );
+        this.logger.warn(`JwtAuthGuard not configured for context: ${ctxType}`);
+        return false;
+    }
 
-        if (isPublic) {
-            return true;
-        }
+    private async validateToken(token: string) {
+        const bearerToken = token?.split("Bearer ")[1];
 
-        const headers = ctx.getRequest().headers;
-        const authorization = headers.authorization as string;
-        const bearerToken = authorization?.split("Bearer ")[1];
-        if (!authorization || !bearerToken) {
+        if (!token || !bearerToken) {
             return false;
         }
 

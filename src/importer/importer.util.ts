@@ -1,4 +1,4 @@
-import { EConnectionType } from "../connections/connections.constants";
+import { EConnectionType } from "../connection/connections.constants";
 import { EImporterSource } from "./importer.constants";
 
 export const connectionToImporterSource = (connectionType: EConnectionType) => {

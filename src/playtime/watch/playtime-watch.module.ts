@@ -4,7 +4,7 @@ import { UserPlaytime } from "../entity/user-playtime.entity";
 import { BullModule } from "@nestjs/bullmq";
 import { PLAYTIME_WATCH_QUEUE_NAME } from "./playtime-watch.constants";
 import { LibrariesModule } from "../../libraries/libraries.module";
-import { ConnectionsModule } from "../../connections/connections.module";
+import { ConnectionsModule } from "../../connection/connections.module";
 import { PlaytimeWatchService } from "./playtime-watch.service";
 import { PlaytimeWatchProcessor } from "./playtime-watch.processor";
 import { PlaytimeModule } from "../playtime.module";

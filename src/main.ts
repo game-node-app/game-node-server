@@ -14,10 +14,18 @@ import * as fs from "fs";
 import * as process from "process";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
 import { AxiosExceptionFilter } from "./filter/axios-exception.filter";
+import {
+    initializeTransactionalContext,
+    StorageDriver,
+} from "typeorm-transactional";
 
 dayjs.extend(duration);
 
 async function bootstrap() {
+    initializeTransactionalContext({
+        storageDriver: StorageDriver.ASYNC_LOCAL_STORAGE,
+    });
+
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
     app.enableVersioning({

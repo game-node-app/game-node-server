@@ -8,6 +8,7 @@ import { PsnSyncModule } from "../sync/psn/psn-sync.module";
 import { PlaytimeModule } from "../playtime/playtime.module";
 import { PlaytimeWatchModule } from "../playtime/watch/playtime-watch.module";
 import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
+import { ConnectionSyncModule } from './connection-sync/connection-sync.module';
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
         PlaytimeModule,
         XboxSyncModule,
         forwardRef(() => PlaytimeWatchModule),
+        ConnectionSyncModule,
     ],
     providers: [ConnectionsService],
     controllers: [ConnectionsController],

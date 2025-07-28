@@ -7,8 +7,8 @@ import {
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { Logger } from "@nestjs/common";
 import { Job, UnrecoverableError } from "bullmq";
-import { ConnectionsService } from "../../connections/connections.service";
-import { EConnectionType } from "../../connections/connections.constants";
+import { ConnectionsService } from "../../connection/connections.service";
+import { EConnectionType } from "../../connection/connections.constants";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 import { ExternalGameService } from "../../game/external-game/external-game.service";

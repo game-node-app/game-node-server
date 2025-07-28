@@ -32,6 +32,7 @@ import { CollectionEntryToCollection } from "./entities/collection-entry-to-coll
 import { CollectionEntryStatus } from "./collections-entries.constants";
 import { match } from "ts-pattern";
 import { buildGameFilterFindOptions } from "../../game/game-repository/utils/build-game-filter-find-options";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -251,6 +252,7 @@ export class CollectionsEntriesService {
      * @param userId
      * @param createEntryDto
      */
+    @Transactional()
     async createOrUpdate(
         userId: string,
         createEntryDto: CreateUpdateCollectionEntryDto,

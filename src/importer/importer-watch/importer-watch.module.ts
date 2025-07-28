@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ImporterWatchService } from "./importer-watch.service";
-import { ConnectionsModule } from "../../connections/connections.module";
+import { ConnectionsModule } from "../../connection/connections.module";
 import { ImporterModule } from "../importer.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ImporterNotifiedEntry } from "../entity/importer-notified-entry.entity";

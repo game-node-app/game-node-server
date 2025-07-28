@@ -36,7 +36,9 @@ import { ExternalGameModule } from "./game/external-game/external-game.module";
 import { XboxSyncModule } from "./sync/xbox/xbox-sync.module";
 import { createKeyv } from "@keyv/redis";
 import { GameAchievementModule } from "./game/game-achievement/game-achievement.module";
-import { JournalModule } from './journal/journal.module';
+import { JournalModule } from "./journal/journal.module";
+import { addTransactionalDataSource } from "typeorm-transactional";
+import { DataSource } from "typeorm";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -108,6 +110,12 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
                         ignoreErrors: true,
                     },
                 };
+            },
+            async dataSourceFactory(options) {
+                if (!options) {
+                    throw new Error("Invalid datasource config");
+                }
+                return addTransactionalDataSource(new DataSource(options));
             },
         }),
         CacheModule.registerAsync({

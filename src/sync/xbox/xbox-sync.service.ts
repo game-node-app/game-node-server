@@ -14,7 +14,7 @@ import {
     XboxMSStoreCatalogResponse,
 } from "./xbox-sync.types";
 import { XboxSyncAuthService } from "./auth/xbox-sync-auth.service";
-import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
+import { ConnectionUserResolveDto } from "../../connection/dto/connection-user-resolve.dto";
 import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { getXboxPlayerXUID } from "./client/getXboxPlayerXUID";
 import { callXboxAPI } from "./client/callXboxApi";
