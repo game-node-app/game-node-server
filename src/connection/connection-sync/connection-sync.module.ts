@@ -1,7 +1,10 @@
-import { Module } from '@nestjs/common';
-import { ConnectionSyncGateway } from './connection-sync.gateway';
+import { forwardRef, Module } from "@nestjs/common";
+import { ConnectionSyncGateway } from "./connection-sync.gateway";
+import { PlaytimeWatchModule } from "../../playtime/watch/playtime-watch.module";
 
 @Module({
-  providers: [ConnectionSyncGateway]
+    imports: [forwardRef(() => PlaytimeWatchModule)],
+    providers: [ConnectionSyncGateway],
+    exports: [ConnectionSyncGateway],
 })
 export class ConnectionSyncModule {}

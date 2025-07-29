@@ -7,3 +7,9 @@ export interface PlaytimeWatchJob {
     userId: string;
     source: UserPlaytimeSource;
 }
+
+export interface PlaytimeWatchJobProgress {
+    gameId: number;
+    totalPlaytimeSeconds: number;
+    platformAbbreviation: string;
+}
