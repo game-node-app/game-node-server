@@ -1,12 +1,12 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import SupertokensSession from "supertokens-node/recipe/session";
 import { Socket } from "socket.io";
 
 /**
  * Retrieves session info for the current logged in user. <br>
- * Needs to be used with AuthGuard. <br>
+ * Needs to be used with {@link AuthGuard} or {@link WsAuthGuard}. <br>
  * If the 'Public' decorator is also used, the 'session' object will be null if the user is not logged in.
  * @see AuthGuard
+ * @see WsAuthGuard
  * @see Public
  */
 export const Session = createParamDecorator(
@@ -16,21 +16,11 @@ export const Session = createParamDecorator(
             const request = ctx.switchToHttp().getRequest();
             return request.session;
         }
+
         if (ctxType === "ws") {
             const client: Socket = ctx.switchToWs().getClient();
 
-            const token = client.handshake.query.token as string | undefined;
-            if (!token) {
-                return null;
-            }
-
-            return SupertokensSession.getSessionWithoutRequestResponse(
-                token,
-                undefined,
-                {
-                    sessionRequired: false,
-                },
-            );
+            return client.data.session;
         }
     },
 );

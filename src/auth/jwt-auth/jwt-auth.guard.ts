@@ -8,9 +8,7 @@ import * as JsonWebToken from "jsonwebtoken";
 import { JwtHeader } from "jsonwebtoken";
 import jwksClient from "jwks-rsa";
 import * as process from "process";
-import { Reflector } from "@nestjs/core";
-import { WsException } from "@nestjs/websockets";
-import { Socket } from "socket.io";
+import { Request } from "express";
 
 /**
  * Jwt based auth guard. Can be used for microservice-microservice communication, or for websockets.
@@ -22,8 +20,6 @@ export class JwtAuthGuard implements CanActivate {
     private readonly jwksClient = jwksClient({
         jwksUri: this.JWKS_URI,
     });
-
-    constructor(private readonly reflector: Reflector) {}
 
     /**
      * @param jwtHeader - JWT header, from the decoded token
@@ -43,29 +39,18 @@ export class JwtAuthGuard implements CanActivate {
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const ctxType = context.getType<"http" | "ws" | "rpc">();
 
-        if (ctxType === "http") {
-            const request = context.switchToHttp().getRequest();
-            return this.validateToken(request.headers.authorization);
+        if (ctxType !== "http") {
+            throw new Error(
+                `JwtAuthGuard not configured for context: ${ctxType}`,
+            );
         }
 
-        if (ctxType === "ws") {
-            const client: Socket = context.switchToWs().getClient();
-            const token: string | undefined =
-                client.handshake?.auth?.token || client.handshake?.query?.token;
+        const request: Request = context.switchToHttp().getRequest();
 
-            if (!token) throw new WsException("Missing auth token");
-
-            const isValid = await this.validateToken(`Bearer ${token}`);
-            if (!isValid) throw new WsException("Invalid token");
-
-            return true;
-        }
-
-        this.logger.warn(`JwtAuthGuard not configured for context: ${ctxType}`);
-        return false;
+        return this.validateToken(request.headers.authorization);
     }
 
-    private async validateToken(token: string) {
+    private async validateToken(token: string | undefined) {
         const bearerToken = token?.split("Bearer ")[1];
 
         if (!token || !bearerToken) {

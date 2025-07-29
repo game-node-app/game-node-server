@@ -6,6 +6,10 @@ import {
 import { WebsocketGateway } from "../../utils/ws/WebsocketGateway";
 import { PlaytimeWatchService } from "../../playtime/watch/playtime-watch.service";
 import { EConnectionType } from "../connections.constants";
+import { UseGuards } from "@nestjs/common";
+import { WebSocketAuthGuard } from "../../auth/ws-auth/WebSocketAuthGuard";
+import { Session } from "../../auth/session.decorator";
+import { SessionContainer } from "supertokens-node/recipe/session";
 
 @WebSocketGateway({
     namespace: "connection-sync",
@@ -13,6 +17,7 @@ import { EConnectionType } from "../connections.constants";
         origin: "*",
     },
 })
+@UseGuards(WebSocketAuthGuard)
 export class ConnectionSyncGateway extends WebsocketGateway {
     constructor(private readonly playtimeWatchService: PlaytimeWatchService) {
         super();
@@ -20,9 +25,10 @@ export class ConnectionSyncGateway extends WebsocketGateway {
 
     @SubscribeMessage("sync")
     public async performSync(
-        @MessageBody()
-        { userId, type }: { userId: string; type: EConnectionType },
+        @Session() session: SessionContainer,
+        @MessageBody("type") type: EConnectionType,
     ) {
+        const userId = session.getUserId();
         await this.playtimeWatchService.registerJob(userId, type);
     }
 }

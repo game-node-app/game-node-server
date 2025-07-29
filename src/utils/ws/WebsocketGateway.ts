@@ -11,9 +11,6 @@ export class WebsocketGateway
     implements OnGatewayConnection, OnGatewayDisconnect
 {
     protected readonly logger = new Logger(WebsocketGateway.name);
-
-    protected readonly NAMESPACE = "/";
-
     @WebSocketServer()
     server: Socket;
 
