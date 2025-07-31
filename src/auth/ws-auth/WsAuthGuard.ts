@@ -3,8 +3,8 @@ import { Socket } from "socket.io";
 import { WsException } from "@nestjs/websockets";
 import Session from "supertokens-node/recipe/session";
 
-export class WebSocketAuthGuard implements CanActivate {
-    private logger = new Logger(WebSocketAuthGuard.name);
+export class WsAuthGuard implements CanActivate {
+    private logger = new Logger(WsAuthGuard.name);
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const ctxType = context.getType<"http" | "ws" | "rpc">();

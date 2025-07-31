@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinColumn,
     JoinTable,
     ManyToMany,
     ManyToOne,
@@ -16,6 +17,7 @@ import { CollectionEntryToCollection } from "./collection-entry-to-collection.en
 import { Expose } from "class-transformer";
 import { CollectionEntryStatus } from "../collections-entries.constants";
 import { ApiProperty } from "@nestjs/swagger";
+import { Library } from "../../../libraries/entities/library.entity";
 
 /**
  * Represents an entry (game) in one or multiple collections. <br>
@@ -65,6 +67,30 @@ export class CollectionEntry {
         type: "varchar",
     })
     status: CollectionEntryStatus;
+
+    @ManyToOne(() => Library, {
+        nullable: false,
+        onDelete: "CASCADE",
+    })
+    @JoinColumn({
+        foreignKeyConstraintName: "FK_collection_entry_library_user",
+    })
+    library: Library;
+
+    @Column({
+        nullable: false,
+        type: "varchar",
+        length: 36,
+    })
+    libraryUserId: string;
+
+    @ManyToOne(() => CollectionEntry, {
+        onDelete: "SET NULL",
+    })
+    relatedEntry: CollectionEntry | null;
+
+    @OneToMany(() => CollectionEntry, (entry) => entry.relatedEntry)
+    relatedEntries: CollectionEntry[];
 
     @Column({
         nullable: true,

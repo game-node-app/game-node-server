@@ -81,11 +81,7 @@ export class CollectionsEntriesService {
     async findOneByUserIdAndGameId(userId: string, gameId: number) {
         return await this.collectionEntriesRepository.findOne({
             where: {
-                collectionsMap: {
-                    collection: {
-                        libraryUserId: userId,
-                    },
-                },
+                libraryUserId: userId,
                 game: {
                     id: gameId,
                 },
@@ -187,15 +183,11 @@ export class CollectionsEntriesService {
             ...findOptions,
             where: {
                 collectionsMap: {
-                    collection: isOwnQuery
-                        ? {
-                              libraryUserId: targetUserId,
-                          }
-                        : {
-                              isPublic: true,
-                              libraryUserId: targetUserId,
-                          },
+                    collection: {
+                        isPublic: isOwnQuery ? undefined : true,
+                    },
                 },
+                libraryUserId: targetUserId,
                 status: dto.status,
                 game: buildGameFilterFindOptions(dto.gameFilters),
             },
@@ -226,15 +218,11 @@ export class CollectionsEntriesService {
             where: {
                 isFavorite: true,
                 collectionsMap: {
-                    collection: isOwnQuery
-                        ? {
-                              libraryUserId: targetUserId,
-                          }
-                        : {
-                              libraryUserId: targetUserId,
-                              isPublic: true,
-                          },
+                    collection: {
+                        isPublic: isOwnQuery ? undefined : true,
+                    },
                 },
+                libraryUserId: targetUserId,
                 status: dto.status,
             },
             order: {
@@ -261,9 +249,9 @@ export class CollectionsEntriesService {
             collectionIds,
             gameId,
             platformIds,
-            isFavorite,
             finishedAt,
             status,
+            relatedGameIds,
         } = createEntryDto;
 
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
@@ -298,7 +286,7 @@ export class CollectionsEntriesService {
 
         const updatedPartialEntity: DeepPartial<CollectionEntry> = {
             ...possibleExistingEntry,
-            isFavorite,
+            libraryUserId: userId,
             finishedAt,
             gameId,
             // Updated automatically with @ManyToMany
@@ -313,6 +301,14 @@ export class CollectionsEntriesService {
             upsertedEntry.id,
             uniqueCollectionIds,
         );
+
+        if (relatedGameIds) {
+            await this.processRelatedEntries(
+                upsertedEntry,
+                relatedGameIds,
+                uniquePlatformIds,
+            );
+        }
 
         if (!possibleExistingEntry) {
             this.levelService.registerLevelExpIncreaseActivity(
@@ -422,6 +418,7 @@ export class CollectionsEntriesService {
     > {
         const associatedCollections =
             await this.collectionsService.findAllByIds(collectionIds);
+
         const firstCollectionWithDefaultStatus = associatedCollections.find(
             (collection) => collection.defaultEntryStatus != undefined,
         );
@@ -451,6 +448,47 @@ export class CollectionsEntriesService {
                 finishedAt: finishedAt ?? new Date(),
             }))
             .exhaustive();
+    }
+
+    /**
+     * Creates collection entries entities for each related game id, if necessary, and associate them to the parent
+     * collection entry.
+     * @param parentEntry
+     * @param relatedGameIds
+     * @param platformIds
+     * @private
+     */
+    private async processRelatedEntries(
+        parentEntry: CollectionEntry,
+        relatedGameIds: number[],
+        platformIds: number[],
+    ) {
+        const ownedPlatforms = platformIds.map((id) => ({ id }));
+
+        for (const relatedGameId of relatedGameIds) {
+            const existing = await this.findOneByUserIdAndGameId(
+                parentEntry.libraryUserId,
+                relatedGameId,
+            );
+
+            const alreadyLinked = existing?.relatedEntry?.id === parentEntry.id;
+
+            if (existing && alreadyLinked) continue;
+
+            const relatedEntry: DeepPartial<CollectionEntry> = {
+                libraryUserId: parentEntry.libraryUserId,
+                gameId: relatedGameId,
+                ownedPlatforms,
+                relatedEntry: parentEntry,
+                status: parentEntry.status,
+                startedAt: parentEntry.startedAt,
+                finishedAt: parentEntry.finishedAt,
+                droppedAt: parentEntry.droppedAt,
+                plannedAt: parentEntry.plannedAt,
+            };
+
+            await this.collectionEntriesRepository.save(relatedEntry);
+        }
     }
 
     async changeFavoriteStatus(
@@ -496,21 +534,6 @@ export class CollectionsEntriesService {
 
         // This removes both the associated review (if any) and the entries in the join-tables.
         await this.collectionEntriesRepository.delete(entry.id);
-    }
-
-    /**
-     * Delete collection entries not associated with any collection.
-     */
-    async deleteDandling() {
-        const dandling = await this.collectionEntriesRepository
-            .createQueryBuilder("ce")
-            .select()
-            .where(
-                "NOT EXISTS (SELECT 1 FROM collection_entry_collections_collection AS cecc WHERE cecc.collectionEntryId = ce.id)",
-            )
-            .getMany();
-
-        await this.collectionEntriesRepository.remove(dandling);
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {

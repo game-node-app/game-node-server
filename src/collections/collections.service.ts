@@ -1,17 +1,10 @@
-import {
-    forwardRef,
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-} from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Collection } from "./entities/collection.entity";
 import { FindOptionsRelations, In, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
-import { CollectionsEntriesService } from "./collections-entries/collections-entries.service";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../achievements/achievements.constants";
 
@@ -25,8 +18,6 @@ export class CollectionsService {
         @InjectRepository(Collection)
         private collectionsRepository: Repository<Collection>,
         private readonly librariesService: LibrariesService,
-        @Inject(forwardRef(() => CollectionsEntriesService))
-        private readonly collectionEntriesService: CollectionsEntriesService,
         private readonly achievementsQueueService: AchievementsQueueService,
     ) {}
 
@@ -213,7 +204,5 @@ export class CollectionsService {
         await this.collectionsRepository.delete({
             id: collection.id,
         });
-
-        await this.collectionEntriesService.deleteDandling();
     }
 }

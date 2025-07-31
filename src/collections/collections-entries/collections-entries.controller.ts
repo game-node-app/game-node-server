@@ -21,7 +21,7 @@ import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-e
 import { AuthGuard } from "../../auth/auth.guard";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { CollectionEntry } from "./entities/collection-entry.entity";
-import { CreateFavoriteStatusCollectionEntryDto } from "./dto/create-favorite-status-collection-entry.dto";
+import { CollectionEntryFavoriteStatusDto } from "./dto/collection-entry-favorite-status.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 
 import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-paginated-response.dto";
@@ -117,7 +117,7 @@ export class CollectionsEntriesController {
     async changeFavoriteStatus(
         @Session() session: SessionContainer,
         @Param("id") gameId: number,
-        @Body() dto: CreateFavoriteStatusCollectionEntryDto,
+        @Body() dto: CollectionEntryFavoriteStatusDto,
     ) {
         const userId = session.getUserId();
         return await this.collectionsEntriesService.changeFavoriteStatus(

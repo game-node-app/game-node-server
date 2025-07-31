@@ -7,9 +7,11 @@ import { WebsocketGateway } from "../../utils/ws/WebsocketGateway";
 import { PlaytimeWatchService } from "../../playtime/watch/playtime-watch.service";
 import { EConnectionType } from "../connections.constants";
 import { UseGuards } from "@nestjs/common";
-import { WebSocketAuthGuard } from "../../auth/ws-auth/WebSocketAuthGuard";
+import { WsAuthGuard } from "../../auth/ws-auth/WsAuthGuard";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
+import { WsThrottlerGuard } from "../../utils/ws/WsThrottlerGuard";
+import { seconds, Throttle } from "@nestjs/throttler";
 
 @WebSocketGateway({
     namespace: "connection-sync",
@@ -17,7 +19,14 @@ import { SessionContainer } from "supertokens-node/recipe/session";
         origin: "*",
     },
 })
-@UseGuards(WebSocketAuthGuard)
+@UseGuards(WsAuthGuard)
+@UseGuards(WsThrottlerGuard)
+@Throttle({
+    default: {
+        limit: 1,
+        ttl: seconds(60),
+    },
+})
 export class ConnectionSyncGateway extends WebsocketGateway {
     constructor(private readonly playtimeWatchService: PlaytimeWatchService) {
         super();

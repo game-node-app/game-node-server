@@ -28,6 +28,13 @@ async function bootstrap() {
 
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+    /**
+     * Trust IP Address received from proxy
+     */
+    if (process.env.NODE_ENV !== "development") {
+        app.set("trust proxy", "loopback");
+    }
+
     app.enableVersioning({
         type: VersioningType.URI,
         defaultVersion: "1",

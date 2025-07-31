@@ -1,8 +1,9 @@
-import { Processor } from "@nestjs/bullmq";
+import { OnWorkerEvent, Processor } from "@nestjs/bullmq";
 import {
     PLAYTIME_WATCH_QUEUE_JOB_NAME,
     PLAYTIME_WATCH_QUEUE_NAME,
     PlaytimeWatchJob,
+    PlaytimeWatchJobProgress,
 } from "./playtime-watch.constants";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { Logger } from "@nestjs/common";
@@ -77,6 +78,82 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         }
     }
 
+    @OnWorkerEvent("progress")
+    async onProgress(job: Job<PlaytimeWatchJob>) {
+        if (!(job.name === PLAYTIME_WATCH_QUEUE_JOB_NAME)) {
+            return;
+        }
+        const userId = job.data.userId;
+        const source = job.data.source;
+        const {
+            error,
+            totalPlaytimeSeconds,
+            totalUpdatedGames,
+            gameName,
+            platform,
+        } = job.progress as PlaytimeWatchJobProgress;
+
+        if (error) {
+            this.logger.error(
+                `Playtime update failed for user ${userId} in ${source}: ${error}`,
+            );
+            this.connectionSyncGateway.sendMessageToUser(
+                userId,
+                `[PLAYTIME] Update failed: ${error}`,
+            );
+            return;
+        }
+        if (totalUpdatedGames != undefined) {
+            this.logger.log(
+                `Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
+            );
+            this.connectionSyncGateway.sendMessageToUser(
+                userId,
+                `[PLAYTIME] Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
+            );
+            return;
+        }
+
+        if (gameName != undefined) {
+            this.logger.log(
+                `Updated playtime for game ${gameName} in platform ${platform} for user ${userId} in ${source}.`,
+            );
+            this.connectionSyncGateway.sendMessageToUser(
+                userId,
+                `[PLAYTIME] Updated playtime for ${gameName} in platform ${platform}: ${totalPlaytimeSeconds} seconds.`,
+            );
+        }
+
+        if (totalUpdatedGames != undefined) {
+            this.logger.log(
+                `Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
+            );
+            this.connectionSyncGateway.sendMessageToUser(
+                userId,
+                `[PLAYTIME] Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
+            );
+            return;
+        }
+    }
+
+    @OnWorkerEvent("failed")
+    async onFailed(job: Job<PlaytimeWatchJob>) {
+        if (!(job.name === PLAYTIME_WATCH_QUEUE_JOB_NAME)) {
+            return;
+        }
+
+        const { failedReason } = job;
+        const userId = job.data.userId;
+        const source = job.data.source;
+        this.logger.error(
+            `Playtime update failed for user ${userId} in ${source}: ${failedReason}`,
+        );
+        this.connectionSyncGateway.sendMessageToUser(
+            userId,
+            `[PLAYTIME] Update failed: ${failedReason}`,
+        );
+    }
+
     async updateSteamPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
         const userId = job.data.userId;
 
@@ -91,10 +168,10 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         );
 
         if (userGames.length === 0) {
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                "No games found for Steam. Your library may be set to private.",
-            );
+            job.updateProgress({
+                error: "No games found for Steam. Your library may be set to private.",
+            } satisfies PlaytimeWatchJobProgress);
+            return;
         }
 
         const gamesUids = userGames.map((item) => `${item.game.id}`);
@@ -112,10 +189,6 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         });
 
         for (const unmappedEntry of unmappedEntries) {
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                `We couldn't find an internal match for AppID ${unmappedEntry.game.id}.`,
-            );
             await this.externalGameService.registerUnmappedGame(
                 `${unmappedEntry.game.id}`,
                 EGameExternalGameCategory.Steam,
@@ -211,17 +284,17 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 playtime.totalPlayCount! += 1;
             }
 
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                `Updating playtime for game ${items.at(0)?.name}: ${playtime.totalPlaytimeSeconds} in platform PC (ID ${gameId})`,
-            );
+            job.updateProgress({
+                gameName: items[0].name,
+                platform: "PC",
+                totalPlaytimeSeconds: totalPlaytimeSeconds,
+            } satisfies PlaytimeWatchJobProgress);
             await this.playtimeService.save(playtime);
         }
 
-        this.connectionSyncGateway.sendMessageToUser(
-            userId,
-            `Successfully imported ${groupedByGameId.size} entries in platform PC`,
-        );
+        job.updateProgress({
+            totalUpdatedGames: groupedByGameId.size,
+        } satisfies PlaytimeWatchJobProgress);
     }
 
     async updatePsnPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
@@ -239,10 +312,9 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         ]);
 
         if (userGames.length === 0) {
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                "No games found for PSN. Your library may be set to private.",
-            );
+            job.updateProgress({
+                error: "No games found for PSN. Your library may be set to private.",
+            });
             return;
         }
 
@@ -261,10 +333,6 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         });
 
         for (const unmappedEntry of unmappedEntries) {
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                `We couldn't find an internal match for game/app ${unmappedEntry.name} (Concept ID ${unmappedEntry.concept.id}).`,
-            );
             this.externalGameService
                 .registerUnmappedGame(
                     `${unmappedEntry.concept.id}`,
@@ -342,14 +410,18 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     platformId: targetPlatform.id,
                 };
 
-                this.connectionSyncGateway.sendMessageToUser(
-                    userId,
-                    `Updated playtime for game ${relatedExternalGame.name}: 
-                    ${playtime.totalPlaytimeSeconds} seconds in platform ${targetPlatform.abbreviation} (ID ${relatedExternalGame.gameId})`,
-                );
+                job.updateProgress({
+                    gameName: relatedExternalGame.name,
+                    platform: targetPlatform.abbreviation,
+                    totalPlaytimeSeconds: playtime.totalPlaytimeSeconds,
+                } satisfies PlaytimeWatchJobProgress);
                 await this.playtimeService.save(playtime);
             }
         }
+
+        job.updateProgress({
+            totalUpdatedGames: groupedByName.size,
+        } satisfies PlaytimeWatchJobProgress);
     }
 
     async updateXboxPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
@@ -366,10 +438,9 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         );
 
         if (allGames.length === 0) {
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                "No games found for Xbox. Your library may be set to private.",
-            );
+            job.updateProgress({
+                error: "No games found for Xbox. Your library may be set to private.",
+            });
             return;
         }
 
@@ -394,11 +465,6 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         const playtimeStats = await this.xboxSyncService.getBatchMinutesPlayed(
             connection.sourceUserId,
             relevantTitleIds,
-        );
-
-        this.connectionSyncGateway.sendMessageToUser(
-            userId,
-            `Found playtime info for ${playtimeStats.length} of ${relevantTitleIds.length} games.`,
         );
 
         const platformsMap =
@@ -458,13 +524,18 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                         existingPlaytimeInfo!.totalPlayCount + 1;
                 }
 
-                this.connectionSyncGateway.sendMessageToUser(
-                    userId,
-                    `Updating playtime for game ${relevantExternalGame.name}: ${playtime.totalPlaytimeSeconds} seconds in platform ${platform.abbreviation} (ID ${relevantExternalGame.gameId})`,
-                );
+                job.updateProgress({
+                    gameName: relevantExternalGame.name,
+                    platform: platform.abbreviation,
+                    totalPlaytimeSeconds: playtime.totalPlaytimeSeconds,
+                } satisfies PlaytimeWatchJobProgress);
 
                 await this.playtimeService.save(playtime);
             }
         }
+
+        job.updateProgress({
+            totalUpdatedGames: allGames.length,
+        } satisfies PlaytimeWatchJobProgress);
     }
 }
