@@ -344,12 +344,10 @@ export class CollectionsEntriesService {
         const upsertedEntry =
             await this.collectionEntriesRepository.save(updatedPartialEntity);
 
-        if (uniqueCollectionIds.length > 0) {
-            await this.updateAssociatedCollections(
-                upsertedEntry.id,
-                uniqueCollectionIds,
-            );
-        }
+        await this.updateAssociatedCollections(
+            upsertedEntry.id,
+            uniqueCollectionIds,
+        );
 
         if (relatedGameIds) {
             await this.processRelatedEntries(
