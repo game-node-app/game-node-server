@@ -7,6 +7,7 @@ import { CollectionEntryStatus } from "../collections-entries.constants";
 import { Expose, Transform } from "class-transformer";
 import qs from "qs";
 import { GameRepositoryFilterDto } from "../../../game/game-repository/dto/game-repository-filter.dto";
+import { EGameCategory } from "../../../game/game-repository/game-repository.constants";
 
 export class FindCollectionEntriesGameFilterDto extends PickType(
     GameRepositoryFilterDto,
@@ -32,5 +33,11 @@ export class FindCollectionEntriesDto extends OmitType(
     @IsString()
     status?: CollectionEntryStatus;
     @IsOptional()
-    gameFilters?: FindCollectionEntriesGameFilterDto;
+    gameFilters?: FindCollectionEntriesGameFilterDto = {
+        category: [
+            EGameCategory.Main,
+            EGameCategory.Remaster,
+            EGameCategory.Remake,
+        ],
+    };
 }

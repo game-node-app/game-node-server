@@ -111,21 +111,21 @@ export class Game {
         nullable: true,
     })
     @JoinTable()
-    dlcs?: Game[];
+    dlcs: Game[];
     @ManyToMany(() => Game, (game) => game.dlcs, {
         nullable: true,
     })
-    dlcOf?: Game[];
+    dlcOf: Game[];
 
     @ManyToMany(() => Game, (game) => game.expansionOf, {
         nullable: true,
     })
     @JoinTable()
-    expansions?: Game[];
+    expansions: Game[];
     @ManyToMany(() => Game, (game) => game.expansions, {
         nullable: true,
     })
-    expansionOf?: Game[];
+    expansionOf: Game[];
 
     @ManyToMany(() => Game, (game) => game.expandedGameOf, {
         nullable: true,

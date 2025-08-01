@@ -84,14 +84,6 @@ export class CollectionEntry {
     })
     libraryUserId: string;
 
-    @ManyToOne(() => CollectionEntry, {
-        onDelete: "SET NULL",
-    })
-    relatedEntry: CollectionEntry | null;
-
-    @OneToMany(() => CollectionEntry, (entry) => entry.relatedEntry)
-    relatedEntries: CollectionEntry[];
-
     @Column({
         nullable: true,
         type: "timestamp",

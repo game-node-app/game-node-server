@@ -1,10 +1,4 @@
-import {
-    forwardRef,
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-} from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -33,6 +27,9 @@ import { CollectionEntryStatus } from "./collections-entries.constants";
 import { match } from "ts-pattern";
 import { buildGameFilterFindOptions } from "../../game/game-repository/utils/build-game-filter-find-options";
 import { Transactional } from "typeorm-transactional";
+import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
+import { FindRelatedCollectionEntriesResponseDto } from "./dto/find-related-collection-entries.dto";
+import { toMap } from "../../utils/toMap";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -52,8 +49,8 @@ export class CollectionsEntriesService {
         private activitiesQueueService: ActivitiesQueueService,
         private achievementsQueueService: AchievementsQueueService,
         private levelService: LevelService,
-        @Inject(forwardRef(() => CollectionsService))
         private collectionsService: CollectionsService,
+        private gameRepositoryService: GameRepositoryService,
     ) {}
 
     async findOneById(id: string) {
@@ -63,6 +60,42 @@ export class CollectionsEntriesService {
             },
             relations: this.relations,
         });
+    }
+
+    async findRelatedEntries(
+        id: string,
+    ): Promise<FindRelatedCollectionEntriesResponseDto> {
+        const entry = await this.findOneByIdOrFail(id);
+        const { dlcs, expansions } =
+            await this.gameRepositoryService.findOneById(entry.gameId, {
+                relations: {
+                    dlcs: true,
+                    expansions: true,
+                },
+            });
+
+        const gameIds = [...dlcs, ...expansions].map((game) => game.id);
+
+        const entriesInGameIds = await this.collectionEntriesRepository
+            .createQueryBuilder("ce")
+            .where("ce.libraryUserId = :libraryUserId", {
+                libraryUserId: entry.libraryUserId,
+            })
+            .andWhere("ce.gameId IN (:...gameIds)", {
+                gameIds,
+            })
+            .getMany();
+
+        const mappedByGameId = toMap(entriesInGameIds, "gameId");
+
+        return {
+            dlcs: dlcs
+                .map((game) => mappedByGameId.get(game.id))
+                .filter((entry) => entry != undefined),
+            expansions: expansions
+                .map((game) => mappedByGameId.get(game.id))
+                .filter((entry) => entry != undefined),
+        };
     }
 
     async findOneByIdOrFail(id: string) {
@@ -297,10 +330,12 @@ export class CollectionsEntriesService {
         const upsertedEntry =
             await this.collectionEntriesRepository.save(updatedPartialEntity);
 
-        await this.updateAssociatedCollections(
-            upsertedEntry.id,
-            uniqueCollectionIds,
-        );
+        if (uniqueCollectionIds.length > 0) {
+            await this.updateAssociatedCollections(
+                upsertedEntry.id,
+                uniqueCollectionIds,
+            );
+        }
 
         if (relatedGameIds) {
             await this.processRelatedEntries(
@@ -451,8 +486,7 @@ export class CollectionsEntriesService {
     }
 
     /**
-     * Creates collection entries entities for each related game id, if necessary, and associate them to the parent
-     * collection entry.
+     * Creates collection entries entities for each related game id, if necessary.
      * @param parentEntry
      * @param relatedGameIds
      * @param platformIds
@@ -471,15 +505,12 @@ export class CollectionsEntriesService {
                 relatedGameId,
             );
 
-            const alreadyLinked = existing?.relatedEntry?.id === parentEntry.id;
-
-            if (existing && alreadyLinked) continue;
+            if (existing) continue;
 
             const relatedEntry: DeepPartial<CollectionEntry> = {
                 libraryUserId: parentEntry.libraryUserId,
                 gameId: relatedGameId,
                 ownedPlatforms,
-                relatedEntry: parentEntry,
                 status: parentEntry.status,
                 startedAt: parentEntry.startedAt,
                 finishedAt: parentEntry.finishedAt,

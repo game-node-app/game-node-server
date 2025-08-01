@@ -21,11 +21,17 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     })
     ids?: number[];
     @IsOptional()
-    @IsEnum(EGameStatus)
-    status?: EGameStatus;
+    @IsArray()
+    @IsEnum(EGameStatus, {
+        each: true,
+    })
+    status?: EGameStatus[];
     @IsOptional()
-    @IsEnum(EGameCategory)
-    category?: EGameCategory;
+    @IsArray()
+    @IsEnum(EGameCategory, {
+        each: true,
+    })
+    category?: EGameCategory[];
     @IsOptional()
     @IsArray()
     @Type(() => Number)

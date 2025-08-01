@@ -9,6 +9,7 @@ import { AchievementsModule } from "../../achievements/achievements.module";
 import { LevelModule } from "../../level/level.module";
 import { CollectionsModule } from "../collections.module";
 import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
+import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { CollectionEntryToCollection } from "./entities/collection-entry-to-coll
         AchievementsModule,
         LevelModule,
         forwardRef(() => CollectionsModule),
+        GameRepositoryModule,
     ],
     controllers: [CollectionsEntriesController],
     providers: [CollectionsEntriesService],

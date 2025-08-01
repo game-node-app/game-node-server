@@ -55,6 +55,14 @@ export class CollectionsEntriesController {
         );
     }
 
+    @Get(":id/related")
+    @Public()
+    async findRelatedEntries(@Param("id") collectionEntryId: string) {
+        return await this.collectionsEntriesService.findRelatedEntries(
+            collectionEntryId,
+        );
+    }
+
     /**
      * Returns a specific collection entry based on game ID
      * @param session
