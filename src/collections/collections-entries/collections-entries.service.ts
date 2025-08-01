@@ -63,9 +63,9 @@ export class CollectionsEntriesService {
     }
 
     async findRelatedEntries(
-        id: string,
+        collectionEntryId: string,
     ): Promise<FindRelatedCollectionEntriesResponseDto> {
-        const entry = await this.findOneByIdOrFail(id);
+        const entry = await this.findOneByIdOrFail(collectionEntryId);
         const { dlcs, expansions } =
             await this.gameRepositoryService.findOneById(entry.gameId, {
                 relations: {
@@ -76,6 +76,13 @@ export class CollectionsEntriesService {
 
         const gameIds = [...dlcs, ...expansions].map((game) => game.id);
 
+        if (gameIds.length === 0) {
+            throw new HttpException(
+                "No related games found.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
         const entriesInGameIds = await this.collectionEntriesRepository
             .createQueryBuilder("ce")
             .where("ce.libraryUserId = :libraryUserId", {
@@ -85,6 +92,13 @@ export class CollectionsEntriesService {
                 gameIds,
             })
             .getMany();
+
+        if (entriesInGameIds.length === 0) {
+            throw new HttpException(
+                "No related games found.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
 
         const mappedByGameId = toMap(entriesInGameIds, "gameId");
 
@@ -330,12 +344,10 @@ export class CollectionsEntriesService {
         const upsertedEntry =
             await this.collectionEntriesRepository.save(updatedPartialEntity);
 
-        if (uniqueCollectionIds.length > 0) {
-            await this.updateAssociatedCollections(
-                upsertedEntry.id,
-                uniqueCollectionIds,
-            );
-        }
+        await this.updateAssociatedCollections(
+            upsertedEntry.id,
+            uniqueCollectionIds,
+        );
 
         if (relatedGameIds) {
             await this.processRelatedEntries(
