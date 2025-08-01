@@ -14,11 +14,26 @@ import * as fs from "fs";
 import * as process from "process";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
 import { AxiosExceptionFilter } from "./filter/axios-exception.filter";
+import {
+    initializeTransactionalContext,
+    StorageDriver,
+} from "typeorm-transactional";
 
 dayjs.extend(duration);
 
 async function bootstrap() {
+    initializeTransactionalContext({
+        storageDriver: StorageDriver.ASYNC_LOCAL_STORAGE,
+    });
+
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+    /**
+     * Trust IP Address received from proxy
+     */
+    if (process.env.NODE_ENV !== "development") {
+        app.set("trust proxy", "loopback");
+    }
 
     app.enableVersioning({
         type: VersioningType.URI,

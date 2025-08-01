@@ -35,6 +35,7 @@ export class PlaytimeHistoryService {
 
         const existsInDay = await this.playtimeHistoryRepository.existsBy({
             profileUserId: playtime.profileUserId,
+            source: playtime.source,
             platformId: playtime.platformId,
             gameId: playtime.gameId,
             createdAt: Between(dayStart.toDate(), dayEnd.toDate()),

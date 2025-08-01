@@ -2,7 +2,7 @@ import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Cron } from "@nestjs/schedule";
-import { ConnectionsService } from "../../connections/connections.service";
+import { ConnectionsService } from "../../connection/connections.service";
 import {
     PLAYTIME_WATCH_QUEUE_JOB_NAME,
     PLAYTIME_WATCH_QUEUE_NAME,
@@ -10,7 +10,7 @@ import {
 } from "./playtime-watch.constants";
 import { LibrariesService } from "../../libraries/libraries.service";
 import { connectionToPlaytimeImportSource } from "../playtime.util";
-import { EConnectionType } from "../../connections/connections.constants";
+import { EConnectionType } from "../../connection/connections.constants";
 
 @Injectable()
 export class PlaytimeWatchService {

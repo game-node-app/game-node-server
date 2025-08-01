@@ -8,11 +8,10 @@ import * as JsonWebToken from "jsonwebtoken";
 import { JwtHeader } from "jsonwebtoken";
 import jwksClient from "jwks-rsa";
 import * as process from "process";
-import { Reflector } from "@nestjs/core";
+import { Request } from "express";
 
 /**
- * Jwt based auth guard. Checks for valid JWT token which is signed by another service/microservice.
- * Should be used for microservice communication.
+ * Jwt based auth guard. Can be used for microservice-microservice communication, or for websockets.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -21,8 +20,6 @@ export class JwtAuthGuard implements CanActivate {
     private readonly jwksClient = jwksClient({
         jwksUri: this.JWKS_URI,
     });
-
-    constructor(private readonly reflector: Reflector) {}
 
     /**
      * @param jwtHeader - JWT header, from the decoded token
@@ -39,35 +36,24 @@ export class JwtAuthGuard implements CanActivate {
         }
     }
 
-    /**
-     * This same logic should be applied to all services/microservices.
-     * @param context
-     */
     async canActivate(context: ExecutionContext): Promise<boolean> {
-        const ctx = context.switchToHttp();
-        const ctxType = context.getType<"http" | "rmq">();
+        const ctxType = context.getType<"http" | "ws" | "rpc">();
 
         if (ctxType !== "http") {
-            this.logger.warn(
-                `Warning: JwtAuthGuard can't be used in a non-HTTP context!`,
+            throw new Error(
+                `JwtAuthGuard not configured for context: ${ctxType}`,
             );
-
-            return true;
         }
 
-        const isPublic = this.reflector.get<boolean>(
-            "isPublic",
-            context.getHandler(),
-        );
+        const request: Request = context.switchToHttp().getRequest();
 
-        if (isPublic) {
-            return true;
-        }
+        return this.validateToken(request.headers.authorization);
+    }
 
-        const headers = ctx.getRequest().headers;
-        const authorization = headers.authorization as string;
-        const bearerToken = authorization?.split("Bearer ")[1];
-        if (!authorization || !bearerToken) {
+    private async validateToken(token: string | undefined) {
+        const bearerToken = token?.split("Bearer ")[1];
+
+        if (!token || !bearerToken) {
             return false;
         }
 

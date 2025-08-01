@@ -38,11 +38,13 @@
     "@nestjs/core": "^11.0.11",
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.0.11",
+    "@nestjs/platform-socket.io": "^11.1.5",
     "@nestjs/schedule": "^5.0.1",
     "@nestjs/swagger": "^11.0.6",
     "@nestjs/terminus": "^11.0.0",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^11.0.0",
+    "@nestjs/websockets": "^11.1.5",
     "@types/async-retry": "^1.4.9",
     "@types/bad-words": "^3.0.3",
     "@types/multer": "^1.4.12",
@@ -72,6 +74,7 @@
     "supertokens-node": "^22.0.1",
     "ts-pattern": "^5.6.2",
     "typeorm": "^0.3.21",
+    "typeorm-transactional": "^0.5.0",
     "unique-username-generator": "^1.4.0"
   },
   "devDependencies": {

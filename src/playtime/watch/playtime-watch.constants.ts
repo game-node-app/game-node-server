@@ -7,3 +7,11 @@ export interface PlaytimeWatchJob {
     userId: string;
     source: UserPlaytimeSource;
 }
+
+export type PlaytimeWatchJobProgress = {
+    gameName?: string;
+    totalPlaytimeSeconds?: number;
+    totalUpdatedGames?: number;
+    platform?: string;
+    error?: string;
+};

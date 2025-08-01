@@ -1,14 +1,15 @@
-import { Processor } from "@nestjs/bullmq";
+import { OnWorkerEvent, Processor } from "@nestjs/bullmq";
 import {
     PLAYTIME_WATCH_QUEUE_JOB_NAME,
     PLAYTIME_WATCH_QUEUE_NAME,
     PlaytimeWatchJob,
+    PlaytimeWatchJobProgress,
 } from "./playtime-watch.constants";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { Logger } from "@nestjs/common";
 import { Job, UnrecoverableError } from "bullmq";
-import { ConnectionsService } from "../../connections/connections.service";
-import { EConnectionType } from "../../connections/connections.constants";
+import { ConnectionsService } from "../../connection/connections.service";
+import { EConnectionType } from "../../connection/connections.constants";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 import { ExternalGameService } from "../../game/external-game/external-game.service";
@@ -23,6 +24,7 @@ import * as process from "process";
 import { seconds } from "@nestjs/throttler";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import { match, P } from "ts-pattern";
+import { ConnectionSyncGateway } from "../../connection/connection-sync/connection-sync.gateway";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     concurrency: 1,
@@ -46,6 +48,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
         private readonly gameRepositoryService: GameRepositoryService,
+        private readonly connectionSyncGateway: ConnectionSyncGateway,
     ) {
         super();
     }
@@ -55,13 +58,18 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             this.logger.log(
                 `Started playtime update for ${job.data.userId} in source ${job.data.source}`,
             );
+            this.connectionSyncGateway.sendMessageToUser(
+                job.data.userId,
+                `Started playtime update for ${job.data.userId} in source ${job.data.source}`,
+            );
+
             switch (job.data.source) {
                 case UserPlaytimeSource.STEAM:
-                    return this.updateSteamPlaytimeInfo(job.data.userId);
+                    return this.updateSteamPlaytimeInfo(job);
                 case UserPlaytimeSource.PSN:
-                    return this.updatePsnPlaytimeInfo(job.data.userId);
+                    return this.updatePsnPlaytimeInfo(job);
                 case UserPlaytimeSource.XBOX:
-                    return this.updateXboxPlaytimeInfo(job.data.userId);
+                    return this.updateXboxPlaytimeInfo(job);
                 default:
                     throw new UnrecoverableError(
                         `Playtime source not supported: ${job.data.source}`,
@@ -70,7 +78,85 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         }
     }
 
-    async updateSteamPlaytimeInfo(userId: string) {
+    @OnWorkerEvent("progress")
+    async onProgress(job: Job<PlaytimeWatchJob>) {
+        if (!(job.name === PLAYTIME_WATCH_QUEUE_JOB_NAME)) {
+            return;
+        }
+        const userId = job.data.userId;
+        const source = job.data.source;
+        const {
+            error,
+            totalPlaytimeSeconds,
+            totalUpdatedGames,
+            gameName,
+            platform,
+        } = job.progress as PlaytimeWatchJobProgress;
+
+        if (error) {
+            this.logger.error(
+                `Playtime update failed for user ${userId} in ${source}: ${error}`,
+            );
+            this.connectionSyncGateway.sendMessageToUser(
+                userId,
+                `[PLAYTIME] Update failed: ${error}`,
+            );
+            return;
+        }
+        if (totalUpdatedGames != undefined) {
+            this.logger.log(
+                `Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
+            );
+            this.connectionSyncGateway.sendMessageToUser(
+                userId,
+                `[PLAYTIME] Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
+            );
+            return;
+        }
+
+        if (gameName != undefined) {
+            this.logger.log(
+                `Updated playtime for game ${gameName} in platform ${platform} for user ${userId} in ${source}.`,
+            );
+            this.connectionSyncGateway.sendMessageToUser(
+                userId,
+                `[PLAYTIME] Updated playtime for ${gameName} in platform ${platform}: ${totalPlaytimeSeconds} seconds.`,
+            );
+        }
+
+        if (totalUpdatedGames != undefined) {
+            this.logger.log(
+                `Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
+            );
+            this.connectionSyncGateway.sendMessageToUser(
+                userId,
+                `[PLAYTIME] Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
+            );
+            return;
+        }
+    }
+
+    @OnWorkerEvent("failed")
+    async onFailed(job: Job<PlaytimeWatchJob>) {
+        if (!(job.name === PLAYTIME_WATCH_QUEUE_JOB_NAME)) {
+            return;
+        }
+
+        const { failedReason } = job;
+        const userId = job.data.userId;
+        const source = job.data.source;
+        this.logger.error(
+            `Playtime update failed for user ${userId} in ${source}: ${failedReason}`,
+        );
+        this.connectionSyncGateway.sendMessageToUser(
+            userId,
+            `[PLAYTIME] Update failed: ${failedReason}`,
+        );
+    }
+
+    async updateSteamPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
+        const userId = job.data.userId;
+
         const connection =
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
                 userId,
@@ -80,6 +166,13 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         const userGames = await this.steamSyncService.getAllGames(
             connection.sourceUserId,
         );
+
+        if (userGames.length === 0) {
+            job.updateProgress({
+                error: "No games found for Steam. Your library may be set to private.",
+            } satisfies PlaytimeWatchJobProgress);
+            return;
+        }
 
         const gamesUids = userGames.map((item) => `${item.game.id}`);
 
@@ -191,11 +284,22 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 playtime.totalPlayCount! += 1;
             }
 
+            job.updateProgress({
+                gameName: items[0].name,
+                platform: "PC",
+                totalPlaytimeSeconds: totalPlaytimeSeconds,
+            } satisfies PlaytimeWatchJobProgress);
             await this.playtimeService.save(playtime);
         }
+
+        job.updateProgress({
+            totalUpdatedGames: groupedByGameId.size,
+        } satisfies PlaytimeWatchJobProgress);
     }
 
-    async updatePsnPlaytimeInfo(userId: string) {
+    async updatePsnPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
+        const userId = job.data.userId;
+
         const connection =
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
                 userId,
@@ -206,6 +310,13 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             this.psnSyncService.getAllGames(connection.sourceUserId),
             this.psnSyncService.getUserTrophyTitles(connection.sourceUserId),
         ]);
+
+        if (userGames.length === 0) {
+            job.updateProgress({
+                error: "No games found for PSN. Your library may be set to private.",
+            });
+            return;
+        }
 
         const gamesUids = userGames.map((item) => `${item.concept.id}`);
 
@@ -270,17 +381,17 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             }
 
             for (const title of titles) {
-                const targetPlatformId = match(title.category)
-                    .with("ps5_native_game", () => platformsMap.get("PS5")!.id)
-                    .with("ps4_game", () => platformsMap.get("PS4")!.id)
-                    .with("pspc_game", () => platformsMap.get("PSP")!.id)
-                    .otherwise(() => platformsMap.get("PS3")!.id);
+                const targetPlatform = match(title.category)
+                    .with("ps5_native_game", () => platformsMap.get("PS5")!)
+                    .with("ps4_game", () => platformsMap.get("PS4")!)
+                    .with("pspc_game", () => platformsMap.get("PSP")!)
+                    .otherwise(() => platformsMap.get("PS3")!);
 
                 const existingPlaytimeInfo = await this.playtimeService.findOne(
                     userId,
                     relatedExternalGame.gameId,
                     UserPlaytimeSource.PSN,
-                    targetPlatformId,
+                    targetPlatform.id,
                 );
 
                 const playtime: CreateUserPlaytimeDto = {
@@ -296,15 +407,26 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     recentPlaytimeSeconds: undefined,
                     totalPlayCount: title.playCount,
                     source: UserPlaytimeSource.PSN,
-                    platformId: targetPlatformId,
+                    platformId: targetPlatform.id,
                 };
 
+                job.updateProgress({
+                    gameName: relatedExternalGame.name,
+                    platform: targetPlatform.abbreviation,
+                    totalPlaytimeSeconds: playtime.totalPlaytimeSeconds,
+                } satisfies PlaytimeWatchJobProgress);
                 await this.playtimeService.save(playtime);
             }
         }
+
+        job.updateProgress({
+            totalUpdatedGames: groupedByName.size,
+        } satisfies PlaytimeWatchJobProgress);
     }
 
-    async updateXboxPlaytimeInfo(userId: string) {
+    async updateXboxPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
+        const userId = job.data.userId;
+
         const connection =
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
                 userId,
@@ -314,6 +436,13 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         const allGames = await this.xboxSyncService.getAllGames(
             connection.sourceUserId,
         );
+
+        if (allGames.length === 0) {
+            job.updateProgress({
+                error: "No games found for Xbox. Your library may be set to private.",
+            });
+            return;
+        }
 
         const sourceUids = allGames.map((game) => game.productId);
 
@@ -355,25 +484,19 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
 
             const playedPlatforms = relevantGame.devices.map((device) => {
                 return match(device)
-                    .with(
-                        P.union("PC", "Win32"),
-                        () => platformsMap.get("PC")!.id,
-                    )
-                    .with("Xbox360", () => platformsMap.get("X360")!.id)
-                    .with("XboxOne", () => platformsMap.get("XONE")!.id)
-                    .with(
-                        "XboxSeries",
-                        () => platformsMap.get("Series X|S")!.id,
-                    )
-                    .otherwise(() => platformsMap.get("Series X|S")!.id);
+                    .with(P.union("PC", "Win32"), () => platformsMap.get("PC")!)
+                    .with("Xbox360", () => platformsMap.get("X360")!)
+                    .with("XboxOne", () => platformsMap.get("XONE")!)
+                    .with("XboxSeries", () => platformsMap.get("Series X|S")!)
+                    .otherwise(() => platformsMap.get("Series X|S")!);
             });
 
-            for (const platformId of playedPlatforms) {
+            for (const platform of playedPlatforms) {
                 const existingPlaytimeInfo = await this.playtimeService.findOne(
                     userId,
                     relevantExternalGame.gameId,
                     UserPlaytimeSource.XBOX,
-                    platformId,
+                    platform.id,
                 );
 
                 const playtime: CreateUserPlaytimeDto = {
@@ -388,7 +511,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     totalPlayCount: 0,
                     firstPlayedDate: undefined,
                     source: UserPlaytimeSource.XBOX,
-                    platformId: platformId,
+                    platformId: platform.id,
                 };
 
                 const hasChangedTotalPlaytime =
@@ -401,8 +524,18 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                         existingPlaytimeInfo!.totalPlayCount + 1;
                 }
 
+                job.updateProgress({
+                    gameName: relevantExternalGame.name,
+                    platform: platform.abbreviation,
+                    totalPlaytimeSeconds: playtime.totalPlaytimeSeconds,
+                } satisfies PlaytimeWatchJobProgress);
+
                 await this.playtimeService.save(playtime);
             }
         }
+
+        job.updateProgress({
+            totalUpdatedGames: allGames.length,
+        } satisfies PlaytimeWatchJobProgress);
     }
 }

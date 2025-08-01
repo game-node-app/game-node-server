@@ -1,6 +1,6 @@
 import { IsBoolean } from "class-validator";
 
-export class CreateFavoriteStatusCollectionEntryDto {
+export class CollectionEntryFavoriteStatusDto {
     @IsBoolean()
     isFavorite: boolean = false;
 }

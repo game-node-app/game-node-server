@@ -1,10 +1,4 @@
-import {
-    forwardRef,
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-} from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -32,6 +26,10 @@ import { CollectionEntryToCollection } from "./entities/collection-entry-to-coll
 import { CollectionEntryStatus } from "./collections-entries.constants";
 import { match } from "ts-pattern";
 import { buildGameFilterFindOptions } from "../../game/game-repository/utils/build-game-filter-find-options";
+import { Transactional } from "typeorm-transactional";
+import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
+import { FindRelatedCollectionEntriesResponseDto } from "./dto/find-related-collection-entries.dto";
+import { toMap } from "../../utils/toMap";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -51,8 +49,8 @@ export class CollectionsEntriesService {
         private activitiesQueueService: ActivitiesQueueService,
         private achievementsQueueService: AchievementsQueueService,
         private levelService: LevelService,
-        @Inject(forwardRef(() => CollectionsService))
         private collectionsService: CollectionsService,
+        private gameRepositoryService: GameRepositoryService,
     ) {}
 
     async findOneById(id: string) {
@@ -62,6 +60,42 @@ export class CollectionsEntriesService {
             },
             relations: this.relations,
         });
+    }
+
+    async findRelatedEntries(
+        id: string,
+    ): Promise<FindRelatedCollectionEntriesResponseDto> {
+        const entry = await this.findOneByIdOrFail(id);
+        const { dlcs, expansions } =
+            await this.gameRepositoryService.findOneById(entry.gameId, {
+                relations: {
+                    dlcs: true,
+                    expansions: true,
+                },
+            });
+
+        const gameIds = [...dlcs, ...expansions].map((game) => game.id);
+
+        const entriesInGameIds = await this.collectionEntriesRepository
+            .createQueryBuilder("ce")
+            .where("ce.libraryUserId = :libraryUserId", {
+                libraryUserId: entry.libraryUserId,
+            })
+            .andWhere("ce.gameId IN (:...gameIds)", {
+                gameIds,
+            })
+            .getMany();
+
+        const mappedByGameId = toMap(entriesInGameIds, "gameId");
+
+        return {
+            dlcs: dlcs
+                .map((game) => mappedByGameId.get(game.id))
+                .filter((entry) => entry != undefined),
+            expansions: expansions
+                .map((game) => mappedByGameId.get(game.id))
+                .filter((entry) => entry != undefined),
+        };
     }
 
     async findOneByIdOrFail(id: string) {
@@ -80,11 +114,7 @@ export class CollectionsEntriesService {
     async findOneByUserIdAndGameId(userId: string, gameId: number) {
         return await this.collectionEntriesRepository.findOne({
             where: {
-                collectionsMap: {
-                    collection: {
-                        libraryUserId: userId,
-                    },
-                },
+                libraryUserId: userId,
                 game: {
                     id: gameId,
                 },
@@ -186,15 +216,11 @@ export class CollectionsEntriesService {
             ...findOptions,
             where: {
                 collectionsMap: {
-                    collection: isOwnQuery
-                        ? {
-                              libraryUserId: targetUserId,
-                          }
-                        : {
-                              isPublic: true,
-                              libraryUserId: targetUserId,
-                          },
+                    collection: {
+                        isPublic: isOwnQuery ? undefined : true,
+                    },
                 },
+                libraryUserId: targetUserId,
                 status: dto.status,
                 game: buildGameFilterFindOptions(dto.gameFilters),
             },
@@ -225,15 +251,11 @@ export class CollectionsEntriesService {
             where: {
                 isFavorite: true,
                 collectionsMap: {
-                    collection: isOwnQuery
-                        ? {
-                              libraryUserId: targetUserId,
-                          }
-                        : {
-                              libraryUserId: targetUserId,
-                              isPublic: true,
-                          },
+                    collection: {
+                        isPublic: isOwnQuery ? undefined : true,
+                    },
                 },
+                libraryUserId: targetUserId,
                 status: dto.status,
             },
             order: {
@@ -251,6 +273,7 @@ export class CollectionsEntriesService {
      * @param userId
      * @param createEntryDto
      */
+    @Transactional()
     async createOrUpdate(
         userId: string,
         createEntryDto: CreateUpdateCollectionEntryDto,
@@ -259,9 +282,9 @@ export class CollectionsEntriesService {
             collectionIds,
             gameId,
             platformIds,
-            isFavorite,
             finishedAt,
             status,
+            relatedGameIds,
         } = createEntryDto;
 
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
@@ -296,7 +319,7 @@ export class CollectionsEntriesService {
 
         const updatedPartialEntity: DeepPartial<CollectionEntry> = {
             ...possibleExistingEntry,
-            isFavorite,
+            libraryUserId: userId,
             finishedAt,
             gameId,
             // Updated automatically with @ManyToMany
@@ -307,10 +330,20 @@ export class CollectionsEntriesService {
         const upsertedEntry =
             await this.collectionEntriesRepository.save(updatedPartialEntity);
 
-        await this.updateAssociatedCollections(
-            upsertedEntry.id,
-            uniqueCollectionIds,
-        );
+        if (uniqueCollectionIds.length > 0) {
+            await this.updateAssociatedCollections(
+                upsertedEntry.id,
+                uniqueCollectionIds,
+            );
+        }
+
+        if (relatedGameIds) {
+            await this.processRelatedEntries(
+                upsertedEntry,
+                relatedGameIds,
+                uniquePlatformIds,
+            );
+        }
 
         if (!possibleExistingEntry) {
             this.levelService.registerLevelExpIncreaseActivity(
@@ -420,6 +453,7 @@ export class CollectionsEntriesService {
     > {
         const associatedCollections =
             await this.collectionsService.findAllByIds(collectionIds);
+
         const firstCollectionWithDefaultStatus = associatedCollections.find(
             (collection) => collection.defaultEntryStatus != undefined,
         );
@@ -449,6 +483,43 @@ export class CollectionsEntriesService {
                 finishedAt: finishedAt ?? new Date(),
             }))
             .exhaustive();
+    }
+
+    /**
+     * Creates collection entries entities for each related game id, if necessary.
+     * @param parentEntry
+     * @param relatedGameIds
+     * @param platformIds
+     * @private
+     */
+    private async processRelatedEntries(
+        parentEntry: CollectionEntry,
+        relatedGameIds: number[],
+        platformIds: number[],
+    ) {
+        const ownedPlatforms = platformIds.map((id) => ({ id }));
+
+        for (const relatedGameId of relatedGameIds) {
+            const existing = await this.findOneByUserIdAndGameId(
+                parentEntry.libraryUserId,
+                relatedGameId,
+            );
+
+            if (existing) continue;
+
+            const relatedEntry: DeepPartial<CollectionEntry> = {
+                libraryUserId: parentEntry.libraryUserId,
+                gameId: relatedGameId,
+                ownedPlatforms,
+                status: parentEntry.status,
+                startedAt: parentEntry.startedAt,
+                finishedAt: parentEntry.finishedAt,
+                droppedAt: parentEntry.droppedAt,
+                plannedAt: parentEntry.plannedAt,
+            };
+
+            await this.collectionEntriesRepository.save(relatedEntry);
+        }
     }
 
     async changeFavoriteStatus(
@@ -494,21 +565,6 @@ export class CollectionsEntriesService {
 
         // This removes both the associated review (if any) and the entries in the join-tables.
         await this.collectionEntriesRepository.delete(entry.id);
-    }
-
-    /**
-     * Delete collection entries not associated with any collection.
-     */
-    async deleteDandling() {
-        const dandling = await this.collectionEntriesRepository
-            .createQueryBuilder("ce")
-            .select()
-            .where(
-                "NOT EXISTS (SELECT 1 FROM collection_entry_collections_collection AS cecc WHERE cecc.collectionEntryId = ce.id)",
-            )
-            .getMany();
-
-        await this.collectionEntriesRepository.remove(dandling);
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {

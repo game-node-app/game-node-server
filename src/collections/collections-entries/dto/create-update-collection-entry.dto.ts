@@ -1,6 +1,5 @@
 import {
     IsArray,
-    IsBoolean,
     IsNotEmpty,
     IsNumber,
     IsOptional,
@@ -16,17 +15,17 @@ export class CreateUpdateCollectionEntryDto {
     @IsNotEmpty()
     @IsNumber()
     gameId: number;
+    @IsOptional()
+    @IsArray()
+    @IsNumber(undefined, { each: true })
+    relatedGameIds?: number[];
     @IsArray()
     @IsNotEmpty()
-    @IsNumber({}, { each: true })
+    @IsNumber(undefined, { each: true })
     platformIds: number[];
     @IsOptional()
-    @IsBoolean()
-    isFavorite: boolean = false;
-    @IsOptional()
     finishedAt?: Date | null;
-    // TODO: Add validation after mobile updates
-    // @IsNotEmpty()
-    // @IsString()
+    @IsNotEmpty()
+    @IsString()
     status: CollectionEntryStatus;
 }

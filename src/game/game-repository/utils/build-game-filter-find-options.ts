@@ -2,7 +2,7 @@ import { GameRepositoryFilterDto } from "../dto/game-repository-filter.dto";
 import { FindOptionsWhere, In } from "typeorm";
 import { Game } from "../entities/game.entity";
 
-const singleValueProperties = ["category", "status"];
+const propertyEntities = ["category", "status"];
 
 export function buildGameFilterFindOptions(
     dto?: GameRepositoryFilterDto,
@@ -10,16 +10,16 @@ export function buildGameFilterFindOptions(
     let options: FindOptionsWhere<Game> = {};
     if (dto == undefined) return options;
     for (const [key, value] of Object.entries(dto)) {
-        if (
-            singleValueProperties.includes(key) &&
-            typeof value === "number" &&
-            !Number.isNaN(value)
-        ) {
+        if (propertyEntities.includes(key)) {
+            const elements: number[] = Array.isArray(value) ? value : [value];
+
             options = {
                 ...options,
-                [key]: value,
+                [key]: In(elements),
             };
-        } else if (Array.isArray(value) && value.length > 0) {
+            continue;
+        }
+        if (Array.isArray(value) && value.length > 0) {
             const validElements: number[] = value.filter((v) => {
                 return (
                     v != undefined && typeof v === "number" && !Number.isNaN(v)

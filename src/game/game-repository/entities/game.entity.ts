@@ -111,21 +111,21 @@ export class Game {
         nullable: true,
     })
     @JoinTable()
-    dlcs?: Game[];
+    dlcs: Game[];
     @ManyToMany(() => Game, (game) => game.dlcs, {
         nullable: true,
     })
-    dlcOf?: Game[];
+    dlcOf: Game[];
 
     @ManyToMany(() => Game, (game) => game.expansionOf, {
         nullable: true,
     })
     @JoinTable()
-    expansions?: Game[];
+    expansions: Game[];
     @ManyToMany(() => Game, (game) => game.expansions, {
         nullable: true,
     })
-    expansionOf?: Game[];
+    expansionOf: Game[];
 
     @ManyToMany(() => Game, (game) => game.expandedGameOf, {
         nullable: true,
@@ -136,7 +136,6 @@ export class Game {
         nullable: true,
     })
     expandedGameOf?: Game[];
-
     @ManyToMany(() => Game, (game) => game.similarGameOf, {
         nullable: true,
     })
@@ -146,7 +145,9 @@ export class Game {
         nullable: true,
     })
     similarGameOf?: Game[];
-    @ManyToMany(() => Game, (game) => game.remakes)
+    @ManyToMany(() => Game, (game) => game.remakeOf, {
+        nullable: true,
+    })
     @JoinTable()
     remakes?: Game[];
     @ManyToMany(() => Game, (game) => game.remakes)
@@ -156,7 +157,6 @@ export class Game {
     remasters?: Game[];
     @ManyToMany(() => Game, (game) => game.remasters)
     remasterOf?: Game[];
-
     //
     // **Relationships**
     //

@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import SteamAPI, { UserSummary } from "steamapi";
 import { hours, minutes } from "@nestjs/throttler";
-import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
+import { ConnectionUserResolveDto } from "../../connection/dto/connection-user-resolve.dto";
 import { Cacheable } from "../../utils/cacheable";
 import { GameStatsResponse } from "./steam-sync.types";
 

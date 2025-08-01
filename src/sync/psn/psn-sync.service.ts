@@ -13,7 +13,7 @@ import {
     UserTitlesResponse,
 } from "psn-api";
 import { HttpStatusCode } from "axios";
-import { ConnectionUserResolveDto } from "../../connections/dto/connection-user-resolve.dto";
+import { ConnectionUserResolveDto } from "../../connection/dto/connection-user-resolve.dto";
 import { hours, minutes } from "@nestjs/throttler";
 import { Cacheable } from "../../utils/cacheable";
 

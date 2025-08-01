@@ -1,9 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { ConnectionsService } from "../../connections/connections.service";
+import { ConnectionsService } from "../../connection/connections.service";
 import { LibrariesService } from "../../libraries/libraries.service";
-import { IMPORTER_WATCH_VIABLE_CONNECTIONS } from "../../connections/connections.constants";
+import { IMPORTER_WATCH_VIABLE_CONNECTIONS } from "../../connection/connections.constants";
 import { ImporterWatchNotification } from "../entity/importer-notification.entity";
 import { Queue } from "bullmq";
 import { InjectQueue } from "@nestjs/bullmq";
