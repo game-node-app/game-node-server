@@ -304,12 +304,7 @@ export class CollectionsEntriesService {
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
         const uniquePlatformIds = Array.from(new Set(platformIds));
 
-        if (uniqueCollectionIds.length === 0) {
-            throw new HttpException(
-                "At least one collection id must be informed",
-                HttpStatus.BAD_REQUEST,
-            );
-        } else if (uniquePlatformIds.length === 0) {
+        if (uniquePlatformIds.length === 0) {
             throw new HttpException(
                 "At least one platform id must be informed",
                 HttpStatus.BAD_REQUEST,
@@ -448,8 +443,7 @@ export class CollectionsEntriesService {
      */
     private async inferStatusAndAssociatedDates(
         collectionIds: string[],
-        // TODO: remove nullish type after mobile updates
-        status: CollectionEntryStatus | null | undefined,
+        status: CollectionEntryStatus,
         finishedAt: Date | null | undefined,
     ): Promise<
         Partial<
@@ -580,14 +574,7 @@ export class CollectionsEntriesService {
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {
-        const entry = await this.collectionEntriesRepository.findOneOrFail({
-            where: {
-                id: entryId,
-            },
-            relations: {
-                ownedPlatforms: true,
-            },
-        });
+        const entry = await this.findOneByIdOrFail(entryId);
         const ownedPlatforms = entry.ownedPlatforms;
         if (ownedPlatforms.length === 0) return [];
         const abbreviations = ownedPlatforms.map(
