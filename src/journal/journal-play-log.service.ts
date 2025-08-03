@@ -81,7 +81,7 @@ export class JournalPlayLogService {
                 };
             })
             .toSorted((a, b) => {
-                return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+                return dayjs(b.date).valueOf() - dayjs(a.date).valueOf();
             });
     }
 

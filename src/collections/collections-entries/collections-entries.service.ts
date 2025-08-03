@@ -304,12 +304,7 @@ export class CollectionsEntriesService {
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
         const uniquePlatformIds = Array.from(new Set(platformIds));
 
-        if (uniqueCollectionIds.length === 0) {
-            throw new HttpException(
-                "At least one collection id must be informed",
-                HttpStatus.BAD_REQUEST,
-            );
-        } else if (uniquePlatformIds.length === 0) {
+        if (uniquePlatformIds.length === 0) {
             throw new HttpException(
                 "At least one platform id must be informed",
                 HttpStatus.BAD_REQUEST,
