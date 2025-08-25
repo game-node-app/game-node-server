@@ -33,11 +33,22 @@ export class FindCollectionEntriesDto extends OmitType(
     @IsString()
     status?: CollectionEntryStatus;
     @IsOptional()
-    gameFilters?: FindCollectionEntriesGameFilterDto = {
-        category: [
-            EGameCategory.Main,
-            EGameCategory.Remaster,
-            EGameCategory.Remake,
-        ],
-    };
+    // Forces orderBy's Transform to run
+    @Expose({ name: "gameFilters" })
+    // This extra logic makes the orderBy work for GET request parameters
+    @Transform(({ obj }) => {
+        const rawQueryString = qs.stringify(obj);
+        const parsed = qs.parse(rawQueryString);
+
+        return (
+            parsed.gameFilters ?? {
+                category: [
+                    EGameCategory.Main,
+                    EGameCategory.Remaster,
+                    EGameCategory.Remake,
+                ],
+            }
+        );
+    })
+    gameFilters?: FindCollectionEntriesGameFilterDto;
 }
