@@ -8,7 +8,7 @@ import { GameFilterModule } from "../../game/game-filter/game-filter.module";
 import { SuspensionModule } from "../../suspension/suspension.module";
 import { ReviewsModule } from "../../reviews/reviews.module";
 import { CollectionsEntriesModule } from "../../collections/collections-entries/collections-entries.module";
-import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
+import { PostsModule } from "../../posts/posts.module";
 
 @Module({
     imports: [
@@ -18,6 +18,7 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
         SuspensionModule,
         forwardRef(() => ReviewsModule),
         forwardRef(() => CollectionsEntriesModule),
+        forwardRef(() => PostsModule),
     ],
     providers: [ActivitiesRepositoryService],
     exports: [ActivitiesRepositoryService],

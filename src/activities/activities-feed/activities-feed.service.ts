@@ -6,13 +6,10 @@ import {
 } from "./dto/activities-feed-request.dto";
 import { ActivitiesRepositoryService } from "../activities-repository/activities-repository.service";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
-import { ActivityType } from "../activities-queue/activities-queue.constants";
 import { FollowService } from "../../follow/follow.service";
 import { In } from "typeorm";
 import { minutes } from "@nestjs/throttler";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
-
-export const ACTIVITY_FEED_CACHE_KEY = "queue-feed";
 
 @Injectable()
 export class ActivitiesFeedService {
@@ -31,7 +28,9 @@ export class ActivitiesFeedService {
 
     private async buildGeneralActivitiesFeed(dto: ActivitiesFeedRequestDto) {
         const findOptions = buildBaseFindOptions(dto);
-        return await this.activitiesRepositoryService.findLatestBy(findOptions);
+        const results =
+            await this.activitiesRepositoryService.findLatestBy(findOptions);
+        return results;
     }
 
     private async buildFollowingActivitiesFeed(
