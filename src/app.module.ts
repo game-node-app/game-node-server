@@ -39,6 +39,7 @@ import { GameAchievementModule } from "./game/game-achievement/game-achievement.
 import { JournalModule } from "./journal/journal.module";
 import { addTransactionalDataSource } from "typeorm-transactional";
 import { DataSource } from "typeorm";
+import { AwardsModule } from './awards/awards.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -194,6 +195,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         XboxSyncModule,
         GameAchievementModule,
         JournalModule,
+        AwardsModule,
     ],
 })
 export class AppModule implements NestModule {
