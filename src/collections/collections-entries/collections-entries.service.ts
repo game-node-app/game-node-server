@@ -67,7 +67,7 @@ export class CollectionsEntriesService {
     ): Promise<FindRelatedCollectionEntriesResponseDto> {
         const entry = await this.findOneByIdOrFail(collectionEntryId);
         const { dlcs, expansions } =
-            await this.gameRepositoryService.findOneById(entry.gameId, {
+            await this.gameRepositoryService.findOneByIdOrFail(entry.gameId, {
                 relations: {
                     dlcs: true,
                     expansions: true,

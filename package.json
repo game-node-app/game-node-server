@@ -73,7 +73,7 @@
     "steamapi": "^3.0.12",
     "supertokens-node": "^22.0.1",
     "ts-pattern": "^5.6.2",
-    "typeorm": "^0.3.21",
+    "typeorm": "^0.3.27",
     "typeorm-transactional": "^0.5.0",
     "unique-username-generator": "^1.4.0"
   },

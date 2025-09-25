@@ -16,7 +16,7 @@ export class AwardsController {
 
     @Get("events/year/:year")
     public async getEventsByYear(@Param("year") year: number) {
-        return this.awardsService.getEventByIdOrFail(year);
+        return this.awardsService.getEventByYearOrFail(year);
     }
 
     @Get("events")

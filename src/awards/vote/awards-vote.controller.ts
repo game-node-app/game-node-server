@@ -15,11 +15,11 @@ export class AwardsVoteController {
 
     @Get(":userId/:categoryId")
     @Public()
-    public async getVotesByUserId(
+    public async getVoteByUserId(
         @Param("userId") userId: string,
         @Param("categoryId") categoryId: number,
     ) {
-        return this.awardsVoteService.getVotesByUserId(userId, categoryId);
+        return this.awardsVoteService.getVoteByUserId(userId, categoryId);
     }
 
     @Post()

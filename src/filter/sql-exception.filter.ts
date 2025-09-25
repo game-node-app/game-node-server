@@ -8,6 +8,15 @@ import {
 import { Response } from "express";
 import { TypeORMError } from "typeorm";
 
+const ExceptionNameToHttpCode = {
+    QueryFailedError: HttpStatus.BAD_REQUEST,
+    UniqueConstraintViolationError: HttpStatus.CONFLICT,
+    NotFoundError: HttpStatus.NOT_FOUND,
+    ForbiddenError: HttpStatus.FORBIDDEN,
+    BadRequestError: HttpStatus.BAD_REQUEST,
+    EntityNotFound: HttpStatus.NOT_FOUND,
+} as const
+
 interface MySQLError extends Error {
     code: string;
     errno: number;
@@ -26,8 +35,12 @@ export class SQLExceptionFilter implements ExceptionFilter {
         this.logger.error(exception);
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
-        response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-            statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        const status: HttpStatus =
+            ExceptionNameToHttpCode[exception.name as never] ??
+            HttpStatus.INTERNAL_SERVER_ERROR;
+
+        response.status(status).json({
+            statusCode: status,
             message: isMySQLException(exception)
                 ? `${exception.sqlMessage} | ${exception.code}`
                 : exception.message,

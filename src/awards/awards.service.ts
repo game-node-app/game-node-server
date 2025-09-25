@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { AwardsEvent } from "./entity/awards-event.entity";
-import { MoreThanOrEqual, Repository } from "typeorm";
+import { LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
 import dayjs from "dayjs";
 import { AwardsCategory } from "./entity/awards-category.entity";
 import { VotableAwardsCategoryDto } from "./dto/votable-awards-category.dto";
@@ -14,6 +14,14 @@ export class AwardsService {
         @InjectRepository(AwardsCategory)
         private readonly awardsCategoryRepository: Repository<AwardsCategory>,
     ) {}
+
+    public getEventQueryBuilder() {
+        return this.awardsEventRepository.createQueryBuilder("e");
+    }
+
+    public getCategoryQueryBuilder() {
+        return this.awardsCategoryRepository.createQueryBuilder("c");
+    }
 
     public async getEvents() {
         return this.awardsEventRepository.find();
@@ -49,11 +57,19 @@ export class AwardsService {
         });
     }
 
+    public async getEventByCategoryId(categoryId: number) {
+        return this.awardsEventRepository.findOneByOrFail({
+            categories: {
+                id: categoryId,
+            },
+        });
+    }
+
     public async getRunningVotableEvent() {
         return this.awardsEventRepository.findOneBy({
             year: dayjs().year(),
-            votingStartDate: MoreThanOrEqual(dayjs().toDate()),
-            votingEndDate: MoreThanOrEqual(dayjs().toDate()),
+            votingStartDate: LessThanOrEqual(new Date()),
+            votingEndDate: MoreThanOrEqual(new Date()),
         });
     }
 

@@ -106,12 +106,16 @@ export class ActivitiesRepositoryService {
 
         switch (dto.type) {
             case ActivityType.COLLECTION_ENTRY:
-                if (typeof sourceId !== "string") {
+                if (
+                    typeof sourceId !== "string" ||
+                    typeof complementarySourceId !== "string"
+                ) {
                     throw new UnrecoverableError(
                         "CollectionEntry activities should have a string sourceId",
                     );
                 }
                 activity.collectionEntryId = sourceId;
+                activity.collectionId = complementarySourceId
                 break;
             case ActivityType.REVIEW:
                 if (typeof sourceId !== "string") {

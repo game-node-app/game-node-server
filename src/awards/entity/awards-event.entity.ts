@@ -1,5 +1,6 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { BaseEntity } from "../../utils/db/base.entity";
+import { AwardsCategory } from "./awards-category.entity";
 
 /**
  * Entity that defines an 'awards' event.
@@ -31,4 +32,6 @@ export class AwardsEvent extends BaseEntity {
         nullable: false,
     })
     resultsDate: Date;
+    @OneToMany(() => AwardsCategory, (category) => category.event)
+    categories: AwardsCategory[];
 }
