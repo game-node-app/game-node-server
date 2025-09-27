@@ -9,7 +9,8 @@ import { ConfigService } from "@nestjs/config";
 import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import {
     authenticate,
-    CredentialsAuthenticateInitialResponse,
+    AuthenticateResponse,
+    Email,
 } from "@xboxreplay/xboxlive-auth";
 import dayjs from "dayjs";
 
@@ -27,9 +28,7 @@ export class XboxSyncAuthService {
         return `xbox-sync-auth-cred`;
     }
 
-    private async persistCredentialsToStore(
-        credentials: CredentialsAuthenticateInitialResponse,
-    ) {
+    private async persistCredentialsToStore(credentials: AuthenticateResponse) {
         const now = dayjs();
         const expiresAt = dayjs(credentials.expires_on);
         // millis to expireAt
@@ -42,13 +41,11 @@ export class XboxSyncAuthService {
     }
 
     private async getCredentialsFromStore() {
-        return this.cacheManager.get<CredentialsAuthenticateInitialResponse>(
-            this.getStoreKey(),
-        );
+        return this.cacheManager.get<AuthenticateResponse>(this.getStoreKey());
     }
 
     private async getCredentialsFromSource() {
-        const clientId: string | undefined =
+        const clientId: Email | undefined =
             this.configService.get("XBOX_API_USER");
         const clientSecret: string | undefined =
             this.configService.get("XBOX_API_PASS");
@@ -60,13 +57,13 @@ export class XboxSyncAuthService {
             return;
         }
 
-        let auth: CredentialsAuthenticateInitialResponse;
+        let auth: AuthenticateResponse;
 
         try {
             auth = (await authenticate(
                 clientId,
                 clientSecret,
-            )) as unknown as CredentialsAuthenticateInitialResponse;
+            )) as unknown as AuthenticateResponse;
 
             await this.persistCredentialsToStore(auth);
         } catch (err: unknown) {
