@@ -6,6 +6,8 @@ import { CreatePostDto } from "./dto/create-post.dto";
 import { PostsRepository } from "./posts.repository";
 import { GetPostsRequestDto } from "./dto/get-posts.dto";
 import { UploadService } from "../upload/upload.service";
+import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
+import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 
 @Injectable()
 export class PostsService {
@@ -14,6 +16,7 @@ export class PostsService {
     constructor(
         private readonly postRepository: PostsRepository,
         private readonly uploadService: UploadService,
+        private readonly activitiesQueueService: ActivitiesQueueService,
     ) {}
 
     public async findAll(options: FindManyOptions<Post>) {
@@ -47,7 +50,13 @@ export class PostsService {
             gameId,
         });
 
-        return await this.postRepository.save(post);
+        const createdPost = await this.postRepository.save(post);
+
+        this.activitiesQueueService.register({
+            type: ActivityType.POST,
+            profileUserId: userId,
+            sourceId: createdPost.id,
+        });
     }
 
     public async uploadPostImage(

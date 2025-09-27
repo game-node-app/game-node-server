@@ -49,7 +49,7 @@ export class GameRepositoryController {
         @Param("id") id: number,
         @Body() dto?: GameRepositoryFindOneDto,
     ) {
-        return this.gameRepositoryService.findOneById(id, dto);
+        return this.gameRepositoryService.findOneByIdOrFail(id, dto);
     }
 
     @Post()

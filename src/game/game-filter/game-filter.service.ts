@@ -10,7 +10,7 @@ export class GameFilterService {
     ) {}
 
     public async isMature(targetGameId: number) {
-        const game = await this.gameRepositoryService.findOneById(
+        const game = await this.gameRepositoryService.findOneByIdOrFail(
             targetGameId,
             {
                 relations: {

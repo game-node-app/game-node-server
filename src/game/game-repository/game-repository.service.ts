@@ -60,22 +60,17 @@ export class GameRepositoryService {
     ) {}
 
     @Cacheable(GameRepositoryService.name, minutes(5))
-    async findOneById(
+    async findOneByIdOrFail(
         id: number,
         dto?: GameRepositoryFindOneDto,
     ): Promise<Game> {
-        const game = await this.gameRepository.findOne({
+        return await this.gameRepository.findOneOrFail({
             where: {
                 id,
             },
             relations: dto?.relations,
             relationLoadStrategy: getRelationLoadStrategy(dto?.relations),
         });
-        if (!game) {
-            throw new HttpException("Game not found.", HttpStatus.NOT_FOUND);
-        }
-
-        return game;
     }
 
     private reOrderByIds(originalIds: number[], unOrderedGames: Game[]) {

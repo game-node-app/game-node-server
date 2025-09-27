@@ -20,6 +20,7 @@ import { SuspensionService } from "../../suspension/suspension.service";
 import { ReviewsService } from "../../reviews/reviews.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { UnrecoverableError } from "bullmq";
+import { PostsService } from "../../posts/posts.service";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -33,6 +34,7 @@ export class ActivitiesRepositoryService {
         private readonly collectionEntriesService: CollectionsEntriesService,
         private readonly gameFilterService: GameFilterService,
         private readonly suspensionService: SuspensionService,
+        private readonly postsService: PostsService,
     ) {}
 
     /**
@@ -57,31 +59,26 @@ export class ActivitiesRepositoryService {
         let targetGameId: number | undefined = undefined;
         switch (dto.type) {
             case ActivityType.COLLECTION_ENTRY: {
-                if (typeof dto.sourceId !== "string") {
-                    throw new UnrecoverableError(
-                        "Invalid sourceId type for collectionEntry activity",
-                    );
-                }
                 const collectionEntry =
                     await this.collectionEntriesService.findOneByIdOrFail(
-                        dto.sourceId,
+                        dto.sourceId as string,
                     );
-
                 targetGameId = collectionEntry.gameId;
                 break;
             }
             case ActivityType.REVIEW: {
-                if (typeof dto.sourceId !== "string") {
-                    throw new UnrecoverableError(
-                        "Invalid sourceId type for review activity",
-                    );
-                }
                 const review = await this.reviewsService.findOneByIdOrFail(
-                    dto.sourceId,
+                    dto.sourceId as string,
                 );
                 targetGameId = review.gameId;
                 break;
             }
+            case ActivityType.POST:
+                const post = await this.postsService.findOneByIdOrFail(
+                    dto.sourceId as string,
+                );
+                targetGameId = post.gameId;
+                break;
         }
 
         if (targetGameId == undefined) {
@@ -109,18 +106,16 @@ export class ActivitiesRepositoryService {
 
         switch (dto.type) {
             case ActivityType.COLLECTION_ENTRY:
-                if (typeof sourceId !== "string") {
+                if (
+                    typeof sourceId !== "string" ||
+                    typeof complementarySourceId !== "string"
+                ) {
                     throw new UnrecoverableError(
                         "CollectionEntry activities should have a string sourceId",
                     );
                 }
-                if (typeof complementarySourceId !== "string") {
-                    throw new UnrecoverableError(
-                        "A string complementarySourceId must be specified for CollectionEntry activities",
-                    );
-                }
                 activity.collectionEntryId = sourceId;
-                activity.collectionId = complementarySourceId;
+                activity.collectionId = complementarySourceId
                 break;
             case ActivityType.REVIEW:
                 if (typeof sourceId !== "string") {
@@ -137,6 +132,14 @@ export class ActivitiesRepositoryService {
                     );
                 }
                 activity.userFollowId = sourceId;
+                break;
+            case ActivityType.POST:
+                if (typeof sourceId !== "string") {
+                    throw new UnrecoverableError(
+                        "Post activities should have a string sourceId",
+                    );
+                }
+                activity.postId = sourceId;
                 break;
             default:
                 throw new UnrecoverableError(

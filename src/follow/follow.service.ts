@@ -12,7 +12,6 @@ import { FollowInfoRequestDto } from "./dto/follow-info-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
-import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 
 @Injectable()
 export class FollowService {
@@ -70,12 +69,6 @@ export class FollowService {
                 category: ENotificationCategory.FOLLOW,
                 sourceType: NotificationSourceType.PROFILE,
                 sourceId: followerUserId,
-            });
-
-            this.activitiesQueueService.register({
-                type: ActivityType.FOLLOW,
-                sourceId: persistedEntry.id,
-                profileUserId: followerUserId,
             });
         } catch (e) {
             this.logger.error(e);

@@ -9,6 +9,7 @@ export enum AchievementCategory {
     REVIEWS,
     COMMENTS,
     MISC,
+    EVENTS,
 }
 
 export const ACHIEVEMENTS_GAME_IDS = {
