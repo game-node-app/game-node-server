@@ -13,6 +13,20 @@ export class PlaytimeHistoryService {
         private readonly playtimeHistoryRepository: Repository<UserPlaytimeHistory>,
     ) {}
 
+    public async findAllByUserId(
+        userId: string,
+        source?: UserPlaytimeSource,
+        platformId?: number,
+    ) {
+        return await this.playtimeHistoryRepository.find({
+            where: {
+                profileUserId: userId,
+                source,
+                platformId,
+            },
+        });
+    }
+
     public async findAllByUserIdAndGameId(
         userId: string,
         gameId: number,
