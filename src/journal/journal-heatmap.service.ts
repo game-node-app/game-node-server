@@ -3,14 +3,8 @@ import {
     GetJournalHeatmapResponseDto,
     JournalHeatmapItem,
 } from "./dto/get-journal-heatmap.dto";
-import { PlaytimeHistoryService } from "../playtime/playtime-history.service";
 import dayjs from "dayjs";
 import { JournalService } from "./journal.service";
-
-interface PlaytimeDiff {
-    date: Date;
-    totalPlaytimeSeconds: number;
-}
 
 @Injectable()
 export class JournalHeatmapService {
@@ -19,6 +13,7 @@ export class JournalHeatmapService {
     /**
      * Build a heatmap from Journal entry items.
      * @param userId
+     * @param targetUserId
      */
     public async buildHeatmap(
         userId: string | undefined,

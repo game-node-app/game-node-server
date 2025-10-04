@@ -20,7 +20,7 @@ import { GameTheme } from "./entities/game-theme.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameEngine } from "./entities/game-engine.entity";
 import { GameEngineLogo } from "./entities/game-engine-logo.entity";
-import { PartialGame } from "./game-repository.types";
+import { IDGBPartialGame } from "./game-repository.types";
 import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
 import { ExternalGameService } from "../external-game/external-game.service";
@@ -100,7 +100,7 @@ export class GameRepositoryCreateService {
         private readonly externalGameService: ExternalGameService,
     ) {}
 
-    async shouldUpdate(game: PartialGame) {
+    async shouldUpdate(game: IDGBPartialGame) {
         if (game.id == null || typeof game.id !== "number") {
             return false;
         } else if (
@@ -121,7 +121,7 @@ export class GameRepositoryCreateService {
      * Bug info: https://github.com/typeorm/typeorm/issues/1754
      * @param game
      */
-    async createOrUpdate(game: PartialGame) {
+    async createOrUpdate(game: IDGBPartialGame) {
         const shouldProcess = await this.shouldUpdate(game);
 
         if (!shouldProcess) {
@@ -141,7 +141,7 @@ export class GameRepositoryCreateService {
     }
 
     private dispatchCreateUpdateEvent(
-        game: PartialGame,
+        game: IDGBPartialGame,
         isUpdateAction: boolean,
     ) {
         if (!isUpdateAction) {
@@ -158,7 +158,7 @@ export class GameRepositoryCreateService {
      * e.g. Relationships where Game is on the ManyToOne side. Do not update ManyToMany models here.
      * @param game
      */
-    async buildParentRelationships(game: PartialGame) {
+    async buildParentRelationships(game: IDGBPartialGame) {
         if (game.collection) {
             // collection.games changes are not cascaded.
             const collection = this.gameCollectionRepository.create(
@@ -175,7 +175,7 @@ export class GameRepositoryCreateService {
      * <strong> We assume the game is already persisted at this point, so we can use it as a parent.</strong>
      * @param game
      */
-    async buildChildRelationships(game: PartialGame) {
+    async buildChildRelationships(game: IDGBPartialGame) {
         if (game.alternativeNames) {
             const alternativeNames = game.alternativeNames.map(
                 (alternativeName) => {
@@ -231,10 +231,17 @@ export class GameRepositoryCreateService {
          */
         if (game.externalGames) {
             for (const externalGame of game.externalGames) {
+                const category =
+                    externalGame.category ?? externalGame.externalGameSource;
+                const media =
+                    externalGame.media ?? externalGame.gameReleaseFormat;
+
                 try {
                     await this.externalGameService.upsert({
                         ...externalGame,
                         gameId: game.id,
+                        category,
+                        media,
                     });
                 } catch (e) {}
             }

@@ -1,7 +1,20 @@
-import { DeepPartial } from "typeorm";
 import { Game } from "./entities/game.entity";
+import { GameExternalGame } from "../external-game/entity/game-external-game.entity";
+import { DeepPartial } from "typeorm";
 
-export type PartialGame = DeepPartial<Game> & {
+interface IGDBExternalGame extends GameExternalGame {
+    // Substitute for deprecated field GameExternalGame#category
+    externalGameSource?: number;
+    // Substitute for deprecated field GameExternalGame#media
+    gameReleaseFormat?: number;
+}
+
+/**
+ * Items are received as pascal_case from IGDB API, and then converted to camelCase.
+ * Assume a camelCase option is available if `IgdbSyncProcessor#normalizeIgdbResults` has run.
+ */
+export type IDGBPartialGame = DeepPartial<Game> & {
     id: number;
+    externalGames: IGDBExternalGame[];
     [key: string]: any;
 };
