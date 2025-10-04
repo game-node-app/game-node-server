@@ -1,4 +1,4 @@
-import { PartialGame } from "../../../game/game-repository/game-repository.types";
+import { IDGBPartialGame } from "../../../game/game-repository/game-repository.types";
 
 export const snakeCaseToCamelCase = (str: string) => {
     if (str == null || str.startsWith("_")) {
@@ -36,7 +36,7 @@ export const objectKeysToCamelCase = (obj: any): any => {
  * Parses dates from a game object.
  * @param game
  */
-export const parseGameDates = (game: PartialGame) => {
+export const parseGameDates = (game: IDGBPartialGame) => {
     const parsedGame = structuredClone(game);
     const dateFields = [
         "createdAt",

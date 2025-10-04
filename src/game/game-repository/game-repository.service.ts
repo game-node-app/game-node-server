@@ -139,7 +139,7 @@ export class GameRepositoryService {
         return games;
     }
 
-    @Cacheable(GameRepositoryService.name, minutes(30))
+    // @Cacheable(GameRepositoryService.name, minutes(30))
     async findGameExternalStores(gameId: number) {
         const externalGames = await this.externalGameService.findAllForGameId([
             gameId,

@@ -11,7 +11,7 @@ import {
     parseGameDates,
 } from "./utils/game-conversor-utils";
 
-import { PartialGame } from "../../game/game-repository/game-repository.types";
+import { IDGBPartialGame } from "../../game/game-repository/game-repository.types";
 import { GameRepositoryCreateService } from "../../game/game-repository/game-repository-create.service";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 
@@ -19,7 +19,7 @@ import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
  * Recursively converts types of a game object.
  * @param game
  */
-const convertIgdbResultTypes = (game: PartialGame) => {
+const convertIgdbResultTypes = (game: IDGBPartialGame) => {
     const gameWithParsedDates = parseGameDates(game);
 
     for (const [key, value] of Object.entries(gameWithParsedDates)) {
@@ -40,10 +40,10 @@ const convertIgdbResultTypes = (game: PartialGame) => {
 };
 
 function normalizeIgdbResults(results: any[]) {
-    const normalizedResults: PartialGame[] = [];
+    const normalizedResults: IDGBPartialGame[] = [];
     for (const result of results) {
         // Do basic parsing (converts fields to camelCase)
-        const normalizedResult: PartialGame = objectKeysToCamelCase(result);
+        const normalizedResult: IDGBPartialGame = objectKeysToCamelCase(result);
 
         if (normalizedResult.gameLocalizations) {
             normalizedResult.localizations = normalizedResult.gameLocalizations;

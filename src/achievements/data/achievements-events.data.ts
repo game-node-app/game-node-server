@@ -6,7 +6,7 @@ export const achievementsEventsData: Achievement[] = [
     {
         id: "awards_2025",
         name: "Awards 2025",
-        description: "Participate in the 2025 Game Awards event",
+        description: "Participate in the 2025 GameNode Awards event",
         expGainAmount: 1000,
         category: AchievementCategory.EVENTS,
         checkEligibility: async (dataSource, targetUserId) => {

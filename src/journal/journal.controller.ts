@@ -6,6 +6,7 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { JournalService } from "./journal.service";
 import { ApiTags } from "@nestjs/swagger";
 import { JournalPlayLogService } from "./journal-play-log.service";
+import { JournalHeatmapService } from "./journal-heatmap.service";
 
 @Controller("journal")
 @ApiTags("journal")
@@ -14,6 +15,7 @@ export class JournalController {
     constructor(
         private readonly journalService: JournalService,
         private readonly journalPlaylogService: JournalPlayLogService,
+        private readonly journalHeatmapService: JournalHeatmapService,
     ) {}
 
     @Get("overview/:userId")
@@ -32,5 +34,17 @@ export class JournalController {
         @Param("gameId") gameId: number,
     ) {
         return this.journalPlaylogService.getPlaylog(userId, gameId);
+    }
+
+    @Get("heatmap/:userId")
+    @Public()
+    public async getHeatmap(
+        @Session() session: SessionContainer | undefined,
+        @Param("userId") targetUserId: string,
+    ) {
+        return this.journalHeatmapService.buildHeatmap(
+            session?.getUserId(),
+            targetUserId,
+        );
     }
 }

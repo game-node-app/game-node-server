@@ -59,10 +59,6 @@ export class ExternalGameService {
             where: {
                 gameId: In(gameIds),
             },
-            cache: {
-                id: `external-games-ids-${gameIds}`,
-                milliseconds: days(1),
-            },
             relations: this.relations,
         });
     }
