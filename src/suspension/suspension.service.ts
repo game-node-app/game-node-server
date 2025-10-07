@@ -29,8 +29,8 @@ export class SuspensionService {
             isSuspension: type === "suspension",
             isBan: type === "ban",
             endDate: fourteenDaysFromNow,
-            issuerProfileUserId: issuerUserId,
-            profileUserId: targetUserId,
+            issuerUserId: issuerUserId,
+            userId: targetUserId,
         });
 
         await this.userSuspensionRepository.save(suspension);
@@ -69,11 +69,11 @@ export class SuspensionService {
         return await this.userSuspensionRepository.exists({
             where: [
                 {
-                    profileUserId: userId,
+                    userId: userId,
                     isBan: true,
                 },
                 {
-                    profileUserId: userId,
+                    userId: userId,
                     isSuspension: true,
                     endDate: MoreThanOrEqual(now),
                 },
@@ -85,7 +85,7 @@ export class SuspensionService {
         const now = new Date();
         return await this.userSuspensionRepository.exists({
             where: {
-                profileUserId: userId,
+                userId: userId,
                 isSuspension: true,
                 endDate: MoreThanOrEqual(now),
             },
@@ -95,7 +95,7 @@ export class SuspensionService {
     async checkIsBanned(userId: string) {
         return await this.userSuspensionRepository.exists({
             where: {
-                profileUserId: userId,
+                userId: userId,
                 isBan: true,
             },
         });

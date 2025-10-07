@@ -1,37 +1,30 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
+import { DEFAULT_TENANT_ID } from "../../auth/auth.constants";
 
 @Entity()
 export class UserSuspension {
     @PrimaryGeneratedColumn()
     id: number;
-
     /**
-     * Target of suspension/ban
+     * Supertokens UserId (same as Profile and Library's PK), but will remain active when the user is deleted.
      */
-    @ManyToOne(() => Profile, {
-        nullable: false,
-        onDelete: "CASCADE",
-    })
-    profile: Profile;
     @Column({
         nullable: false,
     })
-    profileUserId: string;
-
-    /**
-     * Issuer of suspension/ban
-     */
-    @ManyToOne(() => Profile, {
+    userId: string;
+    @Column({
         nullable: false,
-        onDelete: "CASCADE",
+        default: DEFAULT_TENANT_ID,
     })
-    issuerProfile: Profile;
+    tenantId: string;
+    /**
+     * User who issued the suspension/ban.
+     */
     @Column({
         nullable: false,
     })
-    issuerProfileUserId: string;
-
+    issuerUserId: string;
     @Column({
         nullable: false,
         default: false,
