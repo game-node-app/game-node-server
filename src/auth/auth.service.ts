@@ -9,11 +9,11 @@ import {
     SupertokensConfig,
     SupertokensConfigInjectionToken,
 } from "./config.interface";
-import { UserInitService } from "../user-init/user-init.service";
 import { AUTH_ERRORS } from "./auth.constants";
 import { SMTPServiceConfig } from "supertokens-node/lib/build/ingredients/emaildelivery/services/smtp";
 import { EMAIL_CONFIG_TOKEN } from "../global/global.tokens";
 import { SMTPService } from "supertokens-node/recipe/passwordless/emaildelivery";
+import { UserInitService } from "../user/user-init/user-init.service";
 
 /**
  * The auth service is responsible for setting up and providing Supertokens integration to GameNode. <br>

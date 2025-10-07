@@ -239,4 +239,10 @@ export class ProfileService {
 
         await this.profileRepository.save(profile);
     }
+
+    async deleteByUserId(userId: string) {
+        await this.profileRepository.delete({
+            userId: userId,
+        });
+    }
 }

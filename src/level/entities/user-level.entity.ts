@@ -10,7 +10,9 @@ export class UserLevel {
     @PrimaryColumn()
     userId: string;
 
-    @OneToOne(() => Profile)
+    @OneToOne(() => Profile, {
+        onDelete: "CASCADE",
+    })
     @JoinColumn()
     profile: Profile;
     @Column({

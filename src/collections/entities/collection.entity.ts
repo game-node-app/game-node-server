@@ -28,6 +28,7 @@ export class Collection {
     isPublic: boolean;
     @ManyToOne(() => Library, (library) => library.collections, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     library: Library;
     @Column({

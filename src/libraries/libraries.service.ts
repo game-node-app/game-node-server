@@ -103,4 +103,21 @@ export class LibrariesService {
             throw new HttpException(e, 500);
         }
     }
+
+    async deleteByUserId(userId: string) {
+        const possibleLibrary = await this.libraryRepository.findOneBy({
+            userId: userId,
+        });
+
+        if (!possibleLibrary) {
+            throw new HttpException(
+                "User does not have a library.",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        await this.libraryRepository.delete({
+            userId: userId,
+        });
+    }
 }

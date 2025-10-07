@@ -1,14 +1,14 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { CollectionsService } from "../collections/collections.service";
-import { LibrariesService } from "../libraries/libraries.service";
-import { ProfileService } from "../profile/profile.service";
 import UserRoles from "supertokens-node/recipe/userroles";
-import { EUserRoles } from "../utils/constants";
-import { DEFAULT_COLLECTIONS } from "../collections/collections.constants";
-import { LevelService } from "../level/level.service";
 import { Timeout } from "@nestjs/schedule";
 import retry from "async-retry";
 import { seconds } from "@nestjs/throttler";
+import { CollectionsService } from "../../collections/collections.service";
+import { LibrariesService } from "../../libraries/libraries.service";
+import { ProfileService } from "../../profile/profile.service";
+import { LevelService } from "../../level/level.service";
+import { EUserRoles } from "../../utils/constants";
+import { DEFAULT_COLLECTIONS } from "../../collections/collections.constants";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
@@ -54,7 +54,6 @@ export class UserInitService {
             this.initUserRole(userId),
             this.initProfile(userId),
             this.initLibrary(userId),
-            this.initLevel(userId),
         ];
         /*
          * For access denied errors:
@@ -70,6 +69,12 @@ export class UserInitService {
             {
                 retries: 5,
                 maxRetryTime: seconds(60),
+                onRetry: (err) => {
+                    this.logger.error(
+                        `Retrying init for ${userId} at ${new Date().toISOString()}`,
+                    );
+                    this.logger.error(err);
+                },
             },
         );
         this.logger.log(
@@ -119,16 +124,5 @@ export class UserInitService {
         this.logger.log(
             `Created default collections for user ${userId} at signup`,
         );
-    }
-
-    private async initLevel(userId: string) {
-        const userLevelEntity =
-            await this.userLevelService.findOneOrCreateByUserId(userId);
-
-        if (userLevelEntity) {
-            return;
-        }
-
-        await this.userLevelService.create(userId);
     }
 }

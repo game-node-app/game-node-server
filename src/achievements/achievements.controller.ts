@@ -63,17 +63,6 @@ export class AchievementsController {
         );
     }
 
-    /**
-     * @deprecated - old API when only one featured achievement was possible <br >
-     * prefer AchievementsController#getAllObtainedAchievements
-     * @param userId
-     */
-    @Get(":userId/featured")
-    @Public()
-    public getFeaturedAchievementForUserId(@Param("userId") userId: string) {
-        return this.achievementsService.getFeaturedAchievement(userId);
-    }
-
     @Put("obtained/:id/featured")
     public updateFeaturedObtainedAchievement(
         @Session() session: SessionContainer,

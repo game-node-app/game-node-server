@@ -33,6 +33,7 @@ export class AwardsVote extends BaseEntity {
     gameId: number;
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @Column({
