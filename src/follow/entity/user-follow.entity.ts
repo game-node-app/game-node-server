@@ -17,7 +17,9 @@ export class UserFollow {
     /**
      * User that is following another user.
      */
-    @ManyToOne(() => Profile)
+    @ManyToOne(() => Profile, {
+        onDelete: "CASCADE",
+    })
     follower: Profile;
     /**
      * User that is following another user.
@@ -30,7 +32,9 @@ export class UserFollow {
     /**
      * User that is being followed
      */
-    @ManyToOne(() => Profile)
+    @ManyToOne(() => Profile, {
+        onDelete: "CASCADE",
+    })
     followed: Profile;
     /**
      * User that is being followed

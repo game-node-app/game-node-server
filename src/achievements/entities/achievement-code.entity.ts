@@ -63,7 +63,7 @@ export class AchievementCode {
         nullable: false,
         onDelete: "CASCADE",
     })
-    issuedBy: Profile | null;
+    issuedBy: Profile;
     @Column({
         nullable: false,
     })

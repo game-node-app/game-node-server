@@ -17,6 +17,7 @@ export class ImporterWatchNotification {
 
     @ManyToOne(() => Library, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     library: Library;
     @Column({

@@ -24,6 +24,7 @@ export abstract class ImporterEntry {
     gameExternalGameId: number;
     @ManyToOne(() => Library, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     library: Library;
     @Column({
