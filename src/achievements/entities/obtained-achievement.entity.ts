@@ -29,6 +29,7 @@ export class ObtainedAchievement {
     achievementId: string;
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @Column({

@@ -31,6 +31,7 @@ export class Post extends BaseEntity {
 
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @Column()

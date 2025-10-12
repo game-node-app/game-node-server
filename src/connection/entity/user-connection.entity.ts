@@ -19,6 +19,7 @@ export class UserConnection {
     type: EConnectionType;
     @ManyToOne(() => Profile, {
         nullable: false,
+        onDelete: "CASCADE",
     })
     profile: Profile;
     @Column({

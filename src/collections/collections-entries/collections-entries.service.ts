@@ -23,7 +23,10 @@ import { LevelIncreaseActivities } from "../../level/level.constants";
 import { CollectionsService } from "../collections.service";
 import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-entries-for-collection-id.dto";
 import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
-import { CollectionEntryStatus } from "./collections-entries.constants";
+import {
+    COLLECTION_ENTRY_ORDERING_GAP,
+    CollectionEntryStatus,
+} from "./collections-entries.constants";
 import { match } from "ts-pattern";
 import { buildGameFilterFindOptions } from "../../game/game-repository/utils/build-game-filter-find-options";
 import { Transactional } from "typeorm-transactional";
@@ -207,6 +210,9 @@ export class CollectionsEntriesService {
                 createdAt: dto?.orderBy?.addedDate,
                 game: {
                     firstReleaseDate: dto?.orderBy?.releaseDate,
+                },
+                collectionsMap: {
+                    order: dto?.orderBy?.userCustom,
                 },
             },
             relations: this.relations,
@@ -426,7 +432,7 @@ export class CollectionsEntriesService {
 
         for (const collectionId of newCollectionIds) {
             const lastOrder = maxOrderMap.get(collectionId) ?? 0;
-            const newOrder = lastOrder + 10;
+            const newOrder = lastOrder + COLLECTION_ENTRY_ORDERING_GAP;
 
             await this.collectionEntryToCollectionRepository.insert({
                 collectionEntryId,
