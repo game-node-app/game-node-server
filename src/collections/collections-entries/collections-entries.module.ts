@@ -10,6 +10,8 @@ import { LevelModule } from "../../level/level.module";
 import { CollectionsModule } from "../collections.module";
 import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
+import { CollectionsOrderingService } from "./order/collections-ordering.service";
+import { CollectionsOrderingController } from "./order/collections-ordering.controller";
 
 @Module({
     imports: [
@@ -24,8 +26,8 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
         forwardRef(() => CollectionsModule),
         GameRepositoryModule,
     ],
-    controllers: [CollectionsEntriesController],
-    providers: [CollectionsEntriesService],
+    controllers: [CollectionsEntriesController, CollectionsOrderingController],
+    providers: [CollectionsEntriesService, CollectionsOrderingService],
     exports: [CollectionsEntriesService],
 })
 export class CollectionsEntriesModule {}
