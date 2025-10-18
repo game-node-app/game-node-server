@@ -1,40 +1,113 @@
 #!/bin/bash
-# This is a sample backup script for your MySQL database.
-# There's probably a hundred better ways to do it, but this + a simple cronjob does the job most of the time.
+# Enhanced MySQL backup script (multi-instance, env-driven)
+# Works great with Dockerized MySQL in a shared network (e.g. game_node_app)
 
-# Current date in YYYY-MM-DD-HHMMSS format for unique backup filenames
+set -euo pipefail
+IFS=$'\n\t'
+
+# === CONFIGURATION ===
+
+# Current date for unique backup filenames
 DATE=$(date +%F-%H%M%S)
 
-# Backup directory on the host
-BACKUP_DIR="~/backups/sql"
+# Backup directory on host
+BACKUP_DIR="${BACKUP_DIR:-/var/local/backups/sql}"
+mkdir -p "$BACKUP_DIR"
 
-# Database credentials and details
-DB_HOST="localhost" #hostname of the mysql container
-DB_USER="root"
-DB_PASSWORD="root"
-DB_NAME="gamenode"
-NETWORK="your_network" #name of the network where mysql container is running. You can check the list of the docker neworks using doocker network ls
+# Docker network shared by both DB containers
+NETWORK="${NETWORK:-game_node_app}"
 
-# Docker image version of MySQL
-MYSQL_IMAGE="mysql:8.3"
+# Docker MySQL image used for dumping
+MYSQL_IMAGE="${MYSQL_IMAGE:-mysql:8.3}"
 
-# Backup filename
-BACKUP_FILENAME="$BACKUP_DIR/$DB_NAME-$DATE.sql"
-COMPRESSED_BACKUP_FILENAME="$BACKUP_FILENAME.zst"
+# Rclone config (optional)
+RCLONE_CONFIG_NAME="${RCLONE_CONFIG_NAME:-cloudflare}"
+RCLONE_BUCKET_NAME="${RCLONE_BUCKET_NAME:-gamenode-sql-backup}"
 
-# S3 bucket name
-BUCKET_NAME="my-sql-backup"
-RCLONE_CONFIG_NAME="sql-backup"
+# === DATABASES TO BACKUP ===
+# These must be passed via environment variables in crontab, e.g.:
+# DB1_NAME=gamenode DB1_USER=root DB1_PASS=pass DB1_HOST=db
+# DB2_NAME=supertokens DB2_USER=root DB2_PASS=pass DB2_HOST=supertokens_db
+# and so on.
 
-# Run mysqldump within a new Docker container
-docker run --rm --network $NETWORK $MYSQL_IMAGE mysqldump --compact -h $DB_HOST -u $DB_USER -p$DB_PASSWORD $DB_NAME > $BACKUP_FILENAME
+declare -A DBS=(
+  ["$DB1_NAME"]="$DB1_USER:$DB1_PASS@$DB1_HOST"
+)
 
-# Compress the backup file
-zstd -19 "$BACKUP_FILENAME" -o "$COMPRESSED_BACKUP_FILENAME"
+# Add second database if defined
+if [[ -n "${DB2_NAME:-}" && -n "${DB2_USER:-}" && -n "${DB2_PASS:-}" && -n "${DB2_HOST:-}" ]]; then
+  DBS["$DB2_NAME"]="$DB2_USER:$DB2_PASS@$DB2_HOST"
+fi
 
-# Removes SQL backup file after compression
-rm $BACKUP_FILENAME
+# === BACKUP LOOP ===
 
-rclone copy $COMPRESSED_BACKUP_FILENAME $RCLONE_CONFIG_NAME:$BUCKET_NAME
+for DB_NAME in "${!DBS[@]}"; do
+  echo "🔹 Backing up database: $DB_NAME"
 
-rm $COMPRESSED_BACKUP_FILENAME
+  CREDENTIALS="${DBS[$DB_NAME]}"
+  DB_USER="${CREDENTIALS%%:*}"
+  REST="${CREDENTIALS#*:}"
+  DB_PASS="${REST%%@*}"
+  DB_HOST="${REST#*@}"
+
+  BACKUP_FILENAME="$BACKUP_DIR/${DB_NAME}-${DATE}.sql"
+  COMPRESSED_BACKUP_FILENAME="${BACKUP_FILENAME}.zst"
+
+  # Maximum number of retries
+  MAX_RETRIES=3
+  RETRY_DELAY=5  # seconds between attempts
+
+  # Dump DB using Dockerized MySQL client with retries
+  SUCCESS=false
+  for ((i=1; i<=MAX_RETRIES; i++)); do
+      echo "🔹 Attempt $i: Backing up database $DB_NAME..."
+      if docker run --rm --network "$NETWORK" "$MYSQL_IMAGE" \
+          mysqldump --compact --single-transaction --quick --lock-tables=false \
+          -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_FILENAME"; then
+          SUCCESS=true
+          break
+      else
+          echo "⚠️ Backup attempt $i failed."
+          if [[ $i -lt $MAX_RETRIES ]]; then
+              echo "⏳ Retrying in $RETRY_DELAY seconds..."
+              sleep $RETRY_DELAY
+          fi
+      fi
+  done
+
+  if [[ "$SUCCESS" != true ]]; then
+      echo "❌ Failed to backup database $DB_NAME after $MAX_RETRIES attempts. Exiting."
+      exit 1
+  fi
+
+  # Compress with 2 threads
+  zstd -9 -T2 "$BACKUP_FILENAME" -o "$COMPRESSED_BACKUP_FILENAME"
+
+  # Remove uncompressed dump
+  rm -f "$BACKUP_FILENAME"
+
+  echo "✅ Backup complete: $COMPRESSED_BACKUP_FILENAME"
+
+  # Upload to R2 via rclone if enabled
+  if [[ "${UPLOAD_TO_RCLONE:-false}" == "true" ]]; then
+    echo "☁️ Uploading $COMPRESSED_BACKUP_FILENAME to R2..."
+    rclone copy "$COMPRESSED_BACKUP_FILENAME" "${RCLONE_CONFIG_NAME}:${RCLONE_BUCKET_NAME}" \
+      --quiet --s3-no-check-bucket
+  fi
+
+  # Optionally remove local copy after upload
+  if [[ "${CLEANUP_LOCAL:-false}" == "true" ]]; then
+    echo "🧹 Removing local backup $COMPRESSED_BACKUP_FILENAME"
+    rm -f "$COMPRESSED_BACKUP_FILENAME"
+  fi
+done
+
+# === Cleanup old backups (older than 14 days) ===
+# From local files
+echo "🗑️ Removing local backups older than 14 days in $BACKUP_DIR..."
+find "$BACKUP_DIR" -type f -name "*.zst" -mtime +14 -exec rm -f {} \;
+# From RCLONE
+echo "🗑️ Removing bucket backups older than 14 days in ${RCLONE_CONFIG_NAME}:${RCLONE_BUCKET_NAME}..."
+rclone delete --min-age 14d "${RCLONE_CONFIG_NAME}:${RCLONE_BUCKET_NAME}"
+
+echo "🎉 All backups completed successfully."
