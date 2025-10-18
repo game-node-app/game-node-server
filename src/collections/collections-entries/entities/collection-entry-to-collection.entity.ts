@@ -1,10 +1,19 @@
-import { Column, Entity, Index, ManyToOne, PrimaryColumn } from "typeorm";
+import {
+    Column,
+    CreateDateColumn,
+    Entity,
+    Index,
+    ManyToOne,
+    PrimaryColumn,
+} from "typeorm";
 import { CollectionEntry } from "./collection-entry.entity";
 import { Collection } from "../../entities/collection.entity";
 
 @Entity({
     name: "collection_entry_collections_collection",
 })
+@Index(["collectionId", "order"])
+@Index(["collectionId", "createdAt"])
 export class CollectionEntryToCollection {
     @PrimaryColumn({
         type: "varchar",
@@ -37,4 +46,10 @@ export class CollectionEntryToCollection {
         onUpdate: "CASCADE",
     })
     collection: Collection;
+
+    @CreateDateColumn({
+        type: "datetime",
+        default: () => "CURRENT_TIMESTAMP(6)",
+    })
+    createdAt: Date;
 }

@@ -207,12 +207,12 @@ export class CollectionsEntriesService {
                 game: buildGameFilterFindOptions(dto?.gameFilters),
             },
             order: {
-                createdAt: dto?.orderBy?.addedDate,
                 game: {
                     firstReleaseDate: dto?.orderBy?.releaseDate,
                 },
                 collectionsMap: {
                     order: dto?.orderBy?.userCustom,
+                    createdAt: dto?.orderBy?.addedDate,
                 },
             },
             relations: this.relations,
