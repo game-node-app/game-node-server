@@ -23,6 +23,7 @@ import { UserConnectionDto } from "./dto/user-connection.dto";
 import { HttpStatusCode } from "axios";
 import { PlaytimeWatchService } from "../playtime/watch/playtime-watch.service";
 import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
+import { CollectionsService } from "../collections/collections.service";
 
 const toDto = (userConnection: UserConnection): UserConnectionDto => ({
     ...userConnection,
@@ -47,6 +48,8 @@ export class ConnectionsService {
         private readonly xboxSyncService: XboxSyncService,
         @Inject(forwardRef(() => PlaytimeWatchService))
         private readonly playtimeWatchService: PlaytimeWatchService,
+        @Inject(forwardRef(() => CollectionsService))
+        private readonly collectionsService: CollectionsService,
     ) {}
 
     public findOneById(id: number) {
@@ -123,6 +126,8 @@ export class ConnectionsService {
             userIdentifier,
             isImporterEnabled,
             isPlaytimeImportEnabled,
+            isAutoImportEnabled,
+            autoImportCollectionId,
         } = dto;
 
         const possibleExistingConnection = await this.findOneByUserIdAndType(
@@ -172,6 +177,26 @@ export class ConnectionsService {
         const finalIsPlaytimeImportEnabled = isPlaytimeImporterViable
             ? isPlaytimeImportEnabled
             : false;
+        const finalIsAutoImportEnabled = isImporterViable
+            ? isAutoImportEnabled
+            : false;
+
+        // Validate collection exists and belongs to user if autoImportCollectionId is provided
+        // If auto-import is enabled but no collection specified, games will be imported
+        // to the user's library without being added to a specific collection
+        let validatedAutoImportCollectionId: string | null = null;
+        if (finalIsAutoImportEnabled && autoImportCollectionId) {
+            const collection = await this.collectionsService.findOneById(
+                autoImportCollectionId,
+            );
+            if (!collection || collection.libraryUserId !== userId) {
+                throw new HttpException(
+                    "Collection not found or does not belong to user",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+            validatedAutoImportCollectionId = autoImportCollectionId;
+        }
 
         const createdConnection = await this.userConnectionRepository.save({
             ...possibleExistingConnection,
@@ -182,6 +207,8 @@ export class ConnectionsService {
             isImporterViable,
             isImporterEnabled: finalIsImporterEnabled,
             isPlaytimeImportEnabled: finalIsPlaytimeImportEnabled,
+            isAutoImportEnabled: finalIsAutoImportEnabled,
+            autoImportCollectionId: validatedAutoImportCollectionId,
         });
 
         this.onConnectionCreate(createdConnection);

@@ -5,6 +5,7 @@ import {
     IsNotEmpty,
     IsOptional,
     IsString,
+    IsUUID,
     MinLength,
 } from "class-validator";
 
@@ -25,4 +26,10 @@ export class ConnectionCreateDto {
     @IsBoolean()
     @IsOptional()
     isPlaytimeImportEnabled: boolean = true;
+    @IsBoolean()
+    @IsOptional()
+    isAutoImportEnabled: boolean = false;
+    @IsUUID()
+    @IsOptional()
+    autoImportCollectionId?: string | null;
 }

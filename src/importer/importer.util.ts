@@ -11,3 +11,16 @@ export const connectionToImporterSource = (connectionType: EConnectionType) => {
             return EImporterSource.XBOX;
     }
 };
+
+export const importerToConnectionSource = (
+    source: EImporterSource,
+): EConnectionType => {
+    switch (source) {
+        case EImporterSource.STEAM:
+            return EConnectionType.STEAM;
+        case EImporterSource.PSN:
+            return EConnectionType.PSN;
+        case EImporterSource.XBOX:
+            return EConnectionType.XBOX;
+    }
+};

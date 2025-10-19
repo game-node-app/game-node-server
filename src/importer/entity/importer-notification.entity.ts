@@ -35,4 +35,16 @@ export class ImporterWatchNotification {
     })
     @JoinTable()
     games: GameExternalGame[] | null;
+
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    autoImportedCount: number;
+
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    autoImportSkippedCount: number;
 }
