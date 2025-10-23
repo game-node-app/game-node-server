@@ -499,7 +499,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 "PC",
             ];
 
-            const prefferedPlatform = playedPlatforms.toSorted((a, b) => {
+            const preferredPlatform = playedPlatforms.toSorted((a, b) => {
                 return (
                     platformsPreferenceOrder.indexOf(a.abbreviation) -
                     platformsPreferenceOrder.indexOf(b.abbreviation)
@@ -510,7 +510,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 userId,
                 relevantExternalGame.gameId,
                 UserPlaytimeSource.XBOX,
-                prefferedPlatform.id,
+                preferredPlatform.id,
             );
 
             const playtime: CreateUserPlaytimeDto = {
@@ -525,7 +525,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 totalPlayCount: 0,
                 firstPlayedDate: undefined,
                 source: UserPlaytimeSource.XBOX,
-                platformId: prefferedPlatform.id,
+                platformId: preferredPlatform.id,
             };
 
             const hasChangedTotalPlaytime =
