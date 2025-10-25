@@ -71,7 +71,7 @@ export class ProfileMetricsController {
     @Public()
     async getPeriodReport(
         @Param("userId") userId: string,
-        @Param("period") period: Period,
+        @Param("period") period: Period.WEEK | Period.MONTH,
     ) {
         return this.profileMetricsReportService.generateReport(userId, period);
     }

@@ -1,5 +1,4 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { ActivitiesRepositoryService } from "../../activities/activities-repository/activities-repository.service";
 import { PlaytimeHistoryService } from "../../playtime/playtime-history.service";
 import { Period, PeriodToMinusDays } from "../../utils/period";
 import { ReviewsService } from "../../reviews/reviews.service";
@@ -21,16 +20,16 @@ export class ProfileMetricsReportService {
     @Cacheable(ProfileMetricsReportService.name, hours(1))
     public async generateReport(
         userId: string,
-        period: Period,
+        period: Period.WEEK | Period.MONTH,
     ): Promise<ProfileMetricsReportResponseDto> {
         const periodMinusDays = PeriodToMinusDays[period];
         if (periodMinusDays == undefined) {
             throw new HttpException("Invalid period", HttpStatus.BAD_REQUEST);
         }
 
-        const sinceDate = dayjs()
-            .subtract(periodMinusDays, "day")
-            .startOf("day");
+        const sinceDate = dayjs().startOf(
+            period === Period.WEEK ? "week" : "month",
+        );
 
         const [
             reviewedInPeriod,
@@ -96,30 +95,11 @@ export class ProfileMetricsReportService {
     }
 
     private async getPlaytimeInPeriod(userId: string, sinceDate: dayjs.Dayjs) {
-        const playtimeHistory =
-            await this.playtimeHistoryService.findAllByUserId(userId);
-        const playtimeInPeriod = playtimeHistory
-            .filter(
-                (entry) =>
-                    entry.lastPlayedDate != undefined &&
-                    dayjs(entry.lastPlayedDate).isAfter(sinceDate),
-            )
-            .toSorted((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-        const maxForGamesInPeriodMap = new Map<number, number>();
-        for (const entry of playtimeInPeriod) {
-            const existingMax = maxForGamesInPeriodMap.get(entry.gameId) ?? 0;
-            if (entry.totalPlaytimeSeconds > existingMax) {
-                maxForGamesInPeriodMap.set(
-                    entry.gameId,
-                    entry.totalPlaytimeSeconds,
-                );
-            }
-        }
-
-        return Array.from(maxForGamesInPeriodMap.values()).reduce(
-            (sum, playtime) => sum + playtime,
-            0,
-        );
+        return await this.playtimeHistoryService.getTotalPlaytimeForPeriod({
+            userId,
+            startDate: sinceDate.toDate(),
+            endDate: new Date(),
+            criteria: "totalPlaytimeSeconds",
+        });
     }
 }
