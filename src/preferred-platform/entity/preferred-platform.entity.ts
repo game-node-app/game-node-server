@@ -14,6 +14,7 @@ import { BaseEntity } from "../../utils/db/base.entity";
 
 @Entity()
 @Unique(["profileUserId", "platformId"])
+@Index(["libraryUserId", "order"])
 export class PreferredPlatform extends BaseEntity {
     @PrimaryGeneratedColumn({ type: "bigint" })
     id: number;
