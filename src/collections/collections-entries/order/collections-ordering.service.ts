@@ -106,7 +106,7 @@ export class CollectionsOrderingService {
         });
 
         for (let i = 0; i < entries.length; i++) {
-            entries[i].order = i + COLLECTION_ENTRY_ORDERING_GAP;
+            entries[i].order = (i + 1) * COLLECTION_ENTRY_ORDERING_GAP;
         }
 
         await this.collectionEntryToCollectionRepository.save(entries);
