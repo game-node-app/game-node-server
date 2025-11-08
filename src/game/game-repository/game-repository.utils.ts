@@ -14,6 +14,16 @@ export function getIconNamesForPlatformAbbreviations(abbreviations: string[]) {
     return iconsNames;
 }
 
+export function getIconNameForPlatformAbbreviation(abbreviation: string) {
+    for (const [iconName, platforms] of Object.entries(PlatformToIconMap)) {
+        if (platforms.includes(abbreviation)) {
+            return iconName;
+        }
+    }
+
+    return undefined;
+}
+
 /**
  * Based on a game's category id, retrieves its readable name.
  * @param category

@@ -1,13 +1,13 @@
 import { IsNotEmpty, IsNumber, IsOptional } from "class-validator";
 
-export class PreferredPlatformReorderDto {
+export class UpdatePreferredPlatformOrderDto {
     @IsNotEmpty()
     @IsNumber()
-    id: number;
+    targetPlatformId: number;
     @IsOptional()
     @IsNumber()
-    previousId?: number;
+    previousPlatformId?: number;
     @IsOptional()
     @IsNumber()
-    nextId?: number;
+    nextPlatformId?: number;
 }

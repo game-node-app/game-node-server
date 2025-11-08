@@ -3,4 +3,6 @@ import { PreferredPlatform } from "../entity/preferred-platform.entity";
 
 export class PreferredPlatformDto extends OmitType(PreferredPlatform, [
     "library",
-]) {}
+]) {
+    iconName?: string;
+}

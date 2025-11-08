@@ -99,7 +99,7 @@ const PlatformToIconMap: { [p: string]: string[] } = {
     playstation: ["PSVR", "PSVR2"],
     x360: ["X360"],
     xone: ["XONE"],
-    xseriesx: ["Series X"],
+    xseriesx: ["Series X|S"],
     xbox: ["XBOX"],
     nswitch: ["Switch"],
     n64: ["N64"],

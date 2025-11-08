@@ -1,22 +1,22 @@
 import {
     Column,
+    CreateDateColumn,
     Entity,
     Index,
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
     Unique,
+    UpdateDateColumn,
 } from "typeorm";
 import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
 import { Library } from "../../libraries/entities/library.entity";
-import { PreferredPlatformScope } from "../preferred-platform.constants";
-import { BaseEntity } from "../../utils/db/base.entity";
 
 @Entity()
-@Unique(["profileUserId", "platformId"])
+@Unique(["libraryUserId", "platformId"])
 @Index(["libraryUserId", "order"])
-export class PreferredPlatform extends BaseEntity {
-    @PrimaryGeneratedColumn({ type: "bigint" })
+export class PreferredPlatform {
+    @PrimaryGeneratedColumn()
     id: number;
 
     @Column()
@@ -27,14 +27,14 @@ export class PreferredPlatform extends BaseEntity {
     @Index()
     library: Library;
 
-    @Column({ type: "bigint" })
+    @Column({
+        nullable: false,
+    })
     platformId: number;
 
-    @ManyToOne(() => GamePlatform, { onDelete: "CASCADE" })
-    @Index()
+    @ManyToOne(() => GamePlatform, { onDelete: "CASCADE", nullable: false })
     platform: GamePlatform;
 
-    @Index()
     @Column({ type: "float", default: 0 })
     order: number;
 
@@ -44,9 +44,8 @@ export class PreferredPlatform extends BaseEntity {
     @Column({ type: "varchar", length: 255, nullable: true })
     label?: string;
 
-    @Column({
-        default: PreferredPlatformScope.ALL,
-        nullable: false,
-    })
-    scope: PreferredPlatformScope;
+    @CreateDateColumn()
+    createdAt: Date;
+    @UpdateDateColumn()
+    updatedAt: Date;
 }
