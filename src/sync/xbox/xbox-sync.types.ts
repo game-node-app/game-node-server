@@ -34,7 +34,7 @@ export type ProfileResponse = {
     ];
 };
 
-type XboxGameTitleDeviceType =
+export type XboxGameTitleDeviceType =
     | "Xbox360"
     | "XboxOne"
     | "XboxSeries"

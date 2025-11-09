@@ -8,6 +8,8 @@ import { PreferredPlatformReorderService } from "./preferred-platform-reorder.se
 import { DEFAULT_ORDERING_GAP } from "../utils/ordering";
 import { PlatformToIconMap } from "../game/game-repository/game-repository.constants";
 import { getIconNameForPlatformAbbreviation } from "../game/game-repository/game-repository.utils";
+import { Cacheable } from "../utils/cacheable";
+import { minutes } from "@nestjs/throttler";
 
 const toDto = (entity: PreferredPlatform): PreferredPlatformDto => {
     return {
@@ -30,12 +32,15 @@ export class PreferredPlatformService {
         private readonly preferredPlatformReorderService: PreferredPlatformReorderService,
     ) {}
 
-    async findOneByUserIdAndPlatformId(
+    async findOneByUserIdAndPlatformIdOrFail(
         userId: string,
         platformId: number,
     ): Promise<PreferredPlatformDto | null> {
         const item = await this.preferredPlatformRepository.findOneOrFail({
             where: { libraryUserId: userId, platformId },
+            order: {
+                order: "ASC",
+            },
             relations: this.RELATIONS,
         });
 
@@ -52,6 +57,7 @@ export class PreferredPlatformService {
         return items.map(toDto);
     }
 
+    @Cacheable(PreferredPlatformService.name, minutes(1))
     async findAllActiveByUserId(
         userId: string,
     ): Promise<PreferredPlatformDto[]> {
@@ -64,8 +70,19 @@ export class PreferredPlatformService {
         return items.map(toDto);
     }
 
+    async findAllByPlatformAbbreviations(
+        userId: string,
+        platformAbbreviations: string[],
+    ): Promise<PreferredPlatformDto[]> {
+        const items = await this.findAllActiveByUserId(userId);
+
+        return items.filter((item) =>
+            platformAbbreviations.includes(item.platform.abbreviation),
+        );
+    }
+
     async createOrUpdate(userId: string, dto: CreatePreferredPlatformDto) {
-        const existing = await this.findOneByUserIdAndPlatformId(
+        const existing = await this.findOneByUserIdAndPlatformIdOrFail(
             userId,
             dto.platformId,
         );
@@ -85,7 +102,7 @@ export class PreferredPlatformService {
     }
 
     async delete(userId: string, platformId: number) {
-        const existing = await this.findOneByUserIdAndPlatformId(
+        const existing = await this.findOneByUserIdAndPlatformIdOrFail(
             userId,
             platformId,
         );

@@ -26,6 +26,7 @@ import { GameRepositoryService } from "../../game/game-repository/game-repositor
 import { match, P } from "ts-pattern";
 import { ConnectionSyncGateway } from "../../connection/connection-sync/connection-sync.gateway";
 import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
+import { getPreferredXboxPlatformAbbreviation } from "../../sync/xbox/util/get-preferred-xbox-platform-abbreviation";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     concurrency: 1,
@@ -483,28 +484,13 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 (externalGame) => externalGame.uid === relevantGame.productId,
             )!;
 
-            const playedPlatforms = relevantGame.devices.map((device) => {
-                return match(device)
-                    .with(P.union("PC", "Win32"), () => platformsMap.get("PC")!)
-                    .with("Xbox360", () => platformsMap.get("X360")!)
-                    .with("XboxOne", () => platformsMap.get("XONE")!)
-                    .with("XboxSeries", () => platformsMap.get("Series X|S")!)
-                    .otherwise(() => platformsMap.get("Series X|S")!);
-            });
+            const deviceTitles = relevantGame.devices.flat(1);
 
-            const platformsPreferenceOrder = [
-                "Series X|S",
-                "XONE",
-                "X360",
-                "PC",
-            ];
-
-            const preferredPlatform = playedPlatforms.toSorted((a, b) => {
-                return (
-                    platformsPreferenceOrder.indexOf(a.abbreviation) -
-                    platformsPreferenceOrder.indexOf(b.abbreviation)
-                );
-            })[0];
+            const preferredPlatformAbbreviation =
+                getPreferredXboxPlatformAbbreviation(deviceTitles);
+            const preferredPlatform = platformsMap.get(
+                preferredPlatformAbbreviation,
+            )!;
 
             const existingPlaytimeInfo = await this.playtimeService.findOne(
                 userId,

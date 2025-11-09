@@ -10,6 +10,7 @@ import { PsnSyncModule } from "../sync/psn/psn-sync.module";
 import { ExternalGameModule } from "../game/external-game/external-game.module";
 import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
 import { ImporterSearchService } from "./importer-search/importer-search.service";
+import { PreferredPlatformModule } from "../preferred-platform/preferred-platform.module";
 
 @Module({
     imports: [
@@ -22,6 +23,7 @@ import { ImporterSearchService } from "./importer-search/importer-search.service
         PsnSyncModule,
         XboxSyncModule,
         ExternalGameModule,
+        PreferredPlatformModule,
     ],
     providers: [ImporterService, ImporterSearchService],
     controllers: [ImporterController],

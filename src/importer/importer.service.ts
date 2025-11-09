@@ -19,6 +19,12 @@ import { ExternalGameService } from "../game/external-game/external-game.service
 import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
 import { toMap } from "../utils/toMap";
 import { ImporterSearchService } from "./importer-search/importer-search.service";
+import { PreferredPlatformService } from "../preferred-platform/preferred-platform.service";
+import { getPreferredXboxPlatformAbbreviation } from "../sync/xbox/util/get-preferred-xbox-platform-abbreviation";
+import { GameRepositoryService } from "../game/game-repository/game-repository.service";
+import { getPsnPlatformAbbreviation } from "../sync/psn/util/get-psn-platform-abbreviation";
+import { Cacheable } from "../utils/cacheable";
+import { minutes } from "@nestjs/throttler";
 
 @Injectable()
 export class ImporterService {
@@ -33,6 +39,7 @@ export class ImporterService {
         private readonly externalGameService: ExternalGameService,
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
+        private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
     private async getProcessedEntries(
@@ -50,6 +57,7 @@ export class ImporterService {
         return processedEntries.concat(ignoredEntries);
     }
 
+    @Cacheable(ImporterService.name, minutes(15))
     private async findUnprocessedSteamEntries(userId: string) {
         const processedEntries = await this.getProcessedEntries(userId);
 
@@ -98,6 +106,7 @@ export class ImporterService {
         );
     }
 
+    @Cacheable(ImporterService.name, minutes(15))
     private async findUnprocessedPsnEntries(userId: string) {
         const processedEntries = await this.getProcessedEntries(userId);
 
@@ -146,37 +155,32 @@ export class ImporterService {
                 !ignoredExternalGamesIds.includes(externalGame.id),
         );
 
+        const platformsMap =
+            await this.gameRepositoryService.getGamePlatformsMap(
+                "abbreviation",
+            );
+
         return filteredGames.map((item): ImporterResponseItemDto => {
             const relatedOriginalGame = games.find(
                 (game) => `${game.concept.id}` === item.uid,
             )!;
 
-            /*
-             * @see GamePlatform#id
-             */
-            let targetPlatformId: number;
-            switch (relatedOriginalGame.category) {
-                case "ps4_game":
-                    // ps4 platform id
-                    targetPlatformId = 48;
-                    break;
-                case "ps5_game":
-                    // ps5 platform id
-                    targetPlatformId = 167;
-                    break;
-                default:
-                    // ps4 platform id
-                    targetPlatformId = 48;
-                    break;
-            }
+            const preferredPlatformAbbreviation = getPsnPlatformAbbreviation(
+                relatedOriginalGame.category,
+            );
+
+            const preferredPlatform = platformsMap.get(
+                preferredPlatformAbbreviation,
+            )!;
 
             return {
                 ...item,
-                preferredPlatformId: targetPlatformId,
+                preferredPlatformId: preferredPlatform.id,
             };
         });
     }
 
+    @Cacheable(ImporterService.name, minutes(15))
     public async findUnprocessedXboxEntries(userId: string) {
         const processedEntries = await this.getProcessedEntries(userId);
 
@@ -214,26 +218,27 @@ export class ImporterService {
                 !ignoredExternalGamesIds.includes(externalGame.id),
         );
 
+        const platformsMap =
+            await this.gameRepositoryService.getGamePlatformsMap(
+                "abbreviation",
+            );
+
         return filteredGames.map((externalGame): ImporterResponseItemDto => {
             const relatedOriginalGame = allGames.find(
                 (game) => game.productId === externalGame.uid,
             )!;
+            const deviceTitles = relatedOriginalGame.devices.flat(1);
 
-            /*
-             * @see GamePlatform#id
-             */
-            let targetPlatformId: number;
-            if (relatedOriginalGame.mediaItemType === "Xbox360Game") {
-                targetPlatformId = 12;
-            } else if (relatedOriginalGame.devices.includes("XboxSeries")) {
-                targetPlatformId = 169;
-            } else {
-                targetPlatformId = 49;
-            }
+            const targetPlatformAbbreviation =
+                getPreferredXboxPlatformAbbreviation(deviceTitles);
+
+            const preferredPlatform = platformsMap.get(
+                targetPlatformAbbreviation,
+            )!;
 
             return {
                 ...externalGame,
-                preferredPlatformId: targetPlatformId,
+                preferredPlatformId: preferredPlatform.id,
             };
         });
     }
