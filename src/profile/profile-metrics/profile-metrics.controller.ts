@@ -21,6 +21,10 @@ import {
     ProfileMetricsTypeDistributionResponseDto,
 } from "./dto/profile-metrics-type-distribution.dto";
 import { CacheInterceptor } from "@nestjs/cache-manager";
+import { ProfileMetricsReportResponseDto } from "./dto/profile-metrics-report.dto";
+import { Period } from "../../utils/period";
+import { ProfileMetricsReportService } from "./profile-metrics-report.service";
+import { IsEnum } from "class-validator";
 
 @Controller("profile/metrics")
 @ApiTags("profile-metrics")
@@ -29,6 +33,7 @@ export class ProfileMetricsController {
     constructor(
         private readonly profileMetricsService: ProfileMetricsService,
         private readonly profileMetricsDistributionService: ProfileMetricsDistributionService,
+        private readonly profileMetricsReportService: ProfileMetricsReportService,
     ) {}
 
     /**
@@ -57,6 +62,18 @@ export class ProfileMetricsController {
             userId,
             dto,
         );
+    }
+
+    @Get("report/:userId/:period")
+    @ApiOkResponse({
+        type: ProfileMetricsReportResponseDto,
+    })
+    @Public()
+    async getPeriodReport(
+        @Param("userId") userId: string,
+        @Param("period") period: Period.WEEK | Period.MONTH,
+    ) {
+        return this.profileMetricsReportService.generateReport(userId, period);
     }
 
     @Get("distribution/type/:userId")

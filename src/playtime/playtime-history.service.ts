@@ -5,6 +5,7 @@ import { Between, Repository } from "typeorm";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
 import dayjs from "dayjs";
 import { UserPlaytimeSource } from "./playtime.constants";
+import { GetTotalPlaytimePeriodDto } from "./dto/get-total-playtime-period.dto";
 
 @Injectable()
 export class PlaytimeHistoryService {
@@ -41,6 +42,49 @@ export class PlaytimeHistoryService {
                 platformId,
             },
         });
+    }
+
+    public async getTotalPlaytimeForPeriod(dto: GetTotalPlaytimePeriodDto) {
+        const { userId, source, platformId, startDate, endDate, criteria } =
+            dto;
+        const playtimeHistory = await this.findAllByUserId(userId);
+        const playtimeInPeriod = playtimeHistory
+            .filter(
+                (entry) =>
+                    entry.lastPlayedDate != undefined &&
+                    dayjs(entry.lastPlayedDate).isAfter(startDate) &&
+                    dayjs(entry.lastPlayedDate).isBefore(endDate),
+            )
+            .toSorted((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+        const maxForGamesInPeriodMap = new Map<number, number>();
+
+        for (const playtimeHistory of playtimeInPeriod) {
+            const matchesSource = source
+                ? playtimeHistory.source === source
+                : true;
+            const matchesPlatform = platformId
+                ? playtimeHistory.platformId === platformId
+                : true;
+
+            if (matchesSource && matchesPlatform) {
+                const existingMax =
+                    maxForGamesInPeriodMap.get(playtimeHistory.gameId) ?? 0;
+                const targetValue = playtimeHistory[criteria];
+
+                if (playtimeHistory.totalPlaytimeSeconds > existingMax) {
+                    maxForGamesInPeriodMap.set(
+                        playtimeHistory.gameId,
+                        targetValue,
+                    );
+                }
+            }
+        }
+
+        return Array.from(maxForGamesInPeriodMap.values()).reduce(
+            (acc, curr) => acc + curr,
+            0,
+        );
     }
 
     public async save(playtime: CreateUserPlaytimeDto) {

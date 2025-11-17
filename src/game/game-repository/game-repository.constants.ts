@@ -73,6 +73,28 @@ enum EGameStatus {
 }
 
 /**
+ * Common abbreviations used across the application for game platforms.
+ * This enum is not exaustive. Prefer to query the database for the full list of platforms.
+ * This should only be used to avoid magic strings in the codebase.
+ */
+enum GamePlatformAbbreviations {
+    PC = "PC",
+    // The OG Xbox.
+    Xbox = "XBOX",
+    XboxOne = "XONE",
+    XboxSeriesXS = "Series X|S",
+    Xbox360 = "X360",
+    PSVita = "Vita",
+    PS3 = "PS3",
+    PS4 = "PS4",
+    PS5 = "PS5",
+    Switch = "Switch",
+    Linux = "Linux",
+    Android = "Android",
+    iOS = "iOS",
+}
+
+/**
  * Where the game data is stored in the GameNode system.
  * Helps the clients determine the source of the data.
  */
@@ -99,7 +121,7 @@ const PlatformToIconMap: { [p: string]: string[] } = {
     playstation: ["PSVR", "PSVR2"],
     x360: ["X360"],
     xone: ["XONE"],
-    xseriesx: ["Series X"],
+    xseriesx: ["Series X|S"],
     xbox: ["XBOX"],
     nswitch: ["Switch"],
     n64: ["N64"],
@@ -127,5 +149,6 @@ export {
     EGameExternalGameCategory,
     EGamePlatformCategory,
     EGameStorageSource,
+    GamePlatformAbbreviations,
     PlatformToIconMap,
 };

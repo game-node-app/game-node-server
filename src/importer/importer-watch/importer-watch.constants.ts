@@ -8,3 +8,8 @@ export type ImporterWatchJob = {
     userId: string;
     source: EImporterSource;
 };
+
+export type ImporterWatchAutoImportStats = {
+    imported: number;
+    skipped: number;
+};

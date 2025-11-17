@@ -2,11 +2,11 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { CollectionEntryToCollection } from "../entities/collection-entry-to-collection.entity";
 import { In, Repository } from "typeorm";
-import {
-    COLLECTION_ENTRY_ORDERING_GAP,
-    COLLECTION_ENTRY_ORDERING_NORMALIZATION_THRESHOLD,
-} from "../collections-entries.constants";
 import { CollectionEntryUpdateOrderingDto } from "../dto/collection-entry-update-ordering.dto";
+import {
+    DEFAULT_ORDERING_GAP,
+    DEFAULT_ORDERING_NORMALIZATION_THRESHOLD,
+} from "../../../utils/ordering";
 
 /**
  * Service responsible for handling collection to collection entry ordering.
@@ -64,10 +64,10 @@ export class CollectionsOrderingService {
             newOrder = (before.order + after.order) / 2;
         } else if (before) {
             // Move to the *end* (after "before")
-            newOrder = before.order + COLLECTION_ENTRY_ORDERING_GAP;
+            newOrder = before.order + DEFAULT_ORDERING_GAP;
         } else if (after) {
             // Move to the *beginning* (before "after")
-            newOrder = after.order - COLLECTION_ENTRY_ORDERING_GAP;
+            newOrder = after.order - DEFAULT_ORDERING_GAP;
         }
 
         await this.collectionEntryToCollectionRepository.update(
@@ -81,8 +81,7 @@ export class CollectionsOrderingService {
         );
 
         if (
-            Math.abs(newOrder) >
-                COLLECTION_ENTRY_ORDERING_NORMALIZATION_THRESHOLD ||
+            Math.abs(newOrder) < DEFAULT_ORDERING_NORMALIZATION_THRESHOLD ||
             !Number.isFinite(newOrder)
         ) {
             await this.normalizeCollectionOrdering(collectionId);
@@ -106,7 +105,7 @@ export class CollectionsOrderingService {
         });
 
         for (let i = 0; i < entries.length; i++) {
-            entries[i].order = i + COLLECTION_ENTRY_ORDERING_GAP;
+            entries[i].order = (i + 1) * DEFAULT_ORDERING_GAP;
         }
 
         await this.collectionEntryToCollectionRepository.save(entries);

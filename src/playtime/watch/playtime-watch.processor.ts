@@ -25,6 +25,8 @@ import { seconds } from "@nestjs/throttler";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import { match, P } from "ts-pattern";
 import { ConnectionSyncGateway } from "../../connection/connection-sync/connection-sync.gateway";
+import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
+import { getPreferredXboxPlatformAbbreviation } from "../../sync/xbox/util/get-preferred-xbox-platform-abbreviation";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     concurrency: 1,
@@ -482,60 +484,47 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 (externalGame) => externalGame.uid === relevantGame.productId,
             )!;
 
-            const playedPlatforms = relevantGame.devices.map((device) => {
-                return match(device)
-                    .with(P.union("PC", "Win32"), () => platformsMap.get("PC")!)
-                    .with("Xbox360", () => platformsMap.get("X360")!)
-                    .with("XboxOne", () => platformsMap.get("XONE")!)
-                    .with("XboxSeries", () => platformsMap.get("Series X|S")!)
-                    .otherwise(() => platformsMap.get("Series X|S")!);
-            });
+            const deviceTitles = relevantGame.devices.flat(1);
 
-            for (const platform of playedPlatforms) {
-                const existingPlaytimeInfo = await this.playtimeService.findOne(
-                    userId,
-                    relevantExternalGame.gameId,
-                    UserPlaytimeSource.XBOX,
-                    platform.id,
-                );
+            const preferredPlatformAbbreviation =
+                getPreferredXboxPlatformAbbreviation(deviceTitles);
+            const preferredPlatform = platformsMap.get(
+                preferredPlatformAbbreviation,
+            )!;
 
-                const playtime: CreateUserPlaytimeDto = {
-                    ...existingPlaytimeInfo,
-                    gameId: relevantExternalGame.gameId,
-                    profileUserId: userId,
-                    lastPlayedDate: relevantGame.titleHistory?.lastTimePlayed
-                        ? new Date(relevantGame.titleHistory?.lastTimePlayed)
-                        : null,
-                    recentPlaytimeSeconds: undefined,
-                    totalPlaytimeSeconds: Number.parseInt(stats.value) * 60,
-                    totalPlayCount: 0,
-                    firstPlayedDate: undefined,
-                    source: UserPlaytimeSource.XBOX,
-                    platformId: platform.id,
-                };
+            const existingPlaytimeInfo = await this.playtimeService.findOne(
+                userId,
+                relevantExternalGame.gameId,
+                UserPlaytimeSource.XBOX,
+                preferredPlatform.id,
+            );
 
-                const hasChangedTotalPlaytime =
-                    existingPlaytimeInfo != undefined &&
-                    existingPlaytimeInfo.totalPlaytimeSeconds !=
-                        playtime.totalPlaytimeSeconds;
+            const playtime: CreateUserPlaytimeDto = {
+                ...existingPlaytimeInfo,
+                gameId: relevantExternalGame.gameId,
+                profileUserId: userId,
+                lastPlayedDate: relevantGame.titleHistory?.lastTimePlayed
+                    ? new Date(relevantGame.titleHistory?.lastTimePlayed)
+                    : null,
+                recentPlaytimeSeconds: undefined,
+                totalPlaytimeSeconds: Number.parseInt(stats.value) * 60,
+                totalPlayCount: 0,
+                firstPlayedDate: undefined,
+                source: UserPlaytimeSource.XBOX,
+                platformId: preferredPlatform.id,
+            };
 
-                if (hasChangedTotalPlaytime) {
-                    playtime.totalPlayCount =
-                        existingPlaytimeInfo!.totalPlayCount + 1;
-                }
+            const hasChangedTotalPlaytime =
+                existingPlaytimeInfo != undefined &&
+                existingPlaytimeInfo.totalPlaytimeSeconds !=
+                    playtime.totalPlaytimeSeconds;
 
-                job.updateProgress({
-                    gameName: relevantExternalGame.name,
-                    platform: platform.abbreviation,
-                    totalPlaytimeSeconds: playtime.totalPlaytimeSeconds,
-                } satisfies PlaytimeWatchJobProgress);
-
-                await this.playtimeService.save(playtime);
+            if (hasChangedTotalPlaytime) {
+                playtime.totalPlayCount =
+                    existingPlaytimeInfo!.totalPlayCount + 1;
             }
-        }
 
-        job.updateProgress({
-            totalUpdatedGames: allGames.length,
-        } satisfies PlaytimeWatchJobProgress);
+            await this.playtimeService.save(playtime);
+        }
     }
 }

@@ -3,7 +3,6 @@ import { CollectionsService } from "../../collections/collections.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
 import { PlaytimeService } from "../../playtime/playtime.service";
-import dayjs from "dayjs";
 
 @Injectable()
 export class ProfileMetricsService {

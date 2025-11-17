@@ -7,6 +7,7 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
 import { ProfileMetricsDistributionService } from "./profile-metrics-distribution.service";
 import { ReviewsModule } from "../../reviews/reviews.module";
 import { PlaytimeModule } from "../../playtime/playtime.module";
+import { ProfileMetricsReportService } from "./profile-metrics-report.service";
 
 @Module({
     imports: [
@@ -17,6 +18,10 @@ import { PlaytimeModule } from "../../playtime/playtime.module";
         ReviewsModule,
     ],
     controllers: [ProfileMetricsController],
-    providers: [ProfileMetricsService, ProfileMetricsDistributionService],
+    providers: [
+        ProfileMetricsService,
+        ProfileMetricsDistributionService,
+        ProfileMetricsReportService,
+    ],
 })
 export class ProfileMetricsModule {}

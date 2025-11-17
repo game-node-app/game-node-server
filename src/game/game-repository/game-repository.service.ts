@@ -25,6 +25,7 @@ import {
 import { buildGameFilterFindOptions } from "./utils/build-game-filter-find-options";
 import { Cacheable } from "../../utils/cacheable";
 import { hours, minutes } from "@nestjs/throttler";
+import { getIconNamesForPlatformAbbreviations } from "./game-repository.utils";
 
 /**
  * Look-up table between resource names and their respective entities
@@ -139,7 +140,7 @@ export class GameRepositoryService {
         return games;
     }
 
-    // @Cacheable(GameRepositoryService.name, minutes(30))
+    @Cacheable(GameRepositoryService.name, hours(1))
     async findGameExternalStores(gameId: number) {
         const externalGames = await this.externalGameService.findAllForGameId([
             gameId,
@@ -205,16 +206,6 @@ export class GameRepositoryService {
         const platformAbbreviations = platforms.map(
             (platform) => platform.abbreviation,
         );
-        const iconsNames: string[] = [];
-        for (const [iconName, platforms] of Object.entries(PlatformToIconMap)) {
-            const abbreviationPresent = platformAbbreviations.some(
-                (abbreviation) => platforms.includes(abbreviation),
-            );
-            if (abbreviationPresent) {
-                iconsNames.push(iconName);
-            }
-        }
-
-        return iconsNames;
+        return getIconNamesForPlatformAbbreviations(platformAbbreviations);
     }
 }

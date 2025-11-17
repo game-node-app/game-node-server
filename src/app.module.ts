@@ -41,6 +41,7 @@ import { addTransactionalDataSource } from "typeorm-transactional";
 import { DataSource } from "typeorm";
 import { AwardsModule } from './awards/awards.module';
 import { UserAccountModule } from './user/user-account/user-account.module';
+import { PreferredPlatformModule } from './preferred-platform/preferred-platform.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -198,6 +199,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         JournalModule,
         AwardsModule,
         UserAccountModule,
+        PreferredPlatformModule,
     ],
 })
 export class AppModule implements NestModule {
