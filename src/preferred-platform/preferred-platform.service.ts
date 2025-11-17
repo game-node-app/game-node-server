@@ -4,9 +4,6 @@ import { PreferredPlatform } from "./entity/preferred-platform.entity";
 import { PreferredPlatformDto } from "./dto/preferred-platform.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { CreatePreferredPlatformDto } from "./dto/create-preferred-platform.dto";
-import { PreferredPlatformReorderService } from "./preferred-platform-reorder.service";
-import { DEFAULT_ORDERING_GAP } from "../utils/ordering";
-import { PlatformToIconMap } from "../game/game-repository/game-repository.constants";
 import { getIconNameForPlatformAbbreviation } from "../game/game-repository/game-repository.utils";
 import { Cacheable } from "../utils/cacheable";
 import { minutes } from "@nestjs/throttler";
@@ -29,7 +26,6 @@ export class PreferredPlatformService {
     constructor(
         @InjectRepository(PreferredPlatform)
         private readonly preferredPlatformRepository: Repository<PreferredPlatform>,
-        private readonly preferredPlatformReorderService: PreferredPlatformReorderService,
     ) {}
 
     async findOneByUserIdAndPlatformIdOrFail(
@@ -38,9 +34,6 @@ export class PreferredPlatformService {
     ): Promise<PreferredPlatformDto | null> {
         const item = await this.preferredPlatformRepository.findOneOrFail({
             where: { libraryUserId: userId, platformId },
-            order: {
-                order: "ASC",
-            },
             relations: this.RELATIONS,
         });
 
@@ -51,7 +44,6 @@ export class PreferredPlatformService {
         const items = await this.preferredPlatformRepository.find({
             where: { libraryUserId: userId },
             relations: this.RELATIONS,
-            order: { order: "ASC" },
         });
 
         return items.map(toDto);
@@ -64,7 +56,6 @@ export class PreferredPlatformService {
         const items = await this.preferredPlatformRepository.find({
             where: { libraryUserId: userId, enabled: true },
             relations: this.RELATIONS,
-            order: { order: "ASC" },
         });
 
         return items.map(toDto);
@@ -87,15 +78,10 @@ export class PreferredPlatformService {
             dto.platformId,
         );
 
-        const maxOrder =
-            await this.preferredPlatformReorderService.getMaxOrderValue(userId);
-        const nextOrder = maxOrder + DEFAULT_ORDERING_GAP;
-
         await this.preferredPlatformRepository.save({
             ...existing,
             libraryUserId: userId,
             platformId: dto.platformId,
-            order: existing ? existing.order : nextOrder,
             enabled: dto.isEnabled ?? true,
             label: dto.label,
         });

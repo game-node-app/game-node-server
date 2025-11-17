@@ -14,7 +14,6 @@ import { Library } from "../../libraries/entities/library.entity";
 
 @Entity()
 @Unique(["libraryUserId", "platformId"])
-@Index(["libraryUserId", "order"])
 export class PreferredPlatform {
     @PrimaryGeneratedColumn()
     id: number;
@@ -23,7 +22,6 @@ export class PreferredPlatform {
     libraryUserId: string;
 
     @ManyToOne(() => Library, { onDelete: "CASCADE" })
-    @JoinColumn({ name: "libraryUserId", referencedColumnName: "userId" })
     @Index()
     library: Library;
 
@@ -34,9 +32,6 @@ export class PreferredPlatform {
 
     @ManyToOne(() => GamePlatform, { onDelete: "CASCADE", nullable: false })
     platform: GamePlatform;
-
-    @Column({ type: "float", default: 0 })
-    order: number;
 
     @Column({ default: true })
     enabled: boolean;

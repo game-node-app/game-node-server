@@ -16,7 +16,6 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 import { PreferredPlatformService } from "./preferred-platform.service";
 import { CreatePreferredPlatformDto } from "./dto/create-preferred-platform.dto";
 import { UpdatePreferredPlatformOrderDto } from "./dto/update-preferred-platform-order.dto";
-import { PreferredPlatformReorderService } from "./preferred-platform-reorder.service";
 
 @Controller("preferred-platform")
 @ApiTags("preferred-platform")
@@ -24,7 +23,6 @@ import { PreferredPlatformReorderService } from "./preferred-platform-reorder.se
 export class PreferredPlatformController {
     constructor(
         private readonly preferredPlatformService: PreferredPlatformService,
-        private readonly preferredPlatformReorderService: PreferredPlatformReorderService,
     ) {}
 
     @Get()
@@ -40,17 +38,6 @@ export class PreferredPlatformController {
         @Body() dto: CreatePreferredPlatformDto,
     ) {
         return this.preferredPlatformService.createOrUpdate(
-            session.getUserId(),
-            dto,
-        );
-    }
-
-    @Patch("order")
-    async updateOrder(
-        @Session() session: SessionContainer,
-        @Body() dto: UpdatePreferredPlatformOrderDto,
-    ) {
-        return this.preferredPlatformReorderService.reorderPreferredPlatforms(
             session.getUserId(),
             dto,
         );

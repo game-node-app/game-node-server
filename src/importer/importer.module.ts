@@ -11,6 +11,7 @@ import { ExternalGameModule } from "../game/external-game/external-game.module";
 import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
 import { ImporterSearchService } from "./importer-search/importer-search.service";
 import { PreferredPlatformModule } from "../preferred-platform/preferred-platform.module";
+import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
 
 @Module({
     imports: [
@@ -23,7 +24,7 @@ import { PreferredPlatformModule } from "../preferred-platform/preferred-platfor
         PsnSyncModule,
         XboxSyncModule,
         ExternalGameModule,
-        PreferredPlatformModule,
+        GameRepositoryModule,
     ],
     providers: [ImporterService, ImporterSearchService],
     controllers: [ImporterController],
