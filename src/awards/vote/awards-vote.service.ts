@@ -6,6 +6,11 @@ import { AwardsVote } from "../entity/awards-vote.entity";
 import { Repository } from "typeorm";
 import dayjs from "dayjs";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
+import { toMap } from "../../utils/toMap";
+import { Cacheable } from "../../utils/cacheable";
+import { minutes } from "@nestjs/throttler";
+import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
+import { AchievementCategory } from "../../achievements/achievements.constants";
 
 @Injectable()
 export class AwardsVoteService {
@@ -14,6 +19,7 @@ export class AwardsVoteService {
         private readonly awardsVoteRepository: Repository<AwardsVote>,
         private readonly awardsService: AwardsService,
         private readonly gameRepositoryService: GameRepositoryService,
+        private readonly achievementsQueueService: AchievementsQueueService,
     ) {}
 
     /**
@@ -69,6 +75,11 @@ export class AwardsVoteService {
             categoryId: dto.categoryId,
             gameId: dto.gameId,
         });
+
+        this.achievementsQueueService.addTrackingJob({
+            category: AchievementCategory.EVENTS,
+            targetUserId: userId,
+        });
     }
 
     public async getVoteByUserId(userId: string, categoryId: number) {
@@ -80,7 +91,27 @@ export class AwardsVoteService {
         });
     }
 
-    public getAwardsVoteQueryBuilder() {
-        return this.awardsVoteRepository.createQueryBuilder("vote");
+    @Cacheable(AwardsVoteService.name, minutes(10))
+    public async getRecentVotesByEventId(eventId: number) {
+        const votesInEvent = await this.awardsVoteRepository.find({
+            where: {
+                category: {
+                    eventId: eventId,
+                },
+            },
+            relations: {
+                category: {
+                    event: true,
+                },
+            },
+            order: {
+                // ASC so last elements appear last in list (and are then present in map)
+                createdAt: "ASC",
+            },
+        });
+
+        const mappedByUserId = toMap(votesInEvent, "profileUserId");
+
+        return Array.from(mappedByUserId.values()).slice(0, 10);
     }
 }
