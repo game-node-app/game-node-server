@@ -13,6 +13,12 @@ import { Public } from "../../auth/public.decorator";
 export class AwardsVoteController {
     constructor(private readonly awardsVoteService: AwardsVoteService) {}
 
+    @Get(":eventId/recent")
+    @Public()
+    public async getRecentVotesByEventId(@Param("eventId") eventId: number) {
+        return this.awardsVoteService.getRecentVotesByEventId(eventId);
+    }
+
     @Get(":userId/:categoryId")
     @Public()
     public async getVoteByUserId(

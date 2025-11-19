@@ -19,6 +19,7 @@ import { AWARDS_RESULT_QUEUE_NAME } from "./result/constants";
 import { AwardsResultQueue } from "./result/awards-result.queue";
 import { AwardsResultProcessor } from "./result/awards-result.processor";
 import { AwardsResultService } from "./result/awards-result.service";
+import { AchievementsModule } from "../achievements/achievements.module";
 
 @Module({
     imports: [
@@ -34,6 +35,7 @@ import { AwardsResultService } from "./result/awards-result.service";
         BullModule.registerQueue({
             name: AWARDS_RESULT_QUEUE_NAME,
         }),
+        AchievementsModule,
     ],
     providers: [
         AwardsAdminService,
