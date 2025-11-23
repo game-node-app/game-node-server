@@ -56,6 +56,10 @@ export class GameCompany {
     })
     @JoinColumn()
     parent?: GameCompany;
+    @Column({
+        nullable: true,
+    })
+    parentId: number | null;
 
     @Column({ type: "varchar", length: 255 })
     slug: string;

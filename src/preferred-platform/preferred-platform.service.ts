@@ -28,16 +28,32 @@ export class PreferredPlatformService {
         private readonly preferredPlatformRepository: Repository<PreferredPlatform>,
     ) {}
 
-    async findOneByUserIdAndPlatformIdOrFail(
+    async findOneByUserIdAndPlatformId(
         userId: string,
         platformId: number,
     ): Promise<PreferredPlatformDto | null> {
-        const item = await this.preferredPlatformRepository.findOneOrFail({
+        const item = await this.preferredPlatformRepository.findOne({
             where: { libraryUserId: userId, platformId },
             relations: this.RELATIONS,
         });
 
-        return toDto(item);
+        return item ? toDto(item) : null;
+    }
+
+    async findOneByUserIdAndPlatformIdOrFail(
+        userId: string,
+        platformId: number,
+    ): Promise<PreferredPlatformDto> {
+        const item = await this.findOneByUserIdAndPlatformId(
+            userId,
+            platformId,
+        );
+
+        if (!item) {
+            throw new HttpException("Preferred platform not found", 404);
+        }
+
+        return item;
     }
 
     async findAllByUserId(userId: string): Promise<PreferredPlatformDto[]> {
@@ -93,13 +109,8 @@ export class PreferredPlatformService {
             platformId,
         );
 
-        if (!existing) {
-            throw new HttpException("Preferred platform not found", 404);
-        }
-
         await this.preferredPlatformRepository.softDelete({
-            libraryUserId: userId,
-            platformId,
+            id: existing.id,
         });
     }
 }
