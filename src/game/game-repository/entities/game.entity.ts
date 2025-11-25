@@ -158,7 +158,6 @@ export class Game {
     //
     // **Relationships**
     //
-
     @OneToOne(() => GameCover, (cover) => cover.game, {
         nullable: true,
     })

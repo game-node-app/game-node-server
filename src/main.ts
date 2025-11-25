@@ -1,3 +1,5 @@
+import tracer from "./instrumentation";
+
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { SupertokensExceptionFilter } from "./auth/auth.filter";
@@ -7,10 +9,10 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import duration from "dayjs/plugin/duration";
 import dayjs from "dayjs";
 import supertokens from "supertokens-node";
-
 import { publicImagesDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
+
 import * as process from "process";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
 import { AxiosExceptionFilter } from "./filter/axios-exception.filter";
@@ -18,15 +20,19 @@ import {
     initializeTransactionalContext,
     StorageDriver,
 } from "typeorm-transactional";
+import { Logger } from "nestjs-pino";
 
 dayjs.extend(duration);
 
 async function bootstrap() {
+    await tracer.start();
     initializeTransactionalContext({
         storageDriver: StorageDriver.ASYNC_LOCAL_STORAGE,
     });
 
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+    app.useLogger(app.get(Logger));
 
     /**
      * Trust IP Address received from proxy

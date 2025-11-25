@@ -5,7 +5,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ScheduleModule } from "@nestjs/schedule";
 import { BullModule } from "@nestjs/bullmq";
-import { LoggerMiddleware } from "./app.logger.middlewhare";
 import { GlobalModule } from "./global/global.module";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
@@ -39,9 +38,10 @@ import { GameAchievementModule } from "./game/game-achievement/game-achievement.
 import { JournalModule } from "./journal/journal.module";
 import { addTransactionalDataSource } from "typeorm-transactional";
 import { DataSource } from "typeorm";
-import { AwardsModule } from './awards/awards.module';
-import { UserAccountModule } from './user/user-account/user-account.module';
-import { PreferredPlatformModule } from './preferred-platform/preferred-platform.module';
+import { AwardsModule } from "./awards/awards.module";
+import { UserAccountModule } from "./user/user-account/user-account.module";
+import { PreferredPlatformModule } from "./preferred-platform/preferred-platform.module";
+import { LoggerModule } from "nestjs-pino";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -76,6 +76,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
             isGlobal: true,
         }),
         ScheduleModule.forRoot(),
+        LoggerModule.forRoot(),
         GlobalModule,
         AuthModule,
         HealthModule,
@@ -167,7 +168,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
                         reconnectOnError: () => {
                             return true;
                         },
-                    } as any),
+                    }),
                 };
             },
         }),
@@ -204,6 +205,6 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
-        consumer.apply(LoggerMiddleware).forRoutes("*");
+        // consumer.apply(LoggerMiddleware).forRoutes("*");
     }
 }

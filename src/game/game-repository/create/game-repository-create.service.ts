@@ -1,35 +1,21 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, DeepPartial, In, Repository } from "typeorm";
+import { DataSource, DeepPartial, ObjectLiteral, Repository } from "typeorm";
 import { Game } from "../entities/game.entity";
-import { GameAlternativeName } from "../entities/game-alternative-name.entity";
-import { GameArtwork } from "../entities/game-artwork.entity";
-import { GameCover } from "../entities/game-cover.entity";
-import { GameScreenshot } from "../entities/game-screenshot.entity";
-import { GameFranchise } from "../entities/game-franchise.entity";
-import { GameLocalization } from "../entities/game-localization.entity";
-import { GameMode } from "../entities/game-mode.entity";
-import { GameGenre } from "../entities/game-genre.entity";
-import { GameKeyword } from "../entities/game-keyword.entity";
-import { GamePlatform } from "../entities/game-platform.entity";
-import { GameInvolvedCompany } from "../entities/game-involved-company.entity";
 import { GameCompany } from "../entities/game-company.entity";
 import { GameCompanyLogo } from "../entities/game-company-logo.entity";
-import { GameTheme } from "../entities/game-theme.entity";
-import { GamePlayerPerspective } from "../entities/game-player-perspective.entity";
 import { GameEngine } from "../entities/game-engine.entity";
-import { GameEngineLogo } from "../entities/game-engine-logo.entity";
 import { StatisticsQueueService } from "../../../statistics/statistics-queue/statistics-queue.service";
-import { ExternalGameService } from "../../external-game/external-game.service";
 import { IGDBPartialGame } from "../game-repository.types";
 import { StatisticsSourceType } from "../../../statistics/statistics.constants";
 import {
-    handleManyToMany,
-    handleOneToMany,
-    handleOneToOne,
+    hasChecksumChanged,
+    ObjectWithChecksum,
 } from "./game-repository-create.utils";
-import { GameExternalGame } from "../../external-game/entity/game-external-game.entity";
 import { toMap } from "../../../utils/toMap";
+import { GamePropertyPathToEntityMap } from "../game-repository.constants";
+import { GamePlatform } from "../entities/game-platform.entity";
+import { ArrayKeys, NonArrayKeys } from "../../../utils/arrayKeys";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -77,7 +63,10 @@ export class GameRepositoryCreateService {
         const shouldProcess = await this.isValidEntry(game);
 
         if (!shouldProcess) {
-            return;
+            return {
+                upserted: false,
+                propertiesUpdated: [],
+            };
         }
 
         const existing = await this.gameRepository.findOne({
@@ -86,6 +75,7 @@ export class GameRepositoryCreateService {
         });
 
         if (existing == undefined || existing.checksum !== game.checksum) {
+            this.logger.log(`Upserting game ${game.id} - ${game.name}`);
             await this.gameRepository.upsert(game, ["id"]);
         }
 
@@ -179,109 +169,7 @@ export class GameRepositoryCreateService {
             relationLoadStrategy: "query",
         });
 
-        await handleOneToOne(
-            incoming,
-            existing,
-            "cover",
-            this.dataSource.getRepository(GameCover),
-        );
-        await handleOneToMany(
-            incoming,
-            existing,
-            "alternativeNames",
-            this.dataSource.getRepository(GameAlternativeName),
-        );
-        await handleOneToMany(
-            incoming,
-            existing,
-            "artworks",
-            this.dataSource.getRepository(GameArtwork),
-        );
-        await handleOneToMany(
-            incoming,
-            existing,
-            "screenshots",
-            this.dataSource.getRepository(GameScreenshot),
-        );
-        await handleOneToMany(
-            incoming,
-            existing,
-            "gameLocalizations",
-            this.dataSource.getRepository(GameLocalization),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "externalGames",
-            this.dataSource.getRepository(GameExternalGame),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "franchises",
-            this.dataSource.getRepository(GameFranchise),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "platforms",
-            this.dataSource.getRepository(GamePlatform),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "keywords",
-            this.dataSource.getRepository(GameKeyword),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "genres",
-            this.dataSource.getRepository(GameGenre),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "dlcs",
-            this.dataSource.getRepository(Game),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "expansions",
-            this.dataSource.getRepository(Game),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "expandedGames",
-            this.dataSource.getRepository(Game),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "similarGames",
-            this.dataSource.getRepository(Game),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "themes",
-            this.dataSource.getRepository(GameTheme),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "gameModes",
-            this.dataSource.getRepository(GameMode),
-        );
-        await handleManyToMany(
-            incoming,
-            existing,
-            "playerPerspectives",
-            this.dataSource.getRepository(GamePlayerPerspective),
-        );
-
+        // Treatment for deprecated fields
         for (const externalGame of incoming.externalGames) {
             externalGame.category =
                 externalGame.category ?? externalGame.externalGameSource;
@@ -289,7 +177,157 @@ export class GameRepositoryCreateService {
                 externalGame.media ?? externalGame.gameReleaseFormat;
         }
 
+        const relationsPromises: Promise<void>[] = [
+            this.handleOneToOne(incoming, existing, "cover"),
+            this.handleOneToMany(incoming, existing, "alternativeNames"),
+            this.handleOneToMany(incoming, existing, "artworks"),
+            this.handleOneToMany(incoming, existing, "screenshots"),
+            this.handleOneToMany(incoming, existing, "gameLocalizations"),
+            this.handleManyToMany(incoming, existing, "franchises"),
+            this.handleManyToMany(incoming, existing, "platforms"),
+            this.handleManyToMany(incoming, existing, "keywords"),
+            this.handleManyToMany(incoming, existing, "genres"),
+            this.handleManyToMany(incoming, existing, "dlcs"),
+            this.handleManyToMany(incoming, existing, "expansions"),
+            this.handleManyToMany(incoming, existing, "expandedGames"),
+            this.handleManyToMany(incoming, existing, "similarGames"),
+            this.handleManyToMany(incoming, existing, "themes"),
+            this.handleManyToMany(incoming, existing, "gameModes"),
+            this.handleManyToMany(incoming, existing, "playerPerspectives"),
+            this.handleManyToMany(incoming, existing, "externalGames"),
+        ];
+
+        await Promise.all(relationsPromises);
+
         await this.handleDeepNestedEntities(incoming, existing);
+    }
+
+    async handleManyToMany<
+        K extends ArrayKeys<Game>,
+        V extends Game[K],
+        E extends V extends Array<infer U extends ObjectWithChecksum>
+            ? U
+            : never,
+    >(incoming: IGDBPartialGame, existing: Game, propertyPath: K) {
+        const target = GamePropertyPathToEntityMap[propertyPath]!;
+        const repository = this.dataSource.getRepository(
+            GamePropertyPathToEntityMap[propertyPath]!,
+        );
+        const incomingData = incoming[propertyPath] as E[];
+        const existingData = existing[propertyPath] as E[];
+
+        if (incomingData == undefined) {
+            return;
+        }
+        if (!hasChecksumChanged(incomingData, existingData)) {
+            return;
+        }
+
+        const incomingParsed = incomingData.map((item) =>
+            repository.create({ ...item, game: existing, gameId: existing.id }),
+        );
+
+        const existingNotInIncoming = existingData?.filter((item) => {
+            return !incomingData.some(
+                (incomingItem) => incomingItem.id === item.id,
+            );
+        });
+
+        const incomingNotInExisting = incomingData?.filter((item) => {
+            if (!existingData) return true;
+
+            return !existingData.some(
+                (existingItem) => existingItem.id === item.id,
+            );
+        });
+
+        /**
+         * Only performs upsert if entity is not self referencing (Game to Game relations).
+         */
+        if (!(target instanceof Game)) {
+            this.logger.log(
+                `Upserting ${incomingParsed.length} items for ${String(propertyPath)}`,
+            );
+            await repository.upsert(incomingParsed, ["id"]);
+        }
+
+        this.logger.log(
+            `Updating relations for ${String(propertyPath)} - Adding: ${incomingNotInExisting.length}, Removing: ${existingNotInIncoming.length}`,
+        );
+        await repository
+            .createQueryBuilder()
+            .relation(Game, propertyPath)
+            .of(existing)
+            // Updates the junction table with new/removed associations
+            .addAndRemove(incomingNotInExisting, existingNotInIncoming);
+    }
+
+    async handleOneToMany<
+        K extends ArrayKeys<Game>,
+        V extends Game[K],
+        E extends V extends Array<infer U extends ObjectWithChecksum>
+            ? U
+            : never,
+    >(incoming: IGDBPartialGame, existing: Game, propertyPath: K) {
+        const repository = this.dataSource.getRepository(
+            GamePropertyPathToEntityMap[propertyPath]!,
+        );
+        const incomingData = incoming[propertyPath] as E[] | undefined;
+        const existingData = existing[propertyPath] as unknown as E[];
+
+        if (incomingData == undefined) {
+            return;
+        }
+        if (!hasChecksumChanged(incomingData, existingData)) {
+            return;
+        }
+
+        const incomingParsed = incomingData.map((item) =>
+            repository.create({ ...item, game: existing, gameId: existing.id }),
+        );
+
+        this.logger.log(
+            `Upserting ${incomingParsed.length} items for ${String(propertyPath)}`,
+        );
+        await repository.upsert(incomingParsed, ["id"]);
+    }
+
+    async handleOneToOne<
+        K extends NonArrayKeys<Game>,
+        V extends Game[K],
+        E extends V extends ObjectWithChecksum ? V : never,
+    >(incoming: IGDBPartialGame, existing: Game, propertyPath: K) {
+        const repository = this.dataSource.getRepository(
+            GamePropertyPathToEntityMap[propertyPath]!,
+        );
+        const incomingData = incoming[propertyPath] as E | undefined;
+        const existingData = existing[propertyPath] as E | undefined;
+
+        if (incomingData == undefined || typeof incomingData !== "object") {
+            return;
+        }
+
+        if (
+            existingData &&
+            incomingData.id === existingData.id &&
+            incomingData.checksum === existingData.checksum
+        ) {
+            return;
+        }
+
+        this.logger.log(
+            `Upserting item for ${String(propertyPath)} - ID: ${incomingData.id}`,
+        );
+
+        await repository.upsert(
+            { ...incomingData, game: existing, gameId: existing.id },
+            ["id"],
+        );
+        await repository
+            .createQueryBuilder()
+            .relation(Game, propertyPath)
+            .of(existing)
+            .set(incomingData);
     }
 
     async handleCompanies(incoming: IGDBPartialGame, existing: Game) {
@@ -362,28 +400,34 @@ export class GameRepositoryCreateService {
 
         if (engines.length === 0) return;
 
-        await handleManyToMany(incoming, existing, "gameEngines", repository);
+        await this.handleManyToMany(incoming, existing, "gameEngines");
 
         for (const engine of engines) {
             const existingPlatforms =
                 existingEnginesMap.get(engine.id!)?.platforms ?? [];
             const existingPlatformsMap = toMap(existingPlatforms, "id");
-            const changedPlatforms = (engine.platforms ?? []).filter(
+            const incomingPlatforms = (engine.platforms ??
+                []) as GamePlatform[];
+            const incomingPlatformsMap = toMap(incomingPlatforms, "id");
+
+            const existingNotInIncoming = existingPlatforms.filter(
+                (platform) => !incomingPlatformsMap.has(platform.id!),
+            );
+            const incomingNotInExisting = (engine.platforms ?? []).filter(
                 (platform) => !existingPlatformsMap.has(platform.id!),
             );
-
-            if (changedPlatforms.length === 0) continue;
 
             await repository
                 .createQueryBuilder()
                 .relation(GameEngine, "platforms")
                 .of(engine)
-                .add(changedPlatforms);
+                .addAndRemove(incomingNotInExisting, existingNotInIncoming);
         }
     }
 
     /**
-     * Logic for handling entities that have deep nested relationships that also need to be upserted.
+     * Logic for handling entities that have deep nested relationships that also need to be upserted. <br>
+     * Ordering usually matters here.
      * @param incoming
      * @param existing
      */
@@ -394,11 +438,10 @@ export class GameRepositoryCreateService {
             for (const involvedCompany of incoming.involvedCompanies) {
                 involvedCompany.companyId = involvedCompany.company?.id;
             }
-            await handleManyToMany(
+            await this.handleManyToMany(
                 incoming,
                 existing,
                 "involvedCompanies",
-                this.dataSource.getRepository(GameInvolvedCompany),
             );
         }
 

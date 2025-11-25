@@ -24,7 +24,7 @@ export class GamePlatform {
     })
     alternative_name: string;
     @Column({
-        default: EGamePlatformCategory.Console,
+        default: 1,
     })
     category: EGamePlatformCategory;
     @Column({

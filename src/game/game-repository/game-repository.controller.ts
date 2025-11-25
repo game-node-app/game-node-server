@@ -7,13 +7,11 @@ import {
     Post,
     Query,
 } from "@nestjs/common";
-import {
-    GameRepositoryService,
-    TAllowedResource,
-} from "./game-repository.service";
+import { GameRepositoryService } from "./game-repository.service";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
 import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
 import { ApiTags } from "@nestjs/swagger";
+import { GameResource } from "./entities/base/game-resource.entity";
 
 @Controller("game/repository")
 @ApiTags("game-repository")
@@ -23,8 +21,10 @@ export class GameRepositoryController {
     ) {}
 
     @Get("resource")
-    async getResource(@Query("resourceName") resourceName: TAllowedResource) {
-        return await this.gameRepositoryService.getResource(resourceName);
+    async getResource(@Query("resourceName") resourceName: string) {
+        return await this.gameRepositoryService.getResource(
+            resourceName as keyof GameResource,
+        );
     }
 
     @Get(":id/platforms/icon")
