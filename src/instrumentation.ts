@@ -14,10 +14,11 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 
 const isProduction = process.env.NODE_ENV === "production";
+const useDebugExporter = process.env.OTEL_DEBUG_EXPORTER === "true";
 
 // Configure trace exporter - use console for development debugging
 const debugExporter = new ConsoleSpanExporter();
-const traceExporter = isProduction
+const traceExporter = !useDebugExporter
     ? new OTLPTraceExporter({
           url:
               process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||

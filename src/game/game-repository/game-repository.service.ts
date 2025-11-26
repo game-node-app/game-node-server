@@ -24,7 +24,7 @@ import { getIconNamesForPlatformAbbreviations } from "./game-repository.utils";
 import {
     GameAllowedResource,
     GamePropertyPathToEntityMap,
-} from "./game-repository.constants";
+} from "./create/game-repository-create.constants";
 
 @Injectable()
 export class GameRepositoryService {

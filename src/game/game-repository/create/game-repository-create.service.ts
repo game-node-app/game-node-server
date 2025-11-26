@@ -13,9 +13,9 @@ import {
     ObjectWithChecksum,
 } from "./game-repository-create.utils";
 import { toMap } from "../../../utils/toMap";
-import { GamePropertyPathToEntityMap } from "../game-repository.constants";
 import { GamePlatform } from "../entities/game-platform.entity";
 import { ArrayKeys, NonArrayKeys } from "../../../utils/arrayKeys";
+import { GamePropertyPathToEntityMap } from "./game-repository-create.constants";
 
 /**
  * Service responsible for data inserting and updating for all game-related models.
@@ -109,6 +109,9 @@ export class GameRepositoryCreateService {
                 expansions: true,
                 expandedGames: true,
                 similarGames: true,
+                gameLocalizations: true,
+                screenshots: true,
+                cover: true,
                 involvedCompanies: {
                     company: {
                         logo: true,
@@ -117,6 +120,9 @@ export class GameRepositoryCreateService {
                 themes: true,
                 gameModes: true,
                 playerPerspectives: true,
+                artworks: true,
+                externalGames: true,
+                alternativeNames: true,
                 gameEngines: {
                     companies: {
                         logo: true,
@@ -137,6 +143,12 @@ export class GameRepositoryCreateService {
                 themes: { id: true, checksum: true },
                 gameModes: { id: true, checksum: true },
                 playerPerspectives: { id: true, checksum: true },
+                gameLocalizations: { id: true, checksum: true },
+                screenshots: { id: true, checksum: true },
+                cover: { id: true, checksum: true },
+                alternativeNames: { id: true, checksum: true },
+                artworks: { id: true, checksum: true },
+                externalGames: { id: true, checksum: true },
                 involvedCompanies: {
                     id: true,
                     checksum: true,
@@ -169,12 +181,14 @@ export class GameRepositoryCreateService {
             relationLoadStrategy: "query",
         });
 
-        // Treatment for deprecated fields
-        for (const externalGame of incoming.externalGames) {
-            externalGame.category =
-                externalGame.category ?? externalGame.externalGameSource;
-            externalGame.media =
-                externalGame.media ?? externalGame.gameReleaseFormat;
+        if (incoming.externalGames) {
+            // Treatment for deprecated fields
+            for (const externalGame of incoming.externalGames) {
+                externalGame.category =
+                    externalGame.category ?? externalGame.externalGameSource;
+                externalGame.media =
+                    externalGame.media ?? externalGame.gameReleaseFormat;
+            }
         }
 
         const relationsPromises: Promise<void>[] = [
@@ -213,7 +227,8 @@ export class GameRepositoryCreateService {
         const repository = this.dataSource.getRepository(
             GamePropertyPathToEntityMap[propertyPath]!,
         );
-        const incomingData = incoming[propertyPath] as E[];
+        const gameEntityMetadata = this.dataSource.getMetadata(Game);
+        const incomingData = incoming[propertyPath] as E[] | undefined;
         const existingData = existing[propertyPath] as E[];
 
         if (incomingData == undefined) {
@@ -241,14 +256,23 @@ export class GameRepositoryCreateService {
             );
         });
 
+        const isSelfReferencing =
+            repository.target === gameEntityMetadata.target;
         /**
          * Only performs upsert if entity is not self referencing (Game to Game relations).
          */
-        if (!(target instanceof Game)) {
+        if (!isSelfReferencing) {
             this.logger.log(
                 `Upserting ${incomingParsed.length} items for ${String(propertyPath)}`,
             );
             await repository.upsert(incomingParsed, ["id"]);
+        }
+
+        if (
+            incomingNotInExisting.length === 0 &&
+            existingNotInIncoming.length === 0
+        ) {
+            return;
         }
 
         this.logger.log(
@@ -315,9 +339,7 @@ export class GameRepositoryCreateService {
             return;
         }
 
-        this.logger.log(
-            `Upserting item for ${String(propertyPath)} - ID: ${incomingData.id}`,
-        );
+        this.logger.log(`Upserting item for ${String(propertyPath)}`);
 
         await repository.upsert(
             { ...incomingData, game: existing, gameId: existing.id },

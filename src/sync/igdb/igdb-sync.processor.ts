@@ -1,4 +1,4 @@
-import { Processor } from "@nestjs/bullmq";
+import { OnWorkerEvent, Processor } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import {
@@ -23,7 +23,13 @@ export class IgdbSyncProcessor extends WorkerHostProcessor {
 
     async process(job: Job<IGDBPartialGame>) {
         if (job.name === IGDB_SYNC_JOB_NAME) {
-            await this.gameRepositoryCreateService.createOrUpdate(job.data);
+            console.time(`IGDB Sync Job - Game ID ${job.data.id}`);
+            try {
+                await this.gameRepositoryCreateService.createOrUpdate(job.data);
+            } catch (err) {
+                this.logger.error(err.message, err.stack);
+            }
+            console.timeEnd(`IGDB Sync Job - Game ID ${job.data.id}`);
         }
     }
 }
