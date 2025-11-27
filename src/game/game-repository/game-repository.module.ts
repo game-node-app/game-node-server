@@ -3,7 +3,6 @@ import { GameRepositoryService } from "./game-repository.service";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
 import { GameAlternativeName } from "./entities/game-alternative-name.entity";
-import { GameCollection } from "./entities/game-collection.entity";
 import { GameCover } from "./entities/game-cover.entity";
 import { GameArtwork } from "./entities/game-artwork.entity";
 import { GameScreenshot } from "./entities/game-screenshot.entity";
@@ -21,9 +20,10 @@ import { GameEngine } from "./entities/game-engine.entity";
 import { GameEngineLogo } from "./entities/game-engine-logo.entity";
 import { GameCompanyLogo } from "./entities/game-company-logo.entity";
 import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
-import { GameRepositoryCreateService } from "./game-repository-create.service";
 import { StatisticsQueueModule } from "../../statistics/statistics-queue/statistics-queue.module";
 import { ExternalGameModule } from "../external-game/external-game.module";
+import { GameRepositoryCreateService } from "./create/game-repository-create.service";
+import { GameCollection } from "./entities/game-collection.entity";
 
 /**
  * This is a pretty big module, with lots of dependencies.

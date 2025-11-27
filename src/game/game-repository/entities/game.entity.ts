@@ -4,7 +4,6 @@ import {
     Entity,
     JoinTable,
     ManyToMany,
-    ManyToOne,
     OneToMany,
     OneToOne,
     PrimaryColumn,
@@ -17,7 +16,6 @@ import {
     EGameStatus,
     EGameStorageSource,
 } from "../game-repository.constants";
-import { GameCollection } from "./game-collection.entity";
 import { GameCover } from "./game-cover.entity";
 import { GameScreenshot } from "./game-screenshot.entity";
 import { GameExternalGame } from "../../external-game/entity/game-external-game.entity";
@@ -131,44 +129,39 @@ export class Game {
         nullable: true,
     })
     @JoinTable()
-    expandedGames?: Game[];
+    expandedGames: Game[];
     @ManyToMany(() => Game, (game) => game.expandedGames, {
         nullable: true,
     })
-    expandedGameOf?: Game[];
+    expandedGameOf: Game[];
     @ManyToMany(() => Game, (game) => game.similarGameOf, {
         nullable: true,
     })
     @JoinTable()
-    similarGames?: Game[];
+    similarGames: Game[];
     @ManyToMany(() => Game, (game) => game.similarGames, {
         nullable: true,
     })
-    similarGameOf?: Game[];
+    similarGameOf: Game[];
     @ManyToMany(() => Game, (game) => game.remakeOf, {
         nullable: true,
     })
     @JoinTable()
-    remakes?: Game[];
+    remakes: Game[];
     @ManyToMany(() => Game, (game) => game.remakes)
-    remakeOf?: Game[];
+    remakeOf: Game[];
     @ManyToMany(() => Game, (game) => game.remasterOf)
     @JoinTable()
-    remasters?: Game[];
+    remasters: Game[];
     @ManyToMany(() => Game, (game) => game.remasters)
-    remasterOf?: Game[];
+    remasterOf: Game[];
     //
     // **Relationships**
     //
-
     @OneToOne(() => GameCover, (cover) => cover.game, {
         nullable: true,
     })
-    cover?: GameCover;
-    @ManyToOne(() => GameCollection, (gameCollection) => gameCollection.games, {
-        nullable: true,
-    })
-    collection?: GameCollection;
+    cover: GameCover;
     @OneToMany(
         () => GameAlternativeName,
         (gameAlternativeName) => gameAlternativeName.game,
@@ -176,15 +169,15 @@ export class Game {
             nullable: true,
         },
     )
-    alternativeNames?: GameAlternativeName[];
+    alternativeNames: GameAlternativeName[];
     @OneToMany(() => GameArtwork, (gameArtwork) => gameArtwork.game, {
         nullable: true,
     })
-    artworks?: GameArtwork[];
+    artworks: GameArtwork[];
     @OneToMany(() => GameScreenshot, (gameScreenshot) => gameScreenshot.game, {
         nullable: true,
     })
-    screenshots?: GameScreenshot[];
+    screenshots: GameScreenshot[];
 
     @OneToMany(
         () => GameLocalization,
@@ -193,42 +186,42 @@ export class Game {
             nullable: true,
         },
     )
-    gameLocalizations?: GameLocalization[];
+    gameLocalizations: GameLocalization[];
     @ManyToMany(() => GameMode, (gameMode) => gameMode.game, {
         nullable: true,
     })
     @JoinTable()
-    gameModes?: GameMode[];
+    gameModes: GameMode[];
     @ManyToMany(() => GameGenre, (gameGenre) => gameGenre.games, {
         nullable: true,
     })
     @JoinTable()
-    genres?: GameGenre[];
+    genres: GameGenre[];
     @ManyToMany(() => GameTheme, (gameTheme) => gameTheme.games)
     @JoinTable()
-    themes?: GameTheme[];
+    themes: GameTheme[];
 
     @ManyToMany(() => GamePlayerPerspective, (perspective) => perspective.games)
     @JoinTable()
-    playerPerspectives?: GamePlayerPerspective[];
+    playerPerspectives: GamePlayerPerspective[];
     @ManyToMany(() => GameEngine, (engine) => engine.games)
     @JoinTable()
-    gameEngines?: GameEngine[];
+    gameEngines: GameEngine[];
 
     @ManyToMany(() => GameKeyword, (gameKeyword) => gameKeyword.game, {
         nullable: true,
     })
     @JoinTable()
-    keywords?: GameKeyword[];
+    keywords: GameKeyword[];
     @ManyToMany(() => GameFranchise, (gameFranchise) => gameFranchise.games, {
         nullable: true,
     })
     @JoinTable()
-    franchises?: GameFranchise[];
+    franchises: GameFranchise[];
     @ManyToMany(() => GamePlatform, (gamePlatform) => gamePlatform.games, {
         nullable: true,
     })
-    platforms?: GamePlatform[];
+    platforms: GamePlatform[];
     @OneToMany(
         () => GameExternalGame,
         (gameExternalGame) => gameExternalGame.game,
@@ -236,7 +229,7 @@ export class Game {
             nullable: true,
         },
     )
-    externalGames?: GameExternalGame[];
+    externalGames: GameExternalGame[];
     @ManyToMany(
         () => GameInvolvedCompany,
         (involvedCompany) => involvedCompany.games,

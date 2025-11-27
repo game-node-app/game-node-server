@@ -1,19 +1,14 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
-import { DataSource, In, Repository } from "typeorm";
-import { GameGenre } from "./entities/game-genre.entity";
+import { DataSource, EntityTarget, In, Repository } from "typeorm";
 import { GamePlatform } from "./entities/game-platform.entity";
-import { GameTheme } from "./entities/game-theme.entity";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { BaseFindDto } from "../../utils/base-find.dto";
 import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
-import { GameMode } from "./entities/game-mode.entity";
-import { GamePlayerPerspective } from "./entities/game-player-perspective.entity";
 import { GameRepositoryFilterDto } from "./dto/game-repository-filter.dto";
-import { PlatformToIconMap } from "./game-repository.constants";
 import { GameExternalStoreDto } from "./dto/game-external-store.dto";
 import { toMap } from "../../utils/toMap";
 import { getRelationLoadStrategy } from "../../utils/getRelationLoadStrategy";
@@ -26,20 +21,10 @@ import { buildGameFilterFindOptions } from "./utils/build-game-filter-find-optio
 import { Cacheable } from "../../utils/cacheable";
 import { hours, minutes } from "@nestjs/throttler";
 import { getIconNamesForPlatformAbbreviations } from "./game-repository.utils";
-
-/**
- * Look-up table between resource names and their respective entities
- * e.g.: Can be used to quickly retrieve the target repository for a resource
- */
-const resourceToTargetEntityMap = {
-    platforms: GamePlatform,
-    genres: GameGenre,
-    themes: GameTheme,
-    gameModes: GameMode,
-    playerPerspectives: GamePlayerPerspective,
-};
-
-export type TAllowedResource = keyof typeof resourceToTargetEntityMap;
+import {
+    GameAllowedResource,
+    GamePropertyPathToEntityMap,
+} from "./create/game-repository-create.constants";
 
 @Injectable()
 export class GameRepositoryService {
@@ -174,9 +159,16 @@ export class GameRepositoryService {
     }
 
     @Cacheable(GameRepositoryService.name, hours(1))
-    async getResource(resource: TAllowedResource): Promise<any> {
-        const resourceAsEntity = resourceToTargetEntityMap[resource];
+    async getResource(resource: GameAllowedResource): Promise<any> {
+        const resourceAsEntity = GamePropertyPathToEntityMap[resource];
         if (resourceAsEntity == undefined) {
+            throw new HttpException("Resource type not allowed", 400);
+        }
+
+        /**
+         * Do not allow fetching games through this method
+         */
+        if (resourceAsEntity instanceof Game) {
             throw new HttpException("Resource type not allowed", 400);
         }
 

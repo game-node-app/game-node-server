@@ -48,7 +48,7 @@ enum EGameExternalGameMedia {
     Physical = 2,
 }
 
-enum EGamePlatformCategory {
+export enum EGamePlatformCategory {
     Console = 1,
     Arcade = 2,
     Platform = 3,
@@ -147,7 +147,6 @@ export {
     EGameStatus,
     EGameExternalGameMedia,
     EGameExternalGameCategory,
-    EGamePlatformCategory,
     EGameStorageSource,
     GamePlatformAbbreviations,
     PlatformToIconMap,

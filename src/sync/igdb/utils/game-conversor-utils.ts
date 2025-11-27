@@ -1,4 +1,5 @@
-import { IDGBPartialGame } from "../../../game/game-repository/game-repository.types";
+import { IGDBPartialGame } from "../../../game/game-repository/game-repository.types";
+import isEmptyObject from "../../../utils/isEmptyObject";
 
 export const snakeCaseToCamelCase = (str: string) => {
     if (str == null || str.startsWith("_")) {
@@ -36,7 +37,7 @@ export const objectKeysToCamelCase = (obj: any): any => {
  * Parses dates from a game object.
  * @param game
  */
-export const parseGameDates = (game: IDGBPartialGame) => {
+export const parseGameDates = (game: IGDBPartialGame) => {
     const parsedGame = structuredClone(game);
     const dateFields = [
         "createdAt",
@@ -67,3 +68,44 @@ export const parseGameDates = (game: IDGBPartialGame) => {
 
     return parsedGame;
 };
+/**
+ * Recursively converts types of a game object.
+ * @param game
+ */
+const convertIgdbResultTypes = (game: IGDBPartialGame) => {
+    const gameWithParsedDates = parseGameDates(game);
+
+    for (const [key, value] of Object.entries(gameWithParsedDates)) {
+        if (value == undefined) {
+        } else if (isEmptyObject(value)) {
+            gameWithParsedDates[key] = undefined;
+            // A lot of things are of type object, including dates and arrays, so we need to check for those first
+        } else if (typeof value === "object" && value.constructor === Object) {
+            gameWithParsedDates[key] = convertIgdbResultTypes(value);
+        } else if (Array.isArray(value) && value.length > 0) {
+            gameWithParsedDates[key] = value.map((item) =>
+                convertIgdbResultTypes(item),
+            );
+        }
+    }
+
+    return gameWithParsedDates;
+};
+
+export function normalizeIgdbResults(results: any[]) {
+    const normalizedResults: IGDBPartialGame[] = [];
+    for (const result of results) {
+        // Do basic parsing (converts fields to camelCase)
+        const normalizedResult: IGDBPartialGame = objectKeysToCamelCase(result);
+
+        if (normalizedResult.gameLocalizations) {
+            normalizedResult.localizations = normalizedResult.gameLocalizations;
+        }
+
+        const convertedResult = convertIgdbResultTypes(normalizedResult);
+
+        normalizedResults.push(convertedResult);
+    }
+
+    return normalizedResults;
+}

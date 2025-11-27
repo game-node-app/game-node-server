@@ -1,14 +1,7 @@
-import {
-    Column,
-    CreateDateColumn,
-    Entity,
-    OneToMany,
-    PrimaryColumn,
-} from "typeorm";
-import { Game } from "./game.entity";
+import { Column, Entity, PrimaryColumn } from "typeorm";
 
 @Entity()
-export class GameCollection {
+export class GameCollection{
     @PrimaryColumn("bigint")
     id: number;
     @Column()
@@ -24,8 +17,8 @@ export class GameCollection {
     @Column()
     url: string;
 
-    @OneToMany(() => Game, (game) => game.collection, {
-        cascade: false,
-    })
-    games: Game[];
+    // @OneToMany(() => Game, (game) => game.collection, {
+    //     cascade: false,
+    // })
+    // games: Game[];
 }
