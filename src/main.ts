@@ -1,5 +1,3 @@
-import tracer from "./instrumentation";
-
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { SupertokensExceptionFilter } from "./auth/auth.filter";
@@ -25,7 +23,7 @@ import { Logger } from "nestjs-pino";
 dayjs.extend(duration);
 
 async function bootstrap() {
-    await tracer.start();
+    // await tracer.start();
     initializeTransactionalContext({
         storageDriver: StorageDriver.ASYNC_LOCAL_STORAGE,
     });

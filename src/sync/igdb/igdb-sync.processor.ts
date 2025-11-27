@@ -1,4 +1,4 @@
-import { OnWorkerEvent, Processor } from "@nestjs/bullmq";
+import { Processor } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import {
