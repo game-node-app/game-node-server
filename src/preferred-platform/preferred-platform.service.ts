@@ -89,7 +89,7 @@ export class PreferredPlatformService {
     }
 
     async createOrUpdate(userId: string, dto: CreatePreferredPlatformDto) {
-        const existing = await this.findOneByUserIdAndPlatformIdOrFail(
+        const existing = await this.findOneByUserIdAndPlatformId(
             userId,
             dto.platformId,
         );
