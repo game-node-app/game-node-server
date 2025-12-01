@@ -191,6 +191,9 @@ export class GameRepositoryCreateService {
             }
         }
 
+        incoming.category = incoming.category ?? incoming.gameType;
+        incoming.status = incoming.status ?? incoming.gameStatus;
+
         const relationsPromises: Promise<void>[] = [
             this.handleOneToOne(incoming, existing, "cover"),
             this.handleOneToMany(incoming, existing, "alternativeNames"),
@@ -224,9 +227,7 @@ export class GameRepositoryCreateService {
             : never,
     >(incoming: IGDBPartialGame, existing: Game, propertyPath: K) {
         const target = GamePropertyPathToEntityMap[propertyPath]!;
-        const repository = this.dataSource.getRepository(
-            GamePropertyPathToEntityMap[propertyPath]!,
-        );
+        const repository = this.dataSource.getRepository(target);
         const gameEntityMetadata = this.dataSource.getMetadata(Game);
         const incomingData = incoming[propertyPath] as E[] | undefined;
         const existingData = existing[propertyPath] as E[];
@@ -240,6 +241,17 @@ export class GameRepositoryCreateService {
 
         const incomingParsed = incomingData.map((item) =>
             repository.create({ ...item, game: existing, gameId: existing.id }),
+        );
+
+        /**
+         * Re-adds gameId references because only id and checksum are selected in existingData
+         */
+        const existingParsed = existingData?.map((item) =>
+            repository.create({
+                ...item,
+                game: existing,
+                gameId: existing.id,
+            }),
         );
 
         const existingNotInIncoming = existingData?.filter((item) => {
@@ -339,17 +351,20 @@ export class GameRepositoryCreateService {
             return;
         }
 
+        const incomingParsed = repository.create({
+            ...incomingData,
+            game: existing,
+            gameId: existing.id,
+        });
+
         this.logger.log(`Upserting item for ${String(propertyPath)}`);
 
-        await repository.upsert(
-            { ...incomingData, game: existing, gameId: existing.id },
-            ["id"],
-        );
+        await repository.upsert(incomingParsed, ["id"]);
         await repository
             .createQueryBuilder()
             .relation(Game, propertyPath)
             .of(existing)
-            .set(incomingData);
+            .set(incomingParsed);
     }
 
     async handleCompanies(incoming: IGDBPartialGame, existing: Game) {

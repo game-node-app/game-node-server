@@ -16,20 +16,6 @@ import { GameLocalization } from "../entities/game-localization.entity";
 import { GameScreenshot } from "../entities/game-screenshot.entity";
 import { GameCover } from "../entities/game-cover.entity";
 
-export const MANY_TO_MANY_RELATIONS: (keyof Game)[] = [
-    "dlcs",
-    "expansions",
-    "expandedGames",
-    "similarGames",
-    "remakes",
-    "remasters",
-    "gameModes",
-    "genres",
-    "themes",
-    "platforms",
-    "playerPerspectives",
-    "gameEngines",
-];
 /**
  * Look-up table between resource names and their respective entities
  * e.g.: Can be used to quickly retrieve the target repository for a resource
