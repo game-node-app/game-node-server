@@ -76,6 +76,10 @@ export abstract class UserPlaytimeBase {
         nullable: false,
     })
     platformId: number;
+    @Column({
+        nullable: true,
+    })
+    checksum: string | null;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

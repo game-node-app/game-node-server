@@ -24,6 +24,7 @@ import { getPreviousDate } from "../statistics/statistics.utils";
 import { PlaytimeHistoryService } from "./playtime-history.service";
 import { toCumulativePlaytime } from "./playtime.util";
 import { UserPlaytimeDto } from "./dto/user-playtime.dto";
+import { generateChecksum } from "../utils/checksum";
 
 @Injectable()
 export class PlaytimeService {
@@ -197,6 +198,14 @@ export class PlaytimeService {
             ...playtime,
         };
 
+        const updatedChecksum = generateChecksum(updatedPlaytime);
+        if (
+            existingPlaytime != undefined &&
+            existingPlaytime.checksum === updatedChecksum
+        ) {
+            return existingPlaytime;
+        }
+
         await this.playtimeHistoryService.save(updatedPlaytime);
 
         // 2 weeks ago
@@ -218,6 +227,7 @@ export class PlaytimeService {
         return await this.userPlaytimeRepository.save({
             ...updatedPlaytime,
             recentPlaytimeSeconds,
+            checksum: updatedChecksum,
         });
     }
 
