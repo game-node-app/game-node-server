@@ -12,6 +12,7 @@ import { FollowInfoRequestDto } from "./dto/follow-info-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
+import { PeriodRange } from "../utils/period";
 
 @Injectable()
 export class FollowService {
@@ -23,6 +24,28 @@ export class FollowService {
         private readonly notificationsQueue: NotificationsQueueService,
         private readonly activitiesQueueService: ActivitiesQueueService,
     ) {}
+
+    public async countFollowers(
+        userId: string,
+        period: PeriodRange,
+    ): Promise<number> {
+        const qb = this.userFollowRepository
+            .createQueryBuilder("uf")
+            .where("uf.followedUserId = :userId", { userId });
+
+        if (period.startDate) {
+            qb.andWhere("uf.createdAt >= :startDate", {
+                startDate: period.startDate,
+            });
+        }
+        if (period.endDate) {
+            qb.andWhere("uf.createdAt <= :endDate", {
+                endDate: period.endDate,
+            });
+        }
+
+        return qb.getCount();
+    }
 
     public async findOneById(id: number) {
         return this.userFollowRepository.findOne({
@@ -54,7 +77,7 @@ export class FollowService {
             );
         }
         try {
-            const persistedEntry = await this.userFollowRepository.save({
+            await this.userFollowRepository.save({
                 follower: {
                     userId: followerUserId,
                 },

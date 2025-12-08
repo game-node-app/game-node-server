@@ -18,6 +18,7 @@ import { ReviewsService } from "../../reviews/reviews.service";
 import { PlaytimeService } from "../../playtime/playtime.service";
 import dayjs from "dayjs";
 import { CollectionEntryStatus } from "../../collections/collections-entries/collections-entries.constants";
+import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
 
 @Injectable()
 export class ProfileMetricsDistributionService {
@@ -163,15 +164,29 @@ export class ProfileMetricsDistributionService {
             ProfileMetricsTypeDistributionItem
         >();
 
-        const [collectionEntries] =
-            await this.collectionsEntriesService.findAllByUserIdWithPermissions(
-                userId,
-                userId,
-                {
-                    limit: 9999999,
-                    offset: 0,
-                },
-            );
+        const collectionEntries: CollectionEntry[] = [];
+        if (dto.year) {
+            const startDate = dayjs().year(dto.year).startOf("year").toDate();
+            const endDate = dayjs().year(dto.year).endOf("year").toDate();
+            const entries =
+                await this.collectionsEntriesService.findAllByUserIdInPeriod(
+                    userId,
+                    { startDate, endDate },
+                );
+            collectionEntries.push(...entries);
+        } else {
+            const [entries] =
+                await this.collectionsEntriesService.findAllByUserIdWithPermissions(
+                    userId,
+                    userId,
+                    {
+                        limit: 9999999,
+                        offset: 0,
+                    },
+                );
+
+            collectionEntries.push(...entries);
+        }
 
         const gameIds = collectionEntries.map((entry) => entry.gameId);
 

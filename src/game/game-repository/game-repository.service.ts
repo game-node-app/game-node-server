@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
-import { DataSource, EntityTarget, In, Repository } from "typeorm";
+import { DataSource, In, Repository } from "typeorm";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
@@ -25,6 +25,7 @@ import {
     GameAllowedResource,
     GamePropertyPathToEntityMap,
 } from "./create/game-repository-create.constants";
+import { Cache } from "@nestjs/cache-manager";
 
 @Injectable()
 export class GameRepositoryService {
@@ -43,6 +44,7 @@ export class GameRepositoryService {
         private readonly externalGameService: ExternalGameService,
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
+        private readonly cacheManager: Cache,
     ) {}
 
     @Cacheable(GameRepositoryService.name, minutes(5))

@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+    Between,
     DeepPartial,
     FindManyOptions,
     FindOptionsRelations,
@@ -31,6 +32,7 @@ import { GameRepositoryService } from "../../game/game-repository/game-repositor
 import { FindRelatedCollectionEntriesResponseDto } from "./dto/find-related-collection-entries.dto";
 import { toMap } from "../../utils/toMap";
 import { DEFAULT_ORDERING_GAP } from "../../utils/ordering";
+import { Cacheable } from "../../utils/cacheable";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -247,6 +249,24 @@ export class CollectionsEntriesService {
                 game: {
                     firstReleaseDate: dto?.orderBy?.releaseDate,
                 },
+            },
+            relations: this.relations,
+        });
+    }
+
+    /**
+     * Find all entries that have been <strong>created/modified</strong> in period.
+     * @param userId
+     * @param period
+     */
+    async findAllByUserIdInPeriod(
+        userId: string,
+        period: { startDate: Date; endDate: Date },
+    ) {
+        return this.collectionEntriesRepository.find({
+            where: {
+                libraryUserId: userId,
+                updatedAt: Between(period.startDate, period.endDate),
             },
             relations: this.relations,
         });

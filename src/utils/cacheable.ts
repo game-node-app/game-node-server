@@ -35,6 +35,9 @@ export function Cacheable(
             // This can happen if "cacheManager" is not defined in class, or if we "this" is not the actual class
             // reference.
             if (cache == undefined) {
+                console.error(
+                    `@Cacheable applied to method without cacheManager defined: ${finalCacheKey}.`,
+                );
                 return originalMethod.apply(this, args);
             }
 

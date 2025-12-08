@@ -25,6 +25,23 @@ import { PlaytimeHistoryService } from "./playtime-history.service";
 import { toCumulativePlaytime } from "./playtime.util";
 import { UserPlaytimeDto } from "./dto/user-playtime.dto";
 import { generateChecksum } from "../utils/checksum";
+import dayjs from "dayjs";
+
+const createChecksum = (dto: CreateUserPlaytimeDto) => {
+    const relevantData = {
+        profileUserId: dto.profileUserId,
+        gameId: dto.gameId,
+        source: dto.source,
+        platformId: dto.platformId,
+        totalPlaytimeSeconds: dto.totalPlaytimeSeconds,
+        recentPlaytimeSeconds: dto.recentPlaytimeSeconds,
+        lastPlayedDate: dto.lastPlayedDate,
+        totalPlayCount: dto.totalPlayCount,
+        firstPlayedDate: dto.firstPlayedDate,
+    };
+
+    return generateChecksum(relevantData);
+};
 
 @Injectable()
 export class PlaytimeService {
@@ -185,6 +202,23 @@ export class PlaytimeService {
         return playtimeMap;
     }
 
+    private async getRecentPlaytimeForGame(playtime: CreateUserPlaytimeDto) {
+        const totalPerGame =
+            await this.playtimeHistoryService.getTotalPlaytimeForPeriod({
+                userId: playtime.profileUserId,
+                source: playtime.source,
+                platformId: playtime.platformId,
+                startDate: getPreviousDate(14),
+                endDate: new Date(),
+            });
+
+        const playtimeForGame = totalPerGame.find(
+            (entry) => entry.gameId === playtime.gameId,
+        );
+
+        return playtimeForGame?.totalPlaytimeInPeriodSeconds ?? 0;
+    }
+
     async save(playtime: CreateUserPlaytimeDto) {
         const existingPlaytime = await this.findOne(
             playtime.profileUserId,
@@ -193,35 +227,34 @@ export class PlaytimeService {
             playtime.platformId,
         );
 
+        const updatedChecksum = createChecksum(playtime);
+
+        /**
+         * If the checksum matches and the entry was updated in the last 14 days, skip updating
+         * to reduce unnecessary writes.
+         */
+        if (
+            existingPlaytime != undefined &&
+            existingPlaytime.checksum === updatedChecksum &&
+            dayjs(existingPlaytime.updatedAt).diff(dayjs(), "day") < 14
+        ) {
+            this.logger.log(
+                `Skipping playtime update: no changes detected. (profile: ${playtime.profileUserId}, game: ${playtime.gameId}, source: ${playtime.source}, platform: ${playtime.platformId})`,
+            );
+            return existingPlaytime;
+        }
+
         const updatedPlaytime = {
             ...existingPlaytime,
             ...playtime,
         };
 
-        const updatedChecksum = generateChecksum(updatedPlaytime);
-        if (
-            existingPlaytime != undefined &&
-            existingPlaytime.checksum === updatedChecksum
-        ) {
-            return existingPlaytime;
-        }
-
         await this.playtimeHistoryService.save(updatedPlaytime);
 
-        // 2 weeks ago
-        const recentPlaytimeCriteriaDate = getPreviousDate(14);
-
         let recentPlaytimeSeconds = playtime.recentPlaytimeSeconds;
-
         if (recentPlaytimeSeconds == undefined) {
             recentPlaytimeSeconds =
-                await this.playtimeHistoryService.getRecentPlaytimeForGame(
-                    playtime.profileUserId,
-                    playtime.gameId,
-                    playtime.source,
-                    playtime.platformId,
-                    recentPlaytimeCriteriaDate,
-                );
+                await this.getRecentPlaytimeForGame(updatedPlaytime);
         }
 
         return await this.userPlaytimeRepository.save({
