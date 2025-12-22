@@ -7,9 +7,9 @@ import { RecapService } from "./recap.service";
 export class RecapController {
     constructor(private readonly recapService: RecapService) {}
 
-    @Get(":year/:userId")
-    async getRecapData(
-        @Param("year") year: number,
-        @Param("userId") userId: string,
-    ) {}
+    // @Get(":year/:userId")
+    // async getRecapData(
+    //     @Param("year") year: number,
+    //     @Param("userId") userId: string,
+    // ) {}
 }

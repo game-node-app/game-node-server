@@ -32,7 +32,7 @@ export class RecapCreateService {
         private readonly reviewsService: ReviewsService,
         private readonly followService: FollowService,
     ) {
-        this.createRecap("d11a23a8-113c-4373-9276-821fb832aa57");
+        // this.createRecap("d11a23a8-113c-4373-9276-821fb832aa57");
     }
 
     private getTargetPeriod(): RecapPeriod {

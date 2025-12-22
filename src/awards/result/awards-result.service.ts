@@ -22,4 +22,19 @@ export class AwardsResultService {
     ) {
         return await this.awardsCategoryResultWinnerRepository.save(entity);
     }
+
+    public async getCategoryResultsByEventId(eventId: number) {
+        return this.awardsCategoryResultRepository.find({
+            where: {
+                category: {
+                    eventId: eventId,
+                },
+            },
+            relations: {
+                category: true,
+                winners: true,
+            },
+            order: { category: { id: "ASC" }, winners: { position: "ASC" } },
+        });
+    }
 }
