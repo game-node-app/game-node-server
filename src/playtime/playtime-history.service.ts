@@ -1,17 +1,21 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
-import { Between, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
-import dayjs from "dayjs";
 import { UserPlaytimeSource } from "./playtime.constants";
 import { GetTotalPlaytimePeriodDto } from "./dto/get-total-playtime-period.dto";
+import { Cache } from "@nestjs/cache-manager";
+import { Cacheable } from "../utils/cacheable";
+import { minutes } from "@nestjs/throttler";
+import { PlaytimeInPeriod } from "./playtime.types";
 
 @Injectable()
 export class PlaytimeHistoryService {
     constructor(
         @InjectRepository(UserPlaytimeHistory)
         private readonly playtimeHistoryRepository: Repository<UserPlaytimeHistory>,
+        private readonly cacheManager: Cache,
     ) {}
 
     public async findAllByUserId(
@@ -44,98 +48,39 @@ export class PlaytimeHistoryService {
         });
     }
 
+    @Cacheable(PlaytimeHistoryService.name, minutes(5))
     public async getTotalPlaytimeForPeriod(dto: GetTotalPlaytimePeriodDto) {
-        const { userId, source, platformId, startDate, endDate, criteria } =
-            dto;
-        const playtimeHistory = await this.findAllByUserId(userId);
-        const playtimeInPeriod = playtimeHistory
-            .filter(
-                (entry) =>
-                    entry.lastPlayedDate != undefined &&
-                    dayjs(entry.lastPlayedDate).isAfter(startDate) &&
-                    dayjs(entry.lastPlayedDate).isBefore(endDate),
+        const { userId, source, platformId, startDate, endDate } = dto;
+        const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
+
+        qb.select("ph.gameId", "gameId")
+            .addSelect("ph.source", "source")
+            .addSelect("ph.platformId", "platformId")
+            .addSelect(
+                `MAX(ph.totalPlaytimeSeconds) - MIN(ph.totalPlaytimeSeconds)`,
+                "totalPlaytimeInPeriodSeconds",
             )
-            .toSorted((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-        const maxForGamesInPeriodMap = new Map<number, number>();
-
-        for (const playtimeHistory of playtimeInPeriod) {
-            const matchesSource = source
-                ? playtimeHistory.source === source
-                : true;
-            const matchesPlatform = platformId
-                ? playtimeHistory.platformId === platformId
-                : true;
-
-            if (matchesSource && matchesPlatform) {
-                const existingMax =
-                    maxForGamesInPeriodMap.get(playtimeHistory.gameId) ?? 0;
-                const targetValue = playtimeHistory[criteria];
-
-                if (playtimeHistory.totalPlaytimeSeconds > existingMax) {
-                    maxForGamesInPeriodMap.set(
-                        playtimeHistory.gameId,
-                        targetValue,
-                    );
-                }
-            }
+            .groupBy("ph.gameId, ph.source, ph.platformId")
+            .addGroupBy("ph.source")
+            .where("ph.createdAt BETWEEN :startDate AND :endDate", {
+                startDate,
+                endDate,
+            })
+            .andWhere("ph.profileUserId = :userId", { userId });
+        if (source) {
+            qb.andWhere("ph.source = :source", { source });
+        }
+        if (platformId) {
+            qb.andWhere("ph.platformId = :platformId", { platformId });
         }
 
-        return Array.from(maxForGamesInPeriodMap.values()).reduce(
-            (acc, curr) => acc + curr,
-            0,
-        );
+        return await qb.getRawMany<PlaytimeInPeriod>();
     }
 
     public async save(playtime: CreateUserPlaytimeDto) {
-        const dayStart = dayjs().startOf("day");
-        const dayEnd = dayStart.endOf("day");
-
-        const existsInDay = await this.playtimeHistoryRepository.existsBy({
-            profileUserId: playtime.profileUserId,
-            source: playtime.source,
-            platformId: playtime.platformId,
-            gameId: playtime.gameId,
-            createdAt: Between(dayStart.toDate(), dayEnd.toDate()),
-        });
-
-        if (existsInDay) {
-            return;
-        }
-
         await this.playtimeHistoryRepository.insert({
             ...playtime,
             id: undefined,
         });
-    }
-
-    public async getRecentPlaytimeForGame(
-        userId: string,
-        gameId: number,
-        source: UserPlaytimeSource,
-        platformId: number,
-        startDate: Date,
-    ) {
-        const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
-
-        const recentPlaytimeSeconds = await qb
-            .select(
-                "MAX(ph.totalPlaytimeSeconds) - MIN(ph.totalPlaytimeSeconds) AS RECENT_PLAYTIME_SECONDS",
-            )
-            .where(
-                "ph.profileUserId = :profileUserId AND ph.gameId = :gameId AND ph.source = :source AND ph.platformId = :platformId AND ph.lastPlayedDate >= :startDate",
-                {
-                    profileUserId: userId,
-                    gameId,
-                    source,
-                    platformId,
-                    startDate,
-                },
-            )
-            .getRawOne<{
-                RECENT_PLAYTIME_SECONDS: number;
-            }>();
-
-        return recentPlaytimeSeconds?.RECENT_PLAYTIME_SECONDS ?? 0;
     }
 }

@@ -95,11 +95,16 @@ export class ProfileMetricsReportService {
     }
 
     private async getPlaytimeInPeriod(userId: string, sinceDate: dayjs.Dayjs) {
-        return await this.playtimeHistoryService.getTotalPlaytimeForPeriod({
-            userId,
-            startDate: sinceDate.toDate(),
-            endDate: new Date(),
-            criteria: "totalPlaytimeSeconds",
-        });
+        const totalPerGame =
+            await this.playtimeHistoryService.getTotalPlaytimeForPeriod({
+                userId,
+                startDate: sinceDate.toDate(),
+                endDate: new Date(),
+            });
+
+        return totalPerGame.reduce(
+            (acc, cur) => acc + cur.totalPlaytimeInPeriodSeconds,
+            0,
+        );
     }
 }

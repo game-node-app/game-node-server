@@ -1,23 +1,22 @@
 /**
- * This SHOULD follow the order of the enum in the API
- * See: https://api-docs.igdb.com/#game-enums
+ * @see https://api-docs.igdb.com/#game-enums
  */
 enum EGameCategory {
-    Main,
-    DlcAddon,
-    Expansion,
-    Bundle,
-    StandaloneExpansion,
-    Mod,
-    Episode,
-    Season,
-    Remake,
-    Remaster,
-    ExpandedGame,
-    Port,
-    Fork,
-    Pack,
-    Update,
+    Main = 0,
+    DlcAddon = 1,
+    Expansion = 2,
+    Bundle = 3,
+    StandaloneExpansion = 4,
+    Mod = 5,
+    Episode = 6,
+    Season = 7,
+    Remake = 8,
+    Remaster = 9,
+    ExpandedGame = 10,
+    Port = 11,
+    Fork = 12,
+    Pack = 13,
+    Update = 14,
 }
 
 enum EGameExternalGameCategory {

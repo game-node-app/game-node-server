@@ -67,12 +67,7 @@ export class CollectionsService {
             },
             relations: this.relations,
         });
-        if (!targetUserCollections) {
-            throw new HttpException(
-                "No collection found.",
-                HttpStatus.NOT_FOUND,
-            );
-        }
+
         return targetUserCollections.filter((collection) => {
             return (
                 collection.isPublic ||

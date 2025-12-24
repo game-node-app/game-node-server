@@ -23,13 +23,7 @@ export class IgdbSyncProcessor extends WorkerHostProcessor {
 
     async process(job: Job<IGDBPartialGame>) {
         if (job.name === IGDB_SYNC_JOB_NAME) {
-            console.time(`IGDB Sync Job - Game ID ${job.data.id}`);
-            try {
-                await this.gameRepositoryCreateService.createOrUpdate(job.data);
-            } catch (err) {
-                this.logger.error(err.message, err.stack);
-            }
-            console.timeEnd(`IGDB Sync Job - Game ID ${job.data.id}`);
+            await this.gameRepositoryCreateService.createOrUpdate(job.data);
         }
     }
 }

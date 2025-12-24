@@ -74,6 +74,8 @@ export class GameRepositoryCreateService {
             select: { id: true, checksum: true },
         });
 
+        this.handleDeprecatedFields(game);
+
         if (existing == undefined || existing.checksum !== game.checksum) {
             this.logger.log(`Upserting game ${game.id} - ${game.name}`);
             await this.gameRepository.upsert(game, ["id"]);
@@ -181,16 +183,6 @@ export class GameRepositoryCreateService {
             relationLoadStrategy: "query",
         });
 
-        if (incoming.externalGames) {
-            // Treatment for deprecated fields
-            for (const externalGame of incoming.externalGames) {
-                externalGame.category =
-                    externalGame.category ?? externalGame.externalGameSource;
-                externalGame.media =
-                    externalGame.media ?? externalGame.gameReleaseFormat;
-            }
-        }
-
         const relationsPromises: Promise<void>[] = [
             this.handleOneToOne(incoming, existing, "cover"),
             this.handleOneToMany(incoming, existing, "alternativeNames"),
@@ -224,9 +216,7 @@ export class GameRepositoryCreateService {
             : never,
     >(incoming: IGDBPartialGame, existing: Game, propertyPath: K) {
         const target = GamePropertyPathToEntityMap[propertyPath]!;
-        const repository = this.dataSource.getRepository(
-            GamePropertyPathToEntityMap[propertyPath]!,
-        );
+        const repository = this.dataSource.getRepository(target);
         const gameEntityMetadata = this.dataSource.getMetadata(Game);
         const incomingData = incoming[propertyPath] as E[] | undefined;
         const existingData = existing[propertyPath] as E[];
@@ -242,6 +232,17 @@ export class GameRepositoryCreateService {
             repository.create({ ...item, game: existing, gameId: existing.id }),
         );
 
+        /**
+         * Re-adds gameId references because only id and checksum are selected in existingData
+         */
+        const existingParsed = existingData?.map((item) =>
+            repository.create({
+                ...item,
+                game: existing,
+                gameId: existing.id,
+            }),
+        );
+
         const existingNotInIncoming = existingData?.filter((item) => {
             return !incomingData.some(
                 (incomingItem) => incomingItem.id === item.id,
@@ -249,9 +250,9 @@ export class GameRepositoryCreateService {
         });
 
         const incomingNotInExisting = incomingData?.filter((item) => {
-            if (!existingData) return true;
+            if (!existingParsed) return true;
 
-            return !existingData.some(
+            return !existingParsed.some(
                 (existingItem) => existingItem.id === item.id,
             );
         });
@@ -339,17 +340,20 @@ export class GameRepositoryCreateService {
             return;
         }
 
+        const incomingParsed = repository.create({
+            ...incomingData,
+            game: existing,
+            gameId: existing.id,
+        });
+
         this.logger.log(`Upserting item for ${String(propertyPath)}`);
 
-        await repository.upsert(
-            { ...incomingData, game: existing, gameId: existing.id },
-            ["id"],
-        );
+        await repository.upsert(incomingParsed, ["id"]);
         await repository
             .createQueryBuilder()
             .relation(Game, propertyPath)
             .of(existing)
-            .set(incomingData);
+            .set(incomingParsed);
     }
 
     async handleCompanies(incoming: IGDBPartialGame, existing: Game) {
@@ -468,5 +472,24 @@ export class GameRepositoryCreateService {
         }
 
         await this.handleEngines(incoming, existing);
+    }
+
+    /**
+     * Performs mapping of deprecated fields to their new counterparts.
+     * @param incoming
+     * @private
+     */
+    private handleDeprecatedFields(incoming: IGDBPartialGame) {
+        if (incoming.externalGames) {
+            for (const externalGame of incoming.externalGames) {
+                externalGame.category =
+                    externalGame.category ?? externalGame.externalGameSource;
+                externalGame.media =
+                    externalGame.media ?? externalGame.gameReleaseFormat;
+            }
+        }
+
+        incoming.category = incoming.category ?? incoming.gameType;
+        incoming.status = incoming.status ?? incoming.gameStatus;
     }
 }

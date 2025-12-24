@@ -4,13 +4,8 @@ import { AwardsService } from "../awards.service";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import dayjs from "dayjs";
 import { AwardsEvent } from "../entity/awards-event.entity";
-import { DataSource, Repository } from "typeorm";
-import { AwardsVote } from "../entity/awards-vote.entity";
-import { InjectRepository } from "@nestjs/typeorm";
-import { AwardsCategoryResult } from "../entity/awards-category-result.entity";
-import { AwardsCategoryResultWinner } from "../entity/awards-category-winner.entity";
+import { DataSource } from "typeorm";
 import { AwardsResultService } from "./awards-result.service";
-import { AwardsCategory } from "../entity/awards-category.entity";
 import { VotableAwardsCategoryDto } from "../dto/votable-awards-category.dto";
 
 @Processor(AWARDS_RESULT_QUEUE_NAME)

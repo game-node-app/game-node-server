@@ -1,7 +1,4 @@
-import { ObjectLiteral, Repository } from "typeorm";
-import { IGDBPartialGame } from "../game-repository.types";
-import { Game } from "../entities/game.entity";
-import { Logger } from "@nestjs/common";
+import { ObjectLiteral } from "typeorm";
 
 export interface ObjectWithChecksum extends ObjectLiteral {
     id: number;

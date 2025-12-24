@@ -23,5 +23,10 @@ import { ProfileMetricsReportService } from "./profile-metrics-report.service";
         ProfileMetricsDistributionService,
         ProfileMetricsReportService,
     ],
+    exports: [
+        ProfileMetricsService,
+        ProfileMetricsDistributionService,
+        ProfileMetricsReportService,
+    ],
 })
 export class ProfileMetricsModule {}

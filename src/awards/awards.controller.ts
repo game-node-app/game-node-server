@@ -3,12 +3,16 @@ import { AuthGuard } from "../auth/auth.guard";
 import { ApiTags } from "@nestjs/swagger";
 import { AwardsService } from "./awards.service";
 import { Public } from "../auth/public.decorator";
+import { AwardsResultService } from "./result/awards-result.service";
 
 @Controller("awards")
 @UseGuards(AuthGuard)
 @ApiTags("awards")
 export class AwardsController {
-    constructor(private readonly awardsService: AwardsService) {}
+    constructor(
+        private readonly awardsService: AwardsService,
+        private readonly awardsResultService: AwardsResultService,
+    ) {}
 
     @Get("events/:id")
     @Public()
@@ -32,5 +36,11 @@ export class AwardsController {
     @Public()
     public async getCategoriesByEventId(@Param("eventId") eventId: number) {
         return this.awardsService.getCategoriesByEventId(eventId);
+    }
+
+    @Get(":eventId/results")
+    @Public()
+    public async getResultsByEventId(@Param("eventId") eventId: number) {
+        return this.awardsResultService.getCategoryResultsByEventId(eventId);
     }
 }

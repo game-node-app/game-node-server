@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty } from "class-validator";
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional } from "class-validator";
 
 export enum ProfileMetricsTypeDistributionBy {
     GENRE = "genre",
@@ -25,6 +25,9 @@ export class ProfileMetricsTypeDistributionRequestDto {
     @IsNotEmpty()
     @IsEnum(ProfileMetricsTypeDistributionBy)
     by: ProfileMetricsTypeDistributionBy;
+    @IsOptional()
+    @IsNumber()
+    year?: number;
 }
 
 export class ProfileMetricsTypeDistributionItem {

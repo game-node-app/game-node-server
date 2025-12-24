@@ -42,6 +42,7 @@ import { AwardsModule } from "./awards/awards.module";
 import { UserAccountModule } from "./user/user-account/user-account.module";
 import { PreferredPlatformModule } from "./preferred-platform/preferred-platform.module";
 import { LoggerModule } from "nestjs-pino";
+import { RecapModule } from './recap/recap.module';
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -201,6 +202,7 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         AwardsModule,
         UserAccountModule,
         PreferredPlatformModule,
+        RecapModule,
     ],
 })
 export class AppModule implements NestModule {

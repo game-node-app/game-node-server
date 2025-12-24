@@ -17,3 +17,8 @@ export const PeriodToMinusDays: Record<Period, number> = {
     [Period.YEAR]: 365,
     [Period.ALL]: 0,
 };
+
+export interface PeriodRange {
+    startDate: Date | null;
+    endDate: Date;
+}
