@@ -23,7 +23,7 @@ import { seconds, Throttle } from "@nestjs/throttler";
 @UseGuards(WsThrottlerGuard)
 @Throttle({
     default: {
-        limit: 1,
+        limit: 10,
         ttl: seconds(60),
     },
 })

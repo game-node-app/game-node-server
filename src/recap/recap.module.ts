@@ -16,6 +16,10 @@ import { CollectionsModule } from "../collections/collections.module";
 import { CollectionsEntriesModule } from "../collections/collections-entries/collections-entries.module";
 import { ReviewsModule } from "../reviews/reviews.module";
 import { FollowModule } from "../follow/follow.module";
+import { BullModule } from "@nestjs/bullmq";
+import { RECAP_QUEUE_NAME } from "./recap.constants";
+import { RecapQueueProcessor } from "./queue/recap-queue.processor";
+import { ProfileModule } from "../profile/profile.module";
 
 @Module({
     imports: [
@@ -27,14 +31,26 @@ import { FollowModule } from "../follow/follow.module";
             YearRecapPlayedGame,
             YearRecapTheme,
         ]),
+        BullModule.registerQueue({
+            name: RECAP_QUEUE_NAME,
+            defaultJobOptions: {
+                attempts: 3,
+            },
+        }),
         CollectionsModule,
         CollectionsEntriesModule,
         PlaytimeModule,
         ProfileMetricsModule,
         ReviewsModule,
         FollowModule,
+        ProfileModule,
     ],
-    providers: [RecapService, RecapCreateService, RecapQueueService],
+    providers: [
+        RecapService,
+        RecapCreateService,
+        RecapQueueService,
+        RecapQueueProcessor,
+    ],
     controllers: [RecapController],
 })
 export class RecapModule {}

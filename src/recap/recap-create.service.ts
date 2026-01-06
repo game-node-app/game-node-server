@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { DeepPartial, Repository } from "typeorm";
 import { YearRecap } from "./entity/year-recap.entity";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -22,6 +22,8 @@ interface RecapPeriod {
 
 @Injectable()
 export class RecapCreateService {
+    private readonly logger = new Logger(RecapCreateService.name);
+
     constructor(
         @InjectRepository(YearRecap)
         private readonly recapRepository: Repository<YearRecap>,
@@ -37,9 +39,9 @@ export class RecapCreateService {
 
     private getTargetPeriod(): RecapPeriod {
         const now = dayjs();
-        if (now.month() > 0 && now.month() < 10) {
+        if (now.month() > 0 && now.month() < 11) {
             throw new HttpException(
-                "Recap is only available between November and January.",
+                "Recap is only available between December and January.",
                 HttpStatus.BAD_REQUEST,
             );
         }
@@ -230,7 +232,7 @@ export class RecapCreateService {
 
     private async getReviewsInPeriod(userId: string, period: RecapPeriod) {
         const [reviews] = await this.reviewsService.findAllByUserId(userId, {
-            limit: 1_000_000,
+            limit: 9_999_999,
         });
 
         const totalReviews = reviews.filter((review) => {
@@ -246,8 +248,35 @@ export class RecapCreateService {
         };
     }
 
+    /**
+     * We have to persist relations separately due to TypeORM limitations with upsert and cascades
+     * @param entity
+     * @param persistedId
+     * @private
+     */
+    private async persistRelations(entity: YearRecap, persistedId: number) {
+        entity.playedGames.forEach((game) => {
+            game.recapId = persistedId;
+        });
+        entity.genres.forEach((genre) => {
+            genre.recapId = persistedId;
+        });
+        entity.modes.forEach((mode) => {
+            mode.recapId = persistedId;
+        });
+        entity.platforms.forEach((platform) => {
+            platform.recapId = persistedId;
+        });
+        entity.themes.forEach((theme) => {
+            theme.recapId = persistedId;
+        });
+
+        await this.recapRepository.save(entity);
+    }
+
     @Transactional()
     async createRecap(userId: string) {
+        this.logger.log(`Creating yearly recap for user ${userId}`);
         const period = this.getTargetPeriod();
         const collectionsInPeriod = await this.getCollectionsInPeriod(
             userId,
@@ -292,12 +321,18 @@ export class RecapCreateService {
                 playedGamesInPeriod.totalPlaytimeInPeriodSeconds,
             totalPlayedGames: playedGamesInPeriod.playedGames.length,
             playedGames: playedGamesInPeriod.playedGames,
-            // genres: distributionInPeriod.genres,
-            // modes: distributionInPeriod.modes,
+            genres: distributionInPeriod.genres,
+            modes: distributionInPeriod.modes,
             platforms: distributionInPeriod.platforms,
-            // themes: distributionInPeriod.themes,
+            themes: distributionInPeriod.themes,
         });
 
-        await this.recapRepository.save(entity);
+        const result = await this.recapRepository.upsert(entity, ["id"]);
+        const persistedId: number = result.identifiers[0].id;
+
+        await this.persistRelations(entity, persistedId);
+        this.logger.log(
+            `Yearly recap for user ${userId} created successfully.`,
+        );
     }
 }
