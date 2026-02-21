@@ -1,5 +1,5 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
-import { DeepPartial, Repository } from "typeorm";
+import { Injectable, Logger } from "@nestjs/common";
+import { Between, DataSource, DeepPartial, Repository } from "typeorm";
 import { YearRecap } from "./entity/year-recap.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import dayjs from "dayjs";
@@ -15,6 +15,7 @@ import { YearRecapPlayedGame } from "./entity/year-recap-played-game.entity";
 import { ReviewsService } from "../reviews/reviews.service";
 import { FollowService } from "../follow/follow.service";
 import { getTargetRecapYear } from "./recap.utils";
+import { UserLike } from "../statistics/entity/user-like.entity";
 
 interface RecapPeriod {
     startDate: dayjs.Dayjs;
@@ -34,6 +35,7 @@ export class RecapCreateService {
         private readonly playtimeHistoryService: PlaytimeHistoryService,
         private readonly reviewsService: ReviewsService,
         private readonly followService: FollowService,
+        private readonly dataSource: DataSource,
     ) {
         // this.createRecap("d11a23a8-113c-4373-9276-821fb832aa57");
     }
@@ -235,6 +237,21 @@ export class RecapCreateService {
         };
     }
 
+    private async getLikesPerformedInPeriod(
+        userId: string,
+        period: RecapPeriod,
+    ) {
+        const userLikesRepository = this.dataSource.getRepository(UserLike);
+
+        return await userLikesRepository.countBy({
+            profileUserId: userId,
+            createdAt: Between(
+                period.startDate.toDate(),
+                period.endDate.toDate(),
+            ),
+        });
+    }
+
     /**
      * We have to persist relations separately due to TypeORM limitations with upsert and cascades
      * @param entity
@@ -263,8 +280,11 @@ export class RecapCreateService {
 
     @Transactional()
     async createRecap(userId: string) {
-        this.logger.log(`Creating yearly recap for user ${userId}`);
         const period = this.getTargetPeriod();
+        this.logger.log(
+            `Creating yearly recap for user ${userId} and year ${period.startDate.year()}`,
+        );
+
         const collectionsInPeriod = await this.getCollectionsInPeriod(
             userId,
             period,
@@ -295,11 +315,16 @@ export class RecapCreateService {
             },
         );
 
+        const likesInPeriod = await this.getLikesPerformedInPeriod(
+            userId,
+            period,
+        );
+
         const entity = this.recapRepository.create({
             profileUserId: userId,
             year: period.startDate.year(),
             // TODO
-            totalLikesReceived: 0,
+            totalLikesPerformed: likesInPeriod,
             totalReviewsCreated: reviewsInPeriod.totalCreatedReviews,
             totalFollowersGained: followersGained,
             totalCollectionsCreated: collectionsInPeriod.totalCreatedInPeriod,
@@ -318,8 +343,9 @@ export class RecapCreateService {
         const persistedId: number = result.identifiers[0].id;
 
         await this.persistRelations(entity, persistedId);
+
         this.logger.log(
-            `Yearly recap for user ${userId} created successfully.`,
+            `Yearly recap for user ${userId} and year ${period.startDate.year()} created successfully.`,
         );
     }
 }

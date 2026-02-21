@@ -61,7 +61,7 @@ export class YearRecap extends BaseEntity {
     @Column({
         nullable: false,
     })
-    totalLikesReceived: number;
+    totalLikesPerformed: number;
     @OneToMany(
         () => YearRecapPlayedGame,
         (mostPlayedGame) => mostPlayedGame.recap,

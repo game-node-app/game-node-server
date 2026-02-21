@@ -11,7 +11,7 @@ import { ActivityStatistics } from "./activity-statistics.entity";
 import { CommentStatistics } from "./comment-statistics.entity";
 import { PostStatistics } from "./post-statistics.entity";
 
-export class StatisticsAction {
+export abstract class StatisticsAction {
     @PrimaryGeneratedColumn()
     id: number;
     @ManyToOne(() => GameStatistics, {
