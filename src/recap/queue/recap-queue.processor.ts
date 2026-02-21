@@ -31,9 +31,9 @@ export class RecapQueueProcessor extends WorkerHostProcessor {
 
     private async getRelevantProfiles() {
         const targetYear = getTargetRecapYear();
-        const profiles = await this.profileService.findAll();
+        const profileItems = await this.profileService.findAll();
 
-        return profiles
+        return profileItems
             .filter((profile) => {
                 const createdAt = dayjs(profile.profile.createdAt);
 

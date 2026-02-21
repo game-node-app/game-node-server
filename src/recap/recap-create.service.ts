@@ -14,6 +14,7 @@ import { PlaytimeInPeriod } from "../playtime/playtime.types";
 import { YearRecapPlayedGame } from "./entity/year-recap-played-game.entity";
 import { ReviewsService } from "../reviews/reviews.service";
 import { FollowService } from "../follow/follow.service";
+import { getTargetRecapYear } from "./recap.utils";
 
 interface RecapPeriod {
     startDate: dayjs.Dayjs;
@@ -38,25 +39,11 @@ export class RecapCreateService {
     }
 
     private getTargetPeriod(): RecapPeriod {
-        const now = dayjs();
-        if (now.month() > 0 && now.month() < 11) {
-            throw new HttpException(
-                "Recap is only available between December and January.",
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-
-        if (now.month() === 0) {
-            const lastYearDate = dayjs().set("year", now.year() - 1);
-            return {
-                startDate: lastYearDate.startOf("year"),
-                endDate: lastYearDate.endOf("year"),
-            };
-        }
+        const dateInTargetYear = dayjs().set("year", getTargetRecapYear());
 
         return {
-            startDate: dayjs().startOf("year"),
-            endDate: dayjs().endOf("year"),
+            startDate: dateInTargetYear.startOf("year"),
+            endDate: dateInTargetYear.endOf("year"),
         };
     }
 
@@ -136,7 +123,6 @@ export class RecapCreateService {
         );
 
         const playedGamesParsed: Partial<YearRecapPlayedGame>[] = totalPerGame
-            .filter((playtime) => playtime.totalPlaytimeInPeriodSeconds > 0)
             .toSorted((a, b) => {
                 return (
                     b.totalPlaytimeInPeriodSeconds -
@@ -148,6 +134,7 @@ export class RecapCreateService {
                     playtime.totalPlaytimeInPeriodSeconds / totalPlaytime;
                 return {
                     ...playtime,
+                    totalPlaytimeSeconds: playtime.totalPlaytimeInPeriodSeconds,
                     percentOfTotalPlaytime: parseFloat(
                         percentageInPeriod.toFixed(4),
                     ),
@@ -312,9 +299,9 @@ export class RecapCreateService {
             profileUserId: userId,
             year: period.startDate.year(),
             // TODO
+            totalLikesReceived: 0,
             totalReviewsCreated: reviewsInPeriod.totalCreatedReviews,
             totalFollowersGained: followersGained,
-            totalLikesReceived: 0,
             totalCollectionsCreated: collectionsInPeriod.totalCreatedInPeriod,
             totalAddedGames: entriesInPeriod.totalCreatedInPeriod,
             totalPlaytimeSeconds:

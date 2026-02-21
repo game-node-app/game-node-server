@@ -26,4 +26,9 @@ export class YearRecapMode extends BaseEntity {
         default: 0,
     })
     totalGames: number;
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    totalGamesFinished: number;
 }

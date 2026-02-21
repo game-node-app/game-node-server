@@ -15,7 +15,8 @@ export class RecapQueueService {
         this.queue
             .upsertJobScheduler(RECAP_CREATE_JOB_NAME, {
                 // “At 04:00 in December and January.”
-                pattern: "0 4 * 12,1 *",
+                // Temporarily at 4 AM monthly for testing purposes
+                pattern: "0 4 * * *",
             })
             .then(() => {
                 this.logger.log("Yearly recap job scheduler registered.");

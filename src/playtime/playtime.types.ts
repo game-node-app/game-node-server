@@ -5,4 +5,6 @@ export interface PlaytimeInPeriod {
     totalPlaytimeInPeriodSeconds: number;
     source: UserPlaytimeSource;
     platformId: number;
+    lastPlayedDate: Date;
+    firstPlayedDate: Date;
 }
