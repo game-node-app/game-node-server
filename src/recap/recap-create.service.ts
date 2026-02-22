@@ -36,9 +36,7 @@ export class RecapCreateService {
         private readonly reviewsService: ReviewsService,
         private readonly followService: FollowService,
         private readonly dataSource: DataSource,
-    ) {
-        // this.createRecap("d11a23a8-113c-4373-9276-821fb832aa57");
-    }
+    ) {}
 
     private getTargetPeriod(): RecapPeriod {
         const dateInTargetYear = dayjs().set("year", getTargetRecapYear());
@@ -180,42 +178,68 @@ export class RecapCreateService {
     > {
         const year = period.startDate.year();
 
-        const [byMode, byGenre, byPlatform, byTheme] = await Promise.all([
-            this.profileMetricsDistributionService.getTypeDistribution(userId, {
-                by: ProfileMetricsTypeDistributionBy.MODE,
-                year: year,
-            }),
-            this.profileMetricsDistributionService.getTypeDistribution(userId, {
-                by: ProfileMetricsTypeDistributionBy.GENRE,
-                year: year,
-            }),
-            this.profileMetricsDistributionService.getTypeDistribution(userId, {
-                by: ProfileMetricsTypeDistributionBy.PLATFORM,
-                year: year,
-            }),
-            this.profileMetricsDistributionService.getTypeDistribution(userId, {
-                by: ProfileMetricsTypeDistributionBy.THEME,
-                year: year,
-            }),
-        ]);
+        try {
+            const [byMode, byGenre, byPlatform, byTheme] = await Promise.all([
+                this.profileMetricsDistributionService.getTypeDistribution(
+                    userId,
+                    {
+                        by: ProfileMetricsTypeDistributionBy.MODE,
+                        year: year,
+                    },
+                ),
+                this.profileMetricsDistributionService.getTypeDistribution(
+                    userId,
+                    {
+                        by: ProfileMetricsTypeDistributionBy.GENRE,
+                        year: year,
+                    },
+                ),
+                this.profileMetricsDistributionService.getTypeDistribution(
+                    userId,
+                    {
+                        by: ProfileMetricsTypeDistributionBy.PLATFORM,
+                        year: year,
+                    },
+                ),
+                this.profileMetricsDistributionService.getTypeDistribution(
+                    userId,
+                    {
+                        by: ProfileMetricsTypeDistributionBy.THEME,
+                        year: year,
+                    },
+                ),
+            ]);
+
+            return {
+                modes: byMode.distribution.map((item) => ({
+                    modeId: item.criteriaId,
+                    totalGames: item.count,
+                })),
+                genres: byGenre.distribution.map((item) => ({
+                    genreId: item.criteriaId,
+                    totalGames: item.count,
+                })),
+                platforms: byPlatform.distribution.map((item) => ({
+                    platformId: item.criteriaId,
+                    totalGames: item.count,
+                })),
+                themes: byTheme.distribution.map((item) => ({
+                    themeId: item.criteriaId,
+                    totalGames: item.count,
+                })),
+            };
+        } catch (err) {
+            this.logger.error(
+                `Error fetching library distribution for user ${userId} and year ${year}`,
+                err,
+            );
+        }
 
         return {
-            modes: byMode.distribution.map((item) => ({
-                modeId: item.criteriaId,
-                totalGames: item.count,
-            })),
-            genres: byGenre.distribution.map((item) => ({
-                genreId: item.criteriaId,
-                totalGames: item.count,
-            })),
-            platforms: byPlatform.distribution.map((item) => ({
-                platformId: item.criteriaId,
-                totalGames: item.count,
-            })),
-            themes: byTheme.distribution.map((item) => ({
-                themeId: item.criteriaId,
-                totalGames: item.count,
-            })),
+            modes: [],
+            genres: [],
+            platforms: [],
+            themes: [],
         };
     }
 
