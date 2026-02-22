@@ -20,7 +20,6 @@ export class RecapQueueProcessor extends WorkerHostProcessor {
         private readonly recapCreateService: RecapCreateService,
     ) {
         super();
-        this.processRecapCreateJob();
     }
 
     async process(job: Job<never>): Promise<any> {

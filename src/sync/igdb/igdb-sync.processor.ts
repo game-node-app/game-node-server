@@ -10,7 +10,7 @@ import { GameRepositoryCreateService } from "../../game/game-repository/create/g
 import { IGDBPartialGame } from "../../game/game-repository/game-repository.types";
 
 @Processor(IGDB_SYNC_QUEUE_NAME, {
-    concurrency: 5,
+    concurrency: 50,
 })
 export class IgdbSyncProcessor extends WorkerHostProcessor {
     logger = new Logger(IgdbSyncProcessor.name);
