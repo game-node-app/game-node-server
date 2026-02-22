@@ -1,5 +1,5 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { DeepPartial, Repository } from "typeorm";
+import { Injectable, Logger } from "@nestjs/common";
+import { Between, DataSource, DeepPartial, Repository } from "typeorm";
 import { YearRecap } from "./entity/year-recap.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import dayjs from "dayjs";
@@ -14,6 +14,8 @@ import { PlaytimeInPeriod } from "../playtime/playtime.types";
 import { YearRecapPlayedGame } from "./entity/year-recap-played-game.entity";
 import { ReviewsService } from "../reviews/reviews.service";
 import { FollowService } from "../follow/follow.service";
+import { getTargetRecapYear } from "./recap.utils";
+import { UserLike } from "../statistics/entity/user-like.entity";
 
 interface RecapPeriod {
     startDate: dayjs.Dayjs;
@@ -22,6 +24,8 @@ interface RecapPeriod {
 
 @Injectable()
 export class RecapCreateService {
+    private readonly logger = new Logger(RecapCreateService.name);
+
     constructor(
         @InjectRepository(YearRecap)
         private readonly recapRepository: Repository<YearRecap>,
@@ -31,30 +35,17 @@ export class RecapCreateService {
         private readonly playtimeHistoryService: PlaytimeHistoryService,
         private readonly reviewsService: ReviewsService,
         private readonly followService: FollowService,
+        private readonly dataSource: DataSource,
     ) {
         // this.createRecap("d11a23a8-113c-4373-9276-821fb832aa57");
     }
 
     private getTargetPeriod(): RecapPeriod {
-        const now = dayjs();
-        if (now.month() > 0 && now.month() < 10) {
-            throw new HttpException(
-                "Recap is only available between November and January.",
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-
-        if (now.month() === 0) {
-            const lastYearDate = dayjs().set("year", now.year() - 1);
-            return {
-                startDate: lastYearDate.startOf("year"),
-                endDate: lastYearDate.endOf("year"),
-            };
-        }
+        const dateInTargetYear = dayjs().set("year", getTargetRecapYear());
 
         return {
-            startDate: dayjs().startOf("year"),
-            endDate: dayjs().endOf("year"),
+            startDate: dateInTargetYear.startOf("year"),
+            endDate: dateInTargetYear.endOf("year"),
         };
     }
 
@@ -134,7 +125,6 @@ export class RecapCreateService {
         );
 
         const playedGamesParsed: Partial<YearRecapPlayedGame>[] = totalPerGame
-            .filter((playtime) => playtime.totalPlaytimeInPeriodSeconds > 0)
             .toSorted((a, b) => {
                 return (
                     b.totalPlaytimeInPeriodSeconds -
@@ -146,6 +136,7 @@ export class RecapCreateService {
                     playtime.totalPlaytimeInPeriodSeconds / totalPlaytime;
                 return {
                     ...playtime,
+                    totalPlaytimeSeconds: playtime.totalPlaytimeInPeriodSeconds,
                     percentOfTotalPlaytime: parseFloat(
                         percentageInPeriod.toFixed(4),
                     ),
@@ -230,7 +221,7 @@ export class RecapCreateService {
 
     private async getReviewsInPeriod(userId: string, period: RecapPeriod) {
         const [reviews] = await this.reviewsService.findAllByUserId(userId, {
-            limit: 1_000_000,
+            limit: 9_999_999,
         });
 
         const totalReviews = reviews.filter((review) => {
@@ -246,9 +237,54 @@ export class RecapCreateService {
         };
     }
 
+    private async getLikesPerformedInPeriod(
+        userId: string,
+        period: RecapPeriod,
+    ) {
+        const userLikesRepository = this.dataSource.getRepository(UserLike);
+
+        return await userLikesRepository.countBy({
+            profileUserId: userId,
+            createdAt: Between(
+                period.startDate.toDate(),
+                period.endDate.toDate(),
+            ),
+        });
+    }
+
+    /**
+     * We have to persist relations separately due to TypeORM limitations with upsert and cascades
+     * @param entity
+     * @param persistedId
+     * @private
+     */
+    private async persistRelations(entity: YearRecap, persistedId: number) {
+        entity.playedGames.forEach((game) => {
+            game.recapId = persistedId;
+        });
+        entity.genres.forEach((genre) => {
+            genre.recapId = persistedId;
+        });
+        entity.modes.forEach((mode) => {
+            mode.recapId = persistedId;
+        });
+        entity.platforms.forEach((platform) => {
+            platform.recapId = persistedId;
+        });
+        entity.themes.forEach((theme) => {
+            theme.recapId = persistedId;
+        });
+
+        await this.recapRepository.save(entity);
+    }
+
     @Transactional()
     async createRecap(userId: string) {
         const period = this.getTargetPeriod();
+        this.logger.log(
+            `Creating yearly recap for user ${userId} and year ${period.startDate.year()}`,
+        );
+
         const collectionsInPeriod = await this.getCollectionsInPeriod(
             userId,
             period,
@@ -279,25 +315,37 @@ export class RecapCreateService {
             },
         );
 
+        const likesInPeriod = await this.getLikesPerformedInPeriod(
+            userId,
+            period,
+        );
+
         const entity = this.recapRepository.create({
             profileUserId: userId,
             year: period.startDate.year(),
             // TODO
+            totalLikesPerformed: likesInPeriod,
             totalReviewsCreated: reviewsInPeriod.totalCreatedReviews,
             totalFollowersGained: followersGained,
-            totalLikesReceived: 0,
             totalCollectionsCreated: collectionsInPeriod.totalCreatedInPeriod,
             totalAddedGames: entriesInPeriod.totalCreatedInPeriod,
             totalPlaytimeSeconds:
                 playedGamesInPeriod.totalPlaytimeInPeriodSeconds,
             totalPlayedGames: playedGamesInPeriod.playedGames.length,
             playedGames: playedGamesInPeriod.playedGames,
-            // genres: distributionInPeriod.genres,
-            // modes: distributionInPeriod.modes,
+            genres: distributionInPeriod.genres,
+            modes: distributionInPeriod.modes,
             platforms: distributionInPeriod.platforms,
-            // themes: distributionInPeriod.themes,
+            themes: distributionInPeriod.themes,
         });
 
-        await this.recapRepository.save(entity);
+        const result = await this.recapRepository.upsert(entity, ["id"]);
+        const persistedId: number = result.identifiers[0].id;
+
+        await this.persistRelations(entity, persistedId);
+
+        this.logger.log(
+            `Yearly recap for user ${userId} and year ${period.startDate.year()} created successfully.`,
+        );
     }
 }

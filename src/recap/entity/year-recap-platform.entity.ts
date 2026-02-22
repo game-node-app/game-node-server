@@ -25,4 +25,9 @@ export class YearRecapPlatform {
         default: 0,
     })
     totalGames: number;
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    totalGamesFinished: number;
 }

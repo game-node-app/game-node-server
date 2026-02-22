@@ -138,7 +138,8 @@ const PlatformToIconMap: { [p: string]: string[] } = {
         "Game Gear",
     ],
     atari: ["Atari2600", "Atari7800", "Atari-ST", "Atari8bit", "Atari5200"],
-    android: ["Android", "iOS"],
+    android: ["Android"],
+    apple: ["iOS"],
 };
 
 export {

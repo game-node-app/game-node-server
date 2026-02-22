@@ -48,7 +48,7 @@ export class PlaytimeHistoryService {
         });
     }
 
-    @Cacheable(PlaytimeHistoryService.name, minutes(5))
+    // @Cacheable(PlaytimeHistoryService.name, minutes(5))
     public async getTotalPlaytimeForPeriod(dto: GetTotalPlaytimePeriodDto) {
         const { userId, source, platformId, startDate, endDate } = dto;
         const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
@@ -62,10 +62,13 @@ export class PlaytimeHistoryService {
             )
             .groupBy("ph.gameId, ph.source, ph.platformId")
             .addGroupBy("ph.source")
-            .where("ph.createdAt BETWEEN :startDate AND :endDate", {
-                startDate,
-                endDate,
-            })
+            .where(
+                "(ph.lastPlayedDate BETWEEN :startDate AND :endDate OR ph.firstPlayedDate BETWEEN :startDate AND :endDate)",
+                {
+                    startDate,
+                    endDate,
+                },
+            )
             .andWhere("ph.profileUserId = :userId", { userId });
         if (source) {
             qb.andWhere("ph.source = :source", { source });

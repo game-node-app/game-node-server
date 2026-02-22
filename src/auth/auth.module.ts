@@ -8,11 +8,10 @@ import {
 } from "./config.interface";
 import { ConfigService } from "@nestjs/config";
 import { AuthController } from "./auth.controller";
-import { TurnstileModule } from "../turnstile/turnstile.module";
 import { UserInitModule } from "../user/user-init/user-init.module";
 
 @Module({
-    imports: [UserInitModule, TurnstileModule],
+    imports: [UserInitModule],
     providers: [
         AuthService,
         {

@@ -1,6 +1,7 @@
 import {
     Column,
     Entity,
+    Index,
     ManyToOne,
     OneToMany,
     PrimaryGeneratedColumn,
@@ -14,12 +15,12 @@ import { YearRecapMode } from "./year-recap-mode.entity";
 import { YearRecapPlatform } from "./year-recap-platform.entity";
 
 @Entity()
+@Index(["profileUserId", "year"], { unique: true })
 export class YearRecap extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
     @Column({
         nullable: false,
-        default: new Date().getFullYear(),
     })
     year: number;
     @ManyToOne(() => Profile, {
@@ -60,7 +61,7 @@ export class YearRecap extends BaseEntity {
     @Column({
         nullable: false,
     })
-    totalLikesReceived: number;
+    totalLikesPerformed: number;
     @OneToMany(
         () => YearRecapPlayedGame,
         (mostPlayedGame) => mostPlayedGame.recap,
