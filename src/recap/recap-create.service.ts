@@ -132,15 +132,18 @@ export class RecapCreateService {
             .map((playtime): Partial<YearRecapPlayedGame> => {
                 const percentageInPeriod =
                     playtime.totalPlaytimeInPeriodSeconds / totalPlaytime;
+                const percentOfTotalPlaytime =
+                    parseFloat(percentageInPeriod.toFixed(4)) || 0;
+                const percentOfTotalPlaytimeFormatted = (
+                    percentageInPeriod * 100
+                ).toFixed(2);
+
                 return {
                     ...playtime,
                     totalPlaytimeSeconds: playtime.totalPlaytimeInPeriodSeconds,
-                    percentOfTotalPlaytime: parseFloat(
-                        percentageInPeriod.toFixed(4),
-                    ),
-                    percentOfTotalPlaytimeFormatted: (
-                        percentageInPeriod * 100
-                    ).toFixed(2),
+                    percentOfTotalPlaytime: percentOfTotalPlaytime,
+                    percentOfTotalPlaytimeFormatted:
+                        percentOfTotalPlaytimeFormatted,
                 };
             });
 
@@ -348,30 +351,13 @@ export class RecapCreateService {
             profileUserId: userId,
             year: period.startDate.year(),
             // TODO
-            totalLikesPerformed: Number.isNaN(likesInPeriod)
-                ? 0
-                : likesInPeriod,
-            totalReviewsCreated: Number.isNaN(
-                reviewsInPeriod.totalCreatedReviews,
-            )
-                ? 0
-                : reviewsInPeriod.totalCreatedReviews,
-            totalFollowersGained: Number.isNaN(followersGained)
-                ? 0
-                : followersGained,
-            totalCollectionsCreated: Number.isNaN(
-                collectionsInPeriod.totalCreatedInPeriod,
-            )
-                ? 0
-                : collectionsInPeriod.totalCreatedInPeriod,
-            totalAddedGames: Number.isNaN(entriesInPeriod.totalCreatedInPeriod)
-                ? 0
-                : entriesInPeriod.totalCreatedInPeriod,
-            totalPlaytimeSeconds: Number.isNaN(
+            totalLikesPerformed: likesInPeriod,
+            totalReviewsCreated: reviewsInPeriod.totalCreatedReviews,
+            totalFollowersGained: followersGained,
+            totalCollectionsCreated: collectionsInPeriod.totalCreatedInPeriod,
+            totalAddedGames: entriesInPeriod.totalCreatedInPeriod,
+            totalPlaytimeSeconds:
                 playedGamesInPeriod.totalPlaytimeInPeriodSeconds,
-            )
-                ? 0
-                : playedGamesInPeriod.totalPlaytimeInPeriodSeconds,
             totalPlayedGames: Array.isArray(playedGamesInPeriod.playedGames)
                 ? playedGamesInPeriod.playedGames.length
                 : 0,
