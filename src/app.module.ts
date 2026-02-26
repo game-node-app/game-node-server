@@ -42,7 +42,7 @@ import { AwardsModule } from "./awards/awards.module";
 import { UserAccountModule } from "./user/user-account/user-account.module";
 import { PreferredPlatformModule } from "./preferred-platform/preferred-platform.module";
 import { LoggerModule } from "nestjs-pino";
-import { RecapModule } from './recap/recap.module';
+import { RecapModule } from "./recap/recap.module";
 
 /**
  * Should only be called after 'ConfigModule' is loaded (e.g. in useFactory)
@@ -83,8 +83,14 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
         HealthModule,
         TypeOrmModule.forRootAsync({
             inject: [ConfigService],
-            useFactory: () => {
+            useFactory: (configService: ConfigService) => {
                 const redisConfig = getRedisConfig();
+                const isProduction =
+                    configService.get<string>("NODE_ENV") === "production";
+                const isTypeOrmLoggingEnabled =
+                    configService
+                        .get<string>("TYPEORM_LOGGING")
+                        ?.toLowerCase() === "true";
                 return {
                     // Fixes Bigint values being returned as string
                     // https://github.com/typeorm/typeorm/issues/2400#issuecomment-582643862
@@ -101,6 +107,10 @@ function getRedisConfig(target: "cache" | "bullmq" = "cache") {
                     autoLoadEntities: true,
                     // Never turn this on. Use migrations instead.
                     synchronize: false,
+                    logging:
+                        !isProduction || isTypeOrmLoggingEnabled
+                            ? ["error", "query"]
+                            : false,
 
                     /**
                      * Allows us to cache select queries using ioredis. Default duration of 1000ms.
