@@ -348,15 +348,36 @@ export class RecapCreateService {
             profileUserId: userId,
             year: period.startDate.year(),
             // TODO
-            totalLikesPerformed: likesInPeriod,
-            totalReviewsCreated: reviewsInPeriod.totalCreatedReviews,
-            totalFollowersGained: followersGained,
-            totalCollectionsCreated: collectionsInPeriod.totalCreatedInPeriod,
-            totalAddedGames: entriesInPeriod.totalCreatedInPeriod,
-            totalPlaytimeSeconds:
+            totalLikesPerformed: Number.isNaN(likesInPeriod)
+                ? 0
+                : likesInPeriod,
+            totalReviewsCreated: Number.isNaN(
+                reviewsInPeriod.totalCreatedReviews,
+            )
+                ? 0
+                : reviewsInPeriod.totalCreatedReviews,
+            totalFollowersGained: Number.isNaN(followersGained)
+                ? 0
+                : followersGained,
+            totalCollectionsCreated: Number.isNaN(
+                collectionsInPeriod.totalCreatedInPeriod,
+            )
+                ? 0
+                : collectionsInPeriod.totalCreatedInPeriod,
+            totalAddedGames: Number.isNaN(entriesInPeriod.totalCreatedInPeriod)
+                ? 0
+                : entriesInPeriod.totalCreatedInPeriod,
+            totalPlaytimeSeconds: Number.isNaN(
                 playedGamesInPeriod.totalPlaytimeInPeriodSeconds,
-            totalPlayedGames: playedGamesInPeriod.playedGames.length,
-            playedGames: playedGamesInPeriod.playedGames,
+            )
+                ? 0
+                : playedGamesInPeriod.totalPlaytimeInPeriodSeconds,
+            totalPlayedGames: Array.isArray(playedGamesInPeriod.playedGames)
+                ? playedGamesInPeriod.playedGames.length
+                : 0,
+            playedGames: Array.isArray(playedGamesInPeriod.playedGames)
+                ? playedGamesInPeriod.playedGames
+                : [],
             genres: distributionInPeriod.genres,
             modes: distributionInPeriod.modes,
             platforms: distributionInPeriod.platforms,
