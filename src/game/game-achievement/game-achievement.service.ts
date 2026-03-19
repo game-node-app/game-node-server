@@ -511,6 +511,10 @@ export class GameAchievementService {
         userId: string | undefined,
         gameId: number,
     ) {
+        if (userId == undefined) {
+            return [];
+        }
+
         const externalGames = await this.externalGameService.findAllForGameId([
             gameId,
         ]);
@@ -518,10 +522,6 @@ export class GameAchievementService {
             GAME_ACHIEVEMENT_ENABLED_SOURCES.includes(externalGame.category!),
         );
         if (enabledExternalGames.length === 0) {
-            return [];
-        }
-
-        if (userId == undefined) {
             return [];
         }
 

@@ -165,9 +165,26 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 EConnectionType.STEAM,
             );
 
-        const userGames = await this.steamSyncService.getAllGames(
-            connection.sourceUserId,
-        );
+        /**
+         * We list entries from both the full library and recently played games
+         * endpoints to mitigate potential issues with the library endpoint after a S
+         * team API change in mid 2024, which caused many users to have no playtime info or games listed at all.
+         * The recently played games endpoint is not affected by this change, but only returns games played in the last two weeks,
+         * so we use it as a fallback to at least get some playtime info for affected users.
+         * The recently played games endpoint also include Family Sharing games, unlike the getAllGames endpoint.
+         */
+        const [listUserGames, fallbackRecentGames] = await Promise.all([
+            this.steamSyncService.getAllGames(connection.sourceUserId),
+            this.steamSyncService.getRecentlyPlayedGames(
+                connection.sourceUserId,
+            ),
+        ]);
+
+        /**
+         * Its important that fallbackRecentGames is added last because it will replace the original item
+         * in the Map below.
+         */
+        const userGames = [...listUserGames, ...fallbackRecentGames];
 
         if (userGames.length === 0) {
             job.updateProgress({
@@ -176,7 +193,9 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             return;
         }
 
-        const gamesUids = userGames.map((item) => `${item.game.id}`);
+        const gamesUids = Array.from(
+            new Set(userGames.map((item) => `${item.game.id}`)),
+        );
 
         const externalGames =
             await this.externalGameService.getExternalGamesForSourceIds(
@@ -212,6 +231,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         for (const [gameId, items] of groupedByGameId.entries()) {
             const appIds = items.map((item) => Number.parseInt(item.uid));
 
+            // This can be an item from the full library or recently played games list, it doesn't matter as we will merge playtime for all entries with the same app id(s).
             const relatedUserGames = userGames.filter((userGame) => {
                 return appIds.includes(userGame.game.id);
             });
