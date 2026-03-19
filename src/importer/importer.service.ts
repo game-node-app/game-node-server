@@ -78,11 +78,18 @@ export class ImporterService {
             );
         }
 
-        const games = await this.steamSyncService.getAllGames(
-            userConnection.sourceUserId,
-        );
+        const [userGames, fallbackRecentGames] = await Promise.all([
+            this.steamSyncService.getAllGames(userConnection.sourceUserId),
+            this.steamSyncService.getRecentlyPlayedGames(
+                userConnection.sourceUserId,
+            ),
+        ]);
 
-        const gamesUids = games.map((item) => `${item.game.id}`);
+        const games = [...userGames, ...fallbackRecentGames];
+
+        const gamesUids = Array.from(
+            new Set(games.map((item) => `${item.game.id}`)),
+        );
 
         const externalGames =
             await this.externalGameService.getExternalGamesForSourceIds(

@@ -13,6 +13,10 @@ import { AchievementsCodeController } from "./achievements-code.controller";
 import { AchievementCode } from "./entities/achievement-code.entity";
 import { AchievementsV2Controller } from "./v2/achievements-v2.controller";
 
+/**
+ * This module is responsible for providing our internal achievements system, which allows users to earn achievements for completing certain actions on the platform.
+ * It was renamed to "Feats" in the frontend to avoid confusion with external achievements from platforms like Steam.
+ */
 @Module({
     imports: [
         TypeOrmModule.forFeature([ObtainedAchievement, AchievementCode]),
