@@ -57,9 +57,7 @@ export class SteamSyncService {
      * @param steamUserId
      */
     @Cacheable(SteamSyncService.name, hours(1))
-    public async getAllGames(
-        steamUserId: string,
-    ): Promise<ReturnType<typeof this.client.getUserOwnedGames>> {
+    public async getAllGames(steamUserId: string) {
         const games = await this.client.getUserOwnedGames(steamUserId, {
             includeAppInfo: false,
             includeFreeGames: true,

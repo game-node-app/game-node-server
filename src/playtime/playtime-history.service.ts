@@ -48,7 +48,7 @@ export class PlaytimeHistoryService {
         });
     }
 
-    // @Cacheable(PlaytimeHistoryService.name, minutes(5))
+    @Cacheable(PlaytimeHistoryService.name, minutes(5))
     public async getTotalPlaytimeForPeriod(dto: GetTotalPlaytimePeriodDto) {
         const { userId, source, platformId, startDate, endDate } = dto;
         const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
