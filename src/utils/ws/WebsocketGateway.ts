@@ -7,18 +7,13 @@ import { Socket } from "socket.io";
 import Session from "supertokens-node/recipe/session";
 import { Logger } from "@nestjs/common";
 
-export class WebsocketGateway
-    implements OnGatewayConnection, OnGatewayDisconnect
-{
+const getUserJoinKey = (userId: string) => `user:${userId}`;
+
+export class WebsocketGateway implements OnGatewayConnection {
     protected readonly logger = new Logger(WebsocketGateway.name);
+
     @WebSocketServer()
     server: Socket;
-
-    /**
-     * Active clients mapping
-     * @private
-     */
-    protected clients: Map<string, string> = new Map();
 
     async getUserIdFromClient(client: Socket): Promise<string | null> {
         const token = client.handshake.query.token as string | undefined;
@@ -45,25 +40,21 @@ export class WebsocketGateway
             return null;
         }
 
-        this.clients.set(userId, client.id);
+        /**
+         * Joins the client to a room named after their user ID,
+         * which allows for all Socket.IO servers to connect to it.
+         */
+        this.server.join(getUserJoinKey(userId));
         this.logger.log(`Client ${userId} - ${client.id} connected`);
     }
 
-    async handleDisconnect(client: Socket) {
-        for (const [userId, clientId] of this.clients.entries()) {
-            if (clientId === client.id) {
-                this.clients.delete(userId);
-                this.logger.log(`Client ${client.id} disconnected`);
-            }
-        }
-    }
-
     public sendMessageToUser(userId: string, message: string) {
-        const clientId = this.clients.get(userId);
-        if (!clientId) {
-            return;
+        try {
+            this.server.to(getUserJoinKey(userId)).emit("message", message);
+        } catch (err) {
+            this.logger.error(
+                `Failed to send message to user ${userId}: ${err}`,
+            );
         }
-
-        this.server.to(clientId).emit("message", message);
     }
 }

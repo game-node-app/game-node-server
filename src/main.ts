@@ -19,6 +19,7 @@ import {
     StorageDriver,
 } from "typeorm-transactional";
 import { Logger } from "nestjs-pino";
+import { RedisIoAdapter } from "./utils/ws/RedisIoAdapter";
 
 dayjs.extend(duration);
 
@@ -62,6 +63,10 @@ async function bootstrap() {
             },
         }),
     );
+
+    const pubSubAdapter = new RedisIoAdapter(app);
+    await pubSubAdapter.connectToRedis();
+    app.useWebSocketAdapter(pubSubAdapter);
 
     const swaggerConfig = new DocumentBuilder()
         .setTitle("GameNode API")

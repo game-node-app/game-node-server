@@ -499,18 +499,31 @@ export class CollectionsEntriesService {
             .with(CollectionEntryStatus.PLANNED, () => ({
                 status: CollectionEntryStatus.PLANNED,
                 plannedAt: new Date(),
+                startedAt: null,
+                finishedAt: null,
+                droppedAt: null,
             }))
             .with(CollectionEntryStatus.PLAYING, () => ({
                 status: CollectionEntryStatus.PLAYING,
                 startedAt: new Date(),
+                finishedAt: null,
+                droppedAt: null,
             }))
             .with(CollectionEntryStatus.DROPPED, () => ({
                 status: CollectionEntryStatus.DROPPED,
                 droppedAt: new Date(),
+                finishedAt: null,
             }))
             .with(CollectionEntryStatus.FINISHED, () => ({
                 status: CollectionEntryStatus.FINISHED,
                 finishedAt: finishedAt ?? new Date(),
+                droppedAt: null,
+            }))
+            .with(CollectionEntryStatus.ONGOING, () => ({
+                status: CollectionEntryStatus.ONGOING,
+                startedAt: new Date(),
+                finishedAt: null,
+                droppedAt: null,
             }))
             .exhaustive();
     }
