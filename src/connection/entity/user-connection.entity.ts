@@ -38,16 +38,6 @@ export class UserConnection {
     sourceUsername: string;
     @Column({
         nullable: false,
-        default: true,
-    })
-    isImporterEnabled: boolean;
-    @Column({
-        nullable: false,
-        default: true,
-    })
-    isPlaytimeImportEnabled: boolean;
-    @Column({
-        nullable: false,
         default: false,
     })
     isAutoImportEnabled: boolean;

@@ -60,10 +60,8 @@ export class ImporterWatchService {
             return;
         }
 
-        const usableConnections = connections.filter(
-            (connection) =>
-                IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(connection.type) &&
-                connection.isImporterEnabled,
+        const usableConnections = connections.filter((connection) =>
+            IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(connection.type),
         );
 
         for (const connection of usableConnections) {

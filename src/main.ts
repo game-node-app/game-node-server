@@ -3,6 +3,7 @@ import { AppModule } from "./app.module";
 import { SupertokensExceptionFilter } from "./auth/auth.filter";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { Cache } from "@nestjs/cache-manager";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import duration from "dayjs/plugin/duration";
 import dayjs from "dayjs";
@@ -10,7 +11,6 @@ import supertokens from "supertokens-node";
 import { publicImagesDir } from "./utils/constants";
 import { json } from "express";
 import * as fs from "fs";
-
 import * as process from "process";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
 import { AxiosExceptionFilter } from "./filter/axios-exception.filter";
@@ -20,6 +20,8 @@ import {
 } from "typeorm-transactional";
 import { Logger } from "nestjs-pino";
 import { RedisIoAdapter } from "./utils/ws/RedisIoAdapter";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { setCacheManager } from "./utils/cacheable";
 
 dayjs.extend(duration);
 
@@ -67,6 +69,10 @@ async function bootstrap() {
     const pubSubAdapter = new RedisIoAdapter(app);
     await pubSubAdapter.connectToRedis();
     app.useWebSocketAdapter(pubSubAdapter);
+
+    const cacheManager: Cache = app.get(CACHE_MANAGER);
+
+    setCacheManager(cacheManager);
 
     const swaggerConfig = new DocumentBuilder()
         .setTitle("GameNode API")

@@ -22,6 +22,6 @@ export const PLAYTIME_IMPORT_VIABLE_CONNECTIONS: EConnectionType[] = [
     EConnectionType.XBOX,
 ];
 
-export const ACHIEVEMENTS_IMPORT_VIABLE_CONNECTIONS: EConnectionType[] = [
+export const ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS: EConnectionType[] = [
     EConnectionType.STEAM,
 ];

@@ -9,14 +9,17 @@ import { seconds } from "@nestjs/throttler";
 import { GameAchievementSyncQueueService } from "./sync/game-achievement-sync-queue.service";
 import { GameAchievementSyncProcessor } from "./sync/game-achievement-sync.processor";
 import { ConnectionsModule } from "../../connection/connections.module";
-import { GameAchievementOverviewModule } from "./overview/game-achievement-overview.module";
 import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
 import { GameAchievementV2Controller } from "./game-achievement-v2.controller";
 import { GameRepositoryModule } from "../game-repository/game-repository.module";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { ObtainedGameAchievement } from "./entity/obtained-game-achievement.entity";
+import { GameAchievementObtainedService } from "./game-achievement-obtained.service";
 
 @Module({
     imports: [
+        TypeOrmModule.forFeature([ObtainedGameAchievement]),
         BullModule.registerQueue({
             name: GAME_ACHIEVEMENT_SYNC_QUEUE_NAME,
             defaultJobOptions: {
@@ -29,15 +32,15 @@ import { GameRepositoryModule } from "../game-repository/game-repository.module"
         PsnSyncModule,
         XboxSyncModule,
         ConnectionsModule,
-        GameAchievementOverviewModule,
         GameRepositoryModule,
     ],
     providers: [
         GameAchievementService,
+        GameAchievementObtainedService,
         GameAchievementSyncQueueService,
         GameAchievementSyncProcessor,
     ],
-    exports: [GameAchievementService],
+    exports: [GameAchievementService, GameAchievementObtainedService],
     controllers: [GameAchievementController, GameAchievementV2Controller],
 })
 export class GameAchievementModule {}

@@ -5,4 +5,5 @@ export class UserConnectionDto extends OmitType(UserConnection, ["profile"]) {
     isImporterViable: boolean;
     isImporterWatchViable: boolean;
     isPlaytimeImportViable: boolean;
+    isAchievementImportViable: boolean;
 }

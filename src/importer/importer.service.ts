@@ -71,13 +71,6 @@ export class ImporterService {
                 EConnectionType.STEAM,
             );
 
-        if (!userConnection.isImporterEnabled) {
-            throw new HttpException(
-                "Steam connection importing is disabled.",
-                HttpStatus.PRECONDITION_FAILED,
-            );
-        }
-
         const [userGames, fallbackRecentGames] = await Promise.all([
             this.steamSyncService.getAllGames(userConnection.sourceUserId),
             this.steamSyncService.getRecentlyPlayedGames(
@@ -126,13 +119,6 @@ export class ImporterService {
                 userId,
                 EConnectionType.PSN,
             );
-
-        if (!userConnection.isImporterEnabled) {
-            throw new HttpException(
-                "Steam connection importing is disabled.",
-                HttpStatus.PRECONDITION_FAILED,
-            );
-        }
 
         const games = await this.psnSyncService.getAllGames(
             userConnection.sourceUserId,
@@ -200,13 +186,6 @@ export class ImporterService {
                 userId,
                 EConnectionType.XBOX,
             );
-
-        if (!userConnection.isImporterEnabled) {
-            throw new HttpException(
-                "Steam connection importing is disabled.",
-                HttpStatus.PRECONDITION_FAILED,
-            );
-        }
 
         const allGames = await this.xboxSyncService.getAllGames(
             userConnection.sourceUserId,
