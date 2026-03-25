@@ -101,7 +101,23 @@ export class JournalAchievementsService {
                         continue;
                     }
 
-                    const obtainedAchievementDtos: GameAchievementWithObtainedInfo[] =
+                    /**
+                     * Get all obtained for game, not just the ones obtained in this month, to determine if the game is completed or not.
+                     */
+                    const allObtainedForGame = obtainedAchievements.filter(
+                        (oa) => oa.gameId === gameId,
+                    );
+
+                    const isComplete = this.checkIfGameIsComplete(
+                        gameAchievements,
+                        allObtainedForGame,
+                    );
+                    const isPlatinum = this.checkIfGameIsPlatinum(
+                        gameAchievements,
+                        allObtainedForGame,
+                    );
+
+                    const allObtainedWithInfoForGame: GameAchievementWithObtainedInfo[] =
                         obtainedAchievements.map((obtained) => {
                             const relatedAchievement = gameAchievements.find(
                                 (a) =>
@@ -119,7 +135,9 @@ export class JournalAchievementsService {
 
                     gameGroups.push({
                         gameId,
-                        achievements: obtainedAchievementDtos,
+                        isComplete,
+                        isPlatinum,
+                        achievements: allObtainedWithInfoForGame,
                     });
                 }
 
@@ -153,5 +171,40 @@ export class JournalAchievementsService {
         return {
             years: yearGroups.sort((a, b) => b.year - a.year),
         };
+    }
+
+    private checkIfGameIsComplete(
+        allAchievementsForGame: GameAchievementDto[],
+        obtainedAchievementsForGame: GameObtainedAchievementDto[],
+    ): boolean {
+        const obtainedExternalIds = new Set(
+            obtainedAchievementsForGame.map((a) => a.externalId),
+        );
+
+        return allAchievementsForGame.every((achievement) =>
+            obtainedExternalIds.has(achievement.externalId),
+        );
+    }
+
+    private checkIfGameIsPlatinum(
+        allAchievementsForGame: GameAchievementDto[],
+        obtainedAchievementsForGame: GameObtainedAchievementDto[],
+    ): boolean {
+        const platinumTrophy = allAchievementsForGame.find((achievement) => {
+            return (
+                achievement.psnDetails != undefined &&
+                achievement.psnDetails.trophyType === "platinum"
+            );
+        });
+
+        if (!platinumTrophy) return false;
+
+        // Check if platinum trophy is obtained
+        return obtainedAchievementsForGame.some((obtained) => {
+            return (
+                obtained.externalId === platinumTrophy.externalId &&
+                obtained.externalGameId === platinumTrophy.externalGameId
+            );
+        });
     }
 }
