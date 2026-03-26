@@ -130,7 +130,7 @@ export class GameAchievementService {
                     const parsedTrophies = trophies.map((trophy) => {
                         return {
                             externalGameId: externalGame.id,
-                            gameId: externalGame.id,
+                            gameId: externalGame.gameId,
                             source: EGameExternalGameCategory.PlaystationStoreUs,
                             externalId: getPSNAchievementId(
                                 mapping.npCommunicationId,

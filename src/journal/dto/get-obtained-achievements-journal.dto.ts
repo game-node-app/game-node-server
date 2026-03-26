@@ -1,6 +1,7 @@
 import { OmitType } from "@nestjs/swagger";
 import { BaseFindDto } from "../../utils/base-find.dto";
 import { GameAchievementWithObtainedInfo } from "../../game/game-achievement/dto/game-obtained-achievement.dto";
+import { EGameExternalGameCategory } from "../../game/game-repository/game-repository.constants";
 
 export class GetObtainedAchievementsJournalRequestDto extends OmitType(
     BaseFindDto,
@@ -13,6 +14,11 @@ export class GetObtainedAchievementsJournalResponseDto {
 
 export class JournalAchievementsGameGroup {
     gameId: number;
+    externalGameId: number;
+    source: EGameExternalGameCategory;
+    sourceName: string;
+    sourceAbbreviatedName: string;
+    sourceIcon: string;
     /**
      * If all achievements for this game are obtained, this will be true.
      */

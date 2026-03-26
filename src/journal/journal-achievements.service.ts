@@ -12,6 +12,11 @@ import {
     GameAchievementWithObtainedInfo,
     GameObtainedAchievementDto,
 } from "../game/game-achievement/dto/game-obtained-achievement.dto";
+import {
+    getIconNameForExternalGameCategory,
+    getStoreAbbreviatedNameForExternalGameCategory,
+    getStoreNameForExternalGameCategory,
+} from "../game/external-game/external-game.utils";
 
 @Injectable()
 export class JournalAchievementsService {
@@ -25,7 +30,7 @@ export class JournalAchievementsService {
     public async buildObtainedAchievementsJournal(
         userId: string,
     ): Promise<GetObtainedAchievementsJournalResponseDto> {
-        const [obtainedAchievements] =
+        const [userObtainedAchievements] =
             await this.gameObtainedAchievementService.findAllObtainedByUserId(
                 userId,
                 {
@@ -33,18 +38,23 @@ export class JournalAchievementsService {
                 },
             );
 
-        const uniqueExternalGameIds = Array.from(
-            new Set(obtainedAchievements.map((a) => a.externalGameId)),
+        const obtainedByExternalGameId = Map.groupBy(
+            userObtainedAchievements,
+            (a) => a.externalGameId,
         );
 
-        const achievementsPerGameId = new Map<number, GameAchievementDto[]>();
+        const achievementsPerExternalGameId = new Map<
+            number,
+            GameAchievementDto[]
+        >();
 
-        const achievementsPerGamePromises = uniqueExternalGameIds.map(
-            (externalGameId) =>
+        const achievementsPerGamePromises = obtainedByExternalGameId
+            .keys()
+            .map((externalGameId) =>
                 this.gameAchievementService.findAllByExternalGameId(
                     externalGameId,
                 ),
-        );
+            );
 
         const achievementsPerGameResults = await Promise.allSettled(
             achievementsPerGamePromises,
@@ -55,28 +65,25 @@ export class JournalAchievementsService {
                 const achievements = result.value;
                 if (achievements.length === 0) continue;
 
-                const gameId = achievements[0].gameId;
-                const existing = achievementsPerGameId.get(gameId) ?? [];
-                achievementsPerGameId.set(gameId, [
-                    ...existing,
-                    ...achievements,
-                ]);
+                const externalGameId = achievements[0].externalGameId;
+
+                achievementsPerExternalGameId.set(externalGameId, achievements);
             }
         }
 
         /**
-         * Entries grouped by year, then by month, then by gameId.
+         * Entries grouped by year, then by month, then by externalGameId.
          */
         const journalGroupsMap = new Map<
             number,
             Map<number, Map<number, GameObtainedAchievementDto[]>>
         >();
 
-        for (const obtainedAchievement of obtainedAchievements) {
+        for (const obtainedAchievement of userObtainedAchievements) {
             const obtainmentDate = obtainedAchievement.obtainedAt!;
             const year = obtainmentDate.getFullYear();
             const month = obtainmentDate.getMonth();
-            const gameId = obtainedAchievement.gameId;
+            const externalGameId = obtainedAchievement.externalGameId;
 
             if (!journalGroupsMap.has(year)) {
                 journalGroupsMap.set(year, new Map());
@@ -88,11 +95,11 @@ export class JournalAchievementsService {
             }
             const monthGroup = yearGroup.get(month)!;
 
-            if (!monthGroup.has(gameId)) {
-                monthGroup.set(gameId, []);
+            if (!monthGroup.has(externalGameId)) {
+                monthGroup.set(externalGameId, []);
             }
 
-            const gameAchievements = monthGroup.get(gameId)!;
+            const gameAchievements = monthGroup.get(externalGameId)!;
 
             gameAchievements.push(obtainedAchievement);
         }
@@ -105,32 +112,25 @@ export class JournalAchievementsService {
                 const gameGroups: JournalAchievementsGameGroup[] = [];
 
                 for (const [
-                    gameId,
+                    externalGameId,
                     obtainedAchievements,
                 ] of gameGroupsMap.entries()) {
                     const gameAchievements =
-                        achievementsPerGameId.get(gameId) ?? [];
+                        achievementsPerExternalGameId.get(externalGameId) ?? [];
                     if (gameAchievements.length === 0) {
                         this.logger.warn(
-                            `No achievements found for gameId ${gameId}`,
+                            `No achievements found for gameId ${externalGameId}`,
                         );
                         continue;
                     }
 
-                    /**
-                     * Get all obtained for game, not just the ones obtained in this month, to determine if the game is completed or not.
-                     */
-                    const allObtainedForGame = obtainedAchievements.filter(
-                        (oa) => oa.gameId === gameId,
-                    );
-
                     const isComplete = this.checkIfGameIsComplete(
                         gameAchievements,
-                        allObtainedForGame,
+                        obtainedByExternalGameId.get(externalGameId)!,
                     );
                     const isPlatinum = this.checkIfGameIsPlatinum(
                         gameAchievements,
-                        allObtainedForGame,
+                        obtainedByExternalGameId.get(externalGameId)!,
                     );
 
                     const allObtainedWithInfoForGame: GameAchievementWithObtainedInfo[] =
@@ -151,10 +151,22 @@ export class JournalAchievementsService {
 
                     if (allObtainedWithInfoForGame.length === 0) continue;
 
+                    const source = allObtainedWithInfoForGame[0].source;
+                    const gameId = allObtainedWithInfoForGame[0].gameId;
+
                     gameGroups.push({
-                        gameId,
+                        gameId: gameId,
+                        externalGameId: externalGameId,
                         isComplete,
                         isPlatinum,
+                        source,
+                        sourceName:
+                            getStoreNameForExternalGameCategory(source)!,
+                        sourceAbbreviatedName:
+                            getStoreAbbreviatedNameForExternalGameCategory(
+                                source,
+                            )!,
+                        sourceIcon: getIconNameForExternalGameCategory(source)!,
                         achievements: allObtainedWithInfoForGame,
                     });
                 }
@@ -191,7 +203,7 @@ export class JournalAchievementsService {
         }
 
         return {
-            years: yearGroups.sort((a, b) => b.year - a.year),
+            years: yearGroups,
         };
     }
 
@@ -212,20 +224,21 @@ export class JournalAchievementsService {
         allAchievementsForGame: GameAchievementDto[],
         obtainedAchievementsForGame: GameObtainedAchievementDto[],
     ): boolean {
-        const platinumTrophy = allAchievementsForGame.find((achievement) => {
-            return (
-                achievement.psnDetails != undefined &&
-                achievement.psnDetails.trophyType === "platinum"
-            );
-        });
+        const platinumTrophies = allAchievementsForGame.filter(
+            (achievement) => {
+                return (
+                    achievement.psnDetails != undefined &&
+                    achievement.psnDetails.trophyType === "platinum"
+                );
+            },
+        );
 
-        if (!platinumTrophy) return false;
+        if (platinumTrophies.length === 0) return false;
 
         // Check if platinum trophy is obtained
         return obtainedAchievementsForGame.some((obtained) => {
-            return (
-                obtained.externalId === platinumTrophy.externalId &&
-                obtained.externalGameId === platinumTrophy.externalGameId
+            return platinumTrophies.some(
+                (platinum) => platinum.externalId === obtained.externalId,
             );
         });
     }
