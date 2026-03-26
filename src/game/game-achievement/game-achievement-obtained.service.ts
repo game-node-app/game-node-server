@@ -73,7 +73,7 @@ export class GameAchievementObtainedService {
                 return achievementsInSource.achievements.map((achievement) => {
                     return {
                         externalGameId: externalGame.id,
-                        gameId: externalGame.id,
+                        gameId: externalGame.gameId,
                         externalId: achievement.name,
                         isObtained: achievement.unlocked,
                         obtainedAt: achievement.unlockedTimestamp
@@ -130,7 +130,7 @@ export class GameAchievementObtainedService {
                     const parsedTrophies = userTrophies.map((trophy) => {
                         return {
                             externalGameId: externalGame.id,
-                            gameId: externalGame.id,
+                            gameId: externalGame.gameId,
                             isObtained: trophy.earned ?? false,
                             obtainedAt: trophy.earnedDateTime
                                 ? new Date(trophy.earnedDateTime)
@@ -261,7 +261,7 @@ export class GameAchievementObtainedService {
         return results;
     }
 
-    private async persistObtainedAchievements(
+    public async persistObtainedAchievements(
         userId: string,
         achievements: GameObtainedAchievementDto[],
     ) {
@@ -284,6 +284,7 @@ export class GameAchievementObtainedService {
                     externalGameId: externalGameId,
                     profileUserId: userId,
                 });
+
             const existingAchievementsIdsSet = new Set(
                 existingAchievements.map((a) => a.externalAchievementId),
             );
@@ -307,6 +308,8 @@ export class GameAchievementObtainedService {
                     entitiesToPersist,
                 );
             }
+
+            return entitiesToPersist.length;
         }
     }
 
@@ -347,5 +350,15 @@ export class GameAchievementObtainedService {
         });
 
         return [itensDto, count];
+    }
+
+    public async existsForExternalGameId(
+        userId: string,
+        externalGameId: number,
+    ) {
+        return await this.obtainedAchievementRepository.existsBy({
+            externalGameId,
+            profileUserId: userId,
+        });
     }
 }

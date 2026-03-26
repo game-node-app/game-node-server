@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { ExternalGameModule } from "../external-game/external-game.module";
 import { GameAchievementService } from "./game-achievement.service";
 import { GameAchievementController } from "./game-achievement.controller";
@@ -6,8 +6,6 @@ import { SteamSyncModule } from "../../sync/steam/steam-sync.module";
 import { BullModule } from "@nestjs/bullmq";
 import { GAME_ACHIEVEMENT_SYNC_QUEUE_NAME } from "./sync/game-achievement-sync.constants";
 import { seconds } from "@nestjs/throttler";
-import { GameAchievementSyncQueueService } from "./sync/game-achievement-sync-queue.service";
-import { GameAchievementSyncProcessor } from "./sync/game-achievement-sync.processor";
 import { ConnectionsModule } from "../../connection/connections.module";
 import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
@@ -20,26 +18,15 @@ import { GameAchievementObtainedService } from "./game-achievement-obtained.serv
 @Module({
     imports: [
         TypeOrmModule.forFeature([ObtainedGameAchievement]),
-        BullModule.registerQueue({
-            name: GAME_ACHIEVEMENT_SYNC_QUEUE_NAME,
-            defaultJobOptions: {
-                backoff: seconds(5),
-                attempts: 5,
-            },
-        }),
+
         ExternalGameModule,
         SteamSyncModule,
         PsnSyncModule,
         XboxSyncModule,
-        ConnectionsModule,
+        forwardRef(() => ConnectionsModule),
         GameRepositoryModule,
     ],
-    providers: [
-        GameAchievementService,
-        GameAchievementObtainedService,
-        GameAchievementSyncQueueService,
-        GameAchievementSyncProcessor,
-    ],
+    providers: [GameAchievementService, GameAchievementObtainedService],
     exports: [GameAchievementService, GameAchievementObtainedService],
     controllers: [GameAchievementController, GameAchievementV2Controller],
 })

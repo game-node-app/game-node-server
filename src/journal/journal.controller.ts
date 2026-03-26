@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
 import { Session } from "../auth/session.decorator";
@@ -8,7 +8,6 @@ import { ApiTags } from "@nestjs/swagger";
 import { JournalPlayLogService } from "./journal-play-log.service";
 import { JournalHeatmapService } from "./journal-heatmap.service";
 import { JournalAchievementsService } from "./journal-achievements.service";
-import { GetObtainedAchievementsJournalRequestDto } from "./dto/get-obtained-achievements-journal.dto";
 
 @Controller("journal")
 @ApiTags("journal")

@@ -33,19 +33,35 @@ export class JournalAchievementsService {
                 },
             );
 
-        const uniqueGameIds = Array.from(
-            new Set(obtainedAchievements.map((a) => a.gameId)),
+        const uniqueExternalGameIds = Array.from(
+            new Set(obtainedAchievements.map((a) => a.externalGameId)),
         );
 
-        const achievementsByGameId = new Map<number, GameAchievementDto[]>();
-        for (const gameId of uniqueGameIds) {
-            const achievementGroups =
-                await this.gameAchievementService.findAllByGameId(gameId);
-            const achievements = achievementGroups.flatMap(
-                (group) => group.achievements,
-            );
+        const achievementsPerGameId = new Map<number, GameAchievementDto[]>();
 
-            achievementsByGameId.set(gameId, achievements);
+        const achievementsPerGamePromises = uniqueExternalGameIds.map(
+            (externalGameId) =>
+                this.gameAchievementService.findAllByExternalGameId(
+                    externalGameId,
+                ),
+        );
+
+        const achievementsPerGameResults = await Promise.allSettled(
+            achievementsPerGamePromises,
+        );
+
+        for (const result of achievementsPerGameResults) {
+            if (result.status === "fulfilled") {
+                const achievements = result.value;
+                if (achievements.length === 0) continue;
+
+                const gameId = achievements[0].gameId;
+                const existing = achievementsPerGameId.get(gameId) ?? [];
+                achievementsPerGameId.set(gameId, [
+                    ...existing,
+                    ...achievements,
+                ]);
+            }
         }
 
         /**
@@ -93,7 +109,7 @@ export class JournalAchievementsService {
                     obtainedAchievements,
                 ] of gameGroupsMap.entries()) {
                     const gameAchievements =
-                        achievementsByGameId.get(gameId) ?? [];
+                        achievementsPerGameId.get(gameId) ?? [];
                     if (gameAchievements.length === 0) {
                         this.logger.warn(
                             `No achievements found for gameId ${gameId}`,
@@ -133,6 +149,8 @@ export class JournalAchievementsService {
                             };
                         });
 
+                    if (allObtainedWithInfoForGame.length === 0) continue;
+
                     gameGroups.push({
                         gameId,
                         isComplete,
@@ -140,6 +158,8 @@ export class JournalAchievementsService {
                         achievements: allObtainedWithInfoForGame,
                     });
                 }
+
+                if (gameGroups.length === 0) continue;
 
                 monthGroups.push({
                     month,
@@ -160,6 +180,8 @@ export class JournalAchievementsService {
                 },
                 0,
             );
+
+            if (monthGroups.length === 0) continue;
 
             yearGroups.push({
                 year,

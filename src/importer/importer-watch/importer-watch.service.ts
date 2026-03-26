@@ -27,9 +27,7 @@ export class ImporterWatchService {
         private readonly importerNotificationRepository: Repository<ImporterWatchNotification>,
         private readonly connectionsService: ConnectionsService,
         private readonly librariesService: LibrariesService,
-    ) {
-        this.registerWatchJobs();
-    }
+    ) {}
 
     public async findNotification(userId: string, notificationId: number) {
         return this.importerNotificationRepository.findOneOrFail({
