@@ -15,5 +15,6 @@ export class FindAvailableConnectionsResponseDto {
      */
     isImporterWatchViable: boolean;
     isPlaytimeImportViable: boolean;
+    isAchievementImportViable: boolean;
     iconName: string;
 }

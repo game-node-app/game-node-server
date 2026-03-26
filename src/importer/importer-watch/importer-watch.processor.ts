@@ -26,6 +26,7 @@ import { CollectionsEntriesService } from "../../collections/collections-entries
 import { importerToConnectionSource } from "../importer.util";
 import { ImporterResponseItemDto } from "../dto/importer-response-item.dto";
 import { CollectionEntryStatus } from "../../collections/collections-entries/collections-entries.constants";
+import { GameAchievementSyncQueueService } from "../../game/game-achievement/sync/game-achievement-sync-queue.service";
 
 @Processor(IMPORTER_WATCH_QUEUE_NAME, {
     limiter: {

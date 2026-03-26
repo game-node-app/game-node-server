@@ -34,9 +34,7 @@ export class PlaytimeWatchService {
             await this.connectionsService.findAllByUserIdIn(userIds);
 
         const viableConnections = availableConnections.filter(
-            (connection) =>
-                connection.isPlaytimeImportViable &&
-                connection.isPlaytimeImportEnabled,
+            (connection) => connection.isPlaytimeImportViable,
         );
 
         if (viableConnections.length === 0) {

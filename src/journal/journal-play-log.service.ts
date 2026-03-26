@@ -10,12 +10,14 @@ import { getAssociatedStatusDates } from "../collections/collections-entries/uti
 import { JournalPlaylogItemType } from "./journal.constants";
 import dayjs from "dayjs";
 import { GameAchievementWithObtainedInfo } from "../game/game-achievement/dto/game-obtained-achievement.dto";
+import { GameAchievementObtainedService } from "../game/game-achievement/game-achievement-obtained.service";
 
 @Injectable()
 export class JournalPlayLogService {
     constructor(
         private readonly collectionsEntriesService: CollectionsEntriesService,
         private readonly gameAchievementsService: GameAchievementService,
+        private readonly gameAchievementsObtainedService: GameAchievementObtainedService,
         private readonly playtimeHistoryService: PlaytimeHistoryService,
     ) {}
 
@@ -92,7 +94,7 @@ export class JournalPlayLogService {
         const [availableAchievementsGroups, obtainedAchievements] =
             await Promise.all([
                 this.gameAchievementsService.findAllByGameId(gameId),
-                this.gameAchievementsService.findAllObtainedByGameId(
+                this.gameAchievementsObtainedService.findAllObtainedByGameId(
                     userId,
                     gameId,
                 ),

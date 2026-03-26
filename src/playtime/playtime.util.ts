@@ -2,6 +2,7 @@ import { EConnectionType } from "../connection/connections.constants";
 import { UserPlaytimeSource } from "./playtime.constants";
 import { UserCumulativePlaytimeDto } from "./dto/user-cumulative-playtime.dto";
 import { UserPlaytime } from "./entity/user-playtime.entity";
+import { match } from "ts-pattern";
 
 export function connectionToPlaytimeImportSource(
     connectionType: EConnectionType,
@@ -14,6 +15,16 @@ export function connectionToPlaytimeImportSource(
         case EConnectionType.XBOX:
             return UserPlaytimeSource.XBOX;
     }
+}
+
+export function playtimeSourceToConnectionType(
+    playtimeSource: UserPlaytimeSource,
+) {
+    return match(playtimeSource)
+        .with(UserPlaytimeSource.PSN, () => EConnectionType.PSN)
+        .with(UserPlaytimeSource.STEAM, () => EConnectionType.STEAM)
+        .with(UserPlaytimeSource.XBOX, () => EConnectionType.XBOX)
+        .otherwise(() => undefined);
 }
 
 export const toCumulativePlaytime = (

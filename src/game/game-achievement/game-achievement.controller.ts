@@ -5,6 +5,7 @@ import { AuthGuard } from "../../auth/auth.guard";
 import { Public } from "../../auth/public.decorator";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
+import { GameAchievementObtainedService } from "./game-achievement-obtained.service";
 
 @Controller("game/achievement")
 @ApiTags("game-achievement")
@@ -12,6 +13,7 @@ import { SessionContainer } from "supertokens-node/recipe/session";
 export class GameAchievementController {
     constructor(
         private readonly gameAchievementService: GameAchievementService,
+        private readonly gameAchievementObtainedService: GameAchievementObtainedService,
     ) {}
 
     @Get(":externalGameId")
@@ -30,7 +32,7 @@ export class GameAchievementController {
         @Session() session: SessionContainer | undefined,
         @Param("externalGameId") externalGameId: number,
     ) {
-        return this.gameAchievementService.findAllObtainedByExternalGameId(
+        return this.gameAchievementObtainedService.findAllObtainedByExternalGameId(
             session?.getUserId(),
             externalGameId,
         );

@@ -6,7 +6,7 @@ export abstract class WorkerHostProcessor extends WorkerHost {
     logger = new Logger(WorkerHostProcessor.name);
 
     @OnWorkerEvent("completed")
-    onCompleted(job: Job) {
+    onCompleted(job: Job, result: any) {
         const { id, name, queueName, finishedOn, returnvalue } = job;
         const completionTime = finishedOn
             ? new Date(finishedOn).toISOString()

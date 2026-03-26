@@ -10,6 +10,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { UserConnection } from "./entity/user-connection.entity";
 import { In, Repository } from "typeorm";
 import {
+    ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS,
     EConnectionType,
     IMPORTER_VIABLE_CONNECTIONS,
     IMPORTER_WATCH_VIABLE_CONNECTIONS,
@@ -32,6 +33,9 @@ const toDto = (userConnection: UserConnection): UserConnectionDto => ({
         userConnection.type,
     ),
     isPlaytimeImportViable: PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(
+        userConnection.type,
+    ),
+    isAchievementImportViable: ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS.includes(
         userConnection.type,
     ),
 });
@@ -113,6 +117,8 @@ export class ConnectionsService {
                         IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(type),
                     isPlaytimeImportViable:
                         PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(type),
+                    isAchievementImportViable:
+                        ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS.includes(type),
                     name: type.valueOf(),
                     iconName: type.valueOf(),
                 };
@@ -124,8 +130,6 @@ export class ConnectionsService {
         const {
             type,
             userIdentifier,
-            isImporterEnabled,
-            isPlaytimeImportEnabled,
             isAutoImportEnabled,
             autoImportCollectionId,
         } = dto;
@@ -168,15 +172,6 @@ export class ConnectionsService {
         }
 
         const isImporterViable = IMPORTER_VIABLE_CONNECTIONS.includes(type);
-        const isPlaytimeImporterViable =
-            PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(type);
-
-        const finalIsImporterEnabled = isImporterViable
-            ? isImporterEnabled
-            : false;
-        const finalIsPlaytimeImportEnabled = isPlaytimeImporterViable
-            ? isPlaytimeImportEnabled
-            : false;
         const finalIsAutoImportEnabled = isImporterViable
             ? isAutoImportEnabled
             : false;
@@ -198,18 +193,16 @@ export class ConnectionsService {
             validatedAutoImportCollectionId = autoImportCollectionId;
         }
 
-        const createdConnection = await this.userConnectionRepository.save({
-            ...possibleExistingConnection,
-            type,
-            profileUserId: userId,
-            sourceUserId,
-            sourceUsername: sourceUsername,
-            isImporterViable,
-            isImporterEnabled: finalIsImporterEnabled,
-            isPlaytimeImportEnabled: finalIsPlaytimeImportEnabled,
-            isAutoImportEnabled: finalIsAutoImportEnabled,
-            autoImportCollectionId: validatedAutoImportCollectionId,
-        });
+        const createdConnection: UserConnection =
+            await this.userConnectionRepository.save({
+                ...possibleExistingConnection,
+                type,
+                profileUserId: userId,
+                sourceUserId,
+                sourceUsername: sourceUsername,
+                isAutoImportEnabled: finalIsAutoImportEnabled,
+                autoImportCollectionId: validatedAutoImportCollectionId,
+            });
 
         this.onConnectionCreate(createdConnection);
     }

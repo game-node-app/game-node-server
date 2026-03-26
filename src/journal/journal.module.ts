@@ -7,6 +7,7 @@ import { JournalPlayLogService } from "./journal-play-log.service";
 import { PlaytimeModule } from "../playtime/playtime.module";
 import { JournalHeatmapService } from "./journal-heatmap.service";
 import { ActivitiesRepositoryModule } from "../activities/activities-repository/activities-repository.module";
+import { JournalAchievementsService } from "./journal-achievements.service";
 
 /**
  * This modules exposed functionality related to the 'journal' feature, which is basically
@@ -19,7 +20,12 @@ import { ActivitiesRepositoryModule } from "../activities/activities-repository/
         PlaytimeModule,
         ActivitiesRepositoryModule,
     ],
-    providers: [JournalService, JournalPlayLogService, JournalHeatmapService],
+    providers: [
+        JournalService,
+        JournalPlayLogService,
+        JournalHeatmapService,
+        JournalAchievementsService,
+    ],
     controllers: [JournalController],
 })
 export class JournalModule {}

@@ -15,6 +15,8 @@ import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
 import { seconds } from "@nestjs/throttler";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 import { ConnectionSyncModule } from "../../connection/connection-sync/connection-sync.module";
+import { GameAchievementModule } from "../../game/game-achievement/game-achievement.module";
+import { GameAchievementSyncModule } from "../../game/game-achievement/sync/game-achievement-sync.module";
 
 @Module({
     imports: [
@@ -37,6 +39,7 @@ import { ConnectionSyncModule } from "../../connection/connection-sync/connectio
         XboxSyncModule,
         GameRepositoryModule,
         ConnectionSyncModule,
+        GameAchievementSyncModule,
     ],
     providers: [PlaytimeWatchService, PlaytimeWatchProcessor],
     exports: [PlaytimeWatchService],

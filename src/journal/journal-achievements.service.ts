@@ -1,0 +1,232 @@
+import { GameAchievementService } from "../game/game-achievement/game-achievement.service";
+import { GameAchievementObtainedService } from "../game/game-achievement/game-achievement-obtained.service";
+import {
+    GetObtainedAchievementsJournalResponseDto,
+    JournalAchievementsGameGroup,
+    JournalAchievementsMonthGroup,
+    JournalAchievementsYearGroup,
+} from "./dto/get-obtained-achievements-journal.dto";
+import { Injectable, Logger } from "@nestjs/common";
+import { GameAchievementDto } from "../game/game-achievement/dto/game-achievement.dto";
+import {
+    GameAchievementWithObtainedInfo,
+    GameObtainedAchievementDto,
+} from "../game/game-achievement/dto/game-obtained-achievement.dto";
+
+@Injectable()
+export class JournalAchievementsService {
+    private readonly logger = new Logger(JournalAchievementsService.name);
+
+    constructor(
+        private readonly gameAchievementService: GameAchievementService,
+        private readonly gameObtainedAchievementService: GameAchievementObtainedService,
+    ) {}
+
+    public async buildObtainedAchievementsJournal(
+        userId: string,
+    ): Promise<GetObtainedAchievementsJournalResponseDto> {
+        const [obtainedAchievements] =
+            await this.gameObtainedAchievementService.findAllObtainedByUserId(
+                userId,
+                {
+                    limit: 999999,
+                },
+            );
+
+        const uniqueExternalGameIds = Array.from(
+            new Set(obtainedAchievements.map((a) => a.externalGameId)),
+        );
+
+        const achievementsPerGameId = new Map<number, GameAchievementDto[]>();
+
+        const achievementsPerGamePromises = uniqueExternalGameIds.map(
+            (externalGameId) =>
+                this.gameAchievementService.findAllByExternalGameId(
+                    externalGameId,
+                ),
+        );
+
+        const achievementsPerGameResults = await Promise.allSettled(
+            achievementsPerGamePromises,
+        );
+
+        for (const result of achievementsPerGameResults) {
+            if (result.status === "fulfilled") {
+                const achievements = result.value;
+                if (achievements.length === 0) continue;
+
+                const gameId = achievements[0].gameId;
+                const existing = achievementsPerGameId.get(gameId) ?? [];
+                achievementsPerGameId.set(gameId, [
+                    ...existing,
+                    ...achievements,
+                ]);
+            }
+        }
+
+        /**
+         * Entries grouped by year, then by month, then by gameId.
+         */
+        const journalGroupsMap = new Map<
+            number,
+            Map<number, Map<number, GameObtainedAchievementDto[]>>
+        >();
+
+        for (const obtainedAchievement of obtainedAchievements) {
+            const obtainmentDate = obtainedAchievement.obtainedAt!;
+            const year = obtainmentDate.getFullYear();
+            const month = obtainmentDate.getMonth();
+            const gameId = obtainedAchievement.gameId;
+
+            if (!journalGroupsMap.has(year)) {
+                journalGroupsMap.set(year, new Map());
+            }
+            const yearGroup = journalGroupsMap.get(year)!;
+
+            if (!yearGroup.has(month)) {
+                yearGroup.set(month, new Map());
+            }
+            const monthGroup = yearGroup.get(month)!;
+
+            if (!monthGroup.has(gameId)) {
+                monthGroup.set(gameId, []);
+            }
+
+            const gameAchievements = monthGroup.get(gameId)!;
+
+            gameAchievements.push(obtainedAchievement);
+        }
+
+        const yearGroups: JournalAchievementsYearGroup[] = [];
+        for (const [year, monthGroupsMap] of journalGroupsMap.entries()) {
+            const monthGroups: JournalAchievementsMonthGroup[] = [];
+
+            for (const [month, gameGroupsMap] of monthGroupsMap.entries()) {
+                const gameGroups: JournalAchievementsGameGroup[] = [];
+
+                for (const [
+                    gameId,
+                    obtainedAchievements,
+                ] of gameGroupsMap.entries()) {
+                    const gameAchievements =
+                        achievementsPerGameId.get(gameId) ?? [];
+                    if (gameAchievements.length === 0) {
+                        this.logger.warn(
+                            `No achievements found for gameId ${gameId}`,
+                        );
+                        continue;
+                    }
+
+                    /**
+                     * Get all obtained for game, not just the ones obtained in this month, to determine if the game is completed or not.
+                     */
+                    const allObtainedForGame = obtainedAchievements.filter(
+                        (oa) => oa.gameId === gameId,
+                    );
+
+                    const isComplete = this.checkIfGameIsComplete(
+                        gameAchievements,
+                        allObtainedForGame,
+                    );
+                    const isPlatinum = this.checkIfGameIsPlatinum(
+                        gameAchievements,
+                        allObtainedForGame,
+                    );
+
+                    const allObtainedWithInfoForGame: GameAchievementWithObtainedInfo[] =
+                        obtainedAchievements.map((obtained) => {
+                            const relatedAchievement = gameAchievements.find(
+                                (a) =>
+                                    a.externalGameId ===
+                                        obtained.externalGameId &&
+                                    a.externalId === obtained.externalId,
+                            )!;
+
+                            return {
+                                ...relatedAchievement,
+                                isObtained: true,
+                                obtainedAt: obtained.obtainedAt!,
+                            };
+                        });
+
+                    if (allObtainedWithInfoForGame.length === 0) continue;
+
+                    gameGroups.push({
+                        gameId,
+                        isComplete,
+                        isPlatinum,
+                        achievements: allObtainedWithInfoForGame,
+                    });
+                }
+
+                if (gameGroups.length === 0) continue;
+
+                monthGroups.push({
+                    month,
+                    games: gameGroups,
+                });
+            }
+
+            const totalObtainedInYear = monthGroups.reduce(
+                (acc, monthGroup) => {
+                    const monthTotal = monthGroup.games.reduce(
+                        (gameAcc, gameGroup) => {
+                            return gameAcc + gameGroup.achievements.length;
+                        },
+                        0,
+                    );
+
+                    return acc + monthTotal;
+                },
+                0,
+            );
+
+            if (monthGroups.length === 0) continue;
+
+            yearGroups.push({
+                year,
+                months: monthGroups,
+                totalObtained: totalObtainedInYear,
+            });
+        }
+
+        return {
+            years: yearGroups.sort((a, b) => b.year - a.year),
+        };
+    }
+
+    private checkIfGameIsComplete(
+        allAchievementsForGame: GameAchievementDto[],
+        obtainedAchievementsForGame: GameObtainedAchievementDto[],
+    ): boolean {
+        const obtainedExternalIds = new Set(
+            obtainedAchievementsForGame.map((a) => a.externalId),
+        );
+
+        return allAchievementsForGame.every((achievement) =>
+            obtainedExternalIds.has(achievement.externalId),
+        );
+    }
+
+    private checkIfGameIsPlatinum(
+        allAchievementsForGame: GameAchievementDto[],
+        obtainedAchievementsForGame: GameObtainedAchievementDto[],
+    ): boolean {
+        const platinumTrophy = allAchievementsForGame.find((achievement) => {
+            return (
+                achievement.psnDetails != undefined &&
+                achievement.psnDetails.trophyType === "platinum"
+            );
+        });
+
+        if (!platinumTrophy) return false;
+
+        // Check if platinum trophy is obtained
+        return obtainedAchievementsForGame.some((obtained) => {
+            return (
+                obtained.externalId === platinumTrophy.externalId &&
+                obtained.externalGameId === platinumTrophy.externalGameId
+            );
+        });
+    }
+}

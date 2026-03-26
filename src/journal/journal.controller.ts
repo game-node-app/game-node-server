@@ -7,6 +7,7 @@ import { JournalService } from "./journal.service";
 import { ApiTags } from "@nestjs/swagger";
 import { JournalPlayLogService } from "./journal-play-log.service";
 import { JournalHeatmapService } from "./journal-heatmap.service";
+import { JournalAchievementsService } from "./journal-achievements.service";
 
 @Controller("journal")
 @ApiTags("journal")
@@ -16,6 +17,7 @@ export class JournalController {
         private readonly journalService: JournalService,
         private readonly journalPlaylogService: JournalPlayLogService,
         private readonly journalHeatmapService: JournalHeatmapService,
+        private readonly journalAchievementsService: JournalAchievementsService,
     ) {}
 
     @Get("overview/:userId")
@@ -45,6 +47,16 @@ export class JournalController {
         return this.journalHeatmapService.buildHeatmap(
             session?.getUserId(),
             targetUserId,
+        );
+    }
+
+    @Get("achievements/:userId")
+    @Public()
+    public async getObtainedAchievementsJournal(
+        @Param("userId") userId: string,
+    ) {
+        return this.journalAchievementsService.buildObtainedAchievementsJournal(
+            userId,
         );
     }
 }

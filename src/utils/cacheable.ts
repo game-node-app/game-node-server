@@ -1,5 +1,11 @@
-import { Cache } from "cache-manager";
+import { Cache } from "@nestjs/cache-manager";
 import { minutes } from "@nestjs/throttler";
+
+let cacheManager: Cache | null = null;
+
+export function setCacheManager(cache: Cache) {
+    cacheManager = cache;
+}
 
 /**
  * A custom decorator that automatically applies caching logic to any valid method
@@ -30,20 +36,19 @@ export function Cacheable(
         descriptor.value = async function (...args: any[]) {
             const finalCacheKey = `${cacheKeyPrefix}#${originalMethod.name}__${JSON.stringify(args)}`;
 
-            const cache: Cache = this.cacheManager;
-
-            // This can happen if "cacheManager" is not defined in class, or if we "this" is not the actual class
-            // reference.
-            if (cache == undefined) {
+            if (cacheManager == undefined) {
                 console.error(
                     `@Cacheable applied to method without cacheManager defined: ${finalCacheKey}.`,
+                );
+                console.error(
+                    "Make sure to call setCacheManager at startup with a valid cache manager instance before using @Cacheable.",
                 );
                 return originalMethod.apply(this, args);
             }
 
             // Try to get cached data
             try {
-                const cachedResult = await cache.get(finalCacheKey);
+                const cachedResult = await cacheManager.get(finalCacheKey);
                 if (cachedResult) {
                     return cachedResult;
                 }
@@ -58,8 +63,8 @@ export function Cacheable(
             const result = await originalMethod.apply(this, args);
 
             // Set the new result in cache
-            if (result != undefined || cacheNullable) {
-                cache.set(finalCacheKey, result, ttl).catch((err) => {
+            if (result != null || cacheNullable) {
+                cacheManager.set(finalCacheKey, result, ttl).catch((err) => {
                     console.error(
                         `Cache set error for key: ${finalCacheKey}:`,
                         err,

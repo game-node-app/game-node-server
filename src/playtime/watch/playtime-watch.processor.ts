@@ -23,10 +23,10 @@ import { ExternalGameMappingsService } from "../../game/external-game/external-g
 import * as process from "process";
 import { seconds } from "@nestjs/throttler";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
-import { match, P } from "ts-pattern";
+import { match } from "ts-pattern";
 import { ConnectionSyncGateway } from "../../connection/connection-sync/connection-sync.gateway";
-import { GamePlatform } from "../../game/game-repository/entities/game-platform.entity";
 import { getPreferredXboxPlatformAbbreviation } from "../../sync/xbox/util/get-preferred-xbox-platform-abbreviation";
+import { GameAchievementSyncQueueService } from "../../game/game-achievement/sync/game-achievement-sync-queue.service";
 
 @Processor(PLAYTIME_WATCH_QUEUE_NAME, {
     concurrency: 1,
@@ -51,6 +51,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly xboxSyncService: XboxSyncService,
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly connectionSyncGateway: ConnectionSyncGateway,
+        private readonly gameAchievementSyncQueueService: GameAchievementSyncQueueService,
     ) {
         super();
     }
@@ -198,7 +199,9 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             job.updateProgress({
                 error: "No games found for Steam. Your library may be set to private.",
             } satisfies PlaytimeWatchJobProgress);
-            return;
+            return {
+                externalGamesProcessed: [],
+            };
         }
 
         const gamesUids = Array.from(
@@ -298,6 +301,15 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 }
             }
 
+            for (const externalGame of items) {
+                this.gameAchievementSyncQueueService.addUserSyncJob(
+                    userId,
+                    externalGame.id,
+                    EConnectionType.STEAM,
+                    lastPlayedDate,
+                );
+            }
+
             const playtime: CreateUserPlaytimeDto = {
                 totalPlayCount: 0,
                 ...existingPlaytimeInfo,
@@ -322,6 +334,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 platform: "PC",
                 totalPlaytimeSeconds: totalPlaytimeSeconds,
             } satisfies PlaytimeWatchJobProgress);
+
             await this.playtimeService.save(playtime);
         }
 
@@ -443,6 +456,13 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     platformId: targetPlatform.id,
                 };
 
+                this.gameAchievementSyncQueueService.addUserSyncJob(
+                    userId,
+                    relatedExternalGame.id,
+                    EConnectionType.PSN,
+                    playtime.lastPlayedDate!,
+                );
+
                 job.updateProgress({
                     gameName: relatedExternalGame.name,
                     platform: targetPlatform.abbreviation,
@@ -544,6 +564,13 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 source: UserPlaytimeSource.XBOX,
                 platformId: preferredPlatform.id,
             };
+
+            this.gameAchievementSyncQueueService.addUserSyncJob(
+                userId,
+                relevantExternalGame.id,
+                EConnectionType.XBOX,
+                playtime.lastPlayedDate ?? undefined,
+            );
 
             const hasChangedTotalPlaytime =
                 existingPlaytimeInfo != undefined &&
