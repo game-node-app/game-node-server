@@ -21,6 +21,7 @@ enum EGameCategory {
 
 enum EGameExternalGameCategory {
     Steam = 1,
+    GiantBomb = 3,
     Gog = 5,
     Youtube = 10,
     Microsoft = 11,
@@ -40,6 +41,7 @@ enum EGameExternalGameCategory {
     FocusEntertainment = 37,
     XboxGamePassUltimateCloud = 54,
     Gamejolt = 55,
+    Igdb = 121,
 }
 
 enum EGameExternalGameMedia {
