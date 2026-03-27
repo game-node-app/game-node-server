@@ -3,9 +3,6 @@ import { ExternalGameModule } from "../external-game/external-game.module";
 import { GameAchievementService } from "./game-achievement.service";
 import { GameAchievementController } from "./game-achievement.controller";
 import { SteamSyncModule } from "../../sync/steam/steam-sync.module";
-import { BullModule } from "@nestjs/bullmq";
-import { GAME_ACHIEVEMENT_SYNC_QUEUE_NAME } from "./sync/game-achievement-sync.constants";
-import { seconds } from "@nestjs/throttler";
 import { ConnectionsModule } from "../../connection/connections.module";
 import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
@@ -14,20 +11,34 @@ import { GameRepositoryModule } from "../game-repository/game-repository.module"
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ObtainedGameAchievement } from "./entity/obtained-game-achievement.entity";
 import { GameAchievementObtainedService } from "./game-achievement-obtained.service";
+import { ObtainedGameAchievementActivity } from "./entity/obtained-game-achievement-activity.entity";
+import { GameAchievementActivityService } from "./game-achievement-activity.service";
+import { ActivitiesQueueModule } from "../../activities/activities-queue/activities-queue.module";
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([ObtainedGameAchievement]),
-
+        TypeOrmModule.forFeature([
+            ObtainedGameAchievement,
+            ObtainedGameAchievementActivity,
+        ]),
         ExternalGameModule,
         SteamSyncModule,
         PsnSyncModule,
         XboxSyncModule,
         forwardRef(() => ConnectionsModule),
         GameRepositoryModule,
+        forwardRef(() => ActivitiesQueueModule),
     ],
-    providers: [GameAchievementService, GameAchievementObtainedService],
-    exports: [GameAchievementService, GameAchievementObtainedService],
+    providers: [
+        GameAchievementService,
+        GameAchievementObtainedService,
+        GameAchievementActivityService,
+    ],
+    exports: [
+        GameAchievementService,
+        GameAchievementObtainedService,
+        GameAchievementActivityService,
+    ],
     controllers: [GameAchievementController, GameAchievementV2Controller],
 })
 export class GameAchievementModule {}

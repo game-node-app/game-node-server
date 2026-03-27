@@ -21,9 +21,6 @@ import {
     getPSNAchievementId,
     isValidXboxProductId,
 } from "./game-achievement.utils";
-import { Cache } from "@nestjs/cache-manager";
-import { Cacheable } from "../../utils/cacheable";
-import { hours, minutes } from "@nestjs/throttler";
 
 @Injectable()
 export class GameAchievementService {

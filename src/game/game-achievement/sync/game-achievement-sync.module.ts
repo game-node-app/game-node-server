@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { GameAchievementSyncQueueService } from "./game-achievement-sync-queue.service";
 import { GameAchievementSyncProcessor } from "./game-achievement-sync.processor";
 import { GameAchievementModule } from "../game-achievement.module";
@@ -15,7 +15,7 @@ import { seconds } from "@nestjs/throttler";
                 attempts: 5,
             },
         }),
-        GameAchievementModule,
+        forwardRef(() => GameAchievementModule),
     ],
     providers: [GameAchievementSyncQueueService, GameAchievementSyncProcessor],
     exports: [GameAchievementSyncQueueService],

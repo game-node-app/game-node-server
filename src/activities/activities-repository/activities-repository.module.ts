@@ -9,6 +9,7 @@ import { SuspensionModule } from "../../suspension/suspension.module";
 import { ReviewsModule } from "../../reviews/reviews.module";
 import { CollectionsEntriesModule } from "../../collections/collections-entries/collections-entries.module";
 import { PostsModule } from "../../posts/posts.module";
+import { GameAchievementModule } from "../../game/game-achievement/game-achievement.module";
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { PostsModule } from "../../posts/posts.module";
         forwardRef(() => ReviewsModule),
         forwardRef(() => CollectionsEntriesModule),
         forwardRef(() => PostsModule),
+        GameAchievementModule,
     ],
     providers: [ActivitiesRepositoryService],
     exports: [ActivitiesRepositoryService],

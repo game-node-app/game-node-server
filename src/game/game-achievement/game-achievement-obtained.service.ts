@@ -1,6 +1,6 @@
 import { InjectRepository } from "@nestjs/typeorm";
 import { ObtainedGameAchievement } from "./entity/obtained-game-achievement.entity";
-import { Repository } from "typeorm";
+import { FindOptionsRelations, In, Repository } from "typeorm";
 import { ExternalGameService } from "../external-game/external-game.service";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
@@ -28,6 +28,10 @@ import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 @Injectable()
 export class GameAchievementObtainedService {
     private readonly logger = new Logger(GameAchievementObtainedService.name);
+    private readonly relations: FindOptionsRelations<ObtainedGameAchievement> =
+        {
+            externalGame: true,
+        };
 
     constructor(
         @InjectRepository(ObtainedGameAchievement)
@@ -270,6 +274,8 @@ export class GameAchievementObtainedService {
             (a) => a.externalGameId,
         );
 
+        const persistedEntities: ObtainedGameAchievement[] = [];
+
         for (const [
             externalGameId,
             achievementsForGame,
@@ -304,13 +310,16 @@ export class GameAchievementObtainedService {
                 });
 
             if (entitiesToPersist.length > 0) {
-                await this.obtainedAchievementRepository.insert(
-                    entitiesToPersist,
-                );
-            }
+                const result =
+                    await this.obtainedAchievementRepository.save(
+                        entitiesToPersist,
+                    );
 
-            return entitiesToPersist.length;
+                persistedEntities.push(...result);
+            }
         }
+
+        return persistedEntities;
     }
 
     public async findAllObtainedByUserId(
@@ -333,9 +342,7 @@ export class GameAchievementObtainedService {
                     obtainedAt: "DESC",
                     ...baseOptions.order,
                 },
-                relations: {
-                    externalGame: true,
-                },
+                relations: this.relations,
             });
 
         const itensDto = itens.map((item): GameObtainedAchievementDto => {
@@ -359,6 +366,15 @@ export class GameAchievementObtainedService {
         return await this.obtainedAchievementRepository.existsBy({
             externalGameId,
             profileUserId: userId,
+        });
+    }
+
+    async findOneByIdOrFail(id: number) {
+        return this.obtainedAchievementRepository.findOneOrFail({
+            where: {
+                id,
+            },
+            relations: this.relations,
         });
     }
 }
