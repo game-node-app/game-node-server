@@ -213,6 +213,7 @@ export class ActivitiesRepositoryService {
             ...baseFindOptions,
             where: {
                 profileUserId: dto.userId,
+                type: dto.type,
             },
         });
     }

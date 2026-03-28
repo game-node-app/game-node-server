@@ -1,7 +1,14 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
-import { DataSource, In, Repository } from "typeorm";
+import {
+    Between,
+    DataSource,
+    FindManyOptions,
+    In,
+    MoreThan,
+    Repository,
+} from "typeorm";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
@@ -26,6 +33,13 @@ import {
     GamePropertyPathToEntityMap,
 } from "./create/game-repository-create.constants";
 import { Cache } from "@nestjs/cache-manager";
+import {
+    FindGamesByCollectionTypeRequestDto,
+    GameRepositoryCollectionType,
+} from "./dto/game-repository-collection.dto";
+import { match } from "ts-pattern";
+import dayjs from "dayjs";
+import { getPreviousDate } from "../../statistics/statistics.utils";
 
 @Injectable()
 export class GameRepositoryService {
@@ -201,5 +215,38 @@ export class GameRepositoryService {
             (platform) => platform.abbreviation,
         );
         return getIconNamesForPlatformAbbreviations(platformAbbreviations);
+    }
+
+    public async findGamesByCollectionType(
+        dto: FindGamesByCollectionTypeRequestDto,
+    ) {
+        const baseFindOptions = buildBaseFindOptions(dto);
+        const findOptionsForType = match<
+            GameRepositoryCollectionType,
+            FindManyOptions<Game>
+        >(dto.collectionType)
+            .with(GameRepositoryCollectionType.UPCOMING, () => ({
+                where: {
+                    firstReleaseDate: MoreThan(new Date()),
+                },
+                order: {
+                    firstReleaseDate: "ASC",
+                },
+            }))
+            .with(GameRepositoryCollectionType.RECENTLY_RELEASED, () => ({
+                where: {
+                    firstReleaseDate: Between(getPreviousDate(30), new Date()),
+                },
+                order: {
+                    firstReleaseDate: "ASC",
+                },
+            }))
+            .exhaustive();
+
+        return this.gameRepository.findAndCount({
+            ...baseFindOptions,
+            ...findOptionsForType,
+            relations: dto.relations,
+        });
     }
 }
