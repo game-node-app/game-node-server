@@ -15,12 +15,14 @@ import { Review } from "../../../reviews/entities/review.entity";
 import { UserFollow } from "../../../follow/entity/user-follow.entity";
 import { Collection } from "../../../collections/entities/collection.entity";
 import { Post } from "../../../posts/entity/post.entity";
+import { ObtainedGameAchievementActivity } from "../../../game/game-achievement/entity/obtained-game-achievement-activity.entity";
 
 @Entity()
 @Unique(["profile", "collectionEntry", "collection"])
 @Unique(["profile", "userFollow"])
 @Unique(["profile", "review"])
 @Unique(["profile", "post"])
+@Unique(["profile", "obtainedGameAchievementActivity"])
 @Index(["createdAt", "id"])
 export class Activity {
     @PrimaryGeneratedColumn("uuid")
@@ -84,6 +86,15 @@ export class Activity {
         nullable: true,
     })
     postId: string | null;
+    @ManyToOne(() => ObtainedGameAchievementActivity, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    obtainedGameAchievementActivity: ObtainedGameAchievementActivity | null;
+    @Column({
+        nullable: true,
+    })
+    obtainedGameAchievementActivityId: number | null;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

@@ -21,6 +21,9 @@ import { ReviewsService } from "../../reviews/reviews.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { UnrecoverableError } from "bullmq";
 import { PostsService } from "../../posts/posts.service";
+import { GameAchievementObtainedService } from "../../game/game-achievement/game-achievement-obtained.service";
+import { ObtainedGameAchievementActivity } from "../../game/game-achievement/entity/obtained-game-achievement-activity.entity";
+import { GameAchievementActivityService } from "../../game/game-achievement/game-achievement-activity.service";
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -35,6 +38,7 @@ export class ActivitiesRepositoryService {
         private readonly gameFilterService: GameFilterService,
         private readonly suspensionService: SuspensionService,
         private readonly postsService: PostsService,
+        private readonly obtainedGameAchievementActivityService: GameAchievementActivityService,
     ) {}
 
     /**
@@ -79,6 +83,13 @@ export class ActivitiesRepositoryService {
                 );
                 targetGameId = post.gameId;
                 break;
+            case ActivityType.OBTAINED_GAME_ACHIEVEMENT:
+                const obtainedAchievement =
+                    await this.obtainedGameAchievementActivityService.findOneByIdOrFail(
+                        dto.sourceId as number,
+                    );
+                targetGameId = obtainedAchievement.externalGame?.gameId;
+                break;
         }
 
         if (targetGameId == undefined) {
@@ -89,7 +100,7 @@ export class ActivitiesRepositoryService {
             await this.gameFilterService.isMature(targetGameId);
         if (isGameMature) {
             throw new UnrecoverableError(
-                "Target game is excluded from front-facing content",
+                `Target game ${targetGameId} is excluded from front-facing content`,
             );
         }
     }
@@ -115,7 +126,7 @@ export class ActivitiesRepositoryService {
                     );
                 }
                 activity.collectionEntryId = sourceId;
-                activity.collectionId = complementarySourceId
+                activity.collectionId = complementarySourceId;
                 break;
             case ActivityType.REVIEW:
                 if (typeof sourceId !== "string") {
@@ -140,6 +151,14 @@ export class ActivitiesRepositoryService {
                     );
                 }
                 activity.postId = sourceId;
+                break;
+            case ActivityType.OBTAINED_GAME_ACHIEVEMENT:
+                if (typeof sourceId !== "number") {
+                    throw new UnrecoverableError(
+                        "Obtained Game Achievement activities should have a number sourceId",
+                    );
+                }
+                activity.obtainedGameAchievementActivityId = sourceId;
                 break;
             default:
                 throw new UnrecoverableError(
@@ -194,6 +213,7 @@ export class ActivitiesRepositoryService {
             ...baseFindOptions,
             where: {
                 profileUserId: dto.userId,
+                type: dto.type,
             },
         });
     }

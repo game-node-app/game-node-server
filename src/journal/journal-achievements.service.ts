@@ -17,6 +17,10 @@ import {
     getStoreAbbreviatedNameForExternalGameCategory,
     getStoreNameForExternalGameCategory,
 } from "../game/external-game/external-game.utils";
+import {
+    checkIfGameIsComplete,
+    checkIfGameIsPlatinum,
+} from "../game/game-achievement/game-achievement.utils";
 
 @Injectable()
 export class JournalAchievementsService {
@@ -124,11 +128,11 @@ export class JournalAchievementsService {
                         continue;
                     }
 
-                    const isComplete = this.checkIfGameIsComplete(
+                    const isComplete = checkIfGameIsComplete(
                         gameAchievements,
                         obtainedByExternalGameId.get(externalGameId)!,
                     );
-                    const isPlatinum = this.checkIfGameIsPlatinum(
+                    const isPlatinum = checkIfGameIsPlatinum(
                         gameAchievements,
                         obtainedByExternalGameId.get(externalGameId)!,
                     );
@@ -205,41 +209,5 @@ export class JournalAchievementsService {
         return {
             years: yearGroups,
         };
-    }
-
-    private checkIfGameIsComplete(
-        allAchievementsForGame: GameAchievementDto[],
-        obtainedAchievementsForGame: GameObtainedAchievementDto[],
-    ): boolean {
-        const obtainedExternalIds = new Set(
-            obtainedAchievementsForGame.map((a) => a.externalId),
-        );
-
-        return allAchievementsForGame.every((achievement) =>
-            obtainedExternalIds.has(achievement.externalId),
-        );
-    }
-
-    private checkIfGameIsPlatinum(
-        allAchievementsForGame: GameAchievementDto[],
-        obtainedAchievementsForGame: GameObtainedAchievementDto[],
-    ): boolean {
-        const platinumTrophies = allAchievementsForGame.filter(
-            (achievement) => {
-                return (
-                    achievement.psnDetails != undefined &&
-                    achievement.psnDetails.trophyType === "platinum"
-                );
-            },
-        );
-
-        if (platinumTrophies.length === 0) return false;
-
-        // Check if platinum trophy is obtained
-        return obtainedAchievementsForGame.some((obtained) => {
-            return platinumTrophies.some(
-                (platinum) => platinum.externalId === obtained.externalId,
-            );
-        });
     }
 }

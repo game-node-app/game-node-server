@@ -3,6 +3,7 @@ export enum ActivityType {
     FOLLOW = "FOLLOW",
     COLLECTION_ENTRY = "COLLECTION_ENTRY",
     POST = "POST",
+    OBTAINED_GAME_ACHIEVEMENT = "OBTAINED_GAME_ACHIEVEMENT",
 }
 
 export class ActivityCreate {

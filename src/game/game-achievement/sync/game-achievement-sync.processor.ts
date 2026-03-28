@@ -11,13 +11,24 @@ import {
 import { GameAchievementObtainedService } from "../game-achievement-obtained.service";
 import { Processor } from "@nestjs/bullmq";
 import dayjs from "dayjs";
+import { ObtainedGameAchievement } from "../entity/obtained-game-achievement.entity";
+import { ObtainedGameAchievementActivity } from "../entity/obtained-game-achievement-activity.entity";
+import { GameAchievementService } from "../game-achievement.service";
+import {
+    checkIfGameIsComplete,
+    checkIfGameIsPlatinum,
+} from "../game-achievement.utils";
+import { GameAchievementActivityService } from "../game-achievement-activity.service";
+import { GameObtainedAchievementDto } from "../dto/game-obtained-achievement.dto";
 
 @Processor(GAME_ACHIEVEMENT_SYNC_QUEUE_NAME)
 export class GameAchievementSyncProcessor extends WorkerHostProcessor {
     logger = new Logger(GameAchievementSyncProcessor.name);
 
     constructor(
+        private readonly gameAchievementService: GameAchievementService,
         private readonly obtainedAchievementService: GameAchievementObtainedService,
+        private readonly gameAchievementActivityService: GameAchievementActivityService,
     ) {
         super();
     }
@@ -70,18 +81,89 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
                 externalGameId,
             );
 
+        const actuallyObtainedAchievementsInGame =
+            obtainedAchievementsInGame.filter(
+                (a) => a.isObtained && a.obtainedAt != null,
+            );
+
         this.logger.log(
             `Found ${obtainedAchievementsInGame.length} obtained achievements for user ${userId} and external game ${externalGameId}`,
         );
 
-        const persistedCount =
+        const persistedEntities =
             await this.obtainedAchievementService.persistObtainedAchievements(
                 userId,
-                obtainedAchievementsInGame,
+                actuallyObtainedAchievementsInGame,
             );
 
+        if (persistedEntities.length === 0) {
+            this.logger.log(
+                `No new obtained achievements to persist for user ${userId} and external game ${externalGameId}`,
+            );
+
+            return;
+        }
+
         this.logger.log(
-            `Persisted ${persistedCount} obtained achievements for user ${userId} and external game ${externalGameId}`,
+            `Persisted ${persistedEntities.length} obtained achievements for user ${userId} and external game ${externalGameId}`,
         );
+
+        await this.handleActivityCreate(
+            jobData,
+            actuallyObtainedAchievementsInGame,
+            persistedEntities,
+        );
+    }
+
+    private async handleActivityCreate(
+        jobData: GameAchievementObtainedUpdateJob,
+        allObtainedAchievements: GameObtainedAchievementDto[],
+        newlyPersistedEntries: ObtainedGameAchievement[],
+    ) {
+        const { userId, externalGameId } = jobData;
+
+        const gameAchievements =
+            await this.gameAchievementService.findAllByExternalGameId(
+                externalGameId,
+            );
+
+        if (gameAchievements.length === 0) {
+            this.logger.log(
+                `No game achievements found for external game ${externalGameId}, skipping activity creation`,
+            );
+            return;
+        }
+
+        /**
+         * Check if game is complete, including all obtained achievements for the game,
+         * not just the ones obtained in this sync.
+         * PS: We don't have a reliable way to determine if a game is completed without checking all achievements
+         * that works across all platforms.
+         */
+        const isComplete = checkIfGameIsComplete(
+            gameAchievements,
+            allObtainedAchievements,
+        );
+
+        /**
+         * Check if newly obtained achievements in this sync include the platinum trophy, if the game has one.
+         */
+        const isPlatinum = checkIfGameIsPlatinum(
+            gameAchievements,
+            newlyPersistedEntries.map((e) => ({
+                externalId: e.externalAchievementId,
+            })),
+        );
+
+        const activityEntity: Partial<ObtainedGameAchievementActivity> = {
+            profileUserId: userId,
+            externalGameId,
+            totalObtained: newlyPersistedEntries.length,
+            hasCompletedAllAchievements: isComplete,
+            hasObtainedPlatinumTrophy: isPlatinum,
+            obtainedGameAchievements: newlyPersistedEntries,
+        };
+
+        await this.gameAchievementActivityService.save(activityEntity);
     }
 }

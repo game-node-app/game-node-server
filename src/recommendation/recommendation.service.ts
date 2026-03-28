@@ -20,6 +20,65 @@ export class RecommendationService {
         private readonly gameFilterService: GameFilterService,
     ) {}
 
+    private async getRecommendationsByPlayed(
+        userId: string,
+        dto: GetRecommendationsRequestDto,
+    ) {
+        const [collectionEntries] =
+            await this.collectionsEntriesService.findAllByUserIdWithPermissions(
+                userId,
+                userId,
+                {
+                    offset: 0,
+                    limit: 9999999,
+                },
+            );
+
+        if (collectionEntries.length === 0) {
+            throw new HttpException(
+                "No games found in the library.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        const limitToUse = dto.limit || 10;
+
+        const gameIds = collectionEntries.map((entry) => entry.gameId);
+
+        const sfwGameIds = await this.gameFilterService.removeMature(gameIds);
+
+        const randomGameIds = getRandomItems(sfwGameIds, limitToUse);
+
+        const games = await this.gameRepositoryService.findAllByIds({
+            gameIds: randomGameIds,
+            relations: {
+                similarGames: true,
+            },
+        });
+
+        let similarItemsPerEntry = 1;
+
+        if (collectionEntries.length < limitToUse) {
+            similarItemsPerEntry = Math.floor(
+                limitToUse / collectionEntries.length,
+            );
+        }
+
+        const pickedSimilarGamesIds: number[] = games.flatMap(
+            // Picks a single, random, similar game for each item.
+            (game) => {
+                return getRandomItems(
+                    game.similarGames!,
+                    similarItemsPerEntry,
+                ).map((item) => item.id);
+            },
+        );
+
+        return {
+            gameIds: pickedSimilarGamesIds,
+        };
+    }
+
     private async getRecommendationsByFinished(
         userId: string,
         dto: GetRecommendationsRequestDto,
@@ -56,7 +115,6 @@ export class RecommendationService {
             gameIds: randomGameIds,
             relations: {
                 similarGames: true,
-                themes: true,
             },
         });
 
@@ -183,6 +241,7 @@ export class RecommendationService {
             gameIds: gameIds,
             relations: {
                 genres: true,
+                similarGames: true,
             },
         });
 
@@ -235,12 +294,19 @@ export class RecommendationService {
         dto: GetRecommendationsRequestDto,
     ) {
         switch (dto.criteria) {
+            case RecommendationCriteria.PLAYED:
+                return this.getRecommendationsByPlayed(userId, dto);
             case RecommendationCriteria.FINISHED:
                 return this.getRecommendationsByFinished(userId, dto);
             case RecommendationCriteria.THEME:
                 return this.getRecommendationsByTheme(userId, dto);
             case RecommendationCriteria.GENRE:
                 return this.getRecommendationsByGenre(userId, dto);
+            default:
+                throw new HttpException(
+                    "Invalid recommendation criteria.",
+                    HttpStatus.BAD_REQUEST,
+                );
         }
     }
 }

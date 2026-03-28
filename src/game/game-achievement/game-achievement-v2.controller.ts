@@ -18,6 +18,7 @@ import {
     FindObtainedAchievementsResponseDto,
     FindObtainedGameAchievementsRequestDto,
 } from "./dto/game-obtained-achievement.dto";
+import { GameAchievementActivityService } from "./game-achievement-activity.service";
 
 @Controller({
     path: "game/achievement",
@@ -29,7 +30,14 @@ export class GameAchievementV2Controller {
     constructor(
         private readonly gameAchievementService: GameAchievementService,
         private readonly gameAchievementObtainedService: GameAchievementObtainedService,
+        private readonly gameAchievementActivityService: GameAchievementActivityService,
     ) {}
+
+    @Get("activity/:id")
+    @Public()
+    public async findActivityById(@Param("id") id: number) {
+        return this.gameAchievementActivityService.findOneByIdOrFail(id);
+    }
 
     @Get(":gameId")
     @Public()

@@ -4,6 +4,10 @@ import { BaseFindDto } from "../../utils/base-find.dto";
 
 export enum RecommendationCriteria {
     /**
+     * Use any played games as criteria (including those not finished)
+     */
+    PLAYED = "played",
+    /**
      * Use finished games as criteria
      */
     FINISHED = "finished",
