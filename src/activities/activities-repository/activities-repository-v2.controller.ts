@@ -1,25 +1,26 @@
 import {
     Controller,
     Get,
-    Param,
     Query,
     UseGuards,
     UseInterceptors,
+    Version,
 } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
+import { AuthGuard } from "../../auth/auth.guard";
 import { ActivitiesRepositoryService } from "./activities-repository.service";
 import { ActivitiesPaginatedResponseDto } from "./dto/activities-paginated-response.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
-import { AuthGuard } from "../../auth/auth.guard";
 import { Public } from "../../auth/public.decorator";
-import { Activity } from "./entities/activity.entity";
-import { ActivityType } from "../activities-queue/activities-queue.constants";
+import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
 
-@Controller("activities")
+@Controller({
+    path: "activities",
+    version: "2",
+})
 @ApiTags("activities")
 @UseGuards(AuthGuard)
-export class ActivitiesRepositoryController {
+export class ActivitiesRepositoryV2Controller {
     constructor(
         private readonly activitiesRepositoryService: ActivitiesRepositoryService,
     ) {}
@@ -31,21 +32,6 @@ export class ActivitiesRepositoryController {
     @UseInterceptors(PaginationInterceptor)
     @Public()
     async findLatest(@Query() dto: FindLatestActivitiesDto) {
-        return this.activitiesRepositoryService.findLatestExcludingTypes(dto, [
-            ActivityType.OBTAINED_GAME_ACHIEVEMENT,
-        ]);
-    }
-
-    @Get("detail/:id")
-    @ApiOkResponse({
-        type: Activity,
-    })
-    @Public()
-    async findOneById(@Param("id") activityId: string) {
-        return this.activitiesRepositoryService.findOneByOrFail({
-            where: {
-                id: activityId,
-            },
-        });
+        return this.activitiesRepositoryService.findLatest(dto);
     }
 }

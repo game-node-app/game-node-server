@@ -4,6 +4,7 @@ import { Activity } from "./entities/activity.entity";
 import {
     FindManyOptions,
     FindOneOptions,
+    In,
     Not,
     Repository,
     TypeORMError,
@@ -206,15 +207,33 @@ export class ActivitiesRepositoryService {
         return await this.activitiesRepository.findOneOrFail(by);
     }
 
+    async findLatestExcludingTypes(
+        dto: FindLatestActivitiesDto,
+        excludedTypes: ActivityType[],
+    ) {
+        const baseFindOptions = buildBaseFindOptions(dto);
+        return await this.findLatestBy({
+            ...baseFindOptions,
+            where: [
+                {
+                    profileUserId: dto.userId,
+                    type: dto.type,
+                },
+                {
+                    profileUserId: dto.userId,
+                    type: Not(In(excludedTypes)),
+                },
+            ],
+        });
+    }
+
     async findLatest(dto: FindLatestActivitiesDto) {
         const baseFindOptions = buildBaseFindOptions(dto);
         return await this.findLatestBy({
             ...baseFindOptions,
             where: {
                 profileUserId: dto.userId,
-                type: dto.type
-                    ? dto.type
-                    : Not(ActivityType.OBTAINED_GAME_ACHIEVEMENT),
+                type: dto.type,
             },
         });
     }
