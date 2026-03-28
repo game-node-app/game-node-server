@@ -4,6 +4,7 @@ import { Activity } from "./entities/activity.entity";
 import {
     FindManyOptions,
     FindOneOptions,
+    Not,
     Repository,
     TypeORMError,
 } from "typeorm";
@@ -21,8 +22,6 @@ import { ReviewsService } from "../../reviews/reviews.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { UnrecoverableError } from "bullmq";
 import { PostsService } from "../../posts/posts.service";
-import { GameAchievementObtainedService } from "../../game/game-achievement/game-achievement-obtained.service";
-import { ObtainedGameAchievementActivity } from "../../game/game-achievement/entity/obtained-game-achievement-activity.entity";
 import { GameAchievementActivityService } from "../../game/game-achievement/game-achievement-activity.service";
 
 @Injectable()
@@ -213,7 +212,9 @@ export class ActivitiesRepositoryService {
             ...baseFindOptions,
             where: {
                 profileUserId: dto.userId,
-                type: dto.type,
+                type: dto.type
+                    ? dto.type
+                    : Not(ActivityType.OBTAINED_GAME_ACHIEVEMENT),
             },
         });
     }
