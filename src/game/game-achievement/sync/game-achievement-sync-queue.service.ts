@@ -18,14 +18,7 @@ export class GameAchievementSyncQueueService {
     constructor(
         @InjectQueue(GAME_ACHIEVEMENT_SYNC_QUEUE_NAME)
         private readonly queue: Queue,
-    ) {
-        this.addUserSyncJob(
-            "8dfe1233-b865-4a5b-9a9a-a07284dc2ddd",
-            2175869,
-            EConnectionType.STEAM,
-            new Date(),
-        );
-    }
+    ) {}
 
     public addUserSyncJob(
         userId: string,
