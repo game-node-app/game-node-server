@@ -10,6 +10,7 @@ import { ReviewsModule } from "../../reviews/reviews.module";
 import { CollectionsEntriesModule } from "../../collections/collections-entries/collections-entries.module";
 import { PostsModule } from "../../posts/posts.module";
 import { GameAchievementModule } from "../../game/game-achievement/game-achievement.module";
+import { ActivitiesRepositoryV2Controller } from "./activities-repository-v2.controller";
 
 @Module({
     imports: [
@@ -24,6 +25,9 @@ import { GameAchievementModule } from "../../game/game-achievement/game-achievem
     ],
     providers: [ActivitiesRepositoryService],
     exports: [ActivitiesRepositoryService],
-    controllers: [ActivitiesRepositoryController],
+    controllers: [
+        ActivitiesRepositoryController,
+        ActivitiesRepositoryV2Controller,
+    ],
 })
 export class ActivitiesRepositoryModule {}
