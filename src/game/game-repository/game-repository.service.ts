@@ -7,6 +7,7 @@ import {
     FindManyOptions,
     In,
     MoreThan,
+    Not,
     Repository,
 } from "typeorm";
 import { GamePlatform } from "./entities/game-platform.entity";
@@ -40,6 +41,8 @@ import {
 import { match } from "ts-pattern";
 import dayjs from "dayjs";
 import { getPreviousDate } from "../../statistics/statistics.utils";
+import { MATURE_THEME_ID } from "../game-filter/game-filter.constants";
+import { EGameCategory } from "./game-repository.constants";
 
 @Injectable()
 export class GameRepositoryService {
@@ -243,9 +246,25 @@ export class GameRepositoryService {
             }))
             .exhaustive();
 
+        const includedCategories = [
+            EGameCategory.Main,
+            EGameCategory.Remaster,
+            EGameCategory.Remake,
+            EGameCategory.DlcAddon,
+            EGameCategory.Expansion,
+            EGameCategory.StandaloneExpansion,
+        ];
+
         return this.gameRepository.findAndCount({
             ...baseFindOptions,
             ...findOptionsForType,
+            where: {
+                ...findOptionsForType.where,
+                category: In(includedCategories),
+                themes: {
+                    id: Not(MATURE_THEME_ID),
+                },
+            },
             relations: dto.relations,
         });
     }
