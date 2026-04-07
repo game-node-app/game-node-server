@@ -166,4 +166,8 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
 
         await this.gameAchievementActivityService.save(activityEntity);
     }
+
+    private async handleCompletionStatusUpdate(
+        jobData: GameAchievementObtainedUpdateJob,
+    ) {}
 }

@@ -14,12 +14,14 @@ import { GameAchievementObtainedService } from "./game-achievement-obtained.serv
 import { ObtainedGameAchievementActivity } from "./entity/obtained-game-achievement-activity.entity";
 import { GameAchievementActivityService } from "./game-achievement-activity.service";
 import { ActivitiesQueueModule } from "../../activities/activities-queue/activities-queue.module";
+import { GameCompletionStatus } from "./entity/game-completion-status.entity";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             ObtainedGameAchievement,
             ObtainedGameAchievementActivity,
+            GameCompletionStatus,
         ]),
         ExternalGameModule,
         SteamSyncModule,
