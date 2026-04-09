@@ -8,7 +8,7 @@ import {
     GAME_ACHIEVEMENT_XBOX_JOB_NAME,
     GameAchievementObtainedUpdateJob,
 } from "./game-achievement-sync.constants";
-import { GameAchievementObtainedService } from "../game-achievement-obtained.service";
+import { GameObtainedAchievementService } from "../game-obtained-achievement.service";
 import { Processor } from "@nestjs/bullmq";
 import dayjs from "dayjs";
 import { ObtainedGameAchievement } from "../entity/obtained-game-achievement.entity";
@@ -27,7 +27,7 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
 
     constructor(
         private readonly gameAchievementService: GameAchievementService,
-        private readonly obtainedAchievementService: GameAchievementObtainedService,
+        private readonly obtainedAchievementService: GameObtainedAchievementService,
         private readonly gameAchievementActivityService: GameAchievementActivityService,
     ) {
         super();
@@ -166,8 +166,4 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
 
         await this.gameAchievementActivityService.save(activityEntity);
     }
-
-    private async handleCompletionStatusUpdate(
-        jobData: GameAchievementObtainedUpdateJob,
-    ) {}
 }

@@ -10,11 +10,12 @@ import { GameAchievementV2Controller } from "./game-achievement-v2.controller";
 import { GameRepositoryModule } from "../game-repository/game-repository.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ObtainedGameAchievement } from "./entity/obtained-game-achievement.entity";
-import { GameAchievementObtainedService } from "./game-achievement-obtained.service";
+import { GameObtainedAchievementService } from "./game-obtained-achievement.service";
 import { ObtainedGameAchievementActivity } from "./entity/obtained-game-achievement-activity.entity";
 import { GameAchievementActivityService } from "./game-achievement-activity.service";
 import { ActivitiesQueueModule } from "../../activities/activities-queue/activities-queue.module";
 import { GameCompletionStatus } from "./entity/game-completion-status.entity";
+import { GameAchievementStatusService } from "./game-achievement-status.service";
 
 @Module({
     imports: [
@@ -33,13 +34,15 @@ import { GameCompletionStatus } from "./entity/game-completion-status.entity";
     ],
     providers: [
         GameAchievementService,
-        GameAchievementObtainedService,
+        GameObtainedAchievementService,
         GameAchievementActivityService,
+        GameAchievementStatusService,
     ],
     exports: [
         GameAchievementService,
-        GameAchievementObtainedService,
+        GameObtainedAchievementService,
         GameAchievementActivityService,
+        GameAchievementStatusService,
     ],
     controllers: [GameAchievementController, GameAchievementV2Controller],
 })

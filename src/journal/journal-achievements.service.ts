@@ -1,5 +1,5 @@
 import { GameAchievementService } from "../game/game-achievement/game-achievement.service";
-import { GameAchievementObtainedService } from "../game/game-achievement/game-achievement-obtained.service";
+import { GameObtainedAchievementService } from "../game/game-achievement/game-obtained-achievement.service";
 import {
     GetObtainedAchievementsJournalResponseDto,
     JournalAchievementsGameGroup,
@@ -28,7 +28,7 @@ export class JournalAchievementsService {
 
     constructor(
         private readonly gameAchievementService: GameAchievementService,
-        private readonly gameObtainedAchievementService: GameAchievementObtainedService,
+        private readonly gameObtainedAchievementService: GameObtainedAchievementService,
     ) {}
 
     public async buildObtainedAchievementsJournal(

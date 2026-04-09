@@ -1,6 +1,7 @@
 import { Column, Entity, ManyToOne, PrimaryColumn } from "typeorm";
 import { Game } from "../../game-repository/entities/game.entity";
 import { Profile } from "../../../profile/entities/profile.entity";
+import { GameExternalGame } from "../../external-game/entity/game-external-game.entity";
 
 /**
  * Entity representing the completion status of a game for a specific user.
@@ -10,29 +11,26 @@ import { Profile } from "../../../profile/entities/profile.entity";
 @Entity()
 export class GameCompletionStatus {
     @PrimaryColumn()
-    gameId: number;
+    externalGameId: number;
     @PrimaryColumn()
     profileUserId: string;
-    @ManyToOne(() => Game, {
-        onDelete: "CASCADE",
+    @ManyToOne(() => GameExternalGame, {
         nullable: false,
     })
-    game: Game;
+    externalGame: GameExternalGame;
     @ManyToOne(() => Profile, {
         onDelete: "CASCADE",
         nullable: false,
     })
     profile: Profile;
-
-    @Column({ type: "boolean", default: false })
+    @Column({ nullable: false, default: false })
     isCompleted: boolean;
-
     /**
      * Exclusive to PlayStation games.
      * Indicates whether the platinum trophy has been obtained for the game.
      * This is often a key indicator of 100% completion in many games.
      */
-    @Column({ type: "boolean", default: false })
+    @Column({ nullable: false, default: false })
     isPlatinumObtained: boolean;
 
     @Column({ nullable: false, default: 0 })
@@ -44,6 +42,6 @@ export class GameCompletionStatus {
     @Column({ type: "timestamp", nullable: true })
     completedAt: Date | null;
 
-    @Column({ type: "timestamp", nullable: true })
-    platinumObtainedAt: Date | null;
+    @Column()
+    checksum: string;
 }

@@ -1,6 +1,6 @@
 import { InjectRepository } from "@nestjs/typeorm";
 import { ObtainedGameAchievement } from "./entity/obtained-game-achievement.entity";
-import { FindOptionsRelations, In, Repository } from "typeorm";
+import { FindOptionsRelations, Repository } from "typeorm";
 import { ExternalGameService } from "../external-game/external-game.service";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
@@ -24,10 +24,11 @@ import { UserThinTrophy } from "psn-api";
 import { GAME_ACHIEVEMENT_ENABLED_SOURCES } from "./game-achievement.constants";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { GameAchievementStatusService } from "./game-achievement-status.service";
 
 @Injectable()
-export class GameAchievementObtainedService {
-    private readonly logger = new Logger(GameAchievementObtainedService.name);
+export class GameObtainedAchievementService {
+    private readonly logger = new Logger(GameObtainedAchievementService.name);
     private readonly relations: FindOptionsRelations<ObtainedGameAchievement> =
         {
             externalGame: true,
@@ -36,6 +37,7 @@ export class GameAchievementObtainedService {
     constructor(
         @InjectRepository(ObtainedGameAchievement)
         private readonly obtainedAchievementRepository: Repository<ObtainedGameAchievement>,
+        private readonly gameAchievementStatusService: GameAchievementStatusService,
         private readonly externalGameService: ExternalGameService,
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
@@ -254,14 +256,6 @@ export class GameAchievementObtainedService {
             }
         }
 
-        // Persists achievements in background, we don't want to make the user wait for this
-        this.persistObtainedAchievements(userId, results).catch((err) => {
-            this.logger.error(
-                `Failed to persist obtained achievements: ${err.message}`,
-                err,
-            );
-        });
-
         return results;
     }
 
@@ -314,6 +308,11 @@ export class GameAchievementObtainedService {
                     await this.obtainedAchievementRepository.save(
                         entitiesToPersist,
                     );
+
+                await this.gameAchievementStatusService.updateGameCompletionStatus(
+                    userId,
+                    externalGameId,
+                );
 
                 persistedEntities.push(...result);
             }
