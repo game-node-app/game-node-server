@@ -91,7 +91,7 @@ services:
   redis_bullmq:
     image: redis:latest
     hostname: server-redis-bullmq
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "8192mb", "--maxmemory-policy", "allkeys-lru"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "20480mb", "--maxmemory-policy", "allkeys-lru"]
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
     restart: always
