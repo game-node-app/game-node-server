@@ -24,7 +24,6 @@ const createChecksum = (status: GameCompletionStatus) => {
         isPlatinumObtained: status.isPlatinumObtained,
         totalAvailableAchievements: status.totalAvailableAchievements,
         totalObtainedAchievements: status.totalObtainedAchievements,
-        completedAt: status.completedAt,
     };
 
     return generateChecksum(comparableEntity);
