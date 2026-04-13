@@ -97,14 +97,18 @@ export class GameAchievementStatusService {
                 externalGameId,
             );
 
+        const actuallyObtainedAchievements = obtainedAchievements.filter(
+            (obtained) => obtained.isObtained && obtained.obtainedAt != null,
+        );
+
         const isCompleted = checkIfGameIsComplete(
             gameAchievements,
-            obtainedAchievements,
+            actuallyObtainedAchievements,
         );
 
         const isPlatinum = checkIfGameIsPlatinum(
             gameAchievements,
-            obtainedAchievements,
+            actuallyObtainedAchievements,
         );
 
         const entity = this.gameCompletionStatusRepository.create({
@@ -113,7 +117,7 @@ export class GameAchievementStatusService {
             isCompleted,
             isPlatinumObtained: isPlatinum,
             totalAvailableAchievements: gameAchievements.length,
-            totalObtainedAchievements: obtainedAchievements.length,
+            totalObtainedAchievements: actuallyObtainedAchievements.length,
             completedAt: isCompleted ? new Date() : null,
         });
 
