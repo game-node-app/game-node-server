@@ -2,6 +2,7 @@ import { Column, Entity, ManyToOne, PrimaryColumn } from "typeorm";
 import { Game } from "../../game-repository/entities/game.entity";
 import { Profile } from "../../../profile/entities/profile.entity";
 import { GameExternalGame } from "../../external-game/entity/game-external-game.entity";
+import { BaseEntity } from "../../../utils/db/base.entity";
 
 /**
  * Entity representing the completion status of a game for a specific user.
@@ -9,7 +10,7 @@ import { GameExternalGame } from "../../external-game/entity/game-external-game.
  * @see GameAchievementSyncModule
  */
 @Entity()
-export class GameCompletionStatus {
+export class GameCompletionStatus extends BaseEntity {
     @PrimaryColumn()
     externalGameId: number;
     @PrimaryColumn()

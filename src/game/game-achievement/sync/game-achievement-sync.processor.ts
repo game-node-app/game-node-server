@@ -20,6 +20,7 @@ import {
 } from "../game-achievement.utils";
 import { GameAchievementActivityService } from "../game-achievement-activity.service";
 import { GameObtainedAchievementDto } from "../dto/game-obtained-achievement.dto";
+import { GameAchievementStatusService } from "../game-achievement-status.service";
 
 @Processor(GAME_ACHIEVEMENT_SYNC_QUEUE_NAME)
 export class GameAchievementSyncProcessor extends WorkerHostProcessor {
@@ -29,6 +30,7 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
         private readonly gameAchievementService: GameAchievementService,
         private readonly obtainedAchievementService: GameObtainedAchievementService,
         private readonly gameAchievementActivityService: GameAchievementActivityService,
+        private readonly gameAchievementStatusService: GameAchievementStatusService,
     ) {
         super();
     }
@@ -67,6 +69,13 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
                 this.logger.log(
                     `Skipping sync for user ${userId} and external game ${externalGameId} because last played date is older than two weeks and achievements already exist`,
                 );
+                /**
+                 * While we backfill the data, we want to execute the status updating logic for all games.
+                 */
+                this.logger.log(
+                    `Temporarily executing status update for user ${userId} and external game ${externalGameId} to backfill data`,
+                );
+                await this.handleStatusUpdate(userId, externalGameId);
                 return;
             }
         }
@@ -107,6 +116,8 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
         this.logger.log(
             `Persisted ${persistedEntities.length} obtained achievements for user ${userId} and external game ${externalGameId}`,
         );
+
+        await this.handleStatusUpdate(userId, externalGameId);
 
         await this.handleActivityCreate(
             jobData,
@@ -165,5 +176,12 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
         };
 
         await this.gameAchievementActivityService.save(activityEntity);
+    }
+
+    private handleStatusUpdate(userId: string, externalGameId: number) {
+        return this.gameAchievementStatusService.updateGameCompletionStatus(
+            userId,
+            externalGameId,
+        );
     }
 }

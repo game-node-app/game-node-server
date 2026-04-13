@@ -45,6 +45,13 @@ export class GameObtainedAchievementService {
         private readonly connectionsService: ConnectionsService,
     ) {}
 
+    /**
+     * Find all obtained achievements from <strong>source</strong> related to an external game ID. <br />
+     * Internally, this method also updates our database with the obtained achievements that are not yet
+     * persisted and updates the game completion status accordingly, if persistNewlyObtained is truthy.
+     * @param userId
+     * @param externalGameId
+     */
     public async findAllObtainedByExternalGameId(
         userId: string | undefined,
         externalGameId: number,
@@ -255,6 +262,13 @@ export class GameObtainedAchievementService {
                 results.push(...promise.value);
             }
         }
+
+        this.persistObtainedAchievements(userId, results).catch((err) => {
+            this.logger.error(
+                `Error persisting obtained achievements for user ${userId} and game ${gameId}: ${err}`,
+                err,
+            );
+        });
 
         return results;
     }

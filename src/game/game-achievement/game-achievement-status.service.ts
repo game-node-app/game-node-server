@@ -72,6 +72,10 @@ export class GameAchievementStatusService {
                 profileUserId: userId,
                 ...filterOptions,
             },
+            order: {
+                completedAt: "DESC",
+                updatedAt: "DESC",
+            },
             relations: this.relations,
         });
     }
