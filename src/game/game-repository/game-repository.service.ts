@@ -255,7 +255,7 @@ export class GameRepositoryService {
             EGameCategory.StandaloneExpansion,
         ];
 
-        return this.gameRepository.findAndCount({
+        return await this.gameRepository.findAndCount({
             ...baseFindOptions,
             ...findOptionsForType,
             where: {
@@ -266,6 +266,7 @@ export class GameRepositoryService {
                 },
             },
             relations: dto.relations,
+            relationLoadStrategy: getRelationLoadStrategy(dto.relations),
         });
     }
 }

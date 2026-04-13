@@ -8,7 +8,7 @@ import {
     GAME_ACHIEVEMENT_XBOX_JOB_NAME,
     GameAchievementObtainedUpdateJob,
 } from "./game-achievement-sync.constants";
-import { GameAchievementObtainedService } from "../game-achievement-obtained.service";
+import { GameObtainedAchievementService } from "../game-obtained-achievement.service";
 import { Processor } from "@nestjs/bullmq";
 import dayjs from "dayjs";
 import { ObtainedGameAchievement } from "../entity/obtained-game-achievement.entity";
@@ -20,6 +20,7 @@ import {
 } from "../game-achievement.utils";
 import { GameAchievementActivityService } from "../game-achievement-activity.service";
 import { GameObtainedAchievementDto } from "../dto/game-obtained-achievement.dto";
+import { GameAchievementStatusService } from "../game-achievement-status.service";
 
 @Processor(GAME_ACHIEVEMENT_SYNC_QUEUE_NAME)
 export class GameAchievementSyncProcessor extends WorkerHostProcessor {
@@ -27,8 +28,9 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
 
     constructor(
         private readonly gameAchievementService: GameAchievementService,
-        private readonly obtainedAchievementService: GameAchievementObtainedService,
+        private readonly obtainedAchievementService: GameObtainedAchievementService,
         private readonly gameAchievementActivityService: GameAchievementActivityService,
+        private readonly gameAchievementStatusService: GameAchievementStatusService,
     ) {
         super();
     }
@@ -67,7 +69,10 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
                 this.logger.log(
                     `Skipping sync for user ${userId} and external game ${externalGameId} because last played date is older than two weeks and achievements already exist`,
                 );
-                return;
+                /**
+                 * While we backfill the data, we want to execute the status updating logic for all games.
+                 */
+                // return;
             }
         }
 

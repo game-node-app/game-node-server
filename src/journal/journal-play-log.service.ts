@@ -10,14 +10,14 @@ import { getAssociatedStatusDates } from "../collections/collections-entries/uti
 import { JournalPlaylogItemType } from "./journal.constants";
 import dayjs from "dayjs";
 import { GameAchievementWithObtainedInfo } from "../game/game-achievement/dto/game-obtained-achievement.dto";
-import { GameAchievementObtainedService } from "../game/game-achievement/game-achievement-obtained.service";
+import { GameObtainedAchievementService } from "../game/game-achievement/game-obtained-achievement.service";
 
 @Injectable()
 export class JournalPlayLogService {
     constructor(
         private readonly collectionsEntriesService: CollectionsEntriesService,
         private readonly gameAchievementsService: GameAchievementService,
-        private readonly gameAchievementsObtainedService: GameAchievementObtainedService,
+        private readonly gameAchievementsObtainedService: GameObtainedAchievementService,
         private readonly playtimeHistoryService: PlaytimeHistoryService,
     ) {}
 

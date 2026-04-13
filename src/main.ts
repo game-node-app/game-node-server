@@ -19,7 +19,6 @@ import {
     StorageDriver,
 } from "typeorm-transactional";
 import { Logger } from "nestjs-pino";
-import { RedisIoAdapter } from "./utils/ws/RedisIoAdapter";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { setCacheManager } from "./utils/cacheable";
 
@@ -65,10 +64,6 @@ async function bootstrap() {
             },
         }),
     );
-
-    const pubSubAdapter = new RedisIoAdapter(app);
-    await pubSubAdapter.connectToRedis();
-    app.useWebSocketAdapter(pubSubAdapter);
 
     const cacheManager: Cache = app.get(CACHE_MANAGER);
 

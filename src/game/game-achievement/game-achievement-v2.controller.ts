@@ -12,7 +12,7 @@ import { AuthGuard } from "../../auth/auth.guard";
 import { Public } from "../../auth/public.decorator";
 import { Session } from "../../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
-import { GameAchievementObtainedService } from "./game-achievement-obtained.service";
+import { GameObtainedAchievementService } from "./game-obtained-achievement.service";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import {
     FindObtainedAchievementsResponseDto,
@@ -29,7 +29,7 @@ import { GameAchievementActivityService } from "./game-achievement-activity.serv
 export class GameAchievementV2Controller {
     constructor(
         private readonly gameAchievementService: GameAchievementService,
-        private readonly gameAchievementObtainedService: GameAchievementObtainedService,
+        private readonly gameAchievementObtainedService: GameObtainedAchievementService,
         private readonly gameAchievementActivityService: GameAchievementActivityService,
     ) {}
 

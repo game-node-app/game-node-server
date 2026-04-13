@@ -6,6 +6,11 @@ import { BullModule } from "@nestjs/bullmq";
 import { GAME_ACHIEVEMENT_SYNC_QUEUE_NAME } from "./game-achievement-sync.constants";
 import { seconds } from "@nestjs/throttler";
 
+/**
+ * Module responsible for controlling the synchronization of game achievement data.
+ * It tracks the completion status of games for users, including whether a game
+ * is completed, if the platinum trophy is obtained (for PlayStation games), and the total/obtained achievements.
+ */
 @Module({
     imports: [
         BullModule.registerQueue({

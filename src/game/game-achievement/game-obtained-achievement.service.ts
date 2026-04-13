@@ -1,6 +1,6 @@
 import { InjectRepository } from "@nestjs/typeorm";
 import { ObtainedGameAchievement } from "./entity/obtained-game-achievement.entity";
-import { FindOptionsRelations, In, Repository } from "typeorm";
+import { FindOptionsRelations, Repository } from "typeorm";
 import { ExternalGameService } from "../external-game/external-game.service";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
@@ -19,15 +19,16 @@ import {
     isValidXboxProductId,
 } from "./game-achievement.utils";
 import { match, P } from "ts-pattern";
-import { Injectable, Logger } from "@nestjs/common";
+import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { UserThinTrophy } from "psn-api";
 import { GAME_ACHIEVEMENT_ENABLED_SOURCES } from "./game-achievement.constants";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { GameAchievementStatusService } from "./game-achievement-status.service";
 
 @Injectable()
-export class GameAchievementObtainedService {
-    private readonly logger = new Logger(GameAchievementObtainedService.name);
+export class GameObtainedAchievementService {
+    private readonly logger = new Logger(GameObtainedAchievementService.name);
     private readonly relations: FindOptionsRelations<ObtainedGameAchievement> =
         {
             externalGame: true,
@@ -36,6 +37,8 @@ export class GameAchievementObtainedService {
     constructor(
         @InjectRepository(ObtainedGameAchievement)
         private readonly obtainedAchievementRepository: Repository<ObtainedGameAchievement>,
+        @Inject(forwardRef(() => GameAchievementStatusService))
+        private readonly gameAchievementStatusService: GameAchievementStatusService,
         private readonly externalGameService: ExternalGameService,
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
@@ -43,6 +46,13 @@ export class GameAchievementObtainedService {
         private readonly connectionsService: ConnectionsService,
     ) {}
 
+    /**
+     * Find all obtained achievements from <strong>source</strong> related to an external game ID. <br />
+     * Internally, this method also updates our database with the obtained achievements that are not yet
+     * persisted and updates the game completion status accordingly, if persistNewlyObtained is truthy.
+     * @param userId
+     * @param externalGameId
+     */
     public async findAllObtainedByExternalGameId(
         userId: string | undefined,
         externalGameId: number,
@@ -254,10 +264,9 @@ export class GameAchievementObtainedService {
             }
         }
 
-        // Persists achievements in background, we don't want to make the user wait for this
         this.persistObtainedAchievements(userId, results).catch((err) => {
             this.logger.error(
-                `Failed to persist obtained achievements: ${err.message}`,
+                `Error persisting obtained achievements for user ${userId} and game ${gameId}: ${err}`,
                 err,
             );
         });
@@ -317,6 +326,14 @@ export class GameAchievementObtainedService {
 
                 persistedEntities.push(...result);
             }
+
+            /**
+             * Temporarily executes update logic for all games while we backfill the data.
+             */
+            await this.gameAchievementStatusService.updateGameCompletionStatus(
+                userId,
+                externalGameId,
+            );
         }
 
         return persistedEntities;

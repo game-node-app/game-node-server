@@ -1,8 +1,4 @@
-import {
-    OnGatewayConnection,
-    OnGatewayDisconnect,
-    WebSocketServer,
-} from "@nestjs/websockets";
+import { OnGatewayConnection, WebSocketServer } from "@nestjs/websockets";
 import { Socket } from "socket.io";
 import Session from "supertokens-node/recipe/session";
 import { Logger } from "@nestjs/common";
