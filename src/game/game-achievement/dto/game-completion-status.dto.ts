@@ -7,7 +7,7 @@ export class FindGameCompletionStatusDto {
      */
     @IsOptional()
     @ToBoolean()
-    isCompleted?: boolean = false;
+    onlyCompleted?: boolean = false;
     @IsOptional()
     @IsDate()
     completedPeriodStart?: Date;

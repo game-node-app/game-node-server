@@ -72,11 +72,7 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
                 /**
                  * While we backfill the data, we want to execute the status updating logic for all games.
                  */
-                this.logger.log(
-                    `Temporarily executing status update for user ${userId} and external game ${externalGameId} to backfill data`,
-                );
-                await this.handleStatusUpdate(userId, externalGameId);
-                return;
+                // return;
             }
         }
 
@@ -116,8 +112,6 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
         this.logger.log(
             `Persisted ${persistedEntities.length} obtained achievements for user ${userId} and external game ${externalGameId}`,
         );
-
-        await this.handleStatusUpdate(userId, externalGameId);
 
         await this.handleActivityCreate(
             jobData,
@@ -176,12 +170,5 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
         };
 
         await this.gameAchievementActivityService.save(activityEntity);
-    }
-
-    private handleStatusUpdate(userId: string, externalGameId: number) {
-        return this.gameAchievementStatusService.updateGameCompletionStatus(
-            userId,
-            externalGameId,
-        );
     }
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import {
     Between,
     FindOptionsRelations,
@@ -40,6 +40,7 @@ export class GameAchievementStatusService {
         @InjectRepository(GameCompletionStatus)
         private readonly gameCompletionStatusRepository: Repository<GameCompletionStatus>,
         private readonly gameAchievementService: GameAchievementService,
+        @Inject(forwardRef(() => GameObtainedAchievementService))
         private readonly gameObtainedAchievementService: GameObtainedAchievementService,
     ) {}
 
@@ -57,14 +58,14 @@ export class GameAchievementStatusService {
         userId: string,
         dto: FindGameCompletionStatusDto,
     ) {
-        const { isCompleted, completedPeriodStart, completedPeriodEnd } = dto;
+        const { onlyCompleted, completedPeriodStart, completedPeriodEnd } = dto;
 
         const filterOptions: FindOptionsWhere<GameCompletionStatus> = {
             completedAt:
                 completedPeriodStart && completedPeriodEnd
                     ? Between(completedPeriodStart, completedPeriodEnd)
                     : undefined,
-            isCompleted: isCompleted ? true : undefined,
+            isCompleted: onlyCompleted ? true : undefined,
         };
 
         return this.gameCompletionStatusRepository.find({

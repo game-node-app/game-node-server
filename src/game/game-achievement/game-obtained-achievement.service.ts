@@ -19,7 +19,7 @@ import {
     isValidXboxProductId,
 } from "./game-achievement.utils";
 import { match, P } from "ts-pattern";
-import { Injectable, Logger } from "@nestjs/common";
+import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { UserThinTrophy } from "psn-api";
 import { GAME_ACHIEVEMENT_ENABLED_SOURCES } from "./game-achievement.constants";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
@@ -37,6 +37,7 @@ export class GameObtainedAchievementService {
     constructor(
         @InjectRepository(ObtainedGameAchievement)
         private readonly obtainedAchievementRepository: Repository<ObtainedGameAchievement>,
+        @Inject(forwardRef(() => GameAchievementStatusService))
         private readonly gameAchievementStatusService: GameAchievementStatusService,
         private readonly externalGameService: ExternalGameService,
         private readonly steamSyncService: SteamSyncService,
@@ -323,13 +324,16 @@ export class GameObtainedAchievementService {
                         entitiesToPersist,
                     );
 
-                await this.gameAchievementStatusService.updateGameCompletionStatus(
-                    userId,
-                    externalGameId,
-                );
-
                 persistedEntities.push(...result);
             }
+
+            /**
+             * Temporarily executes update logic for all games while we backfill the data.
+             */
+            await this.gameAchievementStatusService.updateGameCompletionStatus(
+                userId,
+                externalGameId,
+            );
         }
 
         return persistedEntities;
