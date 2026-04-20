@@ -136,12 +136,7 @@ import { getRedisConfig } from "./utils/getRedisConfig";
                     defaultJobOptions: {
                         removeOnComplete: true,
                         removeOnFail: true,
-                        // TODO: Decrease this once we figure the cause of the dreaded mysql access error
-                        attempts: 15,
-                        backoff: {
-                            type: "fixed",
-                            delay: seconds(2),
-                        },
+                        attempts: 3,
                     },
                 };
             },
