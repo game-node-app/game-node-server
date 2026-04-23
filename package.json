@@ -13,7 +13,7 @@
         "start:dev": "nest start --watch | pino-pretty",
         "start:debug": "nest start --debug --watch | pino-pretty",
         "start:prod": "node --max-old-space-size=2048 dist/src/main",
-        "start:dev:docker": "docker compose up --build -d && yarn start:dev | pino-pretty",
+        "start:dev:docker": "docker compose up --build -d && yarn start:dev",
         "typeorm": "typeorm-ts-node-commonjs",
         "migration:create": "yarn run typeorm migration:create",
         "migration:generate": "yarn run typeorm migration:generate ./src/migrations/all -d ./data-source.ts",

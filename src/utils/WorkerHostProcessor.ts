@@ -5,38 +5,15 @@ import { Job } from "bullmq";
 export abstract class WorkerHostProcessor extends WorkerHost {
     logger = new Logger(WorkerHostProcessor.name);
 
-    @OnWorkerEvent("completed")
-    onCompleted(job: Job, result: any) {
-        const { id, name, queueName, finishedOn, returnvalue } = job;
-        const completionTime = finishedOn
-            ? new Date(finishedOn).toISOString()
-            : "";
-        this.logger.log(
-            `Job id: ${id}, name: ${name} completed in queue ${queueName} on ${completionTime}. Result: ${returnvalue}`,
-        );
-    }
-
-    @OnWorkerEvent("progress")
-    onProgress(job: Job) {
-        const { id, name, progress } = job;
-        this.logger.log(`Job id: ${id}, name: ${name} completes ${progress}%`);
-    }
-
     @OnWorkerEvent("failed")
     onFailed(job: Job) {
         if (job == undefined) return;
-        const { id, name, queueName, failedReason } = job;
+        const { id, name, queueName, failedReason, stacktrace } = job;
         this.logger.error(
             `Job id: ${id}, name: ${name} failed in queue ${queueName}. Failed reason: ${failedReason}`,
         );
-    }
-
-    @OnWorkerEvent("active")
-    onActive(job: Job) {
-        const { id, name, queueName, timestamp } = job;
-        const startTime = timestamp ? new Date(timestamp).toISOString() : "";
-        this.logger.log(
-            `Job id: ${id}, name: ${name} starts in queue ${queueName} on ${startTime}.`,
-        );
+        if (stacktrace) {
+            this.logger.error(`Stack trace: ${stacktrace}`);
+        }
     }
 }

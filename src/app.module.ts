@@ -86,10 +86,10 @@ import { getRedisConfig } from "./utils/getRedisConfig";
                     autoLoadEntities: true,
                     // Never turn this on. Use migrations instead.
                     synchronize: false,
-                    logging:
-                        !isProduction || isTypeOrmLoggingEnabled
-                            ? ["error", "query"]
-                            : false,
+                    // logging:
+                    //     !isProduction || isTypeOrmLoggingEnabled
+                    //         ? ["error", "query"]
+                    //         : false,
 
                     /**
                      * Allows us to cache select queries using ioredis. Default duration of 1000ms.
@@ -136,12 +136,7 @@ import { getRedisConfig } from "./utils/getRedisConfig";
                     defaultJobOptions: {
                         removeOnComplete: true,
                         removeOnFail: true,
-                        // TODO: Decrease this once we figure the cause of the dreaded mysql access error
-                        attempts: 15,
-                        backoff: {
-                            type: "fixed",
-                            delay: seconds(2),
-                        },
+                        attempts: 3,
                     },
                 };
             },
