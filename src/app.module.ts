@@ -86,10 +86,10 @@ import { getRedisConfig } from "./utils/getRedisConfig";
                     autoLoadEntities: true,
                     // Never turn this on. Use migrations instead.
                     synchronize: false,
-                    logging:
-                        !isProduction || isTypeOrmLoggingEnabled
-                            ? ["error", "query"]
-                            : false,
+                    // logging:
+                    //     !isProduction || isTypeOrmLoggingEnabled
+                    //         ? ["error", "query"]
+                    //         : false,
 
                     /**
                      * Allows us to cache select queries using ioredis. Default duration of 1000ms.
