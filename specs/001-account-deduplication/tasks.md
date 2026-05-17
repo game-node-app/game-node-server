@@ -14,14 +14,14 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Define `UNVERIFIED_EMAIL_CONFLICT` and `DUPLICATE_LEGACY_ACCOUNTS` errors in `src/auth/auth.constants.ts`
+- [X] T001 Define `UNVERIFIED_EMAIL_CONFLICT` and `DUPLICATE_LEGACY_ACCOUNTS` errors in `src/auth/auth.constants.ts`
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-- [ ] T002 Implement database queries to fetch user accounts by email in `src/user/user.service.ts`
-- [ ] T003 Implement manual third-party linking database helper in `src/user/user.service.ts` (or similar repository)
+- [X] T002 Implement database queries to fetch user accounts by email in `src/user/user-account/user-account.service.ts`
+- [X] T003 Implement manual third-party linking database helper in `src/user/user-account/user-account.service.ts`
 
 ## Phase 3: User Story 1 - Merge on Login (Priority: P1) 🎯 MVP
 
