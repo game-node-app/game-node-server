@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Dev: Server",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "yarn start:dev",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Dev: Server with Docker",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "yarn start:dev:docker",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
