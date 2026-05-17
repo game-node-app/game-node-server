@@ -31,11 +31,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Create unit tests for ThirdParty `signInUpPOST` override honoring merge conditions in `src/auth/auth.service.spec.ts`
-- [ ] T005 [US1] Override `signInUpPOST` in `ThirdParty.init` inside `src/auth/auth.service.ts` to query user emails prior to passing control to original implementation
-- [ ] T006 [US1] Implement automatic account linkage for matching verified emails in `signInUpPOST` override inside `src/auth/auth.service.ts`
-- [ ] T007 [P] [US1] Implement rejection behavior returning `UNVERIFIED_EMAIL_CONFLICT` for unverified emails matching verified accounts in `src/auth/auth.service.ts`
-- [ ] T008 [P] [US1] Implement rejection behavior returning `DUPLICATE_LEGACY_ACCOUNTS` for pre-existing legacy collisions in `src/auth/auth.service.ts`
+- [X] T004 [US1] Create unit tests for ThirdParty `signInUpPOST` override honoring merge conditions in `src/auth/auth.service.spec.ts`
+- [X] T005 [US1] Override `signInUpPOST` in `ThirdParty.init` inside `src/auth/auth.service.ts` to query user emails prior to passing control to original implementation
+- [X] T006 [US1] Implement automatic account linkage for matching verified emails in `signInUpPOST` override inside `src/auth/auth.service.ts`
+- [X] T007 [P] [US1] Implement rejection behavior returning `UNVERIFIED_EMAIL_CONFLICT` for unverified emails matching verified accounts in `src/auth/auth.service.ts`
+- [X] T008 [P] [US1] Implement rejection behavior returning `DUPLICATE_LEGACY_ACCOUNTS` for pre-existing legacy collisions in `src/auth/auth.service.ts`
 
 ## Phase 4: User Story 2 - Account Linking Management (Priority: P2)
 
@@ -45,11 +45,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T009 [P] [US2] Create unit tests for provider unlinking logic and constraints in `src/auth/auth.service.spec.ts`
-- [ ] T010 [US2] Add `getLinkedProviders` logic to `src/auth/auth.service.ts`
-- [ ] T011 [US2] Add `unlinkProvider` logic to `src/auth/auth.service.ts` enforcing the minimum 1 provider rule
-- [ ] T012 [P] [US2] Expose `GET /auth/providers` endpoint in `src/auth/auth.controller.ts`
-- [ ] T013 [P] [US2] Expose `DELETE /auth/providers/:providerId` endpoint in `src/auth/auth.controller.ts`
+- [X] T009 [P] [US2] Create unit tests for provider unlinking logic and constraints in `src/auth/auth.service.spec.ts`
+- [X] T010 [US2] Add `getLinkedProviders` logic to `src/auth/auth.service.ts`
+- [X] T011 [US2] Add `unlinkProvider` logic to `src/auth/auth.service.ts` enforcing the minimum 1 provider rule
+- [X] T012 [P] [US2] Expose `GET /auth/providers` endpoint in `src/auth/auth.controller.ts`
+- [X] T013 [P] [US2] Expose `DELETE /auth/providers/:providerId` endpoint in `src/auth/auth.controller.ts`
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 

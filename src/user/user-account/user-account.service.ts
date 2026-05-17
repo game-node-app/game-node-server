@@ -55,6 +55,33 @@ export class UserAccountService {
         });
     }
 
+    async getUserById(userId: string): Promise<User | undefined> {
+        return supertokens.getUser(userId);
+    }
+
+    async getProviderLinkCounts(
+        userIds: string[],
+    ): Promise<Map<string, number>> {
+        if (userIds.length === 0) {
+            return new Map();
+        }
+
+        const rows = await this.linkedProviderRepo
+            .createQueryBuilder("linkedProvider")
+            .select("linkedProvider.userId", "userId")
+            .addSelect("COUNT(*)", "count")
+            .where("linkedProvider.userId IN (:...userIds)", { userIds })
+            .groupBy("linkedProvider.userId")
+            .getRawMany<{ userId: string; count: string }>();
+
+        const counts = new Map<string, number>();
+        for (const row of rows) {
+            counts.set(row.userId, Number(row.count));
+        }
+
+        return counts;
+    }
+
     async restartUserAccount(userId: string) {
         await this.librariesService.deleteByUserId(userId);
         await this.profileService.deleteByUserId(userId);

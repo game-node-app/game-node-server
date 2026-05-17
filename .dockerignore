@@ -1,3 +1,8 @@
 .env
+.env*
+.git
+coverage
 dist
 node_modules
+build
+*.log

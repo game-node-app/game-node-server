@@ -6,3 +6,7 @@ The REST API for SuperTokens authentication remains mostly identical. The client
   - Returns `GENERAL_ERROR` with custom messages for unverified emails or older conflicting accounts:
     - `"UNVERIFIED_EMAIL_CONFLICT"`: Email requires verification before linking.
     - `"DUPLICATE_LEGACY_ACCOUNTS"`: Prompt for manual merge required.
+
+## Constraint
+
+- Do not use Supertokens AccountLinking recipe or related imports when implementing these flows.

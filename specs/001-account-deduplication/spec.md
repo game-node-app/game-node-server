@@ -14,6 +14,7 @@
 ### Session 2026-05-17
 - Q: How should the system handle the migration/retention of these existing duplicate accounts? → A: Prompt the user to merge accounts upon their next login (requires user confirmation).
 - Q: If a provider's underlying email changes and suddenly conflicts with another primary account, how should the system resolve the collision during login? → A: Deny the login attempt, automatically unlink the provider from the previous account, and require the user to verify/link it to the new account manually.
+- Q: Can we use Supertokens AccountLinking recipe or imports for linking? → A: No, never use AccountLinking recipe or its imports because it is a paid feature and not available in this project.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -63,6 +64,7 @@ As a user, I want to see which providers are linked to my account and be able to
 - **FR-007**: System MUST reject authentication attempts from unverified provider emails if the email matches an existing verified account, requiring email verification before the provider can be linked.
 - **FR-008**: System MUST prompt users with pre-existing distinct accounts sharing the same email to merge them upon their next login, requiring explicit user confirmation before completing the merge.
 - **FR-009**: System MUST handle cases where a linked provider's underlying email changes to match a different primary account by denying the login attempt, automatically unlinking the provider from its previous account, and requiring manual verification/linking to the new account.
+- **FR-010**: System MUST NOT use Supertokens AccountLinking recipe or any of its imports; implement linking without paid AccountLinking features.
 
 ### Key Entities *(include if feature involves data)*
 
