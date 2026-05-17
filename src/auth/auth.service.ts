@@ -49,6 +49,7 @@ export class AuthService {
                     /**
                      * Custom logic implemented here:
                      * - Implements user initialization logic
+                     * - Account linking logic based on verified email addresses to prevent duplicate accounts and unintentional account takeover
                      */
                     override: {
                         apis: (originalImplementation) => ({
@@ -260,6 +261,7 @@ export class AuthService {
                     /**
                      * Custom logic implemented here:
                      * - Implements user initialization logic
+                     * - Account linking logic based on verified email addresses to prevent duplicate accounts and unintentional account takeover
                      */
                     override: {
                         apis: (originalImplementation) => ({
