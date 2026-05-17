@@ -59,11 +59,183 @@ export class AuthService {
                                         await originalImplementation.consumeCodePOST!(
                                             input,
                                         );
-                                    if (result.status === "OK") {
+                                    if (result.status !== "OK") {
+                                        return result;
+                                    }
+
+                                    const email = result.user.emails[0];
+                                    // Shouldn't happen in practice
+                                    if (!email) {
+                                        if (result.createdNewRecipeUser) {
+                                            await this.userInitService.init(
+                                                result.user.id,
+                                            );
+                                        }
+                                        return result;
+                                    }
+
+                                    const users =
+                                        await this.userAccountService.getUsersByEmail(
+                                            email,
+                                        );
+                                    const providerId = "passwordless";
+                                    const providerUserId = result.user.id;
+                                    const linkedProvider =
+                                        await this.userAccountService.getLinkedProvider(
+                                            providerId,
+                                            providerUserId,
+                                        );
+
+                                    const loginEmailVerified =
+                                        this.hasVerifiedEmailForUser(
+                                            result.user,
+                                            email,
+                                        );
+                                    const hasVerifiedEmail =
+                                        this.hasVerifiedEmailForAnyUser(
+                                            users,
+                                            email,
+                                        );
+
+                                    if (linkedProvider) {
+                                        const emailUserIds = new Set(
+                                            users.map((user) => user.id),
+                                        );
+
+                                        if (
+                                            users.length > 0 &&
+                                            !emailUserIds.has(
+                                                linkedProvider.userId,
+                                            )
+                                        ) {
+                                            await this.userAccountService.unlinkAccount(
+                                                providerId,
+                                                providerUserId,
+                                            );
+                                            await result.session.revokeSession();
+                                            return {
+                                                status: "GENERAL_ERROR",
+                                                message:
+                                                    AUTH_ERRORS.PROVIDER_EMAIL_CHANGED,
+                                            };
+                                        }
+
+                                        const linkedUser =
+                                            await this.userAccountService.getUserById(
+                                                linkedProvider.userId,
+                                            );
+
+                                        if (!linkedUser) {
+                                            await result.session.revokeSession();
+                                            return {
+                                                status: "GENERAL_ERROR",
+                                                message:
+                                                    AUTH_ERRORS.PROVIDER_LINK_CONFLICT,
+                                            };
+                                        }
+
+                                        if (
+                                            !loginEmailVerified &&
+                                            !hasVerifiedEmail
+                                        ) {
+                                            await result.session.revokeSession();
+                                            return {
+                                                status: "GENERAL_ERROR",
+                                                message:
+                                                    AUTH_ERRORS.UNVERIFIED_EMAIL_REQUIRED,
+                                            };
+                                        }
+
+                                        if (linkedUser.id !== result.user.id) {
+                                            await result.session.revokeSession();
+                                            const recipeUserId =
+                                                supertokens.convertToRecipeUserId(
+                                                    linkedUser.id,
+                                                );
+                                            const session =
+                                                await Session.createNewSession(
+                                                    input.options.req,
+                                                    input.options.res,
+                                                    input.tenantId,
+                                                    recipeUserId,
+                                                );
+                                            return {
+                                                status: "OK",
+                                                createdNewRecipeUser: false,
+                                                user: linkedUser,
+                                                session,
+                                            };
+                                        }
+
+                                        if (result.createdNewRecipeUser) {
+                                            await this.userInitService.init(
+                                                result.user.id,
+                                            );
+                                        }
+
+                                        return result;
+                                    }
+
+                                    if (users.length > 0) {
+                                        if (
+                                            !loginEmailVerified &&
+                                            !hasVerifiedEmail
+                                        ) {
+                                            await result.session.revokeSession();
+                                            return {
+                                                status: "GENERAL_ERROR",
+                                                message:
+                                                    AUTH_ERRORS.UNVERIFIED_EMAIL_REQUIRED,
+                                            };
+                                        }
+
+                                        const targetUser =
+                                            await this.selectPreferredUser(
+                                                users,
+                                            );
+
+                                        await this.userAccountService.linkAccounts(
+                                            targetUser.id,
+                                            providerId,
+                                            providerUserId,
+                                        );
+
+                                        if (targetUser.id !== result.user.id) {
+                                            await result.session.revokeSession();
+                                            const recipeUserId =
+                                                supertokens.convertToRecipeUserId(
+                                                    targetUser.id,
+                                                );
+                                            const session =
+                                                await Session.createNewSession(
+                                                    input.options.req,
+                                                    input.options.res,
+                                                    input.tenantId,
+                                                    recipeUserId,
+                                                );
+                                            return {
+                                                status: "OK",
+                                                createdNewRecipeUser: false,
+                                                user: targetUser,
+                                                session,
+                                            };
+                                        }
+
+                                        if (result.createdNewRecipeUser) {
+                                            await this.userInitService.init(
+                                                result.user.id,
+                                            );
+                                        }
+
+                                        return result;
+                                    }
+
+                                    if (result.createdNewRecipeUser) {
                                         await this.userInitService.init(
                                             result.user.id,
                                         );
                                     }
+
                                     return result;
                                 } catch (err) {
                                     this.logger.error(err);
@@ -178,8 +350,8 @@ export class AuthService {
                                         }
 
                                         const hasVerifiedEmail =
-                                            this.hasVerifiedEmailForUser(
-                                                linkedUser,
+                                            this.hasVerifiedEmailForAnyUser(
+                                                users,
                                                 email.id,
                                             );
 
@@ -224,8 +396,8 @@ export class AuthService {
                                                 users,
                                             );
                                         const hasVerifiedEmail =
-                                            this.hasVerifiedEmailForUser(
-                                                targetUser,
+                                            this.hasVerifiedEmailForAnyUser(
+                                                users,
                                                 email.id,
                                             );
 
@@ -375,6 +547,15 @@ export class AuthService {
     private hasVerifiedEmailForUser(user: User, emailId: string): boolean {
         return user.loginMethods.some(
             (method) => method.verified && method.hasSameEmailAs?.(emailId),
+        );
+    }
+
+    private hasVerifiedEmailForAnyUser(
+        users: User[],
+        emailId: string,
+    ): boolean {
+        return users.some((user) =>
+            this.hasVerifiedEmailForUser(user, emailId),
         );
     }
 
