@@ -191,9 +191,7 @@ export class AuthService {
                                         }
 
                                         const targetUser =
-                                            await this.selectPreferredUser(
-                                                users,
-                                            );
+                                            this.selectPreferredUser(users);
 
                                         await this.userAccountService.linkAccounts(
                                             targetUser.id,
@@ -394,9 +392,7 @@ export class AuthService {
 
                                     if (users.length > 0) {
                                         const targetUser =
-                                            await this.selectPreferredUser(
-                                                users,
-                                            );
+                                            this.selectPreferredUser(users);
                                         const hasVerifiedEmail =
                                             this.hasVerifiedEmailForAnyUser(
                                                 users,
@@ -561,28 +557,21 @@ export class AuthService {
         );
     }
 
-    private async selectPreferredUser(users: User[]): Promise<User> {
+    private selectPreferredUser(users: User[]): User {
         if (users.length === 1) {
             return users[0];
         }
 
-        const userIds = users.map((user) => user.id);
-        const providerCounts =
-            await this.userAccountService.getProviderLinkCounts(userIds);
-        const legacyUsers = users.filter(
-            (user) => (providerCounts.get(user.id) ?? 0) > 1,
+        // Prefers first created user
+        const sortedCandidates = users.toSorted(
+            (a, b) => this.getUserTimeJoined(a) - this.getUserTimeJoined(b),
         );
-        const candidates = legacyUsers.length > 0 ? legacyUsers : users;
 
-        return candidates.reduce((latest, user) =>
-            this.getUserTimeJoined(user) > this.getUserTimeJoined(latest)
-                ? user
-                : latest,
-        );
+        return sortedCandidates[0];
     }
 
     private getUserTimeJoined(user: User): number {
-        const timeJoined = (user as { timeJoined?: number }).timeJoined;
+        const timeJoined = user.timeJoined;
         return typeof timeJoined === "number" ? timeJoined : 0;
     }
 }
