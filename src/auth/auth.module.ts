@@ -9,9 +9,10 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { AuthController } from "./auth.controller";
 import { UserInitModule } from "../user/user-init/user-init.module";
+import { UserAccountModule } from "../user/user-account/user-account.module";
 
 @Module({
-    imports: [UserInitModule],
+    imports: [UserInitModule, UserAccountModule],
     providers: [
         AuthService,
         {
