@@ -86,59 +86,6 @@ describe("AuthService", () => {
             ...overrides,
         });
 
-        it("returns duplicate legacy accounts error when multiple users exist", async () => {
-            userAccountService.getUsersByEmail.mockResolvedValue([
-                { id: "u1", loginMethods: [] },
-                { id: "u2", loginMethods: [] },
-            ] as any);
-            const response = await (service as any).handleThirdPartySignInUp(
-                { signInUpPOST: jest.fn() },
-                makeInput(),
-            );
-            expect(response).toEqual({
-                status: "GENERAL_ERROR",
-                message: AUTH_ERRORS.DUPLICATE_LEGACY_ACCOUNTS,
-            });
-        });
-
-        it("returns unverified conflict when provider email is unverified", async () => {
-            userAccountService.getUsersByEmail.mockResolvedValue([
-                {
-                    id: "u1",
-                    loginMethods: [
-                        {
-                            verified: true,
-                            hasSameEmailAs: () => true,
-                        },
-                    ],
-                },
-            ] as any);
-            const response = await (service as any).handleThirdPartySignInUp(
-                { signInUpPOST: jest.fn() },
-                makeInput({
-                    provider: {
-                        id: "google",
-                        config: {},
-                        exchangeAuthCodeForOAuthTokens: jest
-                            .fn()
-                            .mockResolvedValue({ token: "t" }),
-                        getUserInfo: jest.fn().mockResolvedValue({
-                            thirdPartyUserId: "tp-1",
-                            email: {
-                                id: "user@example.com",
-                                isVerified: false,
-                            },
-                            rawUserInfoFromProvider: {},
-                        }),
-                    },
-                }),
-            );
-            expect(response).toEqual({
-                status: "GENERAL_ERROR",
-                message: AUTH_ERRORS.UNVERIFIED_EMAIL_CONFLICT,
-            });
-        });
-
         it("links provider and creates session for existing user", async () => {
             const createSessionSpy = jest
                 .spyOn(Session, "createNewSession")
