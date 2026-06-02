@@ -87,17 +87,6 @@ export class AuthService {
                                             providerUserId,
                                         );
 
-                                    const loginEmailVerified =
-                                        this.hasVerifiedEmailForUser(
-                                            result.user,
-                                            email,
-                                        );
-                                    const hasVerifiedEmail =
-                                        this.hasVerifiedEmailForAnyUser(
-                                            users,
-                                            email,
-                                        );
-
                                     if (linkedProvider) {
                                         const emailUserIds = new Set(
                                             users.map((user) => user.id),
@@ -135,18 +124,6 @@ export class AuthService {
                                             };
                                         }
 
-                                        if (
-                                            !loginEmailVerified &&
-                                            !hasVerifiedEmail
-                                        ) {
-                                            await result.session.revokeSession();
-                                            return {
-                                                status: "GENERAL_ERROR",
-                                                message:
-                                                    AUTH_ERRORS.UNVERIFIED_EMAIL_REQUIRED,
-                                            };
-                                        }
-
                                         if (linkedUser.id !== result.user.id) {
                                             await result.session.revokeSession();
                                             const recipeUserId =
@@ -178,18 +155,6 @@ export class AuthService {
                                     }
 
                                     if (users.length > 0) {
-                                        if (
-                                            !loginEmailVerified &&
-                                            !hasVerifiedEmail
-                                        ) {
-                                            await result.session.revokeSession();
-                                            return {
-                                                status: "GENERAL_ERROR",
-                                                message:
-                                                    AUTH_ERRORS.UNVERIFIED_EMAIL_REQUIRED,
-                                            };
-                                        }
-
                                         const targetUser =
                                             this.selectPreferredUser(users);
 
@@ -349,23 +314,6 @@ export class AuthService {
                                             };
                                         }
 
-                                        const hasVerifiedEmail =
-                                            this.hasVerifiedEmailForAnyUser(
-                                                users,
-                                                email.id,
-                                            );
-
-                                        if (
-                                            !email.isVerified &&
-                                            !hasVerifiedEmail
-                                        ) {
-                                            return {
-                                                status: "GENERAL_ERROR",
-                                                message:
-                                                    AUTH_ERRORS.UNVERIFIED_EMAIL_REQUIRED,
-                                            };
-                                        }
-
                                         const recipeUserId =
                                             supertokens.convertToRecipeUserId(
                                                 linkedUser.id,
@@ -393,22 +341,6 @@ export class AuthService {
                                     if (users.length > 0) {
                                         const targetUser =
                                             this.selectPreferredUser(users);
-                                        const hasVerifiedEmail =
-                                            this.hasVerifiedEmailForAnyUser(
-                                                users,
-                                                email.id,
-                                            );
-
-                                        if (
-                                            !email.isVerified &&
-                                            !hasVerifiedEmail
-                                        ) {
-                                            return {
-                                                status: "GENERAL_ERROR",
-                                                message:
-                                                    AUTH_ERRORS.UNVERIFIED_EMAIL_REQUIRED,
-                                            };
-                                        }
 
                                         await this.userAccountService.linkAccounts(
                                             targetUser.id,
