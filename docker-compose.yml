@@ -59,7 +59,7 @@ services:
       - redis:/data
 
   minio:
-    image: docker.io/bitnami/minio:2024
+    image: docker.io/soldevelo/minio:2024.12
     ports:
       - "9000:9000"
       - "9001:9001"
