@@ -10,8 +10,8 @@ interface IGDBExternalGame extends GameExternalGame {
 }
 
 /**
- * Items are received as pascal_case from IGDB API, and then converted to camelCase.
- * Assume a camelCase option is available if `IgdbSyncProcessor#normalizeIgdbResults` has run.
+ * Items are received as snake_case from IGDB and converted to camelCase by
+ * `normalizeIgdbGame` before they enter the transactional catalog importer.
  *
  */
 export type IGDBPartialGame = DeepPartial<Game> & {

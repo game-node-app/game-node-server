@@ -3,7 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { lastValueFrom } from "rxjs";
 import { IgdbAuthService } from "../auth/igdb-auth.service";
-import { IGDBTimeToBeatPlaytime } from "../igdb-sync.constants";
+import { IGDBTimeToBeatPlaytime } from "../igdb.types";
 import { Cacheable } from "../../../utils/cacheable";
 import { Cache } from "@nestjs/cache-manager";
 import { minutes } from "@nestjs/throttler";

@@ -12,7 +12,6 @@ import {
     IgdbCatalogStateService,
     CatalogOwner,
 } from "./igdb-catalog-state.service";
-import { IgdbLegacyDrainService } from "./igdb-legacy-drain.service";
 import { CATALOG_CONFIG } from "./igdb-catalog.client";
 import { IgdbCatalogConfig } from "./igdb-catalog.config";
 import {
@@ -31,7 +30,6 @@ export class IgdbCatalogSchedulerService
     private stopping = false;
     constructor(
         private readonly state: IgdbCatalogStateService,
-        private readonly legacy: IgdbLegacyDrainService,
         @InjectQueue(IGDB_CATALOG_QUEUE_NAME) private readonly queue: Queue,
         @Inject(CATALOG_CONFIG) private readonly config: IgdbCatalogConfig,
     ) {}
@@ -55,7 +53,7 @@ export class IgdbCatalogSchedulerService
         }
     }
     reconcile(): Promise<void> {
-        if (!this.config.enabled || this.stopping) return Promise.resolve();
+        if (this.stopping) return Promise.resolve();
         if (this.active) return this.active;
         this.active = this.schedule().finally(() => {
             this.active = undefined;
@@ -63,14 +61,6 @@ export class IgdbCatalogSchedulerService
         return this.active;
     }
     private async schedule() {
-        if (!(await this.legacy.isDrained())) {
-            this.logger.warn({
-                event: "catalog.cutover.blocked",
-                message:
-                    "Drain legacy jobs and repair or explicitly acknowledge retained failures",
-            });
-            return;
-        }
         const status = await this.state.readStatus();
         if (status.status === "paused") return;
         if (status.status === "running" && status.runId) {

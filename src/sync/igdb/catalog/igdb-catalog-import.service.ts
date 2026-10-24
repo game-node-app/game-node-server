@@ -27,7 +27,6 @@ export class IgdbCatalogImportService {
                     this.state.assertOwnership(transaction, owner),
                 limiter,
                 forceReconciliation,
-                statisticsMode: "transaction",
                 ensureStatistics: ensureGameStatistics,
             });
         });

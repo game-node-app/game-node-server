@@ -7,11 +7,16 @@ Refresh the game catalog from IGDB with bounded resource consumption, durable re
 ## ADDED Requirements
 
 ### Requirement: Internal catalog fetching
-When internal synchronization is enabled, the system SHALL fetch the catalog directly from IGDB using configured credentials and SHALL preserve the game metadata and relationships supported by the existing importer.
+The system SHALL automatically fetch the catalog directly from IGDB using configured credentials whenever durable state is eligible, and SHALL preserve the game metadata and relationships supported by the existing importer. The system SHALL NOT expose a legacy payload ingestion endpoint or per-game legacy queue worker.
 
-#### Scenario: Import without the external producer
-- **WHEN** a catalog run starts with valid credentials and no external Python producer running
+#### Scenario: Automatic eligible run
+- **WHEN** the application starts with the state table migrated and an idle or eligible completed run
 - **THEN** the system fetches and persists catalog entries and their supported relationships directly
+- **AND** no enable flag or legacy-queue drain check is required
+
+#### Scenario: Former push endpoint
+- **WHEN** a producer submits a payload to the former `/v1/sync/igdb` route
+- **THEN** no game payload is accepted or queued
 
 #### Scenario: Invalid source response
 - **WHEN** IGDB returns a non-success response or a malformed response body
@@ -36,7 +41,7 @@ The system SHALL default to a batch size of 25, one concurrent game, and at most
 - **THEN** each page contains at most 25 games and processing respects both concurrency limits regardless of catalog size
 
 #### Scenario: Invalid configuration
-- **WHEN** an enabled importer has non-positive, non-integer, or out-of-range processing limits
+- **WHEN** the importer has non-positive, non-integer, or out-of-range processing limits
 - **THEN** startup rejects the invalid configuration with an actionable error
 
 ### Requirement: Bounded queue storage
@@ -72,7 +77,7 @@ The system SHALL allow only one active catalog run across replicas and duplicate
 The system SHALL default to a seven-day refresh interval and SHALL support a fourteen-day interval. An active run SHALL resume rather than start over after restart; triggers SHALL NOT accumulate overlapping runs. After successful completion, the next run SHALL become due after the configured interval.
 
 #### Scenario: Weekly default
-- **WHEN** an enabled importer has completed a run and no interval override is configured
+- **WHEN** an eligible importer has completed a run and no interval override is configured
 - **THEN** its next full scan becomes eligible seven days after completion
 
 #### Scenario: Every-two-weeks configuration
@@ -125,21 +130,6 @@ Full catalog scans SHALL retain periodic reconciliation of supported relationshi
 #### Scenario: Unchanged game needs reconciliation
 - **WHEN** an unchanged game is eligible under the existing periodic reconciliation policy
 - **THEN** its supported relationships are reconciled during the full scan
-
-### Requirement: Controlled producer cutover
-The system SHALL provide mutually exclusive internal and legacy ingestion modes. In internal mode, the authenticated legacy push endpoint SHALL return HTTP 409 without queuing supplied games. Internal fetching SHALL wait until existing legacy IGDB jobs are drained.
-
-#### Scenario: Old producer remains running
-- **WHEN** an authenticated producer submits a payload to the legacy endpoint in internal mode
-- **THEN** the endpoint returns HTTP 409 and adds no game jobs
-
-#### Scenario: Legacy jobs remain during activation
-- **WHEN** internal synchronization is enabled while legacy jobs remain waiting, active, or delayed
-- **THEN** internal fetching remains blocked until that work is drained
-
-#### Scenario: Legacy rollback
-- **WHEN** internal mode is disabled after its worker has stopped
-- **THEN** the existing authenticated payload ingestion behavior remains available
 
 ### Requirement: Operational visibility and local resource validation
 The system SHALL report run state, committed cursor, batch duration, progress counts, and actionable failures without logging full game payloads or credentials. A repeatable local check SHALL verify processing and queue bounds with generated fixtures and disposable services, without remote infrastructure or live IGDB credentials.

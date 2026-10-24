@@ -12,7 +12,6 @@ import { GameCover } from "../../src/game/game-repository/entities/game-cover.en
 import { GameStatistics } from "../../src/statistics/entity/game-statistics.entity";
 import { ensureGameStatistics } from "../../src/statistics/statistics.service";
 import { GameRepositoryCreateService } from "../../src/game/game-repository/create/game-repository-create.service";
-import { StatisticsQueueService } from "../../src/statistics/statistics-queue/statistics-queue.service";
 import { AsyncLeafLimiter } from "../../src/sync/igdb/catalog/async-leaf-limiter";
 import { normalizeIgdbGame } from "../../src/sync/igdb/utils/game-conversor-utils";
 import { GameImportContext } from "../../src/game/game-repository/create/game-import-context";
@@ -20,7 +19,6 @@ import { GameImportContext } from "../../src/game/game-repository/create/game-im
 describe("transactional game import on isolated MySQL", () => {
     let source: DataSource;
     let service: GameRepositoryCreateService;
-    const statisticsQueue = { createStatistics: jest.fn() };
     let logs: jest.SpyInstance;
     beforeAll(async () => {
         logs = jest
@@ -42,14 +40,9 @@ describe("transactional game import on isolated MySQL", () => {
             await reset.query("SET FOREIGN_KEY_CHECKS = 1");
             await reset.release();
         }
-        service = new GameRepositoryCreateService(
-            source.getRepository(Game),
-            statisticsQueue as unknown as StatisticsQueueService,
-            source,
-            {
-                get: (_key: string, fallback: unknown) => fallback,
-            } as ConfigService,
-        );
+        service = new GameRepositoryCreateService({
+            get: (_key: string, fallback: unknown) => fallback,
+        } as ConfigService);
     }, 30_000);
     afterAll(async () => {
         if (source?.isInitialized) await source.destroy();
@@ -62,7 +55,6 @@ describe("transactional game import on isolated MySQL", () => {
         ownershipGuard: async () => undefined,
         limiter: new AsyncLeafLimiter(2),
         forceReconciliation: true,
-        statisticsMode: "transaction",
         ensureStatistics: ensureGameStatistics,
     });
 
@@ -127,7 +119,6 @@ describe("transactional game import on isolated MySQL", () => {
             .getRepository(Game)
             .findOneOrFail({ where: { id: 11001 }, relations: { dlcs: true } });
         expect(linked.dlcs.map((entry) => Number(entry.id))).toEqual([11002]);
-        expect(statisticsQueue.createStatistics).not.toHaveBeenCalled();
     });
 
     it("rolls back base checksum, image, reference row/statistics and junction after failure", async () => {
@@ -257,6 +248,5 @@ describe("transactional game import on isolated MySQL", () => {
         expect(
             await source.getRepository(GameScreenshot).countBy({ id: 102 }),
         ).toBe(1);
-        expect(statisticsQueue.createStatistics).not.toHaveBeenCalled();
     });
 });

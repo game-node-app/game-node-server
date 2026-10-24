@@ -5,21 +5,12 @@ import {
 import { settleOperations } from "../../../sync/igdb/catalog/async-leaf-limiter";
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { InjectRepository } from "@nestjs/typeorm";
-import {
-    DataSource,
-    DeepPartial,
-    FindOptionsRelations,
-    FindOptionsSelect,
-    Repository,
-} from "typeorm";
+import { DeepPartial, FindOptionsRelations, FindOptionsSelect } from "typeorm";
 import { Game } from "../entities/game.entity";
 import { GameCompany } from "../entities/game-company.entity";
 import { GameCompanyLogo } from "../entities/game-company-logo.entity";
 import { GameEngine } from "../entities/game-engine.entity";
-import { StatisticsQueueService } from "../../../statistics/statistics-queue/statistics-queue.service";
 import { IGDBPartialGame } from "../game-repository.types";
-import { StatisticsSourceType } from "../../../statistics/statistics.constants";
 import {
     hasChecksumChanged,
     ObjectWithChecksum,
@@ -42,18 +33,9 @@ export class GameRepositoryCreateService {
     private readonly reconcileEveryRuns: number;
 
     /**
-     * Good luck unit-testing this btw
-     * @param gameRepository
-     * @param statisticsQueueService
-     * @param dataSource
+     * @param configService
      */
-    constructor(
-        @InjectRepository(Game)
-        private readonly gameRepository: Repository<Game>,
-        private readonly statisticsQueueService: StatisticsQueueService,
-        private readonly dataSource: DataSource,
-        private readonly configService: ConfigService,
-    ) {
+    constructor(private readonly configService: ConfigService) {
         this.shouldProfileSync =
             this.configService.get<string>(
                 "IGDB_SYNC_PROFILE_HOT_PATH",
@@ -96,7 +78,7 @@ export class GameRepositoryCreateService {
      * Creates or updates a game in our database. <br>
      * @param game
      */
-    async createOrUpdate(game: IGDBPartialGame, context?: GameImportContext) {
+    async createOrUpdate(game: IGDBPartialGame, context: GameImportContext) {
         const startedAt = this.getProfilingStart();
         const shouldProcess = await this.isValidEntry(game);
 
@@ -105,9 +87,8 @@ export class GameRepositoryCreateService {
             throw new InvalidGameEntryError(game?.id);
         }
 
-        if (context) await context.ownershipGuard(context.manager);
-        const gameRepository =
-            context?.manager.getRepository(Game) ?? this.gameRepository;
+        await context.ownershipGuard(context.manager);
+        const gameRepository = context.manager.getRepository(Game);
         const existing = await gameRepository.findOne({
             where: { id: game.id },
             select: { id: true, checksum: true },
@@ -125,7 +106,7 @@ export class GameRepositoryCreateService {
         }
 
         const shouldReconcileRelations =
-            context?.forceReconciliation ||
+            context.forceReconciliation ||
             checksumHasChanged ||
             this.shouldReconcileRelationsForGame(game.id);
 
@@ -142,12 +123,9 @@ export class GameRepositoryCreateService {
                 );
         }
 
-        const isUpdateAction = existing != undefined;
-        if (context)
-            await this.leaf(context, () =>
-                context.ensureStatistics(context.manager, game.id),
-            );
-        else this.dispatchCreateUpdateEvent(game, isUpdateAction);
+        await this.leaf(context, () =>
+            context.ensureStatistics(context.manager, game.id),
+        );
         this.logProfilingDuration("createOrUpdate", startedAt, {
             gameId: game.id,
             checksumHasChanged,
@@ -156,27 +134,15 @@ export class GameRepositoryCreateService {
     }
 
     private leaf<T>(
-        context: GameImportContext | undefined,
+        context: GameImportContext,
         operation: () => Promise<T>,
     ): Promise<T> {
-        return context ? context.limiter.run(operation) : operation();
-    }
-
-    private dispatchCreateUpdateEvent(
-        game: IGDBPartialGame,
-        isUpdateAction: boolean,
-    ) {
-        if (!isUpdateAction) {
-            this.statisticsQueueService.createStatistics({
-                sourceId: game.id,
-                sourceType: StatisticsSourceType.GAME,
-            });
-        }
+        return context.limiter.run(operation);
     }
 
     private async processRelationships(
         incoming: IGDBPartialGame,
-        context?: GameImportContext,
+        context: GameImportContext,
     ) {
         const startedAt = this.getProfilingStart();
         const processCover = incoming.cover !== undefined;
@@ -318,44 +284,33 @@ export class GameRepositoryCreateService {
             };
         }
 
-        const gameRepository =
-            context?.manager.getRepository(Game) ?? this.gameRepository;
-        let existing: Game;
-        if (context) {
-            existing = await this.leaf(context, () =>
-                gameRepository.findOneOrFail({
-                    where: { id: incoming.id },
-                    select: { id: true },
-                }),
-            );
-            // A query-strategy relation loader fans out internally. Read one joined
-            // branch per permit so every actual query respects the shared limit.
-            await settleOperations(
-                Object.keys(relations).map((key) =>
-                    this.leaf(context, async () => {
-                        const branch = await gameRepository.findOneOrFail({
-                            where: { id: incoming.id },
-                            relations: {
-                                [key]: (relations as Record<string, any>)[key],
-                            },
-                            select: {
-                                id: true,
-                                [key]: (select as Record<string, any>)[key],
-                            },
-                            relationLoadStrategy: "join",
-                        });
-                        (existing as any)[key] = (branch as any)[key];
-                    }),
-                ),
-            );
-        } else {
-            existing = await gameRepository.findOneOrFail({
+        const gameRepository = context.manager.getRepository(Game);
+        const existing = await this.leaf(context, () =>
+            gameRepository.findOneOrFail({
                 where: { id: incoming.id },
-                relations,
-                select,
-                relationLoadStrategy: "query",
-            });
-        }
+                select: { id: true },
+            }),
+        );
+        // A query-strategy relation loader fans out internally. Read one joined
+        // branch per permit so every actual query respects the shared limit.
+        await settleOperations(
+            Object.keys(relations).map((key) =>
+                this.leaf(context, async () => {
+                    const branch = await gameRepository.findOneOrFail({
+                        where: { id: incoming.id },
+                        relations: {
+                            [key]: (relations as Record<string, any>)[key],
+                        },
+                        select: {
+                            id: true,
+                            [key]: (select as Record<string, any>)[key],
+                        },
+                        relationLoadStrategy: "join",
+                    });
+                    (existing as any)[key] = (branch as any)[key];
+                }),
+            ),
+        );
 
         const relationsPromises: Promise<void>[] = [];
         if (processCover) {
@@ -513,22 +468,18 @@ export class GameRepositoryCreateService {
         incoming: IGDBPartialGame,
         existing: Game,
         propertyPath: K,
-        context?: GameImportContext,
+        context: GameImportContext,
     ) {
         const target = GamePropertyPathToEntityMap[propertyPath]!;
-        const repository = (context?.manager ?? this.dataSource).getRepository(
-            target,
-        );
-        const gameEntityMetadata = (
-            context?.manager.connection ?? this.dataSource
-        ).getMetadata(Game);
+        const repository = context.manager.getRepository(target);
+        const gameEntityMetadata = context.manager.connection.getMetadata(Game);
         const incomingData = incoming[propertyPath] as E[] | undefined;
         const existingData = existing[propertyPath] as E[];
 
         if (incomingData == undefined) {
             return;
         }
-        if (context && target === Game) {
+        if (target === Game) {
             for (const reference of incomingData) {
                 const entry = reference as {
                     id?: number;
@@ -574,7 +525,7 @@ export class GameRepositoryCreateService {
             }
         }
         if (
-            !context?.forceReconciliation &&
+            !context.forceReconciliation &&
             !hasChecksumChanged(incomingData, existingData)
         ) {
             return;
@@ -640,9 +591,9 @@ export class GameRepositoryCreateService {
         incoming: IGDBPartialGame,
         existing: Game,
         propertyPath: K,
-        context?: GameImportContext,
+        context: GameImportContext,
     ) {
-        const repository = (context?.manager ?? this.dataSource).getRepository(
+        const repository = context.manager.getRepository(
             GamePropertyPathToEntityMap[propertyPath]!,
         );
         const incomingData = incoming[propertyPath] as E[] | undefined;
@@ -652,7 +603,7 @@ export class GameRepositoryCreateService {
             return;
         }
         if (
-            !context?.forceReconciliation &&
+            !context.forceReconciliation &&
             !hasChecksumChanged(incomingData, existingData)
         ) {
             return;
@@ -680,9 +631,9 @@ export class GameRepositoryCreateService {
         incoming: IGDBPartialGame,
         existing: Game,
         propertyPath: K,
-        context?: GameImportContext,
+        context: GameImportContext,
     ) {
-        const repository = (context?.manager ?? this.dataSource).getRepository(
+        const repository = context.manager.getRepository(
             GamePropertyPathToEntityMap[propertyPath]!,
         );
         const incomingData = incoming[propertyPath] as E | undefined;
@@ -693,7 +644,7 @@ export class GameRepositoryCreateService {
         }
 
         if (
-            !context?.forceReconciliation &&
+            !context.forceReconciliation &&
             existingData &&
             incomingData.id === existingData.id &&
             incomingData.checksum === existingData.checksum
@@ -725,7 +676,7 @@ export class GameRepositoryCreateService {
     async handleCompanies(
         incoming: IGDBPartialGame,
         existing: Game,
-        context?: GameImportContext,
+        context: GameImportContext,
     ) {
         const companies = (incoming.involvedCompanies ?? []).map(
             (involvedCompany) => involvedCompany.company,
@@ -776,7 +727,7 @@ export class GameRepositoryCreateService {
             if (
                 company.id == undefined ||
                 company.checksum == undefined ||
-                (!context?.forceReconciliation &&
+                (!context.forceReconciliation &&
                     existingCompanyChecksums.has(company.checksum)) ||
                 changedCompaniesById.has(company.id)
             ) {
@@ -794,7 +745,7 @@ export class GameRepositoryCreateService {
             if (
                 logo?.id == undefined ||
                 logo.checksum == undefined ||
-                (!context?.forceReconciliation &&
+                (!context.forceReconciliation &&
                     existingLogoChecksums.has(logo.checksum)) ||
                 changedLogosById.has(logo.id)
             ) {
@@ -810,18 +761,16 @@ export class GameRepositoryCreateService {
         const changedLogos = [...changedLogosById.values()];
 
         if (changedLogos.length !== 0) {
-            const logoRepository = (
-                context?.manager ?? this.dataSource
-            ).getRepository(GameCompanyLogo);
+            const logoRepository =
+                context.manager.getRepository(GameCompanyLogo);
             await this.leaf(context, () =>
                 logoRepository.upsert(changedLogos, ["id"]),
             );
         }
 
         if (changedCompanies.length !== 0) {
-            const companyRepository = (
-                context?.manager ?? this.dataSource
-            ).getRepository(GameCompany);
+            const companyRepository =
+                context.manager.getRepository(GameCompany);
             await this.leaf(context, () =>
                 companyRepository.upsert(changedCompanies, ["id"]),
             );
@@ -831,11 +780,9 @@ export class GameRepositoryCreateService {
     async handleEngines(
         incoming: IGDBPartialGame,
         existing: Game,
-        context?: GameImportContext,
+        context: GameImportContext,
     ) {
-        const repository = (context?.manager ?? this.dataSource).getRepository(
-            GameEngine,
-        );
+        const repository = context.manager.getRepository(GameEngine);
         const engines = incoming.gameEngines ?? [];
         const existingEnginesMap = new Map(
             existing.gameEngines?.map((item) => [item.id, item]),
@@ -883,7 +830,7 @@ export class GameRepositoryCreateService {
     async handleDeepNestedEntities(
         incoming: IGDBPartialGame,
         existing: Game,
-        context?: GameImportContext,
+        context: GameImportContext,
     ) {
         const startedAt = this.getProfilingStart();
         if (

@@ -108,7 +108,3 @@ export function normalizeIgdbGame(
     if (game.gameLocalizations) game.localizations = game.gameLocalizations;
     return game;
 }
-
-export function normalizeIgdbResults(results: any[]): IGDBPartialGame[] {
-    return results.map(normalizeIgdbGame);
-}

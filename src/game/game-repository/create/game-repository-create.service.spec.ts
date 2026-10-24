@@ -1,25 +1,27 @@
 import { EntityManager } from "typeorm";
 import { AsyncLeafLimiter } from "../../../sync/igdb/catalog/async-leaf-limiter";
 import { ConfigService } from "@nestjs/config";
-import { DataSource, Repository } from "typeorm";
-import { Game } from "../entities/game.entity";
 import { GameRepositoryCreateService } from "./game-repository-create.service";
 import { IGDBPartialGame } from "../game-repository.types";
-import { StatisticsQueueService } from "../../../statistics/statistics-queue/statistics-queue.service";
-import { InvalidGameEntryError } from "./game-import-context";
+import {
+    GameImportContext,
+    InvalidGameEntryError,
+} from "./game-import-context";
 
 describe("game import validation", () => {
-    const findOne = jest.fn();
-    const upsert = jest.fn();
-    const service = new GameRepositoryCreateService(
-        { findOne, upsert } as unknown as Repository<Game>,
-        {} as StatisticsQueueService,
-        {} as DataSource,
-        { get: (_key: string, fallback: unknown) => fallback } as ConfigService,
-    );
+    const getRepository = jest.fn();
+    const service = new GameRepositoryCreateService({
+        get: (_key: string, fallback: unknown) => fallback,
+    } as ConfigService);
+    const context = {
+        manager: { getRepository },
+        ownershipGuard: jest.fn().mockResolvedValue(undefined),
+        ensureStatistics: jest.fn().mockResolvedValue(undefined),
+        limiter: new AsyncLeafLimiter(2),
+        forceReconciliation: false,
+    } as unknown as GameImportContext;
     beforeEach(() => {
-        findOne.mockClear();
-        upsert.mockClear();
+        getRepository.mockClear();
     });
     it.each([
         {},
@@ -33,12 +35,11 @@ describe("game import validation", () => {
         { id: 1, alternativeNames: [{}] },
     ])("fails before repository access for %j", async (game) => {
         await expect(
-            service.createOrUpdate(game as IGDBPartialGame),
+            service.createOrUpdate(game as IGDBPartialGame, context),
         ).rejects.toBeInstanceOf(InvalidGameEntryError);
-        expect(findOne).not.toHaveBeenCalled();
-        expect(upsert).not.toHaveBeenCalled();
+        expect(getRepository).not.toHaveBeenCalled();
     });
-    it("preserves valid name and alternative-name legacy inputs", async () => {
+    it("preserves valid name and alternative-name inputs", async () => {
         expect(
             await service.isValidEntry({
                 id: 1,
@@ -55,11 +56,7 @@ describe("game import validation", () => {
 });
 
 describe("transaction-scoped repositories", () => {
-    it("uses only the supplied manager and initializes statistics without queue jobs", async () => {
-        const forbidden = jest.fn(() => {
-            throw new Error("default repository escaped");
-        });
-        const queue = { createStatistics: jest.fn() };
+    it("uses the supplied manager and initializes statistics in its transaction", async () => {
         const repository = {
             findOne: jest.fn().mockResolvedValue(null),
             upsert: jest.fn().mockResolvedValue({}),
@@ -70,17 +67,9 @@ describe("transaction-scoped repositories", () => {
         } as unknown as EntityManager;
         const ownershipGuard = jest.fn().mockResolvedValue(undefined);
         const ensureStatistics = jest.fn().mockResolvedValue(undefined);
-        const service = new GameRepositoryCreateService(
-            {
-                findOne: forbidden,
-                upsert: forbidden,
-            } as unknown as Repository<Game>,
-            queue as unknown as StatisticsQueueService,
-            { getRepository: forbidden } as unknown as DataSource,
-            {
-                get: (_key: string, fallback: unknown) => fallback,
-            } as ConfigService,
-        );
+        const service = new GameRepositoryCreateService({
+            get: (_key: string, fallback: unknown) => fallback,
+        } as ConfigService);
         await service.createOrUpdate(
             {
                 id: 1,
@@ -94,13 +83,11 @@ describe("transaction-scoped repositories", () => {
                 ensureStatistics,
                 limiter: new AsyncLeafLimiter(2),
                 forceReconciliation: true,
-                statisticsMode: "transaction",
             },
         );
-        expect(forbidden).not.toHaveBeenCalled();
+        expect(manager.getRepository).toHaveBeenCalled();
         expect(ownershipGuard).toHaveBeenCalledWith(manager);
         expect(ensureStatistics).toHaveBeenCalledWith(manager, 1);
-        expect(queue.createStatistics).not.toHaveBeenCalled();
     });
 });
 
@@ -115,21 +102,15 @@ describe("forced versus ordinary relationship reconciliation", () => {
         const manager = {
             getRepository: () => repository,
         } as unknown as EntityManager;
-        const service = new GameRepositoryCreateService(
-            repository as unknown as Repository<Game>,
-            {} as StatisticsQueueService,
-            {} as DataSource,
-            {
-                get: (_key: string, fallback: unknown) => fallback,
-            } as ConfigService,
-        );
+        const service = new GameRepositoryCreateService({
+            get: (_key: string, fallback: unknown) => fallback,
+        } as ConfigService);
         const context = {
             manager,
             ownershipGuard: async () => undefined,
             ensureStatistics: jest.fn().mockResolvedValue(undefined),
             limiter: new AsyncLeafLimiter(2),
             forceReconciliation: false,
-            statisticsMode: "transaction" as const,
         };
         try {
             await service.createOrUpdate(

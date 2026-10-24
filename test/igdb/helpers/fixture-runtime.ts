@@ -17,15 +17,14 @@ import { IgdbCatalogStateService } from "../../../src/sync/igdb/catalog/igdb-cat
 import { IgdbCatalogRunnerService } from "../../../src/sync/igdb/catalog/igdb-catalog-runner.service";
 import { IgdbCatalogImportService } from "../../../src/sync/igdb/catalog/igdb-catalog-import.service";
 import { IgdbCatalogClient } from "../../../src/sync/igdb/catalog/igdb-catalog.client";
-import { IgdbLegacyDrainService } from "../../../src/sync/igdb/catalog/igdb-legacy-drain.service";
 import { IgdbOutboundBudgetService } from "../../../src/sync/igdb/catalog/igdb-outbound-budget.service";
 import { IgdbAuthService } from "../../../src/sync/igdb/auth/igdb-auth.service";
 import { catalogConfig } from "../../../src/sync/igdb/catalog/igdb-catalog.config";
-import { IGDB_CATALOG_QUEUE_NAME } from "../../../src/sync/igdb/catalog/igdb-catalog.constants";
-import { IGDB_SYNC_QUEUE_NAME } from "../../../src/sync/igdb/igdb-sync.constants";
+import {
+    IGDB_CATALOG_QUEUE_NAME,
+    IGDB_OUTBOUND_BUDGET_QUEUE_NAME,
+} from "../../../src/sync/igdb/catalog/igdb-catalog.constants";
 import { GameRepositoryCreateService } from "../../../src/game/game-repository/create/game-repository-create.service";
-import { Game } from "../../../src/game/game-repository/entities/game.entity";
-import { StatisticsQueueService } from "../../../src/statistics/statistics-queue/statistics-queue.service";
 
 export async function fixtureRuntime(
     fixture: CatalogFixture,
@@ -122,9 +121,9 @@ export async function fixtureRuntime(
         request.url = endpoint;
         return request;
     });
-    const config = { ...catalogConfig({}), enabled: true };
+    const config = catalogConfig({});
     const state = new IgdbCatalogStateService(source);
-    const legacy = new Queue(IGDB_SYNC_QUEUE_NAME, {
+    const budgetQueue = new Queue(IGDB_OUTBOUND_BUDGET_QUEUE_NAME, {
         connection: settings.redis,
         prefix: settings.prefix,
     });
@@ -132,18 +131,9 @@ export async function fixtureRuntime(
         connection: settings.redis,
         prefix: settings.prefix,
     });
-    let statisticsJobs = 0;
-    const games = new GameRepositoryCreateService(
-        source.getRepository(Game),
-        {
-            createStatistics: () => {
-                statisticsJobs++;
-                throw new Error("Imported game dispatched a statistics job");
-            },
-        } as unknown as StatisticsQueueService,
-        source,
-        { get: (_key: string, fallback: unknown) => fallback } as ConfigService,
-    );
+    const games = new GameRepositoryCreateService({
+        get: (_key: string, fallback: unknown) => fallback,
+    } as ConfigService);
     const importer = new IgdbCatalogImportService(games, state);
     const persist = importer.persist.bind(importer);
     const instrumented = new WeakSet<object>();
@@ -192,7 +182,7 @@ export async function fixtureRuntime(
             run: async <T>(work: () => Promise<T>) => {
                 if (options.verifyRedis) {
                     try {
-                        await (await legacy.client).ping();
+                        await (await budgetQueue.client).ping();
                     } catch {
                         throw Object.assign(
                             new Error("Local fixture Redis connection lost"),
@@ -208,12 +198,11 @@ export async function fixtureRuntime(
         state,
         client,
         importer,
-        new IgdbLegacyDrainService(legacy),
         config,
     );
     const close = async () => {
         await runner.onModuleDestroy();
-        await Promise.all([legacy.close(), queue.close()]);
+        await Promise.all([budgetQueue.close(), queue.close()]);
         if (server.listening)
             await new Promise<void>((resolve, reject) =>
                 server.close((error) => (error ? reject(error) : resolve())),
@@ -248,11 +237,10 @@ export async function fixtureRuntime(
         state,
         runner,
         queue,
-        legacy,
+        budgetQueue,
         bounds,
         config,
         settings,
-        statisticsJobs: () => statisticsJobs,
         close,
     };
 }

@@ -20,7 +20,6 @@ import {
     catalogRetryDelay,
     retryRuntime,
 } from "./igdb-catalog.retry";
-import { IgdbLegacyDrainService } from "./igdb-legacy-drain.service";
 
 @Injectable()
 export class IgdbCatalogRunnerService implements OnModuleDestroy {
@@ -32,13 +31,11 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
         private readonly state: IgdbCatalogStateService,
         private readonly client: IgdbCatalogClient,
         private readonly importer: IgdbCatalogImportService,
-        private readonly legacy: IgdbLegacyDrainService,
         @Inject(CATALOG_CONFIG) private readonly config: IgdbCatalogConfig,
     ) {}
 
     run(runId: string): Promise<void> {
-        if (!this.config.enabled || this.stopping || this.active)
-            return Promise.resolve();
+        if (this.stopping || this.active) return Promise.resolve();
         this.active = this.execute(runId).finally(() => {
             this.active = undefined;
         });
@@ -52,7 +49,6 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
     }
 
     private async execute(runId: string) {
-        if (!(await this.legacy.isDrained())) return;
         const claimed = await this.state.claimRun(runId);
         if (!claimed) return;
         const owner = claimed as CatalogOwner;

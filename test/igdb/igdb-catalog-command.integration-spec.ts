@@ -1,6 +1,5 @@
-import { IGDB_SYNC_QUEUE_NAME } from "../../src/sync/igdb/igdb-sync.constants";
 import { DataSource } from "typeorm";
-import { Queue, QueueEvents, Worker } from "bullmq";
+import { Queue } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { catalogCommand } from "../../scripts/igdb-catalog";
@@ -15,14 +14,12 @@ import { testEnvironment } from "./helpers/test-environment";
 describe("local operator commands without application bootstrap", () => {
     const env = {
         ...process.env,
-        IGDB_CATALOG_ENABLED: "true",
         IGDB_TEST_QUEUE_PREFIX: `igdb-test-command-${randomUUID()}`,
     };
     const settings = testEnvironment(env);
     let source: DataSource;
     let queue: Queue;
     const runId = randomUUID();
-    let acknowledgedRunId: string | undefined;
     beforeAll(async () => {
         source = await new DataSource({
             ...settings.mysql,
@@ -54,10 +51,6 @@ describe("local operator commands without application bootstrap", () => {
     afterAll(async () => {
         const job = await queue?.getJob(catalogJobId(runId));
         if (job) await job.remove();
-        if (acknowledgedRunId)
-            await (
-                await queue.getJob(catalogJobId(acknowledgedRunId))
-            )?.remove();
         await queue?.close();
         if (source?.isInitialized) await source.destroy();
     });
@@ -84,60 +77,6 @@ describe("local operator commands without application bootstrap", () => {
             runId,
         });
     });
-    it("acknowledges retained legacy failures before an initial run exists", async () => {
-        await (await queue.getJob(catalogJobId(runId)))?.remove();
-        await source.getRepository(IgdbCatalogState).update(1, {
-            status: "idle",
-            runId: null,
-            committedId: 0,
-            upperId: null,
-            nextEligibleAt: null,
-            ownerToken: null,
-            leaseExpiresAt: null,
-        });
-        const legacy = new Queue(IGDB_SYNC_QUEUE_NAME, {
-            connection: settings.redis,
-            prefix: settings.prefix,
-        });
-        const events = new QueueEvents(IGDB_SYNC_QUEUE_NAME, {
-            connection: settings.redis,
-            prefix: settings.prefix,
-        });
-        const worker = new Worker(
-            IGDB_SYNC_QUEUE_NAME,
-            async () => {
-                throw new Error("Retained fixture failure");
-            },
-            { connection: settings.redis, prefix: settings.prefix },
-        );
-        try {
-            await events.waitUntilReady();
-            const job = await legacy.add(
-                "fixture",
-                { id: 1 },
-                { removeOnFail: false },
-            );
-            await expect(job.waitUntilFinished(events, 5000)).rejects.toThrow(
-                "Retained fixture failure",
-            );
-            await worker.close();
-            const acknowledged = await catalogCommand(
-                ["resume", "--local", "--acknowledge-legacy-failures"],
-                env,
-            );
-            expect(acknowledged.status).toBe("running");
-            acknowledgedRunId = acknowledged.runId as string;
-            expect(acknowledgedRunId).not.toBe(runId);
-            expect(
-                (await queue.getJob(catalogJobId(acknowledgedRunId)))?.data,
-            ).toEqual({ runId: acknowledgedRunId });
-        } finally {
-            await worker.close();
-            await legacy.obliterate({ force: true });
-            await Promise.all([events.close(), legacy.close()]);
-        }
-    });
-
     it("exits nonzero for invalid commands without opening services", () => {
         const child = spawnSync(
             process.execPath,

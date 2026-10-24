@@ -35,10 +35,10 @@ guard smoke suite outside `src`. Neither command selects unrelated e2e suites.
 
 ## Configuration
 
-Internal ingestion defaults to disabled. `IGDB_CATALOG_ENABLED` accepts exactly
-`true` or `false` (default `false`). Configuration parsing has no scheduling,
-queue or HTTP side effects. Internal scheduler/worker activation must use this
-flag. `IGDB_SYNC_CONCURRENCY` remains a separate legacy processor setting.
+The in-process catalog importer is always active. There is no
+`IGDB_CATALOG_ENABLED` toggle or external payload ingestion mode. On application
+startup, the scheduler starts an eligible run or recovers an unfinished run; it
+checks again every 60 seconds.
 
 All numeric settings require full-string integers; fractions, whitespace,
 trailing text and out-of-range values fail validation.
@@ -91,11 +91,16 @@ ahead, including references above the current scan boundary.
 This approved design resolves the audit's foreign-key failure on an empty
 database. Implementation and regression coverage belong to tasks 4.2–4.5.
 
-## Implementation verification handoff
+## Initial implementation verification handoff
 
-All 48 tracked tasks are complete. The internal fetcher, transactional importer,
-compact queue worker, scheduler, operator commands and cutover gate are implemented. Local unit/integration checks
-cover legacy authentication/mode behavior, migration rollback, durable progress,
+The results below were recorded before the follow-up removed the opt-in flag and
+legacy ingestion path. They document the original bounded importer; they do not
+verify the current internal-only revision. Re-run the checks after that follow-up
+before relying on them for the current code.
+
+The original 48 tasks were complete. The internal fetcher, transactional importer,
+compact queue worker, scheduler and operator commands were implemented. Local unit/integration checks
+covered legacy authentication/mode behavior, migration rollback, durable progress,
 leases/fencing, transaction rollback, forward-reference hydration, concurrent
 statistics insertion, source validation, token refresh, retries and backpressure.
 
@@ -191,19 +196,17 @@ cannot leave behind a successful checksum that hides its failed writes.
 
 ## Activation, commands and recovery
 
-Apply the state migration with internal mode disabled (the default). Export
-application database settings for the operator command; it intentionally does
-not load `.env` or bootstrap the application, workers, authentication or scheduler.
-`status` opens only MySQL. `resume` also requires queue Redis and enabled mode.
+Apply the state migration before starting the application. Export application
+database settings for the operator command; it intentionally does not load
+`.env` or bootstrap the application, workers, authentication or scheduler.
+`status` opens only MySQL. `resume` also requires queue Redis.
 
 ```sh
 yarn igdb:catalog status
-IGDB_CATALOG_ENABLED=true yarn igdb:catalog resume
-# After inspecting retained legacy failures, explicitly acknowledge them:
-IGDB_CATALOG_ENABLED=true yarn igdb:catalog resume --acknowledge-legacy-failures
+yarn igdb:catalog resume
 # Disposable local fixtures use test-only connection defaults:
 yarn igdb:catalog status --local
-IGDB_CATALOG_ENABLED=true yarn igdb:catalog resume --local
+yarn igdb:catalog resume --local
 ```
 
 A paused run needs correction followed by explicit resume. Resume preserves run
@@ -218,34 +221,30 @@ plus fixed orchestration stages), with no game payloads or per-page history.
 Recovery fetches cannot erase an unfinished game's budget. Successful stages
 clear their entries; committed checkpoints and explicit resume clear the ledger.
 
-Startup and each 60-second tick reconcile eligibility. Set
-`IGDB_CATALOG_ENABLED=true` on every replica to activate; no jobs/source requests
-are created by the disabled scheduler. Seven days is the default completion
-cooldown; explicitly set `IGDB_CATALOG_INTERVAL_DAYS=14` for fourteen days.
+Startup and each 60-second tick reconcile eligibility. Seven days is the default
+completion cooldown; set `IGDB_CATALOG_INTERVAL_DAYS=14` on each replica for
+fourteen days.
 
-## Future cutover and rollback sequence
+## Internal-only deployment
 
-1. Apply the migration with internal mode disabled.
-2. Stop the external producer. Drain waiting, active, delayed and dependency-waiting
-   legacy work. Repair retained failures, or inspect and explicitly acknowledge
-   them; a new or changed failure invalidates the acknowledgment.
-3. Enable internal mode consistently across replicas. Authenticated legacy pushes
-   now return HTTP 409 before queueing. The drain gate blocks all catalog fetches
-   until legacy work is resolved. The first internal pass starts at zero and
-   forces relationship reconciliation.
-4. Inspect `status`; correct persistent failures and use `resume`. Interrupted
+1. Stop the external Python producer before deploying this application. The old
+   `/v1/sync/igdb` endpoint and per-game worker have been removed.
+2. Apply the run-state migration and deploy all application replicas. Eligible
+   internal synchronization starts automatically; there is no legacy queue drain
+   check or fallback mode. The first scan starts at zero and forces relationship
+   reconciliation.
+3. Inspect `status`; correct persistent failures and use `resume`. Interrupted
    running work recovers from the previous durable cursor, replaying a page if
    games committed before its checkpoint. Source-absent local games are retained.
-5. For rollback, stop/disable internal scheduling on all replicas, signal graceful
-   application shutdown, wait for active transactions/tasks and ownership release,
-   then restart with internal mode disabled and restore legacy pushes/producer.
-   Preserve the state table and its cursor. Do not run both producers concurrently.
+4. There is no producer fallback. Application rollback requires reverting the
+   application release; restoring the former external producer is a separate
+   operational decision.
 
 Shutdown hooks stop scheduler admission, abort source requests, settle admitted
 work and release ownership, then allow queue/database connections to close.
 An unexpected kill relies on lease expiry and BullMQ stalled recovery instead.
-These are future operational instructions; implementation verification uses only
-local fixtures and does not contact a deployment or change the Python project.
+This repository does not manage or stop the sibling Python deployment. Operators
+must stop that service before deploying this internal-only path.
 
 ## Redis and logs
 
@@ -258,6 +257,12 @@ Relationship chatter requires `IGDB_SYNC_PROFILE_HOT_PATH=true`; credentials
 and complete game payloads are excluded from operational summaries.
 
 ## Resource and recovery checks
+
+For the internal-only follow-up, `corepack yarn build`, direct ESLint on changed
+TypeScript files without `--fix`, strict OpenSpec validation, and
+`git diff --check` passed. The unit, integration, and resource suites have not
+yet been rerun against the follow-up; task 10.5 remains open. The ignored reports
+above are from the initial implementation.
 
 Run the suites sequentially against the dedicated services. The resource command
 starts and awaits fresh Node child processes for 100 pages (2,500 games) and 1,000
@@ -285,8 +290,8 @@ unique table/queue prefixes, terminate their own child workers, and remove only
 those prefixed tables/queues.
 
 The checker asserts one live page, configured game/relationship bounds,
-identifier-only queue data, at most one unresolved run job, zero statistics
-submissions, and final cursor/row counts. A separate 25-run finalization exercise
+identifier-only queue data, at most one unresolved run job, and final
+cursor/statistics-row counts. A separate 25-run finalization exercise
 checks ten completed/ten failed retention, including controlled failure/retry.
 Checker-sensitivity cases intentionally introduce eager page fetching and
 unbounded relationship work and require rejection.

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cache } from "@nestjs/cache-manager";
 import { HttpService } from "@nestjs/axios";
-import { IGDBAuthInfo } from "../igdb-sync.constants";
+import { IGDBAuthInfo } from "../igdb.types";
 import { ConfigService } from "@nestjs/config";
 import { lastValueFrom } from "rxjs";
 import dayjs from "dayjs";

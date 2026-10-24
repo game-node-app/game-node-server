@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { createHash, randomUUID } from "node:crypto";
-import { IGDB_SYNC_QUEUE_NAME } from "../igdb-sync.constants";
+import { IGDB_OUTBOUND_BUDGET_QUEUE_NAME } from "./igdb-catalog.constants";
 
 const ADMIT = `
 local clock = redis.call('TIME')
@@ -21,7 +21,8 @@ return 1`;
 export class IgdbOutboundBudgetService {
     private namespaceValue?: string;
     constructor(
-        @InjectQueue(IGDB_SYNC_QUEUE_NAME) private readonly queue: Queue,
+        @InjectQueue(IGDB_OUTBOUND_BUDGET_QUEUE_NAME)
+        private readonly queue: Queue,
         private readonly config: ConfigService,
     ) {}
 

@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { IgdbPlaytimeSyncService } from "../../sync/igdb/playtime/igdb-playtime-sync.service";
 import { GameTimeToBeatDto } from "../dto/find-game-playtime.dto";
-import { IGDBTimeToBeatPlaytime } from "../../sync/igdb/igdb-sync.constants";
+import { IGDBTimeToBeatPlaytime } from "../../sync/igdb/igdb.types";
 import dayjs from "dayjs";
 
 const toDto = (source: IGDBTimeToBeatPlaytime): GameTimeToBeatDto => ({

@@ -3,7 +3,6 @@ import { IgdbCatalogRunnerService } from "./igdb-catalog-runner.service";
 import { IgdbCatalogStateService } from "./igdb-catalog-state.service";
 import { IgdbCatalogClient, CatalogDataError } from "./igdb-catalog.client";
 import { IgdbCatalogImportService } from "./igdb-catalog-import.service";
-import { IgdbLegacyDrainService } from "./igdb-legacy-drain.service";
 import { catalogConfig } from "./igdb-catalog.config";
 
 const deferred = () => {
@@ -95,10 +94,8 @@ function fixture(concurrency = 1) {
         ),
     };
     const importer = { persist: jest.fn().mockResolvedValue(undefined) };
-    const legacy = { isDrained: jest.fn().mockResolvedValue(true) };
     const config = {
         ...catalogConfig({}),
-        enabled: true,
         batchSize: 2,
         gameConcurrency: concurrency,
     };
@@ -106,7 +103,6 @@ function fixture(concurrency = 1) {
         state as unknown as IgdbCatalogStateService,
         client as unknown as IgdbCatalogClient,
         importer as unknown as IgdbCatalogImportService,
-        legacy as unknown as IgdbLegacyDrainService,
         config,
     );
     return {
@@ -114,7 +110,6 @@ function fixture(concurrency = 1) {
         state,
         client,
         importer,
-        legacy,
         durable,
         budgets,
         config,
@@ -221,17 +216,11 @@ describe("strict catalog page runner", () => {
         expect(f.importer.persist).not.toHaveBeenCalled();
         expect(f.state.completeRun).toHaveBeenCalledTimes(1);
     });
-    it("does no work when disabled, stale, or blocked by legacy jobs", async () => {
+    it("ignores a stale job for another run", async () => {
         const f = fixture();
-        f.config.enabled = false;
-        await f.runner.run("fixture");
-        expect(f.state.claimRun).not.toHaveBeenCalled();
-        f.config.enabled = true;
-        f.legacy.isDrained.mockResolvedValue(false);
-        await f.runner.run("fixture");
-        expect(f.client.fetchUpperId).not.toHaveBeenCalled();
-        f.legacy.isDrained.mockResolvedValue(true);
         await f.runner.run("stale");
+        expect(f.state.claimRun).toHaveBeenCalledWith("stale");
+        expect(f.client.fetchUpperId).not.toHaveBeenCalled();
         expect(f.client.fetchPage).not.toHaveBeenCalled();
     });
     it("aborts on heartbeat loss and prohibits a checkpoint after active work settles", async () => {

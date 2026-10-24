@@ -1,9 +1,8 @@
 import { catalogConfig } from "./igdb-catalog.config";
 
 describe("catalogConfig", () => {
-    it("uses the specified disabled defaults", () => {
+    it("uses the internal catalog sync defaults", () => {
         expect(catalogConfig({})).toEqual({
-            enabled: false,
             intervalDays: 7,
             batchSize: 25,
             gameConcurrency: 1,
@@ -51,22 +50,12 @@ describe("catalogConfig", () => {
         },
     );
 
-    it.each(["1", "0", "TRUE", "yes", "", "false "])(
-        "rejects invalid boolean %j",
-        (value) => {
-            expect(() =>
-                catalogConfig({ IGDB_CATALOG_ENABLED: value }),
-            ).toThrow("IGDB_CATALOG_ENABLED");
-        },
-    );
-
     it("accepts only seven or fourteen days", () => {
         expect(
             catalogConfig({
-                IGDB_CATALOG_ENABLED: "true",
                 IGDB_CATALOG_INTERVAL_DAYS: "14",
             }),
-        ).toMatchObject({ enabled: true, intervalDays: 14 });
+        ).toMatchObject({ intervalDays: 14 });
         for (const value of ["6", "8", "13", "15", "7.5", "7junk"]) {
             expect(() =>
                 catalogConfig({ IGDB_CATALOG_INTERVAL_DAYS: value }),

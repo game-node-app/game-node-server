@@ -1,7 +1,6 @@
 import { Queue } from "bullmq";
 import { IgdbCatalogSchedulerService } from "./igdb-catalog-scheduler.service";
 import { IgdbCatalogStateService } from "./igdb-catalog-state.service";
-import { IgdbLegacyDrainService } from "./igdb-legacy-drain.service";
 import { catalogConfig } from "./igdb-catalog.config";
 
 function setup(days = 7) {
@@ -43,16 +42,14 @@ function setup(days = 7) {
             },
         ),
     };
-    const legacy = { isDrained: jest.fn().mockResolvedValue(true) };
-    const config = { ...catalogConfig({}), enabled: true, intervalDays: days };
+    const config = { ...catalogConfig({}), intervalDays: days };
     const make = () =>
         new IgdbCatalogSchedulerService(
             service as unknown as IgdbCatalogStateService,
-            legacy as unknown as IgdbLegacyDrainService,
             queue as unknown as Queue,
             config,
         );
-    return { state, service, queue, legacy, config, jobs, make };
+    return { state, service, queue, config, jobs, make };
 }
 
 describe("catalog scheduler", () => {
@@ -80,17 +77,15 @@ describe("catalog scheduler", () => {
             }
         },
     );
-    it("admits a new installation immediately, but disables scheduling or paused work", async () => {
+    it("starts eligible work immediately and leaves paused work alone", async () => {
         const f = setup();
         f.state.status = "idle";
         f.state.nextEligibleAt = new Date(0);
-        f.config.enabled = false;
         await f.make().onModuleInit();
-        expect(f.queue.add).not.toHaveBeenCalled();
-        f.config.enabled = true;
+        expect(f.queue.add).toHaveBeenCalledTimes(1);
         f.state.status = "paused";
         await f.make().reconcile();
-        expect(f.queue.add).not.toHaveBeenCalled();
+        expect(f.queue.add).toHaveBeenCalledTimes(1);
         f.state.status = "idle";
         await f.make().reconcile();
         expect(f.queue.add).toHaveBeenCalledTimes(1);

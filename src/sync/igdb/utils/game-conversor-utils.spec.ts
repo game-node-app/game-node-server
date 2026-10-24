@@ -1,6 +1,5 @@
 import {
     normalizeIgdbGame,
-    normalizeIgdbResults,
     parseGameDates,
     snakeCaseToCamelCase,
 } from "./game-conversor-utils";
@@ -23,9 +22,6 @@ describe("single-game normalization", () => {
         expect(game.localizations).toBe(game.gameLocalizations);
         game.name = "changed";
         expect(source).toEqual(snapshot);
-        expect(normalizeIgdbResults([source])).toEqual([
-            normalizeIgdbGame(source),
-        ]);
     });
     it("preserves null, empty arrays and primitive values, and clears empty objects", () => {
         expect(

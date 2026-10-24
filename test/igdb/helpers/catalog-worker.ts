@@ -30,7 +30,7 @@ async function main() {
             onBatch: async () => {
                 if (fault === "redis" && !injected) {
                     injected = true;
-                    (await runtime.legacy.client).disconnect();
+                    (await runtime.budgetQueue.client).disconnect();
                 }
             },
         },
@@ -74,7 +74,7 @@ async function main() {
         if (message === "release") release?.();
         if (message === "correct")
             void (async () => {
-                const redis = await runtime.legacy.client;
+                const redis = await runtime.budgetQueue.client;
                 if (redis.status === "end") await redis.connect();
                 process.send?.({ type: "corrected" });
             })();

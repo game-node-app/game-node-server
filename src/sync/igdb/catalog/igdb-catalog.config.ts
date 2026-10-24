@@ -28,16 +28,11 @@ export function catalogConfig(env: NodeJS.ProcessEnv = process.env) {
         }
         return value;
     };
-    const enabled = env.IGDB_CATALOG_ENABLED ?? "false";
-    if (enabled !== "true" && enabled !== "false") {
-        throw new Error("IGDB_CATALOG_ENABLED must be true or false");
-    }
     const intervalDays = integer("IGDB_CATALOG_INTERVAL_DAYS", 7, 7, 14);
     if (intervalDays !== 7 && intervalDays !== 14) {
         throw new Error("IGDB_CATALOG_INTERVAL_DAYS must be 7 or 14");
     }
     return {
-        enabled: enabled === "true",
         intervalDays,
         batchSize: integer("IGDB_CATALOG_BATCH_SIZE", 25, 1, 500),
         gameConcurrency: integer("IGDB_CATALOG_GAME_CONCURRENCY", 1, 1, 2),

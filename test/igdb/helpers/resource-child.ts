@@ -103,7 +103,6 @@ async function main() {
                 runtime.bounds.maxRelations <= 2,
             "Processing bounds exceeded",
         );
-        assert(runtime.statisticsJobs() === 0, "Statistics backlog grew");
         assert(
             (await runtime.source.getRepository(Game).count()) ===
                 expected.gameRows,
@@ -193,7 +192,6 @@ async function main() {
                 relationshipBound: true,
                 identifiersOnly: true,
                 unresolvedJobBound: true,
-                statisticsJobs: runtime.statisticsJobs(),
                 finalProgress: true,
                 retention: true,
             },

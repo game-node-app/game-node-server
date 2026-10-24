@@ -6,10 +6,8 @@ import { Queue } from "bullmq";
 import { IgdbCatalogState } from "../src/sync/igdb/catalog/entities/igdb-catalog-state.entity";
 import { IgdbCatalogStateService } from "../src/sync/igdb/catalog/igdb-catalog-state.service";
 import { IgdbCatalogSchedulerService } from "../src/sync/igdb/catalog/igdb-catalog-scheduler.service";
-import { IgdbLegacyDrainService } from "../src/sync/igdb/catalog/igdb-legacy-drain.service";
 import { catalogConfig } from "../src/sync/igdb/catalog/igdb-catalog.config";
 import { IGDB_CATALOG_QUEUE_NAME } from "../src/sync/igdb/catalog/igdb-catalog.constants";
-import { IGDB_SYNC_QUEUE_NAME } from "../src/sync/igdb/igdb-sync.constants";
 import { testEnvironment } from "../test/igdb/helpers/test-environment";
 
 @Module({})
@@ -22,16 +20,9 @@ export async function catalogCommand(
     const [command, ...flags] = args;
     if (
         !["status", "resume"].includes(command) ||
-        flags.some(
-            (flag) =>
-                !["--local", "--acknowledge-legacy-failures"].includes(flag),
-        ) ||
-        (command === "status" &&
-            flags.includes("--acknowledge-legacy-failures"))
+        flags.some((flag) => flag !== "--local")
     )
-        throw new Error(
-            "Usage: igdb:catalog status|resume [--local] [--acknowledge-legacy-failures (resume only)]",
-        );
+        throw new Error("Usage: igdb:catalog status|resume [--local]");
     const local = flags.includes("--local") ? testEnvironment(env) : null;
     if (!local && (!env.DB_HOST || !env.DB_USER || !env.DB_DATABASE))
         throw new Error(
@@ -67,10 +58,6 @@ export async function catalogCommand(
         const state = app.get(IgdbCatalogStateService);
         if (command === "resume") {
             const config = catalogConfig(env);
-            if (!config.enabled)
-                throw new Error(
-                    "Set IGDB_CATALOG_ENABLED=true consistently before resuming internal synchronization",
-                );
             if (!local && !env.BULLMQ_REDIS_URL)
                 throw new Error("Export BULLMQ_REDIS_URL for resume");
             const url = local ? null : new URL(env.BULLMQ_REDIS_URL!);
@@ -81,25 +68,18 @@ export async function catalogCommand(
                 password: url!.password || undefined,
             };
             const prefix = local?.prefix;
-            const legacy = new Queue(IGDB_SYNC_QUEUE_NAME, {
-                connection,
-                prefix,
-            });
             const catalog = new Queue(IGDB_CATALOG_QUEUE_NAME, {
                 connection,
                 prefix,
             });
-            queues.push(legacy, catalog);
-            const drain = new IgdbLegacyDrainService(legacy);
-            if (flags.includes("--acknowledge-legacy-failures"))
-                await drain.acknowledgeFailures();
-            if ((await state.readStatus()).status === "paused")
+            queues.push(catalog);
+            if ((await state.readStatus()).status === "paused") {
                 await state.resumeRun();
-            else if (!flags.includes("--acknowledge-legacy-failures"))
+            } else {
                 throw new Error("Only a paused catalog run can be resumed");
+            }
             await new IgdbCatalogSchedulerService(
                 state,
-                drain,
                 catalog,
                 config,
             ).reconcile();
@@ -136,7 +116,7 @@ if (require.main === module)
         )
         .catch(() => {
             process.stderr.write(
-                "IGDB catalog command failed. Check command syntax, local services, exported database settings and the state migration; paused work needs internal mode enabled for resume.\n",
+                "IGDB catalog command failed. Check command syntax, local services, exported database settings and the state migration.\n",
             );
             process.exitCode = 1;
         });

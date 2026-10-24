@@ -3,7 +3,7 @@ import {
     IGDB_CATALOG_UNUSED_SOURCE_FIELDS,
 } from "./igdb-catalog.fields";
 import { expandedGame } from "./fixtures/expanded-game";
-import { normalizeIgdbResults } from "../utils/game-conversor-utils";
+import { normalizeIgdbGame } from "../utils/game-conversor-utils";
 
 describe("catalog field projection", () => {
     it("covers every leaf of a representative supported source graph", () => {
@@ -36,7 +36,7 @@ describe("catalog field projection", () => {
     });
 
     it("retains images, nested metadata, links, external IDs and localization aliases", () => {
-        const [game] = normalizeIgdbResults([expandedGame()]);
+        const game = normalizeIgdbGame(expandedGame());
         expect(game.cover).toMatchObject({
             imageId: "image-token",
             alphaChannel: true,
