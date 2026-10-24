@@ -24,7 +24,13 @@
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-        "test:e2e": "jest --config ./test/jest-e2e.json"
+        "test:e2e": "jest --config ./test/jest-e2e.json",
+        "test:igdb:services:up": "docker compose -p igdb-sync-test -f test/igdb/docker-compose.yml up -d --wait",
+        "test:igdb:services:down": "docker compose -p igdb-sync-test -f test/igdb/docker-compose.yml down -v",
+        "test:igdb:unit": "jest --runInBand --testPathPattern=\"(sync/igdb/|game/game-repository/create/|statistics/).*\\.spec\\.ts$\"",
+        "test:igdb:integration": "jest --config test/igdb/jest-integration.json --runInBand",
+        "igdb:catalog": "ts-node scripts/igdb-catalog.ts",
+        "test:igdb:resources": "ts-node test/igdb/igdb-catalog.resources.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.758.0",

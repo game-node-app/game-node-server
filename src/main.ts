@@ -31,6 +31,7 @@ async function bootstrap() {
     });
 
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    app.enableShutdownHooks();
 
     app.useLogger(app.get(Logger));
 

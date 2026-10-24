@@ -42,6 +42,7 @@ lerna-debug.log*
 wrapper
 
 /src/migrations/*
+!/src/migrations/1792857600000-CreateIgdbCatalogState.ts
 /public/uploads/*
 !/public
 !/public/uploads
@@ -53,3 +54,4 @@ dist
 
 .idea
 
+/.tmp/igdb-sync/

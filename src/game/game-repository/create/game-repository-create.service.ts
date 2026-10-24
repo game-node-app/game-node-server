@@ -1,3 +1,8 @@
+import {
+    GameImportContext,
+    InvalidGameEntryError,
+} from "./game-import-context";
+import { settleOperations } from "../../../sync/igdb/catalog/async-leaf-limiter";
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -69,12 +74,17 @@ export class GameRepositoryCreateService {
     }
 
     async isValidEntry(game: IGDBPartialGame) {
-        if (game.id == null || typeof game.id !== "number") {
+        if (!game || !Number.isSafeInteger(game.id) || game.id <= 0) {
             return false;
         } else if (
-            game.name == undefined &&
-            (game.alternativeNames == undefined ||
-                game.alternativeNames.length === 0)
+            !(typeof game.name === "string" && game.name.trim()) &&
+            !(
+                Array.isArray(game.alternativeNames) &&
+                game.alternativeNames.some(
+                    (entry) =>
+                        typeof entry?.name === "string" && entry.name.trim(),
+                )
+            )
         ) {
             return false;
         }
@@ -86,15 +96,19 @@ export class GameRepositoryCreateService {
      * Creates or updates a game in our database. <br>
      * @param game
      */
-    async createOrUpdate(game: IGDBPartialGame) {
+    async createOrUpdate(game: IGDBPartialGame, context?: GameImportContext) {
         const startedAt = this.getProfilingStart();
         const shouldProcess = await this.isValidEntry(game);
 
         if (!shouldProcess) {
             this.logProfilingDuration("createOrUpdate:invalid", startedAt);
+            throw new InvalidGameEntryError(game?.id);
         }
 
-        const existing = await this.gameRepository.findOne({
+        if (context) await context.ownershipGuard(context.manager);
+        const gameRepository =
+            context?.manager.getRepository(Game) ?? this.gameRepository;
+        const existing = await gameRepository.findOne({
             where: { id: game.id },
             select: { id: true, checksum: true },
         });
@@ -105,31 +119,47 @@ export class GameRepositoryCreateService {
             existing == undefined || existing.checksum !== game.checksum;
 
         if (checksumHasChanged) {
-            this.logger.log(`Upserting game ${game.id} - ${game.name}`);
-            await this.gameRepository.upsert(game, ["id"]);
+            if (this.shouldProfileSync)
+                this.logger.log(`Upserting game ${game.id} - ${game.name}`);
+            await gameRepository.upsert(game, ["id"]);
         }
 
         const shouldReconcileRelations =
-            checksumHasChanged || this.shouldReconcileRelationsForGame(game.id);
+            context?.forceReconciliation ||
+            checksumHasChanged ||
+            this.shouldReconcileRelationsForGame(game.id);
 
         if (shouldReconcileRelations) {
-            this.logger.log(
-                `Processing relationships for game ${game.id} - ${game.name}`,
-            );
-            await this.processRelationships(game);
+            if (this.shouldProfileSync)
+                this.logger.log(
+                    `Processing relationships for game ${game.id} - ${game.name}`,
+                );
+            await this.processRelationships(game, context);
         } else {
-            this.logger.log(
-                `Skipping relationship processing for game ${game.id} - ${game.name} due to checksum match and reconciliation settings`,
-            );
+            if (this.shouldProfileSync)
+                this.logger.log(
+                    `Skipping relationship processing for game ${game.id} - ${game.name} due to checksum match and reconciliation settings`,
+                );
         }
 
         const isUpdateAction = existing != undefined;
-        this.dispatchCreateUpdateEvent(game, isUpdateAction);
+        if (context)
+            await this.leaf(context, () =>
+                context.ensureStatistics(context.manager, game.id),
+            );
+        else this.dispatchCreateUpdateEvent(game, isUpdateAction);
         this.logProfilingDuration("createOrUpdate", startedAt, {
             gameId: game.id,
             checksumHasChanged,
             shouldReconcileRelations,
         });
+    }
+
+    private leaf<T>(
+        context: GameImportContext | undefined,
+        operation: () => Promise<T>,
+    ): Promise<T> {
+        return context ? context.limiter.run(operation) : operation();
     }
 
     private dispatchCreateUpdateEvent(
@@ -144,7 +174,10 @@ export class GameRepositoryCreateService {
         }
     }
 
-    private async processRelationships(incoming: IGDBPartialGame) {
+    private async processRelationships(
+        incoming: IGDBPartialGame,
+        context?: GameImportContext,
+    ) {
         const startedAt = this.getProfilingStart();
         const processCover = incoming.cover !== undefined;
         const processAlternativeNames = incoming.alternativeNames !== undefined;
@@ -285,103 +318,180 @@ export class GameRepositoryCreateService {
             };
         }
 
-        const existing = await this.gameRepository.findOneOrFail({
-            where: { id: incoming.id },
-            relations,
-            select,
-            relationLoadStrategy: "query",
-        });
+        const gameRepository =
+            context?.manager.getRepository(Game) ?? this.gameRepository;
+        let existing: Game;
+        if (context) {
+            existing = await this.leaf(context, () =>
+                gameRepository.findOneOrFail({
+                    where: { id: incoming.id },
+                    select: { id: true },
+                }),
+            );
+            // A query-strategy relation loader fans out internally. Read one joined
+            // branch per permit so every actual query respects the shared limit.
+            await settleOperations(
+                Object.keys(relations).map((key) =>
+                    this.leaf(context, async () => {
+                        const branch = await gameRepository.findOneOrFail({
+                            where: { id: incoming.id },
+                            relations: {
+                                [key]: (relations as Record<string, any>)[key],
+                            },
+                            select: {
+                                id: true,
+                                [key]: (select as Record<string, any>)[key],
+                            },
+                            relationLoadStrategy: "join",
+                        });
+                        (existing as any)[key] = (branch as any)[key];
+                    }),
+                ),
+            );
+        } else {
+            existing = await gameRepository.findOneOrFail({
+                where: { id: incoming.id },
+                relations,
+                select,
+                relationLoadStrategy: "query",
+            });
+        }
 
         const relationsPromises: Promise<void>[] = [];
         if (processCover) {
             relationsPromises.push(
-                this.handleOneToOne(incoming, existing, "cover"),
+                this.handleOneToOne(incoming, existing, "cover", context),
             );
         }
         if (processAlternativeNames) {
             relationsPromises.push(
-                this.handleOneToMany(incoming, existing, "alternativeNames"),
+                this.handleOneToMany(
+                    incoming,
+                    existing,
+                    "alternativeNames",
+                    context,
+                ),
             );
         }
         if (processArtworks) {
             relationsPromises.push(
-                this.handleOneToMany(incoming, existing, "artworks"),
+                this.handleOneToMany(incoming, existing, "artworks", context),
             );
         }
         if (processScreenshots) {
             relationsPromises.push(
-                this.handleOneToMany(incoming, existing, "screenshots"),
+                this.handleOneToMany(
+                    incoming,
+                    existing,
+                    "screenshots",
+                    context,
+                ),
             );
         }
         if (processLocalizations) {
             relationsPromises.push(
-                this.handleOneToMany(incoming, existing, "gameLocalizations"),
+                this.handleOneToMany(
+                    incoming,
+                    existing,
+                    "gameLocalizations",
+                    context,
+                ),
             );
         }
         if (processFranchises) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "franchises"),
+                this.handleManyToMany(
+                    incoming,
+                    existing,
+                    "franchises",
+                    context,
+                ),
             );
         }
         if (processPlatforms) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "platforms"),
+                this.handleManyToMany(incoming, existing, "platforms", context),
             );
         }
         if (processKeywords) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "keywords"),
+                this.handleManyToMany(incoming, existing, "keywords", context),
             );
         }
         if (processGenres) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "genres"),
+                this.handleManyToMany(incoming, existing, "genres", context),
             );
         }
         if (processDlcs) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "dlcs"),
+                this.handleManyToMany(incoming, existing, "dlcs", context),
             );
         }
         if (processExpansions) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "expansions"),
+                this.handleManyToMany(
+                    incoming,
+                    existing,
+                    "expansions",
+                    context,
+                ),
             );
         }
         if (processExpandedGames) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "expandedGames"),
+                this.handleManyToMany(
+                    incoming,
+                    existing,
+                    "expandedGames",
+                    context,
+                ),
             );
         }
         if (processSimilarGames) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "similarGames"),
+                this.handleManyToMany(
+                    incoming,
+                    existing,
+                    "similarGames",
+                    context,
+                ),
             );
         }
         if (processThemes) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "themes"),
+                this.handleManyToMany(incoming, existing, "themes", context),
             );
         }
         if (processGameModes) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "gameModes"),
+                this.handleManyToMany(incoming, existing, "gameModes", context),
             );
         }
         if (processPlayerPerspectives) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "playerPerspectives"),
+                this.handleManyToMany(
+                    incoming,
+                    existing,
+                    "playerPerspectives",
+                    context,
+                ),
             );
         }
         if (processExternalGames) {
             relationsPromises.push(
-                this.handleManyToMany(incoming, existing, "externalGames"),
+                this.handleManyToMany(
+                    incoming,
+                    existing,
+                    "externalGames",
+                    context,
+                ),
             );
         }
 
-        await Promise.all(relationsPromises);
+        await settleOperations(relationsPromises);
 
-        await this.handleDeepNestedEntities(incoming, existing);
+        await this.handleDeepNestedEntities(incoming, existing, context);
         this.logProfilingDuration("processRelationships", startedAt, {
             gameId: incoming.id,
             directRelationHandlers: relationsPromises.length,
@@ -399,17 +509,74 @@ export class GameRepositoryCreateService {
         E extends V extends Array<infer U extends ObjectWithChecksum>
             ? U
             : never,
-    >(incoming: IGDBPartialGame, existing: Game, propertyPath: K) {
+    >(
+        incoming: IGDBPartialGame,
+        existing: Game,
+        propertyPath: K,
+        context?: GameImportContext,
+    ) {
         const target = GamePropertyPathToEntityMap[propertyPath]!;
-        const repository = this.dataSource.getRepository(target);
-        const gameEntityMetadata = this.dataSource.getMetadata(Game);
+        const repository = (context?.manager ?? this.dataSource).getRepository(
+            target,
+        );
+        const gameEntityMetadata = (
+            context?.manager.connection ?? this.dataSource
+        ).getMetadata(Game);
         const incomingData = incoming[propertyPath] as E[] | undefined;
         const existingData = existing[propertyPath] as E[];
 
         if (incomingData == undefined) {
             return;
         }
-        if (!hasChecksumChanged(incomingData, existingData)) {
+        if (context && target === Game) {
+            for (const reference of incomingData) {
+                const entry = reference as {
+                    id?: number;
+                    name?: string;
+                    slug?: string;
+                };
+                if (
+                    !Number.isSafeInteger(entry.id) ||
+                    entry.id! <= 0 ||
+                    typeof entry.name !== "string" ||
+                    !entry.name.trim() ||
+                    entry.name.length > 255 ||
+                    typeof entry.slug !== "string" ||
+                    !entry.slug.trim() ||
+                    entry.slug.length > 255
+                ) {
+                    throw new InvalidGameEntryError(entry.id);
+                }
+            }
+            for (const reference of incomingData) {
+                const entry = reference as {
+                    id: number;
+                    name: string;
+                    slug: string;
+                };
+                await this.leaf(context, () =>
+                    context.manager
+                        .createQueryBuilder()
+                        .insert()
+                        .into(Game)
+                        .values({
+                            id: entry.id,
+                            name: entry.name,
+                            slug: entry.slug,
+                            checksum: null as unknown as string,
+                        })
+                        .orIgnore()
+                        .execute(),
+                );
+                await this.leaf(context, () =>
+                    context.ensureStatistics(context.manager, entry.id),
+                );
+            }
+        }
+        if (
+            !context?.forceReconciliation &&
+            !hasChecksumChanged(incomingData, existingData)
+        ) {
             return;
         }
 
@@ -432,10 +599,14 @@ export class GameRepositoryCreateService {
          * Only performs upsert if entity is not self referencing (Game to Game relations).
          */
         if (!isSelfReferencing) {
-            this.logger.log(
-                `Upserting ${incomingParsed.length} items for ${String(propertyPath)}`,
-            );
-            await repository.upsert(incomingParsed, ["id"]);
+            if (this.shouldProfileSync)
+                this.logger.log(
+                    `Upserting ${incomingParsed.length} items for ${String(propertyPath)}`,
+                );
+            if (incomingParsed.length !== 0)
+                await this.leaf(context, () =>
+                    repository.upsert(incomingParsed, ["id"]),
+                );
         }
 
         if (
@@ -445,15 +616,18 @@ export class GameRepositoryCreateService {
             return;
         }
 
-        this.logger.log(
-            `Updating relations for ${String(propertyPath)} - Adding: ${incomingNotInExisting.length}, Removing: ${existingNotInIncoming.length}`,
+        if (this.shouldProfileSync)
+            this.logger.log(
+                `Updating relations for ${String(propertyPath)} - Adding: ${incomingNotInExisting.length}, Removing: ${existingNotInIncoming.length}`,
+            );
+        await this.leaf(context, () =>
+            repository
+                .createQueryBuilder()
+                .relation(Game, propertyPath)
+                .of(existing)
+                // Updates the junction table with new/removed associations
+                .addAndRemove(incomingNotInExisting, existingNotInIncoming),
         );
-        await repository
-            .createQueryBuilder()
-            .relation(Game, propertyPath)
-            .of(existing)
-            // Updates the junction table with new/removed associations
-            .addAndRemove(incomingNotInExisting, existingNotInIncoming);
     }
 
     async handleOneToMany<
@@ -462,8 +636,13 @@ export class GameRepositoryCreateService {
         E extends V extends Array<infer U extends ObjectWithChecksum>
             ? U
             : never,
-    >(incoming: IGDBPartialGame, existing: Game, propertyPath: K) {
-        const repository = this.dataSource.getRepository(
+    >(
+        incoming: IGDBPartialGame,
+        existing: Game,
+        propertyPath: K,
+        context?: GameImportContext,
+    ) {
+        const repository = (context?.manager ?? this.dataSource).getRepository(
             GamePropertyPathToEntityMap[propertyPath]!,
         );
         const incomingData = incoming[propertyPath] as E[] | undefined;
@@ -472,7 +651,10 @@ export class GameRepositoryCreateService {
         if (incomingData == undefined) {
             return;
         }
-        if (!hasChecksumChanged(incomingData, existingData)) {
+        if (
+            !context?.forceReconciliation &&
+            !hasChecksumChanged(incomingData, existingData)
+        ) {
             return;
         }
 
@@ -480,18 +662,27 @@ export class GameRepositoryCreateService {
             repository.create({ ...item, game: existing, gameId: existing.id }),
         );
 
-        this.logger.log(
-            `Upserting ${incomingParsed.length} items for ${String(propertyPath)}`,
-        );
-        await repository.upsert(incomingParsed, ["id"]);
+        if (this.shouldProfileSync)
+            this.logger.log(
+                `Upserting ${incomingParsed.length} items for ${String(propertyPath)}`,
+            );
+        if (incomingParsed.length !== 0)
+            await this.leaf(context, () =>
+                repository.upsert(incomingParsed, ["id"]),
+            );
     }
 
     async handleOneToOne<
         K extends NonArrayKeys<Game>,
         V extends Game[K],
         E extends V extends ObjectWithChecksum ? V : never,
-    >(incoming: IGDBPartialGame, existing: Game, propertyPath: K) {
-        const repository = this.dataSource.getRepository(
+    >(
+        incoming: IGDBPartialGame,
+        existing: Game,
+        propertyPath: K,
+        context?: GameImportContext,
+    ) {
+        const repository = (context?.manager ?? this.dataSource).getRepository(
             GamePropertyPathToEntityMap[propertyPath]!,
         );
         const incomingData = incoming[propertyPath] as E | undefined;
@@ -502,6 +693,7 @@ export class GameRepositoryCreateService {
         }
 
         if (
+            !context?.forceReconciliation &&
             existingData &&
             incomingData.id === existingData.id &&
             incomingData.checksum === existingData.checksum
@@ -515,17 +707,26 @@ export class GameRepositoryCreateService {
             gameId: existing.id,
         });
 
-        this.logger.log(`Upserting item for ${String(propertyPath)}`);
+        if (this.shouldProfileSync)
+            this.logger.log(`Upserting item for ${String(propertyPath)}`);
 
-        await repository.upsert(incomingParsed, ["id"]);
-        await repository
-            .createQueryBuilder()
-            .relation(Game, propertyPath)
-            .of(existing)
-            .set(incomingParsed);
+        await this.leaf(context, () =>
+            repository.upsert(incomingParsed, ["id"]),
+        );
+        await this.leaf(context, () =>
+            repository
+                .createQueryBuilder()
+                .relation(Game, propertyPath)
+                .of(existing)
+                .set(incomingParsed),
+        );
     }
 
-    async handleCompanies(incoming: IGDBPartialGame, existing: Game) {
+    async handleCompanies(
+        incoming: IGDBPartialGame,
+        existing: Game,
+        context?: GameImportContext,
+    ) {
         const companies = (incoming.involvedCompanies ?? []).map(
             (involvedCompany) => involvedCompany.company,
         );
@@ -575,7 +776,8 @@ export class GameRepositoryCreateService {
             if (
                 company.id == undefined ||
                 company.checksum == undefined ||
-                existingCompanyChecksums.has(company.checksum) ||
+                (!context?.forceReconciliation &&
+                    existingCompanyChecksums.has(company.checksum)) ||
                 changedCompaniesById.has(company.id)
             ) {
                 continue;
@@ -592,7 +794,8 @@ export class GameRepositoryCreateService {
             if (
                 logo?.id == undefined ||
                 logo.checksum == undefined ||
-                existingLogoChecksums.has(logo.checksum) ||
+                (!context?.forceReconciliation &&
+                    existingLogoChecksums.has(logo.checksum)) ||
                 changedLogosById.has(logo.id)
             ) {
                 continue;
@@ -607,20 +810,32 @@ export class GameRepositoryCreateService {
         const changedLogos = [...changedLogosById.values()];
 
         if (changedLogos.length !== 0) {
-            const logoRepository =
-                this.dataSource.getRepository(GameCompanyLogo);
-            await logoRepository.upsert(changedLogos, ["id"]);
+            const logoRepository = (
+                context?.manager ?? this.dataSource
+            ).getRepository(GameCompanyLogo);
+            await this.leaf(context, () =>
+                logoRepository.upsert(changedLogos, ["id"]),
+            );
         }
 
         if (changedCompanies.length !== 0) {
-            const companyRepository =
-                this.dataSource.getRepository(GameCompany);
-            await companyRepository.upsert(changedCompanies, ["id"]);
+            const companyRepository = (
+                context?.manager ?? this.dataSource
+            ).getRepository(GameCompany);
+            await this.leaf(context, () =>
+                companyRepository.upsert(changedCompanies, ["id"]),
+            );
         }
     }
 
-    async handleEngines(incoming: IGDBPartialGame, existing: Game) {
-        const repository = this.dataSource.getRepository(GameEngine);
+    async handleEngines(
+        incoming: IGDBPartialGame,
+        existing: Game,
+        context?: GameImportContext,
+    ) {
+        const repository = (context?.manager ?? this.dataSource).getRepository(
+            GameEngine,
+        );
         const engines = incoming.gameEngines ?? [];
         const existingEnginesMap = new Map(
             existing.gameEngines?.map((item) => [item.id, item]),
@@ -628,7 +843,7 @@ export class GameRepositoryCreateService {
 
         if (engines.length === 0) return;
 
-        await this.handleManyToMany(incoming, existing, "gameEngines");
+        await this.handleManyToMany(incoming, existing, "gameEngines", context);
 
         for (const engine of engines) {
             const existingPlatforms =
@@ -649,11 +864,13 @@ export class GameRepositoryCreateService {
                 (platform) => !existingPlatformIds.has(platform.id!),
             );
 
-            await repository
-                .createQueryBuilder()
-                .relation(GameEngine, "platforms")
-                .of(engine)
-                .addAndRemove(incomingNotInExisting, existingNotInIncoming);
+            await this.leaf(context, () =>
+                repository
+                    .createQueryBuilder()
+                    .relation(GameEngine, "platforms")
+                    .of(engine)
+                    .addAndRemove(incomingNotInExisting, existingNotInIncoming),
+            );
         }
     }
 
@@ -663,13 +880,17 @@ export class GameRepositoryCreateService {
      * @param incoming
      * @param existing
      */
-    async handleDeepNestedEntities(incoming: IGDBPartialGame, existing: Game) {
+    async handleDeepNestedEntities(
+        incoming: IGDBPartialGame,
+        existing: Game,
+        context?: GameImportContext,
+    ) {
         const startedAt = this.getProfilingStart();
         if (
             incoming.involvedCompanies != undefined ||
             incoming.gameEngines != undefined
         ) {
-            await this.handleCompanies(incoming, existing);
+            await this.handleCompanies(incoming, existing, context);
         }
 
         if (incoming.involvedCompanies) {
@@ -680,11 +901,12 @@ export class GameRepositoryCreateService {
                 incoming,
                 existing,
                 "involvedCompanies",
+                context,
             );
         }
 
         if (incoming.gameEngines != undefined) {
-            await this.handleEngines(incoming, existing);
+            await this.handleEngines(incoming, existing, context);
         }
         this.logProfilingDuration("handleDeepNestedEntities", startedAt, {
             gameId: incoming.id,
@@ -777,9 +999,10 @@ export class GameRepositoryCreateService {
 
         const elapsedInMs =
             Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-        this.logger.log(
-            `${label} took ${elapsedInMs.toFixed(2)}ms`,
-            metadata ?? {},
-        );
+        if (this.shouldProfileSync)
+            this.logger.log(
+                `${label} took ${elapsedInMs.toFixed(2)}ms`,
+                metadata ?? {},
+            );
     }
 }

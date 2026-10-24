@@ -1,3 +1,4 @@
+import { IgdbOutboundBudgetService } from "../catalog/igdb-outbound-budget.service";
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { lastValueFrom } from "rxjs";
@@ -17,6 +18,7 @@ export class IgdbPlaytimeSyncService {
         private readonly httpClient: HttpService,
         private readonly authService: IgdbAuthService,
         private readonly cacheManager: Cache,
+        private readonly budget: IgdbOutboundBudgetService,
     ) {}
 
     @Cacheable(IgdbPlaytimeSyncService.name, minutes(30))
@@ -26,15 +28,19 @@ export class IgdbPlaytimeSyncService {
         const headers = await this.authService.getAuthHeaders();
         const gameIdsString = gameIds.join(",");
 
-        const request = this.httpClient.post(
-            this.IGDB_API_ENDPOINT,
-            `fields *; where game_id = (${gameIdsString});`,
-            {
-                headers: headers,
-            },
-        );
+        return this.budget.run(async () => {
+            const request = this.httpClient.post(
+                this.IGDB_API_ENDPOINT,
+                `fields *; where game_id = (${gameIdsString});`,
+                {
+                    headers: headers,
+                    timeout: 30000,
+                    signal: AbortSignal.timeout(30000),
+                },
+            );
 
-        const response = await lastValueFrom(request);
-        return response.data;
+            const response = await lastValueFrom(request);
+            return response.data;
+        });
     }
 }

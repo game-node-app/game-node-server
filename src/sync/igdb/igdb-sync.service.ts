@@ -1,11 +1,12 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { CATALOG_CONFIG } from "./catalog/igdb-catalog.client";
+import { IgdbCatalogConfig } from "./catalog/igdb-catalog.config";
+import { ConflictException, Inject, Injectable, Logger } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import {
     IGDB_SYNC_JOB_NAME,
     IGDB_SYNC_QUEUE_NAME,
 } from "./igdb-sync.constants";
 import { Queue } from "bullmq";
-import dayjs from "dayjs";
 import { normalizeIgdbResults } from "./utils/game-conversor-utils";
 
 export interface NonParsedGame {
@@ -26,11 +27,17 @@ export class IgdbSyncService {
     constructor(
         @InjectQueue(IGDB_SYNC_QUEUE_NAME)
         private readonly igdbSyncQueue: Queue,
+        @Inject(CATALOG_CONFIG)
+        private readonly catalogConfig: IgdbCatalogConfig,
     ) {}
 
     async registerUpdateJob(items: NonNullable<NonParsedGame[]>) {
+        if (this.catalogConfig.enabled)
+            throw new ConflictException(
+                "Legacy IGDB ingestion is disabled while internal catalog synchronization is enabled",
+            );
         if (items == undefined || !Array.isArray(items)) {
-            this.logger.error(`Ignoring malformed message in update: ${items}`);
+            this.logger.error("Ignoring malformed legacy IGDB payload");
             return;
         }
 

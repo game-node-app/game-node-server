@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { DataSource, EntityTarget, Repository } from "typeorm";
+import { DataSource, EntityManager, EntityTarget, Repository } from "typeorm";
 import {
     StatisticsCreateAction,
     StatisticsLikeAction,
@@ -25,6 +25,21 @@ import { NotificationsQueueService } from "../notifications/notifications-queue.
 import { PostStatistics } from "./entity/post-statistics.entity";
 import { match, P } from "ts-pattern";
 
+/** Import-only, transaction-scoped initialization. Unique gameId preserves counters on replay. */
+export async function ensureGameStatistics(
+    manager: EntityManager,
+    gameId: number,
+): Promise<void> {
+    await manager
+        .createQueryBuilder()
+        .insert()
+        .into(GameStatistics)
+        .values({ gameId })
+        .orIgnore()
+        .updateEntity(false)
+        .execute();
+}
+
 @Injectable()
 export class StatisticsService {
     private readonly logger = new Logger(StatisticsService.name);
@@ -37,6 +52,13 @@ export class StatisticsService {
     ) {
         this.userLikeRepository = dataSource.getRepository(UserLike);
         this.userViewRepository = dataSource.getRepository(UserView);
+    }
+
+    async ensureGameStatistics(
+        manager: EntityManager,
+        gameId: number,
+    ): Promise<void> {
+        await ensureGameStatistics(manager, gameId);
     }
 
     protected getTargetEntity<T extends AnyStatistics>(

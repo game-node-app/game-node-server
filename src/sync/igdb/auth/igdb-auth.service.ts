@@ -22,20 +22,38 @@ export class IgdbAuthService {
         return await this.cacheManager.get<string>(this.CACHE_KEY);
     }
 
-    private setToStore(authInfo: IGDBAuthInfo) {
-        const expiresInMs = authInfo.expires_in * 1000;
+    private refreshInFlight?: Promise<string>;
 
-        this.cacheManager
-            .set(this.CACHE_KEY, authInfo.access_token, expiresInMs)
-            .then(() => {
-                const expiresAt = dayjs().add(expiresInMs, "milliseconds");
-                this.logger.log(
-                    `Persisted new IGDB token at store that expires at ${expiresAt.toISOString()}`,
+    private refreshToken(invalidate: boolean): Promise<string> {
+        if (this.refreshInFlight) return this.refreshInFlight;
+        this.refreshInFlight = (async () => {
+            if (invalidate) await this.cacheManager.del(this.CACHE_KEY);
+            const info = await this.getFromSource();
+            if (
+                !info ||
+                typeof info.access_token !== "string" ||
+                !info.access_token ||
+                !Number.isFinite(info.expires_in) ||
+                info.expires_in <= 0
+            ) {
+                throw new Error(
+                    "IGDB authentication returned invalid credentials",
                 );
-            })
-            .catch((err) => {
-                this.logger.error(err);
-            });
+            }
+            const expiresInMs = info.expires_in * 1000;
+            await this.cacheManager.set(
+                this.CACHE_KEY,
+                info.access_token,
+                expiresInMs,
+            );
+            this.logger.log(
+                `Persisted IGDB token expiring at ${dayjs().add(expiresInMs, "milliseconds").toISOString()}`,
+            );
+            return info.access_token;
+        })().finally(() => {
+            this.refreshInFlight = undefined;
+        });
+        return this.refreshInFlight;
     }
 
     private async getFromSource() {
@@ -43,6 +61,9 @@ export class IgdbAuthService {
             this.TWITCH_AUTH_API,
             undefined,
             {
+                timeout: 30000,
+                maxContentLength: 1048576,
+                signal: AbortSignal.timeout(30000),
                 params: {
                     client_id:
                         this.configService.getOrThrow("TWITCH_CLIENT_ID"),
@@ -59,23 +80,15 @@ export class IgdbAuthService {
         return response.data;
     }
 
-    public async getAuthToken() {
+    public async getAuthToken(forceRefresh = false) {
+        if (this.refreshInFlight) return this.refreshInFlight;
+        if (forceRefresh) return this.refreshToken(true);
         const tokenOnStore = await this.getFromStore();
-        if (tokenOnStore) {
-            return tokenOnStore;
-        }
-
-        const tokenFromSource = await this.getFromSource();
-
-        if (tokenFromSource) {
-            this.setToStore(tokenFromSource);
-        }
-
-        return tokenFromSource.access_token;
+        return tokenOnStore || this.refreshToken(false);
     }
 
-    public async getAuthHeaders() {
-        const token = await this.getAuthToken();
+    public async getAuthHeaders(forceRefresh = false) {
+        const token = await this.getAuthToken(forceRefresh);
         return {
             "Client-ID":
                 this.configService.getOrThrow<string>("TWITCH_CLIENT_ID"),

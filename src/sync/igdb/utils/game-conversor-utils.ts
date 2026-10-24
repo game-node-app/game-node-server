@@ -1,5 +1,4 @@
 import { IGDBPartialGame } from "../../../game/game-repository/game-repository.types";
-import isEmptyObject from "../../../utils/isEmptyObject";
 
 export const snakeCaseToCamelCase = (str: string) => {
     if (str == null || str.startsWith("_")) {
@@ -68,44 +67,48 @@ export const parseGameDates = (game: IGDBPartialGame) => {
 
     return parsedGame;
 };
-/**
- * Recursively converts types of a game object.
- * @param game
- */
-const convertIgdbResultTypes = (game: IGDBPartialGame) => {
-    const gameWithParsedDates = parseGameDates(game);
+const DATE_FIELDS = new Set([
+    "createdAt",
+    "updatedAt",
+    "firstReleaseDate",
+    "changeDate",
+    "startDate",
+]);
 
-    for (const [key, value] of Object.entries(gameWithParsedDates)) {
-        if (value == undefined) {
-        } else if (isEmptyObject(value)) {
-            gameWithParsedDates[key] = undefined;
-            // A lot of things are of type object, including dates and arrays, so we need to check for those first
-        } else if (typeof value === "object" && value.constructor === Object) {
-            gameWithParsedDates[key] = convertIgdbResultTypes(value);
-        } else if (Array.isArray(value) && value.length > 0) {
-            gameWithParsedDates[key] = value.map((item) =>
-                convertIgdbResultTypes(item),
-            );
+/** Allocate each source subtree once, while converting its keys and date values. */
+function normalizeValue(value: any): any {
+    if (value == null || typeof value !== "object") return value;
+    if (value instanceof Date) return new Date(value.getTime());
+    if (Array.isArray(value)) return value.map(normalizeValue);
+    const converted: Record<string, any> = {};
+    for (const [rawKey, item] of Object.entries(value)) {
+        const key = snakeCaseToCamelCase(rawKey);
+        if (DATE_FIELDS.has(key) && typeof item === "number") {
+            const date = new Date(item * 1000);
+            converted[key] = Number.isNaN(date.getTime()) ? undefined : date;
+        } else if (
+            item &&
+            typeof item === "object" &&
+            !Array.isArray(item) &&
+            !(item instanceof Date) &&
+            Object.keys(item).length === 0
+        ) {
+            converted[key] = undefined;
+        } else {
+            converted[key] = normalizeValue(item);
         }
     }
+    return converted;
+}
 
-    return gameWithParsedDates;
-};
+export function normalizeIgdbGame(
+    result: Record<string, unknown>,
+): IGDBPartialGame {
+    const game = normalizeValue(result) as IGDBPartialGame;
+    if (game.gameLocalizations) game.localizations = game.gameLocalizations;
+    return game;
+}
 
-export function normalizeIgdbResults(results: any[]) {
-    const normalizedResults: IGDBPartialGame[] = [];
-    for (const result of results) {
-        // Do basic parsing (converts fields to camelCase)
-        const normalizedResult: IGDBPartialGame = objectKeysToCamelCase(result);
-
-        if (normalizedResult.gameLocalizations) {
-            normalizedResult.localizations = normalizedResult.gameLocalizations;
-        }
-
-        const convertedResult = convertIgdbResultTypes(normalizedResult);
-
-        normalizedResults.push(convertedResult);
-    }
-
-    return normalizedResults;
+export function normalizeIgdbResults(results: any[]): IGDBPartialGame[] {
+    return results.map(normalizeIgdbGame);
 }
