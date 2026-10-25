@@ -46,6 +46,7 @@ wrapper
 !/src/migrations/1792886400000-CreatePlayerConnectionSync.ts
 !/src/migrations/1792886400001-CreatePlayerGameSync.ts
 !/src/migrations/1792886400002-AddPendingAchievementActivityDelivery.ts
+!/src/migrations/1792886400003-AddConnectionAuth.ts
 /public/uploads/*
 !/public
 !/public/uploads

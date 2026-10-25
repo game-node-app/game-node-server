@@ -1,3 +1,4 @@
+import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
@@ -12,6 +13,7 @@ import { UserPlaytime } from "./entity/user-playtime.entity";
 import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
 import { PlaytimeHistoryService } from "./playtime-history.service";
 import { PlaytimeService } from "./playtime.service";
+import { PlaytimeWatchProcessor } from "./watch/playtime-watch.processor";
 import { UserPlaytimeSource } from "./playtime.constants";
 import { IndexPlaytimeObservations1792886400003 } from "../migrations/1792886400003-IndexPlaytimeObservations";
 import { setCacheManager } from "../utils/cacheable";
@@ -580,9 +582,60 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
                 jest.setSystemTime(new Date("2026-10-02T12:00:00Z"));
                 expect((await observe(160)).recentPlaytimeSeconds).toBe(60);
                 jest.setSystemTime(new Date("2026-10-17T12:00:00Z"));
-                expect((await observe(160)).recentPlaytimeSeconds).toBe(
-                    provider === UserPlaytimeSource.STEAM ? 60 : 0,
-                );
+                if (provider === UserPlaytimeSource.XBOX) {
+                    const getBatchMinutesPlayed = jest
+                        .fn()
+                        .mockResolvedValueOnce([])
+                        .mockResolvedValueOnce([{ titleid: "88" }]);
+                    const processor = new PlaytimeWatchProcessor(
+                        service,
+                        {
+                            findOneByUserIdAndTypeOrFail: async () => ({
+                                sourceUserId: "account",
+                            }),
+                        } as any,
+                        {
+                            getExternalGamesForSourceIds: async () => [
+                                { id: 88, gameId: 88, uid: "existing" },
+                                { id: 89, gameId: 89, uid: "unseen" },
+                            ],
+                        } as any,
+                        {} as any,
+                        {} as any,
+                        {} as any,
+                        {
+                            getAllGames: async () => [
+                                { titleId: "88", productId: "existing" },
+                                { titleId: "89", productId: "unseen" },
+                            ],
+                            getBatchMinutesPlayed,
+                        } as any,
+                        { getGamePlatformsMap: async () => new Map() } as any,
+                        {} as any,
+                        { addUserSyncJob: async () => undefined } as any,
+                        new ConnectionProviderRegistry(),
+                    );
+                    for (let attempt = 0; attempt < 2; attempt++) {
+                        await processor.updateXboxPlaytimeInfo({
+                            data: { userId },
+                        } as any);
+                        const rows = await source
+                            .getRepository(UserPlaytime)
+                            .findBy({ profileUserId: userId });
+                        expect(rows).toHaveLength(1);
+                        expect(rows[0]).toMatchObject({
+                            totalPlaytimeSeconds: 160,
+                            recentPlaytimeSeconds: 0,
+                            totalPlayCount: 3,
+                            firstPlayedDate: null,
+                            lastPlayedDate: null,
+                        });
+                    }
+                } else {
+                    expect((await observe(160)).recentPlaytimeSeconds).toBe(
+                        provider === UserPlaytimeSource.STEAM ? 60 : 0,
+                    );
+                }
                 expect(
                     await source
                         .getRepository(UserPlaytimeHistory)

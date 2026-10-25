@@ -1,3 +1,4 @@
+import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import dayjs from "dayjs";
 import { Test } from "@nestjs/testing";
 import {
@@ -65,6 +66,7 @@ describe("persisted obtained reads", () => {
         provider as any,
         {} as any,
         new GameAchievementSyncQueueService(queue as any, state as any),
+        new ConnectionProviderRegistry(),
     );
     beforeAll(async () => {
         const module = await Test.createTestingModule({

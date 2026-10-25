@@ -39,14 +39,14 @@ The system SHALL fetch all available pages with explicit supported limits and st
 - **WHEN** a supported endpoint returns continuation information after its requested item limit
 - **THEN** the remaining pages are fetched before the result is considered complete
 
-### Requirement: Reject unpageable capped Xbox libraries
+### Requirement: Bound Xbox libraries at the service limit
 
-Until a supported TitleHub continuation contract is verified, Xbox library requests SHALL use `maxItems: 5000` and SHALL fail as incomplete at or above that cap or on other truncation signals. Such failures SHALL preserve prior data and success markers, SHALL NOT be cached as success, and SHALL use bounded failure retries. The system SHALL NOT invent cursor parameters. Valid below-cap responses without truncation SHALL retain complete/empty behavior.
+Xbox library requests SHALL use `maxItems: 5000` and process no more than the first 5,000 returned titles. A structurally valid titles array SHALL count as a complete service snapshot at this bound, even when the provider response or its metadata indicates more titles. The service SHALL NOT invent cursor parameters or treat titles absent from the bounded snapshot as deleted.
 
 #### Scenario: Xbox library reaches the requested cap
 
-- **WHEN** TitleHub returns exactly 5,000 titles or more without verified continuation
-- **THEN** refresh fails visibly as incomplete, even if an exactly-at-cap library might actually be complete, and prior data and success markers are preserved without caching partial success
+- **WHEN** TitleHub returns 5,000 titles or more without verified continuation
+- **THEN** at most the first 5,000 titles are processed, cached, and considered complete under the service limit
 
 #### Scenario: Xbox library is below the requested cap
 
@@ -55,8 +55,13 @@ Until a supported TitleHub continuation contract is verified, Xbox library reque
 
 #### Scenario: Below-cap Xbox response indicates truncation
 
-- **WHEN** TitleHub indicates that more titles remain but no supported continuation contract has been verified
-- **THEN** refresh fails as incomplete instead of treating the returned subset as complete or attempting an unverified cursor protocol
+- **WHEN** TitleHub indicates that more titles remain or its total metadata disagrees with the returned count
+- **THEN** the returned titles are considered a complete bounded service snapshot without an unverified cursor request
+
+#### Scenario: Xbox response is malformed
+
+- **WHEN** TitleHub omits the titles array
+- **THEN** the response fails as incomplete because there are no safe titles to process
 
 ### Requirement: Non-overlapping Xbox statistics batches
 
@@ -85,6 +90,35 @@ Steam library retrieval SHALL preserve the owned-library and recently-played com
 
 - **WHEN** one required component of the combined Steam snapshot fails
 - **THEN** the system preserves existing data and does not label the combined result complete
+
+### Requirement: Include played Steam Family licenses in owned snapshots
+
+The owned-games response SHALL include already-played Family licenses and preserve returned `family_shared` rows when absent from recent results. The adapter SHALL send `include_family_licenses=true` as a raw parameter rather than rely on `getUserOwnedGames` options. Recent results SHALL still win duplicate app IDs. A missing `rtime_last_played` SHALL NOT invalidate a Family row.
+
+#### Scenario: Previously played Family game is outside the recent window
+
+- **WHEN** the owned-games response includes a `family_shared` game absent from recently played
+- **THEN** the game remains eligible for library mapping and playtime import even when `rtime_last_played` is absent
+
+#### Scenario: Family rows are not included in `game_count`
+
+- **WHEN** a family-enabled response has fewer owned games in `game_count` than entries in `games`, including zero with only `family_shared` rows
+- **THEN** shared rows are processed as valid games, not rejected based on `game_count`
+
+### Requirement: Confirmed empty Steam responses
+The system SHALL normalize omitted Steam games arrays before SDK parsing only when the response confirms the complete endpoint result is empty. For family-enabled owned-games requests, `game_count: 0` alone does not confirm an empty result; `games: []` is required. Ambiguous, contradictory, private, or failed responses SHALL NOT become empty success.
+
+#### Scenario: Steam confirms zero recent games without an array
+- **WHEN** a recent response has `total_count: 0` and omits its games array
+- **THEN** that component succeeds as empty through the installed SDK
+
+#### Scenario: Family-enabled Steam response explicitly returns no games
+- **WHEN** an owned-games response with Family licenses has `games: []`
+- **THEN** that component succeeds as empty
+
+#### Scenario: Missing or contradictory Steam data
+- **WHEN** a required games array is missing, a zero owned count accompanies nonempty games not all marked `family_shared`, or the request fails
+- **THEN** the component fails without advancing success or caching an empty snapshot
 
 ### Requirement: Verified PSN mapping identity
 

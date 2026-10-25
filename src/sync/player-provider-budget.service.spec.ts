@@ -5,6 +5,73 @@ import {
     PlayerProviderBudgetService,
 } from "./player-provider-budget.service";
 import { ProviderSyncError } from "./provider-sync.error";
+import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
+
+describe("PlayerProviderBudgetService provider validation and budget scoping", () => {
+    let queue: any;
+    let registry: ConnectionProviderRegistry;
+    let service: PlayerProviderBudgetService;
+
+    beforeEach(() => {
+        queue = {
+            opts: { prefix: "test-bull" },
+            client: Promise.resolve({}),
+        };
+        registry = new ConnectionProviderRegistry();
+        service = new PlayerProviderBudgetService(queue as any, registry);
+    });
+
+    it("accepts registered providers and valid sub-scopes", () => {
+        expect(service.keys("Steam")).toEqual({
+            permits: "test-bull:player-provider-budget:{Steam}:permits",
+            cooldown: "test-bull:player-provider-budget:{Steam}:cooldown",
+        });
+        expect(service.keys("PSN")).toEqual({
+            permits: "test-bull:player-provider-budget:{PSN}:permits",
+            cooldown: "test-bull:player-provider-budget:{PSN}:cooldown",
+        });
+        expect(service.keys("Xbox")).toEqual({
+            permits: "test-bull:player-provider-budget:{Xbox}:permits",
+            cooldown: "test-bull:player-provider-budget:{Xbox}:cooldown",
+        });
+        expect(service.keys("Xbox:catalog")).toEqual({
+            permits: "test-bull:player-provider-budget:{Xbox:catalog}:permits",
+            cooldown:
+                "test-bull:player-provider-budget:{Xbox:catalog}:cooldown",
+        });
+        expect(service.keys("Xbox:user:2535470001")).toEqual({
+            permits:
+                "test-bull:player-provider-budget:{Xbox:user:2535470001}:permits",
+            cooldown:
+                "test-bull:player-provider-budget:{Xbox:user:2535470001}:cooldown",
+        });
+    });
+
+    it("rejects unregistered providers", () => {
+        expect(() => service.keys("Nintendo")).toThrow(
+            "Invalid player provider",
+        );
+        expect(() => service.keys("Unknown")).toThrow(
+            "Invalid player provider",
+        );
+    });
+
+    it("rejects invalid Xbox sub-scopes", () => {
+        expect(() => service.keys("Xbox:invalid")).toThrow(
+            "Invalid player provider scope",
+        );
+        expect(() => service.keys("Xbox:user:")).toThrow(
+            "Missing sourceUserId for user-scoped player provider",
+        );
+    });
+
+    it("distinct users produce distinct permit and cooldown keys", () => {
+        const user1Keys = service.keys("Xbox:user:user-1");
+        const user2Keys = service.keys("Xbox:user:user-2");
+        expect(user1Keys.permits).not.toEqual(user2Keys.permits);
+        expect(user1Keys.cooldown).not.toEqual(user2Keys.cooldown);
+    });
+});
 
 const redisDescribe = process.env.PLAYER_IMPORT_TEST_REDIS_PORT
     ? describe
@@ -23,8 +90,14 @@ redisDescribe("shared player provider admission (real Redis)", () => {
                 maxRetriesPerRequest: null,
             },
         });
-        first = new PlayerProviderBudgetService(queue);
-        second = new PlayerProviderBudgetService(queue);
+        first = new PlayerProviderBudgetService(
+            queue,
+            new ConnectionProviderRegistry(),
+        );
+        second = new PlayerProviderBudgetService(
+            queue,
+            new ConnectionProviderRegistry(),
+        );
     });
     afterEach(async () => {
         const redis = await queue.client;
@@ -51,6 +124,29 @@ redisDescribe("shared player provider admission (real Redis)", () => {
         const start = Date.now();
         await expect(second.run("Xbox", leaf)).resolves.toBe("ok");
         expect(Date.now() - start).toBeGreaterThanOrEqual(250);
+        expect(leaf).toHaveBeenCalledTimes(1);
+    });
+
+    it("isolates cooldowns between different Xbox user scopes", async () => {
+        await expect(
+            first.run("Xbox:user:xuid-1", async () => {
+                throw new ProviderSyncError(
+                    "throttled",
+                    "fixture",
+                    undefined,
+                    429,
+                    3000,
+                );
+            }),
+        ).rejects.toMatchObject({ outcome: "throttled" });
+
+        // User 2 should NOT be throttled by user 1's 429 cooldown
+        const leaf = jest.fn().mockResolvedValue("user-2-ok");
+        const start = Date.now();
+        await expect(second.run("Xbox:user:xuid-2", leaf)).resolves.toBe(
+            "user-2-ok",
+        );
+        expect(Date.now() - start).toBeLessThan(1000);
         expect(leaf).toHaveBeenCalledTimes(1);
     });
 

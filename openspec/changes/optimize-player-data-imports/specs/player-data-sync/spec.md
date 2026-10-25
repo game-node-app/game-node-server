@@ -21,6 +21,10 @@ The system SHALL admit automatic and manual full refreshes through the same pers
 - **WHEN** daily scheduling is initialized for existing connections
 - **THEN** initial eligibility is spread across the day and discovery does not load the complete user population
 
+#### Scenario: Xbox reaches the bounded service cap
+- **WHEN** Xbox returns a structurally valid title list at or above 5,000 items, or signals more provider titles than the service requests
+- **THEN** the stage completes under the service's 5,000-title bound and advances normal success timestamps without requesting an unverified next page
+
 ### Requirement: Immediate and identity-safe onboarding
 The system SHALL admit the initial refresh of a newly linked source account immediately, invalidate account-bound state after source-account replacement, and reject writes from work whose connection identity is no longer current.
 

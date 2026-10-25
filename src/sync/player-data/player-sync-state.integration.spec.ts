@@ -1,3 +1,6 @@
+import { AddConnectionAuth1792886400003 } from "../../migrations/1792886400003-AddConnectionAuth";
+import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
+import { EConnectionAuthMode } from "../../connection/connections.constants";
 import { UserPlaytime } from "../../playtime/entity/user-playtime.entity";
 import { UserPlaytimeHistory } from "../../playtime/entity/user-playtime-history.entity";
 import { PlaytimeService } from "../../playtime/playtime.service";
@@ -88,6 +91,7 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
     beforeAll(async () => {
         const runner = source.createQueryRunner();
         try {
+            await new AddConnectionAuth1792886400003().up(runner);
             for (const entity of [UserPlaytime, UserPlaytimeHistory])
                 await runner.createTable(
                     Table.create(source.getMetadata(entity), source.driver),
@@ -789,6 +793,8 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
                 );
             };
             const playtime = {
+                updatePlaytimeInfo: async (): Promise<any> =>
+                    playtime.updateSteamPlaytimeInfo(),
                 updateSteamPlaytimeInfo: async () => {
                     await record("playtime");
                     await importObservedPlaytime();
@@ -963,19 +969,31 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
                 get: () => "true",
             } as any);
             let account = "account-a";
+            const registry = new ConnectionProviderRegistry();
+            registry.register({
+                type: EConnectionType.STEAM,
+                name: "steam",
+                iconName: "steam",
+                authMode: EConnectionAuthMode.PUBLIC_IDENTIFIER,
+                isImporterViable: true,
+                isImporterWatchViable: true,
+                isPlaytimeImportViable: true,
+                isAchievementImportViable: true,
+            });
+            registry.registerAuthStrategy(EConnectionType.STEAM, {
+                resolvePublicIdentifier: async () => ({
+                    sourceUserId: account,
+                    sourceUsername: "fixture",
+                }),
+            });
             const connections = new ConnectionsService(
                 source.getRepository(UserConnection),
-                {
-                    resolveUserInfo: async () => ({
-                        userId: account,
-                        username: "fixture",
-                    }),
-                } as any,
-                {} as any,
-                {} as any,
                 new PlaytimeWatchService(admission),
                 {} as any,
                 state,
+                registry,
+                {} as any,
+                {} as any,
             );
             const dto = {
                 type: EConnectionType.STEAM,
@@ -1060,6 +1078,8 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
             } as any);
             let attempts = 0;
             const playtime = {
+                updatePlaytimeInfo: async (): Promise<any> =>
+                    playtime.updateSteamPlaytimeInfo(),
                 updateSteamPlaytimeInfo: jest.fn(async () => {
                     if (++attempts === 1)
                         throw new Error("fixture failed write");

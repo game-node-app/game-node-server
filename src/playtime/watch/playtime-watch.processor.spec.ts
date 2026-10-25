@@ -1,3 +1,4 @@
+import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import {
     playerStateFixture,
     playerOwner,
@@ -47,6 +48,38 @@ jest.mock("../../sync/xbox/client/callXboxApi", () => ({
     callXboxAPI: jest.fn(),
 }));
 
+test("playtime executes the registered handler and rejects missing capabilities", async () => {
+    const registry = new ConnectionProviderRegistry();
+    const processor = new PlaytimeWatchProcessor(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        registry,
+    );
+    const handler = jest.fn().mockResolvedValue({ outcome: "empty" });
+    registry.register({
+        ...registry.get("steam"),
+        type: "future" as any,
+        syncHandlers: { fetchPlaytime: handler },
+    });
+    const job = { data: { userId: "user" } } as any;
+    await expect(processor.updatePlaytimeInfo("future", job)).resolves.toEqual({
+        outcome: "empty",
+    });
+    expect(handler).toHaveBeenCalledWith(job);
+    registry.get("future").syncHandlers = {};
+    await expect(
+        processor.updatePlaytimeInfo("future", job),
+    ).rejects.toMatchObject({ name: "UnrecoverableError" });
+});
+
 test("a capped TitleHub response leaves previous playtime and queued achievements untouched", async () => {
     setCacheManager({
         get: jest.fn().mockResolvedValue(undefined),
@@ -56,7 +89,7 @@ test("a capped TitleHub response leaves previous playtime and queued achievement
         titles: Array(5000).fill({ titleId: "1" }),
     } as any);
     const xbox = new XboxSyncService(
-        { getAuthCredentials: jest.fn().mockResolvedValue({}) } as any,
+        { getUserAuthCredentials: jest.fn().mockResolvedValue({}) } as any,
         {} as any,
     );
     const save = jest.fn();
@@ -76,6 +109,7 @@ test("a capped TitleHub response leaves previous playtime and queued achievement
         {} as any,
         {} as any,
         { addUserSyncJob: enqueue } as any,
+        new ConnectionProviderRegistry(),
     );
     await expect(
         processor.updateXboxPlaytimeInfo({ data: { userId: "user" } } as any),
@@ -119,6 +153,7 @@ test("a late PSN library cannot reach playtime writes or achievement admission",
         {} as any,
         {} as any,
         { addUserSyncJob: enqueue } as any,
+        new ConnectionProviderRegistry(),
     );
     try {
         const pending = runPlayerSyncAttempt(() =>
@@ -162,6 +197,7 @@ it.each(["steam", "psn", "xbox"])(
             {} as any,
             { sendMessageToUser: jest.fn() } as any,
             { addUserSyncJob: enqueue } as any,
+            new ConnectionProviderRegistry(),
         );
         const updateProgress = jest.fn().mockResolvedValue(undefined);
         const job = {
@@ -202,6 +238,7 @@ test("legacy jobs never reach provider work", async () => {
         {} as any,
         {} as any,
         {} as any,
+        new ConnectionProviderRegistry(),
     );
     const fetch = jest.spyOn(processor, "updateSteamPlaytimeInfo");
     await expect(
@@ -292,6 +329,7 @@ test("Steam selection uses recent-list data for timestamp-free and Family Sharin
         {} as any,
         {} as any,
         { addUserSyncJob: enqueue } as any,
+        new ConnectionProviderRegistry(),
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
 
@@ -414,6 +452,7 @@ test("PSN title progress fingerprints keep same-service communication IDs distin
         } as any,
         {} as any,
         { addUserSyncJob: enqueue } as any,
+        new ConnectionProviderRegistry(),
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
 
@@ -515,6 +554,7 @@ test("Xbox achievement selection follows title progress when playtime stats are 
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
         {} as any,
         { addUserSyncJob: enqueue } as any,
+        new ConnectionProviderRegistry(),
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
 
@@ -660,6 +700,7 @@ test("PSN maps persist before one enqueue per concept and same-name titles stay 
         } as any,
         {} as any,
         { addUserSyncJob: enqueue } as any,
+        new ConnectionProviderRegistry(),
     );
 
     await processor.updatePsnPlaytimeInfo({
@@ -772,6 +813,7 @@ it.each(["steam", "xbox"])(
                 } as any,
                 {} as any,
                 { addUserSyncJob: jest.fn() } as any,
+                new ConnectionProviderRegistry(),
             );
             const job = {
                 data: { userId: "user" },
@@ -821,6 +863,7 @@ test("Steam editions sharing one game contribute once to its cumulative observat
         {} as any,
         {} as any,
         { addUserSyncJob: jest.fn() } as any,
+        new ConnectionProviderRegistry(),
     );
     await processor.updateSteamPlaytimeInfo({
         data: { userId: "owner" },

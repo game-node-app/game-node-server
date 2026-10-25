@@ -1,5 +1,6 @@
 import { SteamSyncService } from "./steam-sync.service";
 import { setCacheManager } from "../../utils/cacheable";
+import { runPlayerSyncAttempt } from "../player-sync-attempt";
 
 describe("Steam combined library", () => {
     const owned = jest.fn();
@@ -115,5 +116,35 @@ describe("Steam achievement outcomes", () => {
         await expect(
             service.getUserAchievements("user", 1),
         ).rejects.toMatchObject({ outcome: "incomplete" });
+    });
+
+    it("shares one cold schema fetch across concurrent consumers and evicts failed attempts", async () => {
+        const response = { availableGameStats: { achievements: [] } };
+        schema.mockRejectedValueOnce(new Error("temporary"));
+        schema.mockResolvedValue(response);
+        obtained.mockResolvedValue({ achievements: [] });
+
+        await runPlayerSyncAttempt(async () => {
+            const failures = await Promise.allSettled([
+                service.getUserAchievements("user", 1),
+                service.getAvailableAchievements(1),
+            ]);
+            expect(
+                failures.every((result) => result.status === "rejected"),
+            ).toBe(true);
+            expect(schema).toHaveBeenCalledTimes(1);
+            expect(obtained).not.toHaveBeenCalled();
+
+            await expect(
+                Promise.all([
+                    service.getUserAchievements("user", 1),
+                    service.getAvailableAchievements(1),
+                ]),
+            ).resolves.toEqual([{ achievements: [] }, []]);
+            expect(schema).toHaveBeenCalledTimes(2);
+            expect(obtained).toHaveBeenCalledTimes(1);
+        });
+        await runPlayerSyncAttempt(() => service.getAvailableAchievements(1));
+        expect(schema).toHaveBeenCalledTimes(3);
     });
 });

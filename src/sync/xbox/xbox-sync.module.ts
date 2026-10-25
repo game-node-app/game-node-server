@@ -1,11 +1,27 @@
 import { PlayerProviderBudgetModule } from "../player-provider-budget.module";
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
 import { XboxSyncService } from "./xbox-sync.service";
 import { XboxSyncAuthService } from "./auth/xbox-sync-auth.service";
+import { XboxConnectionAuthProvider } from "./xbox-connection-auth.provider";
+import { UserConnection } from "../../connection/entity/user-connection.entity";
+import { ConnectionsModule } from "../../connection/connections.module";
 
 @Module({
-    imports: [PlayerProviderBudgetModule],
-    providers: [XboxSyncService, XboxSyncAuthService],
-    exports: [XboxSyncService],
+    imports: [
+        PlayerProviderBudgetModule,
+        TypeOrmModule.forFeature([UserConnection]),
+        forwardRef(() => ConnectionsModule),
+    ],
+    providers: [
+        XboxSyncService,
+        XboxSyncAuthService,
+        XboxConnectionAuthProvider,
+    ],
+    exports: [
+        XboxSyncService,
+        XboxSyncAuthService,
+        XboxConnectionAuthProvider,
+    ],
 })
 export class XboxSyncModule {}

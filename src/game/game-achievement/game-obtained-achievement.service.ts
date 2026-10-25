@@ -19,11 +19,15 @@ import {
     getPSNAchievementId,
     isValidXboxProductId,
 } from "./game-achievement.utils";
-import { match, P } from "ts-pattern";
+import { GameExternalGame } from "../external-game/entity/game-external-game.entity";
 import { Injectable, Logger } from "@nestjs/common";
+import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import { UnsupportedGameAchievementSourceError } from "./game-achievement.errors";
 import { UserThinTrophy } from "psn-api";
-import { GAME_ACHIEVEMENT_ENABLED_SOURCES } from "./game-achievement.constants";
+import {
+    ACHIEVEMENT_CONNECTION_SOURCE,
+    GAME_ACHIEVEMENT_ENABLED_SOURCES,
+} from "./game-achievement.constants";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 
@@ -44,7 +48,21 @@ export class GameObtainedAchievementService {
         private readonly xboxSyncService: XboxSyncService,
         private readonly connectionsService: ConnectionsService,
         private readonly syncQueue: GameAchievementSyncQueueService,
-    ) {}
+        private readonly providerRegistry: ConnectionProviderRegistry,
+    ) {
+        providerRegistry.registerSyncHandlers(EConnectionType.STEAM, {
+            fetchObtainedAchievements: (userId, game) =>
+                this.fetchSteam(userId, game),
+        });
+        providerRegistry.registerSyncHandlers(EConnectionType.PSN, {
+            fetchObtainedAchievements: (userId, game) =>
+                this.fetchPsn(userId, game),
+        });
+        providerRegistry.registerSyncHandlers(EConnectionType.XBOX, {
+            fetchObtainedAchievements: (userId, game) =>
+                this.fetchXbox(userId, game),
+        });
+    }
 
     /**
      * Find all obtained achievements from <strong>source</strong> related to an external game ID. <br />
@@ -58,172 +76,161 @@ export class GameObtainedAchievementService {
     ) {
         const externalGame =
             await this.externalGameService.findOneByIdOrFail(externalGameId);
+        if (!userId) return [];
+        const type = ACHIEVEMENT_CONNECTION_SOURCE.get(externalGame.category!);
+        if (!type) throw new UnsupportedGameAchievementSourceError();
+        const provider = this.providerRegistry.get(type);
+        const handler = provider.syncHandlers?.fetchObtainedAchievements;
+        if (!handler) throw new UnsupportedGameAchievementSourceError();
+        return handler(userId, externalGame);
+    }
 
-        if (!userId) {
+    private async fetchSteam(
+        userId: string,
+        externalGame: GameExternalGame,
+    ): Promise<GameObtainedAchievementDto[]> {
+        const targetConnection =
+            await this.connectionsService.findOneByUserIdAndType(
+                userId,
+                EConnectionType.STEAM,
+            );
+        if (!targetConnection) {
             return [];
         }
 
-        return await match<
-            EGameExternalGameCategory,
-            Promise<GameObtainedAchievementDto[]>
-        >(externalGame.category!)
-            .with(EGameExternalGameCategory.Steam, async () => {
-                const targetConnection =
-                    await this.connectionsService.findOneByUserIdAndType(
-                        userId,
-                        EConnectionType.STEAM,
+        const achievementsInSource =
+            await this.steamSyncService.getUserAchievements(
+                targetConnection.sourceUserId,
+                Number(externalGame.uid),
+            );
+
+        return achievementsInSource.achievements.map((achievement) => {
+            return {
+                externalGameId: externalGame.id,
+                gameId: externalGame.gameId,
+                externalId: achievement.name,
+                isObtained: achievement.unlocked,
+                obtainedAt: achievement.unlockedTimestamp
+                    ? new Date(achievement.unlockedTimestamp * 1000)
+                    : null,
+                source: EGameExternalGameCategory.Steam,
+            } satisfies GameObtainedAchievementDto;
+        });
+    }
+
+    private async fetchPsn(
+        userId: string,
+        externalGame: GameExternalGame,
+    ): Promise<GameObtainedAchievementDto[]> {
+        if (
+            externalGame.psnExtraMappings == undefined ||
+            externalGame.psnExtraMappings.length === 0
+        ) {
+            return [];
+        }
+
+        const userConnection =
+            await this.connectionsService.findOneByUserIdAndType(
+                userId,
+                EConnectionType.PSN,
+            );
+
+        if (!userConnection) {
+            return [];
+        }
+
+        const mappings = externalGame.psnExtraMappings;
+
+        const totalObtainedTrophies: GameObtainedAchievementDto[] = [];
+
+        const processedMappings = new Set<string>();
+
+        for (const mapping of mappings) {
+            const identity = `${mapping.npCommunicationId}:${mapping.npServiceName}`;
+            if (processedMappings.has(identity)) {
+                continue;
+            }
+
+            let userTrophies: UserThinTrophy[] = [];
+            try {
+                userTrophies =
+                    await this.psnSyncService.getObtainedAchievements(
+                        userConnection.sourceUserId,
+                        mapping.npCommunicationId,
+                        mapping.npServiceName,
                     );
-                if (!targetConnection) {
-                    return [];
-                }
+            } catch (err) {
+                this.logger.error(err);
+                throw err;
+            }
 
-                const achievementsInSource =
-                    await this.steamSyncService.getUserAchievements(
-                        targetConnection.sourceUserId,
-                        Number(externalGame.uid),
-                    );
-
-                return achievementsInSource.achievements.map((achievement) => {
-                    return {
-                        externalGameId: externalGame.id,
-                        gameId: externalGame.gameId,
-                        externalId: achievement.name,
-                        isObtained: achievement.unlocked,
-                        obtainedAt: achievement.unlockedTimestamp
-                            ? new Date(achievement.unlockedTimestamp * 1000)
-                            : null,
-                        source: EGameExternalGameCategory.Steam,
-                    } satisfies GameObtainedAchievementDto;
-                });
-            })
-            /**
-             * TODO: Make this return matches for ALL mappings
-             */
-            .with(EGameExternalGameCategory.PlaystationStoreUs, async () => {
-                if (
-                    externalGame.psnExtraMappings == undefined ||
-                    externalGame.psnExtraMappings.length === 0
-                ) {
-                    return [];
-                }
-
-                const userConnection =
-                    await this.connectionsService.findOneByUserIdAndType(
-                        userId,
-                        EConnectionType.PSN,
-                    );
-
-                if (!userConnection) {
-                    return [];
-                }
-
-                const mappings = externalGame.psnExtraMappings;
-
-                const totalObtainedTrophies: GameObtainedAchievementDto[] = [];
-
-                const processedMappings = new Set<string>();
-
-                for (const mapping of mappings) {
-                    const identity = `${mapping.npCommunicationId}:${mapping.npServiceName}`;
-                    if (processedMappings.has(identity)) {
-                        continue;
-                    }
-
-                    let userTrophies: UserThinTrophy[] = [];
-                    try {
-                        userTrophies =
-                            await this.psnSyncService.getObtainedAchievements(
-                                userConnection.sourceUserId,
-                                mapping.npCommunicationId,
-                                mapping.npServiceName,
-                            );
-                    } catch (err) {
-                        this.logger.error(err);
-                        throw err;
-                    }
-
-                    const parsedTrophies = userTrophies.map((trophy) => {
-                        return {
-                            externalGameId: externalGame.id,
-                            gameId: externalGame.gameId,
-                            isObtained: trophy.earned ?? false,
-                            obtainedAt: trophy.earnedDateTime
-                                ? new Date(trophy.earnedDateTime)
-                                : null,
-                            source: EGameExternalGameCategory.PlaystationStoreUs,
-                            externalId: getPSNAchievementId(
-                                mapping.npCommunicationId,
-                                trophy.trophyId,
-                            ),
-                        } satisfies GameObtainedAchievementDto;
-                    });
-
-                    totalObtainedTrophies.push(...parsedTrophies);
-
-                    processedMappings.add(identity);
-                }
-
-                return totalObtainedTrophies;
-            })
-            .with(
-                P.union(
-                    EGameExternalGameCategory.Microsoft,
-                    EGameExternalGameCategory.XboxMarketplace,
-                    EGameExternalGameCategory.XboxGamePassUltimateCloud,
-                ),
-                async () => {
-                    const isValidProductId = isValidXboxProductId(
-                        externalGame.uid,
-                    );
-                    if (!isValidProductId) {
-                        return [];
-                    }
-
-                    const userConnection =
-                        await this.connectionsService.findOneByUserIdAndType(
-                            userId,
-                            EConnectionType.XBOX,
-                        );
-
-                    if (!userConnection) {
-                        return [];
-                    }
-
-                    const titlePFN =
-                        await this.xboxSyncService.getPFNByProductId(
-                            externalGame.uid,
-                        );
-                    const titleId =
-                        await this.xboxSyncService.getTitleIdByPFN(titlePFN);
-
-                    const achievements =
-                        await this.xboxSyncService.getObtainedAchievements(
-                            userConnection.sourceUserId,
-                            titleId,
-                        );
-
-                    return achievements.map((achievement) => {
-                        const isObtained =
-                            achievement.progressState === "Achieved";
-
-                        return {
-                            externalGameId: externalGame.id,
-                            gameId: externalGame.gameId,
-                            source: EGameExternalGameCategory.Microsoft,
-                            isObtained: isObtained,
-                            obtainedAt: isObtained
-                                ? dayjs(
-                                      achievement.progression.timeUnlocked,
-                                  ).toDate()
-                                : null,
-                            externalId: achievement.id,
-                        } satisfies GameObtainedAchievementDto;
-                    });
-                },
-            )
-            .otherwise(() => {
-                throw new UnsupportedGameAchievementSourceError();
+            const parsedTrophies = userTrophies.map((trophy) => {
+                return {
+                    externalGameId: externalGame.id,
+                    gameId: externalGame.gameId,
+                    isObtained: trophy.earned ?? false,
+                    obtainedAt: trophy.earnedDateTime
+                        ? new Date(trophy.earnedDateTime)
+                        : null,
+                    source: EGameExternalGameCategory.PlaystationStoreUs,
+                    externalId: getPSNAchievementId(
+                        mapping.npCommunicationId,
+                        trophy.trophyId,
+                    ),
+                } satisfies GameObtainedAchievementDto;
             });
+
+            totalObtainedTrophies.push(...parsedTrophies);
+
+            processedMappings.add(identity);
+        }
+
+        return totalObtainedTrophies;
+    }
+
+    private async fetchXbox(
+        userId: string,
+        externalGame: GameExternalGame,
+    ): Promise<GameObtainedAchievementDto[]> {
+        const isValidProductId = isValidXboxProductId(externalGame.uid);
+        if (!isValidProductId) {
+            return [];
+        }
+
+        const userConnection =
+            await this.connectionsService.findOneByUserIdAndType(
+                userId,
+                EConnectionType.XBOX,
+            );
+
+        if (!userConnection) {
+            return [];
+        }
+
+        const titlePFN = await this.xboxSyncService.getPFNByProductId(
+            externalGame.uid,
+        );
+        const titleId = await this.xboxSyncService.getTitleIdByPFN(titlePFN);
+
+        const achievements = await this.xboxSyncService.getObtainedAchievements(
+            userConnection.sourceUserId,
+            titleId,
+        );
+
+        return achievements.map((achievement) => {
+            const isObtained = achievement.progressState === "Achieved";
+
+            return {
+                externalGameId: externalGame.id,
+                gameId: externalGame.gameId,
+                source: EGameExternalGameCategory.Microsoft,
+                isObtained: isObtained,
+                obtainedAt: isObtained
+                    ? dayjs(achievement.progression.timeUnlocked).toDate()
+                    : null,
+                externalId: achievement.id,
+            } satisfies GameObtainedAchievementDto;
+        });
     }
 
     public async findAllObtainedByExternalGameId(
@@ -234,23 +241,10 @@ export class GameObtainedAchievementService {
         const externalGame =
             await this.externalGameService.findOneByIdOrFail(externalGameId);
         if (!userId) return [];
-        const source = match(externalGame.category)
-            .with(EGameExternalGameCategory.Steam, () => EConnectionType.STEAM)
-            .with(
-                EGameExternalGameCategory.PlaystationStoreUs,
-                () => EConnectionType.PSN,
-            )
-            .with(
-                P.union(
-                    EGameExternalGameCategory.Microsoft,
-                    EGameExternalGameCategory.XboxMarketplace,
-                    EGameExternalGameCategory.XboxGamePassUltimateCloud,
-                ),
-                () => EConnectionType.XBOX,
-            )
-            .otherwise(() => {
-                throw new UnsupportedGameAchievementSourceError();
-            });
+        const source = ACHIEVEMENT_CONNECTION_SOURCE.get(
+            externalGame.category!,
+        );
+        if (!source) throw new UnsupportedGameAchievementSourceError();
         const rows = await this.obtainedAchievementRepository.findBy({
             profileUserId: userId,
             externalGameId,

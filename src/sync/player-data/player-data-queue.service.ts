@@ -64,7 +64,7 @@ export class PlayerDataQueueService implements OnModuleInit {
 
     @Cron("*/5 * * * *")
     async registerDueJobs() {
-        if (this.config.get<string>("PLAYER_DATA_SYNC_ENABLED") !== "true")
+        if (this.config.get<string>("PLAYER_DATA_SYNC_ENABLED") === "false")
             return { admitted: 0, failed: 0 };
         let cursor: { at: Date; id: number } | undefined;
         let admitted = 0;

@@ -32,20 +32,12 @@ export class XboxSyncService {
         private readonly authService: XboxSyncAuthService,
         @Inject(CACHE_MANAGER)
         private readonly cacheManager: Cache,
-    ) {
-        // (async () => {
-        //     const pfn = await this.getPFNByProductId("BTNPS60N3114");
-        //     const titleId = await this.getTitleIdByPFN(pfn);
-        //     const achievements = await this.getAvailableAchievements(titleId);
-        //
-        //     return achievements;
-        // })();
-    }
+    ) {}
 
     public async resolveUserInfo(
         gamertag: string,
     ): Promise<ConnectionUserResolveDto> {
-        const auth = await this.authService.getAuthCredentials();
+        const auth = await this.authService.getCatalogAuthCredentials();
 
         let playerXUID: string;
         try {
@@ -72,7 +64,7 @@ export class XboxSyncService {
     @PlayerLibrarySnapshot()
     @Cacheable(`${XboxSyncService.name}:complete-v1#getAllGames`, hours(1))
     public async getAllGames(playerXUID: string) {
-        const auth = await this.authService.getAuthCredentials();
+        const auth = await this.authService.getUserAuthCredentials(playerXUID);
 
         const response: {
             xuid: string;
@@ -138,7 +130,7 @@ export class XboxSyncService {
             return items;
         }
 
-        const auth = await this.authService.getAuthCredentials();
+        const auth = await this.authService.getUserAuthCredentials(playerXUID);
 
         const MAX_REQUEST_SIZE = 1000;
 
@@ -196,8 +188,26 @@ export class XboxSyncService {
 
     @Cacheable(`${XboxSyncService.name}:complete-v1`, minutes(15))
     public async getObtainedAchievements(playerXUID: string, titleId: string) {
-        const auth = await this.authService.getAuthCredentials();
+        const auth = await this.authService.getUserAuthCredentials(playerXUID);
+        return this.fetchAchievements(auth, playerXUID, titleId);
+    }
 
+    /**
+     * Returns all achievements available for a game.
+     * A generic XUID is used, so don't expect 'owned' statistics to be accurate.
+     * @param titleId
+     */
+    @Cacheable(`${XboxSyncService.name}:complete-v1`, hours(24))
+    public async getAvailableAchievements(titleId: string) {
+        const auth = await this.authService.getCatalogAuthCredentials();
+        return this.fetchAchievements(auth, this.GENERIC_XUID, titleId);
+    }
+
+    private async fetchAchievements(
+        auth: { XSTSToken: string; userHash: string },
+        xuid: string,
+        titleId: string,
+    ) {
         const achievements: XboxGameAchievementsResponse["achievements"] = [];
         const seenTokens = new Set<string>();
         const seenAchievements = new Set<string>();
@@ -213,7 +223,7 @@ export class XboxSyncService {
                 );
             const result = await callXboxAPI<XboxGameAchievementsResponse>(
                 {
-                    url: `https://achievements.xboxlive.com/users/xuid(${playerXUID})/achievements`,
+                    url: `https://achievements.xboxlive.com/users/xuid(${xuid})/achievements`,
                     params: {
                         titleId,
                         maxItems: 1000,
@@ -279,16 +289,6 @@ export class XboxSyncService {
         } while (continuationToken);
 
         return achievements;
-    }
-
-    /**
-     * Returns all achievements available for a game.
-     * A generic XUID is used, so don't expect 'owned' statistics to be accurate.
-     * @param titleId
-     */
-    @Cacheable(`${XboxSyncService.name}:complete-v1`, hours(24))
-    public async getAvailableAchievements(titleId: string) {
-        return this.getObtainedAchievements(this.GENERIC_XUID, titleId);
     }
 
     @Cacheable(`${XboxSyncService.name}:complete-v1`, days(7))

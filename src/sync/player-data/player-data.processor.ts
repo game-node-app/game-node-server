@@ -4,7 +4,6 @@ import { Job, UnrecoverableError } from "bullmq";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { PlaytimeWatchProcessor } from "../../playtime/watch/playtime-watch.processor";
 import { PLAYTIME_WATCH_QUEUE_JOB_NAME } from "../../playtime/watch/playtime-watch.constants";
-import { UserPlaytimeSource } from "../../playtime/playtime.constants";
 import { ImporterWatchProcessor } from "../../importer/importer-watch/importer-watch.processor";
 import { connectionToImporterSource } from "../../importer/importer.util";
 import {
@@ -53,24 +52,10 @@ export class PlayerDataProcessor extends WorkerHostProcessor {
                         let empty = false;
                         if (stage === "playtime") {
                             const result =
-                                job.data.source === UserPlaytimeSource.STEAM
-                                    ? await this.playtime.updateSteamPlaytimeInfo(
-                                          job,
-                                      )
-                                    : job.data.source === UserPlaytimeSource.PSN
-                                      ? await this.playtime.updatePsnPlaytimeInfo(
-                                            job,
-                                        )
-                                      : job.data.source ===
-                                          UserPlaytimeSource.XBOX
-                                        ? await this.playtime.updateXboxPlaytimeInfo(
-                                              job,
-                                          )
-                                        : (() => {
-                                              throw new UnrecoverableError(
-                                                  "Unsupported player source",
-                                              );
-                                          })();
+                                await this.playtime.updatePlaytimeInfo(
+                                    owner.source,
+                                    job,
+                                );
                             empty = result?.outcome === "empty";
                         } else {
                             empty =
@@ -94,6 +79,10 @@ export class PlayerDataProcessor extends WorkerHostProcessor {
                         recordPlayerSyncStats({ stagesFailed: 1 });
                         const current = providerFailure("Player", error);
                         await this.state.failStage(owner, stage, current);
+                        if (current.outcome === "reauth_required") {
+                            await this.state.finish(owner, current);
+                            throw current;
+                        }
                         failure ??= current;
                     }
                 }
@@ -119,14 +108,5 @@ export class PlayerDataProcessor extends WorkerHostProcessor {
                 name: PLAYTIME_WATCH_QUEUE_JOB_NAME,
             }),
         );
-    }
-    @OnWorkerEvent("failed")
-    async onFailed(job: Job<PlayerDataJob>) {
-        if (job)
-            return this.playtime.onFailed(
-                Object.assign(Object.create(job), {
-                    name: PLAYTIME_WATCH_QUEUE_JOB_NAME,
-                }),
-            );
     }
 }

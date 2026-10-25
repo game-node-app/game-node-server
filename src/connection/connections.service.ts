@@ -13,23 +13,40 @@ import { UserConnection } from "./entity/user-connection.entity";
 import { In, Repository } from "typeorm";
 import {
     ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS,
+    EConnectionAuthMode,
+    EConnectionAuthStatus,
     EConnectionType,
     IMPORTER_VIABLE_CONNECTIONS,
     IMPORTER_WATCH_VIABLE_CONNECTIONS,
     PLAYTIME_IMPORT_VIABLE_CONNECTIONS,
 } from "./connections.constants";
 import { ConnectionCreateDto } from "./dto/connection-create.dto";
-import { SteamSyncService } from "../sync/steam/steam-sync.service";
 import { FindAvailableConnectionsResponseDto } from "./dto/find-available-connections-response.dto";
-import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { UserConnectionDto } from "./dto/user-connection.dto";
 import { HttpStatusCode } from "axios";
 import { PlaytimeWatchService } from "../playtime/watch/playtime-watch.service";
-import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
 import { CollectionsService } from "../collections/collections.service";
+import { ConnectionProviderRegistry } from "./connection-provider.registry";
+import { ConnectionAuthStateService } from "./connection-auth-state.service";
+import { ConnectionCredentialService } from "./connection-credential.service";
+import {
+    ConnectionAuthInitDto,
+    ConnectionAuthInitResponseDto,
+} from "./dto/connection-auth-init.dto";
+import { ConnectionAuthCallbackDto } from "./dto/connection-auth-callback.dto";
+import { ConnectionSettingsUpdateDto } from "./dto/connection-settings-update.dto";
+import * as crypto from "node:crypto";
 
-const toDto = (userConnection: UserConnection): UserConnectionDto => ({
-    ...userConnection,
+export const toDto = (userConnection: UserConnection): UserConnectionDto => ({
+    id: userConnection.id,
+    type: userConnection.type,
+    profileUserId: userConnection.profileUserId,
+    sourceUserId: userConnection.sourceUserId,
+    sourceUsername: userConnection.sourceUsername,
+    isAutoImportEnabled: userConnection.isAutoImportEnabled,
+    autoImportCollectionId: userConnection.autoImportCollectionId,
+    autoImportCollection: userConnection.autoImportCollection,
+    authStatus: userConnection.authStatus ?? EConnectionAuthStatus.CONNECTED,
     isImporterViable: IMPORTER_VIABLE_CONNECTIONS.includes(userConnection.type),
     isImporterWatchViable: IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(
         userConnection.type,
@@ -49,14 +66,14 @@ export class ConnectionsService {
     constructor(
         @InjectRepository(UserConnection)
         private readonly userConnectionRepository: Repository<UserConnection>,
-        private readonly steamSyncService: SteamSyncService,
-        private readonly psnSyncService: PsnSyncService,
-        private readonly xboxSyncService: XboxSyncService,
         @Inject(forwardRef(() => PlaytimeWatchService))
         private readonly playtimeWatchService: PlaytimeWatchService,
         @Inject(forwardRef(() => CollectionsService))
         private readonly collectionsService: CollectionsService,
         private readonly syncState: PlayerSyncStateService,
+        private readonly providerRegistry: ConnectionProviderRegistry,
+        private readonly authStateService: ConnectionAuthStateService,
+        private readonly credentialService: ConnectionCredentialService,
     ) {}
 
     public findOneById(id: number) {
@@ -110,23 +127,7 @@ export class ConnectionsService {
     public async findAvailableConnections(): Promise<
         FindAvailableConnectionsResponseDto[]
     > {
-        return Object.values(EConnectionType).map(
-            (type): FindAvailableConnectionsResponseDto => {
-                return {
-                    type: type,
-                    isImporterViable:
-                        IMPORTER_VIABLE_CONNECTIONS.includes(type),
-                    isImporterWatchViable:
-                        IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(type),
-                    isPlaytimeImportViable:
-                        PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(type),
-                    isAchievementImportViable:
-                        ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS.includes(type),
-                    name: type.valueOf(),
-                    iconName: type.valueOf(),
-                };
-            },
-        );
+        return this.providerRegistry.getAvailableProviders();
     }
 
     public async createOrUpdate(userId: string, dto: ConnectionCreateDto) {
@@ -137,46 +138,36 @@ export class ConnectionsService {
             autoImportCollectionId,
         } = dto;
 
+        const provider = this.providerRegistry.get(type);
+        if (provider.authMode !== EConnectionAuthMode.PUBLIC_IDENTIFIER) {
+            throw new HttpException(
+                `Manual userIdentifier onboarding is only supported for public_identifier providers (e.g. psn). Use redirect authentication for ${type}.`,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
         let sourceUserId: string;
         let sourceUsername: string;
 
-        switch (type) {
-            case EConnectionType.STEAM: {
-                const steamUserInfo =
-                    await this.steamSyncService.resolveUserInfo(userIdentifier);
-                sourceUserId = steamUserInfo.userId;
-                sourceUsername = steamUserInfo.username;
-                break;
-            }
-            case EConnectionType.PSN: {
-                const psnUserInfo =
-                    await this.psnSyncService.resolveUserInfo(userIdentifier);
-                sourceUserId = psnUserInfo.userId;
-                sourceUsername = psnUserInfo.username;
-                break;
-            }
-            case EConnectionType.XBOX: {
-                const xboxUserInfo =
-                    await this.xboxSyncService.resolveUserInfo(userIdentifier);
-                sourceUserId = xboxUserInfo.userId;
-                sourceUsername = xboxUserInfo.username;
-                break;
-            }
-            default:
-                throw new HttpException(
-                    "Invalid connection type",
-                    HttpStatus.BAD_REQUEST,
+        if (provider.authStrategy?.resolvePublicIdentifier) {
+            const resolved =
+                await provider.authStrategy.resolvePublicIdentifier(
+                    userIdentifier,
                 );
+            sourceUserId = resolved.sourceUserId;
+            sourceUsername = resolved.sourceUsername;
+        } else {
+            throw new HttpException(
+                "Unable to resolve public identifier for provider",
+                HttpStatus.BAD_REQUEST,
+            );
         }
 
-        const isImporterViable = IMPORTER_VIABLE_CONNECTIONS.includes(type);
+        const isImporterViable = provider.isImporterViable;
         const finalIsAutoImportEnabled = isImporterViable
             ? isAutoImportEnabled
             : false;
 
-        // Validate collection exists and belongs to user if autoImportCollectionId is provided
-        // If auto-import is enabled but no collection specified, games will be imported
-        // to the user's library without being added to a specific collection
         let validatedAutoImportCollectionId: string | null = null;
         if (finalIsAutoImportEnabled && autoImportCollectionId) {
             const collection = await this.collectionsService.findOneById(
@@ -204,6 +195,7 @@ export class ConnectionsService {
                 sourceUsername,
                 isAutoImportEnabled: finalIsAutoImportEnabled,
                 autoImportCollectionId: validatedAutoImportCollectionId,
+                authStatus: EConnectionAuthStatus.CONNECTED,
             });
             await this.syncState.initialize(
                 saved.id,
@@ -214,6 +206,175 @@ export class ConnectionsService {
         });
 
         await this.onConnectionCreate(createdConnection);
+    }
+
+    public async initRedirectAuth(
+        userId: string,
+        type: EConnectionType,
+        dto: ConnectionAuthInitDto,
+    ): Promise<ConnectionAuthInitResponseDto> {
+        const provider = this.providerRegistry.get(type);
+        if (provider.authMode !== EConnectionAuthMode.REDIRECT) {
+            throw new HttpException(
+                `Provider ${type} does not support redirect authentication`,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+        if (!provider.authStrategy?.initRedirectAuth) {
+            throw new HttpException(
+                `Provider ${type} redirect authentication strategy is not implemented`,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        let validatedCollectionId: string | null = null;
+        if (dto.autoImportCollectionId) {
+            const collection = await this.collectionsService.findOneById(
+                dto.autoImportCollectionId,
+            );
+            if (!collection || collection.libraryUserId !== userId) {
+                throw new HttpException(
+                    "Collection not found or does not belong to user",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+            validatedCollectionId = dto.autoImportCollectionId;
+        }
+
+        const state = crypto.randomBytes(32).toString("hex");
+        const strategyResult = await provider.authStrategy.initRedirectAuth({
+            userId,
+            state,
+            isAutoImportEnabled: dto.isAutoImportEnabled,
+            autoImportCollectionId: validatedCollectionId,
+        });
+
+        const finalState = strategyResult.state || state;
+        await this.authStateService.initState(
+            {
+                userId,
+                type,
+                isAutoImportEnabled: dto.isAutoImportEnabled,
+                autoImportCollectionId: validatedCollectionId,
+                codeVerifier: strategyResult.codeVerifier,
+                metadata: strategyResult.metadata,
+            },
+            finalState,
+        );
+
+        return {
+            authorizationUrl: strategyResult.authorizationUrl,
+            state: finalState,
+        };
+    }
+
+    public async completeRedirectAuth(
+        userId: string,
+        type: EConnectionType,
+        dto: ConnectionAuthCallbackDto,
+    ): Promise<UserConnectionDto> {
+        const provider = this.providerRegistry.get(type);
+        if (provider.authMode !== EConnectionAuthMode.REDIRECT) {
+            throw new HttpException(
+                `Provider ${type} does not support redirect authentication`,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+        if (!provider.authStrategy?.completeRedirectAuth) {
+            throw new HttpException(
+                `Provider ${type} redirect authentication strategy is not implemented`,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
+        const storedState = await this.authStateService.consumeState(
+            dto.state,
+            userId,
+            type,
+        );
+
+        const authResult = await provider.authStrategy.completeRedirectAuth(
+            dto.callbackParams,
+            storedState,
+        );
+
+        const createdConnection = await runInTransaction(async () => {
+            const latest = await this.userConnectionRepository.findOne({
+                where: { profileUserId: userId, type },
+                lock: { mode: "pessimistic_write" },
+            });
+            const saved = await this.userConnectionRepository.save({
+                ...latest,
+                type,
+                profileUserId: userId,
+                sourceUserId: authResult.sourceUserId,
+                sourceUsername: authResult.sourceUsername,
+                isAutoImportEnabled: storedState.isAutoImportEnabled ?? false,
+                autoImportCollectionId:
+                    storedState.autoImportCollectionId ?? null,
+                authStatus: EConnectionAuthStatus.CONNECTED,
+            });
+
+            if (authResult.credentials) {
+                await this.credentialService.saveCredentials(
+                    saved.id,
+                    authResult.credentials,
+                );
+            }
+
+            await this.syncState.initialize(
+                saved.id,
+                saved.sourceUserId,
+                new Date(),
+                true,
+            );
+            return saved;
+        });
+
+        await this.onConnectionCreate(createdConnection);
+        return toDto(createdConnection);
+    }
+
+    public async updateSettings(
+        userId: string,
+        id: number,
+        dto: ConnectionSettingsUpdateDto,
+    ): Promise<UserConnectionDto> {
+        const connection = await this.userConnectionRepository.findOne({
+            where: { id },
+        });
+
+        if (!connection || connection.profileUserId !== userId) {
+            throw new HttpException(
+                "No connection found for the given criteria.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+
+        if (
+            dto.autoImportCollectionId !== undefined &&
+            dto.autoImportCollectionId !== null
+        ) {
+            const collection = await this.collectionsService.findOneById(
+                dto.autoImportCollectionId,
+            );
+            if (!collection || collection.libraryUserId !== userId) {
+                throw new HttpException(
+                    "Collection not found or does not belong to user",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+            connection.autoImportCollectionId = dto.autoImportCollectionId;
+        } else if (dto.autoImportCollectionId === null) {
+            connection.autoImportCollectionId = null;
+        }
+
+        if (dto.isAutoImportEnabled !== undefined) {
+            connection.isAutoImportEnabled = dto.isAutoImportEnabled;
+        }
+
+        const saved = await this.userConnectionRepository.save(connection);
+        return toDto(saved);
     }
 
     public async delete(userId: string, id: number) {

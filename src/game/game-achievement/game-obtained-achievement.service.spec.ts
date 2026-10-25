@@ -1,3 +1,4 @@
+import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import { EConnectionType } from "../../connection/connections.constants";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 import { GameObtainedAchievementService } from "./game-obtained-achievement.service";
@@ -19,6 +20,7 @@ test("unsupported external categories use the shared HTTP 400 failure", async ()
         {} as any,
         {} as any,
         {} as any,
+        new ConnectionProviderRegistry(),
     );
 
     const request = service.fetchObtainedByExternalGameId("user", 10);
@@ -63,6 +65,7 @@ test("obtained PSN trophies fetch each communication and service mapping once", 
         {} as any,
         { findOneByUserIdAndType: findConnection } as any,
         {} as any,
+        new ConnectionProviderRegistry(),
     );
 
     const achievements = await service.fetchObtainedByExternalGameId(
@@ -99,6 +102,7 @@ test("obtained rows use the supplied transaction manager", async () => {
         {} as any,
         {} as any,
         {} as any,
+        new ConnectionProviderRegistry(),
     );
 
     await service.persistObtainedAchievements(

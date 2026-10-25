@@ -28,18 +28,38 @@ export class SteamSyncService {
             }
             const client = new p.default(steamKey);
             client.get = (path, params = {}, base = client.baseAPI) =>
-                cancellableProviderCall(
-                    "Steam",
-                    async (signal) =>
-                        (
-                            await axios.get(base + path, {
-                                params: { ...params, key: steamKey },
-                                headers: client.headers,
-                                timeout: 30_000,
-                                signal,
-                            })
-                        ).data,
-                );
+                cancellableProviderCall("Steam", async (signal) => {
+                    const { data } = await axios.get(base + path, {
+                        params: { ...params, key: steamKey },
+                        headers: client.headers,
+                        timeout: 30_000,
+                        signal,
+                    });
+                    const count =
+                        path === "/IPlayerService/GetOwnedGames/v1"
+                            ? data?.response?.game_count
+                            : path ===
+                                "/IPlayerService/GetRecentlyPlayedGames/v1"
+                              ? data?.response?.total_count
+                              : undefined;
+                    if (count === 0) {
+                        const response = data.response;
+                        if (
+                            "error" in data ||
+                            "error" in response ||
+                            (response.games !== undefined &&
+                                (!Array.isArray(response.games) ||
+                                    response.games.length !== 0))
+                        )
+                            throw new ProviderSyncError(
+                                "incomplete",
+                                "Contradictory Steam empty-library response",
+                            );
+                        // The installed SDK maps games without checking explicit zero counts.
+                        response.games = [];
+                    }
+                    return data;
+                });
             this.client = client;
         });
     }
@@ -68,6 +88,10 @@ export class SteamSyncService {
             userId: response.steamID,
             username: response.nickname,
         };
+    }
+
+    public async getUserSummary(steamUserId: string): Promise<UserSummary> {
+        return (await this.client.getUserSummary(steamUserId)) as UserSummary;
     }
 
     /**
@@ -144,6 +168,7 @@ export class SteamSyncService {
         return [...games.values()];
     }
 
+    @PlayerLibrarySnapshot()
     @Cacheable(`${SteamSyncService.name}:complete-v1`, hours(24))
     public async getAvailableAchievements(appId: number) {
         const response: GameStatsResponse = await providerCall("Steam", () =>

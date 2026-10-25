@@ -13,12 +13,14 @@ export const USER_AGENT = [
  * @param request
  * @param auth
  * @param contractVersion
+ * @param playerXUID
  * @throws AxiosError
  */
 export async function callXboxAPI<T = unknown>(
     request: AxiosRequestConfig = {},
     { userHash, XSTSToken }: XboxLiveAuthorization,
     contractVersion = 2,
+    playerXUID?: string,
 ): Promise<T> {
     const BASE_HEADERS = {
         "x-xbl-contract-version": contractVersion,
@@ -36,8 +38,24 @@ export async function callXboxAPI<T = unknown>(
         ...request.headers,
     };
 
+    const xuidMatch =
+        typeof request.url === "string"
+            ? request.url.match(/users\/xuid\((\d+)\)/)
+            : null;
+    const bodyXuid = Array.isArray(request.data?.xuids)
+        ? request.data.xuids[0]
+        : null;
+    const resolvedXuid = playerXUID || xuidMatch?.[1] || bodyXuid;
+
+    const providerKey =
+        resolvedXuid && resolvedXuid !== "2535470385649416"
+            ? `Xbox:user:${resolvedXuid}`
+            : userHash || XSTSToken
+              ? "Xbox:catalog"
+              : "Xbox";
+
     return cancellableProviderCall(
-        "Xbox",
+        providerKey,
         async (signal) =>
             (
                 await axios.request({

@@ -1,8 +1,11 @@
 import { Test } from "@nestjs/testing";
 import { getQueueToken } from "@nestjs/bullmq";
 import { PlayerProviderBudgetModule } from "./player-provider-budget.module";
+import { ConnectionProviderModule } from "../connection/connection-provider.module";
+import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
 import {
     PLAYER_PROVIDER_BUDGET_QUEUE,
+    PlayerProviderBudgetService,
     withPlayerProviderBudget,
 } from "./player-provider-budget.service";
 
@@ -12,7 +15,7 @@ test("Nest initialization installs the shared budget before provider work", asyn
         zrem: jest.fn().mockResolvedValue(1),
     };
     const module = await Test.createTestingModule({
-        imports: [PlayerProviderBudgetModule],
+        imports: [ConnectionProviderModule, PlayerProviderBudgetModule],
     })
         .overrideProvider(getQueueToken(PLAYER_PROVIDER_BUDGET_QUEUE))
         .useValue({
@@ -23,6 +26,9 @@ test("Nest initialization installs the shared budget before provider work", asyn
         .compile();
     await module.init();
     try {
+        expect((module.get(PlayerProviderBudgetService) as any).registry).toBe(
+            module.get(ConnectionProviderRegistry),
+        );
         await expect(
             withPlayerProviderBudget("PSN", async () => "ready"),
         ).resolves.toBe("ready");

@@ -58,19 +58,17 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
     }
 
     public async run(data: ImporterWatchJob) {
-        let cursor = 0;
         let seen = 0;
         let worked = false;
         let failed = 0;
         await this.recoverPendingNotifications();
-        while (true) {
-            const [games] = await this.importerService.findUnprocessedEntries(
-                data.userId,
-                data.source,
-                { offset: 0, limit: 100 },
-                cursor,
-            );
-            if (!games.length) break;
+        const candidates = await this.importerService.findUnprocessedCandidates(
+            data.userId,
+            data.source,
+        );
+        candidates.sort((a, b) => a.gameId - b.gameId);
+        for (let offset = 0; offset < candidates.length; offset += 100) {
+            const games = candidates.slice(offset, offset + 100);
             seen += games.length;
             recordPlayerSyncStats({ gamesSeen: seen });
             const result = await this.commitPage(data, games);
@@ -83,7 +81,6 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
             });
             if (result.notification)
                 await this.deliverNotification(result.notification);
-            cursor = games[games.length - 1].gameId;
         }
         if (failed) throw new Error(`${failed} automatic imports failed`);
         return worked ? ("complete" as const) : ("empty" as const);

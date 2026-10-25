@@ -1,3 +1,4 @@
+import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import { Queue, Worker, QueueEvents } from "bullmq";
 import { UserConnection } from "../../connection/entity/user-connection.entity";
 import { EConnectionType } from "../../connection/connections.constants";
@@ -215,6 +216,7 @@ mysqlDescribe("import and notification recovery on disposable MySQL", () => {
             {} as any,
             {} as any,
             {} as any,
+            new ConnectionProviderRegistry(),
         );
         const notifications = source.getRepository(ImporterWatchNotification);
         const registerImporterNotification = jest
@@ -482,17 +484,15 @@ mysqlDescribe("import and notification recovery on disposable MySQL", () => {
                     })),
                 );
                 const recent = jest.fn().mockResolvedValue([]);
-                const getUserAchievements = jest
-                    .fn()
-                    .mockResolvedValue({
-                        achievements: [
-                            {
-                                name: "award",
-                                unlocked: true,
-                                unlockedTimestamp: 1792886400,
-                            },
-                        ],
-                    });
+                const getUserAchievements = jest.fn().mockResolvedValue({
+                    achievements: [
+                        {
+                            name: "award",
+                            unlocked: true,
+                            unlockedTimestamp: 1792886400,
+                        },
+                    ],
+                });
                 const steam = Object.assign(
                     Object.create(SteamSyncService.prototype),
                     {
@@ -527,6 +527,7 @@ mysqlDescribe("import and notification recovery on disposable MySQL", () => {
                     {} as any,
                     {} as any,
                     gameAdmission,
+                    new ConnectionProviderRegistry(),
                 );
                 const fullWorker = new PlayerDataProcessor(
                     a,
@@ -541,6 +542,7 @@ mysqlDescribe("import and notification recovery on disposable MySQL", () => {
                     {} as any,
                     f.connections as any,
                     gameAdmission,
+                    new ConnectionProviderRegistry(),
                 );
                 const catalogue = {
                     findAllByExternalGameIdForSync: jest.fn(

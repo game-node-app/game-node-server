@@ -3,6 +3,7 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { ProviderSyncError } from "./provider-sync.error";
+import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
 
 export const PLAYER_PROVIDER_BUDGET_QUEUE = "player-provider-budget";
 const LEASE_MS = 90_000;
@@ -61,14 +62,37 @@ export class PlayerProviderBudgetService
     constructor(
         @InjectQueue(PLAYER_PROVIDER_BUDGET_QUEUE)
         private readonly queue: Queue,
+        private readonly registry: ConnectionProviderRegistry,
     ) {}
     onModuleInit() {
         setPlayerProviderBudget(this);
     }
 
-    private keys(provider: string) {
-        if (!["Steam", "PSN", "Xbox"].includes(provider))
+    public keys(provider: string) {
+        const parts = provider.split(":");
+        const base = parts[0];
+        const normalized = base.toLowerCase();
+
+        if (!this.registry.has(normalized))
             throw new Error("Invalid player provider");
+
+        if (parts.length > 1) {
+            const scope = parts[1];
+            if (normalized === "xbox") {
+                if (scope !== "catalog" && scope !== "user") {
+                    throw new Error("Invalid player provider scope");
+                }
+                if (
+                    scope === "user" &&
+                    (!parts[2] || parts[2].trim().length === 0)
+                ) {
+                    throw new Error(
+                        "Missing sourceUserId for user-scoped player provider",
+                    );
+                }
+            }
+        }
+
         const prefix = `${this.queue.opts.prefix ?? "bull"}:${PLAYER_PROVIDER_BUDGET_QUEUE}:{${provider}}`;
         return { permits: `${prefix}:permits`, cooldown: `${prefix}:cooldown` };
     }
@@ -148,24 +172,15 @@ export class PlayerProviderBudgetService
                 error.outcome === "throttled"
             ) {
                 const delay = Math.max(
-                    1,
-                    Math.ceil(error.retryAfterMs ?? 60_000),
+                    1000,
+                    Math.min(error.retryAfterMs ?? 60_000, 300_000),
                 );
-                if (
-                    !Number.isSafeInteger(delay) ||
-                    !Number.isSafeInteger(Date.now() + delay)
-                )
-                    throw new ProviderSyncError(
-                        "failed",
-                        "Invalid provider retry delay",
-                        error,
-                    );
                 await redis.eval(COOLDOWN, 1, keys.cooldown, delay);
             }
             throw error;
         } finally {
             clearInterval(timer);
-            await redis.zrem(keys.permits, token);
+            await redis.zrem(keys.permits, token).catch(() => {});
         }
     }
 }

@@ -43,6 +43,11 @@ The system SHALL recalculate derived recent playtime as the observation window a
 - **WHEN** unchanged current values were last checked more than 14 days ago
 - **THEN** the record is not incorrectly classified as updated within the last 14 days
 
+#### Scenario: Xbox statistics are absent for an existing game
+- **WHEN** a complete Xbox library still contains a mapped game but its MinutesPlayed statistics are missing or have no value
+- **THEN** existing cumulative totals, played dates, and play count are preserved while derived recent time is recalculated
+- **AND** absent statistics create neither an invented zero cumulative total nor a new history observation
+
 ### Requirement: Polling-independent play counts
 The system SHALL preserve authoritative provider play counts and SHALL NOT infer new sessions solely from cumulative changes detected by polling. Existing inferred counts SHALL remain preserved unless an authoritative replacement is available.
 

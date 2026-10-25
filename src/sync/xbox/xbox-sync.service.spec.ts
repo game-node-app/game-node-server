@@ -4,10 +4,11 @@ import { callXboxAPI } from "./client/callXboxApi";
 import { setCacheManager } from "../../utils/cacheable";
 
 const request = jest.mocked(callXboxAPI);
-const service = new XboxSyncService(
-    { getAuthCredentials: jest.fn().mockResolvedValue({}) } as any,
-    {} as any,
-);
+const authService = {
+    getUserAuthCredentials: jest.fn().mockResolvedValue({}),
+    getCatalogAuthCredentials: jest.fn().mockResolvedValue({}),
+};
+const service = new XboxSyncService(authService as any, {} as any);
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -15,6 +16,50 @@ beforeEach(() => {
         get: jest.fn().mockResolvedValue(undefined),
         set: jest.fn().mockResolvedValue(undefined),
     } as any);
+});
+
+describe("Xbox credential separation between player and catalog methods", () => {
+    it("getAllGames invokes getUserAuthCredentials with the target player XUID", async () => {
+        request.mockResolvedValueOnce({ titles: [] } as any);
+        await service.getAllGames("player-xuid-1");
+        expect(authService.getUserAuthCredentials).toHaveBeenCalledWith(
+            "player-xuid-1",
+        );
+        expect(authService.getCatalogAuthCredentials).not.toHaveBeenCalled();
+    });
+
+    it("getBatchMinutesPlayed invokes getUserAuthCredentials with the target player XUID", async () => {
+        request.mockResolvedValueOnce({
+            statlistscollection: [{ stats: [] }],
+        } as any);
+        await service.getBatchMinutesPlayed("player-xuid-2", ["title-1"]);
+        expect(authService.getUserAuthCredentials).toHaveBeenCalledWith(
+            "player-xuid-2",
+        );
+        expect(authService.getCatalogAuthCredentials).not.toHaveBeenCalled();
+    });
+
+    it("getObtainedAchievements invokes getUserAuthCredentials with the target player XUID", async () => {
+        request.mockResolvedValueOnce({
+            achievements: [],
+            pagingInfo: { continuationToken: null },
+        } as any);
+        await service.getObtainedAchievements("player-xuid-3", "title-1");
+        expect(authService.getUserAuthCredentials).toHaveBeenCalledWith(
+            "player-xuid-3",
+        );
+        expect(authService.getCatalogAuthCredentials).not.toHaveBeenCalled();
+    });
+
+    it("getAvailableAchievements invokes getCatalogAuthCredentials without requiring player context", async () => {
+        request.mockResolvedValueOnce({
+            achievements: [],
+            pagingInfo: { continuationToken: null },
+        } as any);
+        await service.getAvailableAchievements("title-1");
+        expect(authService.getCatalogAuthCredentials).toHaveBeenCalled();
+        expect(authService.getUserAuthCredentials).not.toHaveBeenCalled();
+    });
 });
 
 describe("Xbox statistics batches", () => {
@@ -210,7 +255,7 @@ describe("Xbox TitleHub completeness", () => {
             } as any);
             request.mockResolvedValue(response as any);
             await expect(service.getAllGames("user")).rejects.toThrow(
-                "Incomplete Xbox TitleHub",
+                "Incomplete Xbox TitleHub library response",
             );
             expect(request).toHaveBeenCalledTimes(1);
             expect(set).not.toHaveBeenCalled();

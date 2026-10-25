@@ -41,13 +41,14 @@ describe("provider failures", () => {
     });
 
     it("retains explicit incomplete/unsupported outcomes and cause", async () => {
-        for (const outcome of ["incomplete", "unsupported"] as const) {
+        for (const outcome of ["incomplete", "unsupported", "reauth_required"] as const) {
             const error = new ProviderSyncError(outcome, "safe error");
             await expect(
                 providerCall("Steam", async () => {
                     throw error;
                 }),
             ).rejects.toBe(error);
+            expect(error.outcome).toBe(outcome);
         }
     });
 

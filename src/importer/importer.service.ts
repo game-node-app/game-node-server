@@ -1,5 +1,6 @@
 import { PlayerSyncWrite } from "../sync/player-sync-attempt";
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ImporterProcessedEntry } from "./entity/importer-processed-entry.entity";
 import { Repository } from "typeorm";
@@ -38,7 +39,21 @@ export class ImporterService {
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
         private readonly gameRepositoryService: GameRepositoryService,
-    ) {}
+        private readonly providerRegistry: ConnectionProviderRegistry,
+    ) {
+        providerRegistry.registerSyncHandlers(EConnectionType.STEAM, {
+            fetchLibraryGames: (userId) =>
+                this.findUnprocessedSteamEntries(userId),
+        });
+        providerRegistry.registerSyncHandlers(EConnectionType.PSN, {
+            fetchLibraryGames: (userId) =>
+                this.findUnprocessedPsnEntries(userId),
+        });
+        providerRegistry.registerSyncHandlers(EConnectionType.XBOX, {
+            fetchLibraryGames: (userId) =>
+                this.findUnprocessedXboxEntries(userId),
+        });
+    }
 
     private async getProcessedEntries(
         userId: string,
@@ -217,35 +232,33 @@ export class ImporterService {
         });
     }
 
+    public async findUnprocessedCandidates(
+        userId: string,
+        source: EImporterSource,
+    ): Promise<ImporterResponseItemDto[]> {
+        const provider = this.providerRegistry.get(source);
+        const handler = provider.syncHandlers?.fetchLibraryGames;
+        if (!provider.isImporterViable || !handler) {
+            throw new HttpException(
+                "Importer source not available",
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+        const entries = await handler(userId);
+        return Array.from(toMap(entries, "gameId").values());
+    }
+
     public async findUnprocessedEntries(
         userId: string,
         source: EImporterSource,
         dto: ImporterUnprocessedRequestDto,
         afterGameId?: number,
     ): Promise<TPaginationData<ImporterResponseItemDto>> {
-        let entries: ImporterResponseItemDto[] = [];
-        switch (source) {
-            case EImporterSource.STEAM:
-                entries = await this.findUnprocessedSteamEntries(userId);
-                break;
-            case EImporterSource.PSN:
-                entries = await this.findUnprocessedPsnEntries(userId);
-                break;
-            case EImporterSource.XBOX:
-                entries = await this.findUnprocessedXboxEntries(userId);
-                break;
-            default:
-                throw new HttpException(
-                    "Importer source not available",
-                    HttpStatus.BAD_REQUEST,
-                );
-        }
-
-        const uniqueEntriesMap = toMap(entries, "gameId");
+        const candidates = await this.findUnprocessedCandidates(userId, source);
         const uniqueEntries =
             afterGameId == null
-                ? Array.from(uniqueEntriesMap.values())
-                : Array.from(uniqueEntriesMap.values())
+                ? candidates
+                : candidates
                       .filter((entry) => entry.gameId > afterGameId)
                       .sort((a, b) => a.gameId - b.gameId);
 

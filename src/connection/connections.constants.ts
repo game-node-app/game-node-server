@@ -4,6 +4,17 @@ export enum EConnectionType {
     XBOX = "xbox",
 }
 
+export enum EConnectionAuthMode {
+    REDIRECT = "redirect",
+    PUBLIC_IDENTIFIER = "public_identifier",
+    DELEGATED_CODE = "delegated_code",
+}
+
+export enum EConnectionAuthStatus {
+    CONNECTED = "connected",
+    REAUTH_REQUIRED = "reauth_required",
+}
+
 export const IMPORTER_VIABLE_CONNECTIONS = [
     EConnectionType.STEAM,
     EConnectionType.PSN,

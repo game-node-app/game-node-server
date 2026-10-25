@@ -1,3 +1,4 @@
+import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 jest.mock("typeorm-transactional", () => ({
     Transactional:
         () =>
@@ -18,7 +19,7 @@ it("a complete empty discovery completes the worker without treating other 404s 
     const importer: ImporterService = Object.assign(
         Object.create(ImporterService.prototype),
         {
-            findUnprocessedSteamEntries: jest.fn().mockResolvedValue([]),
+            findUnprocessedCandidates: jest.fn().mockResolvedValue([]),
         },
     );
     const save = jest.fn();
@@ -41,7 +42,7 @@ it("a complete empty discovery completes the worker without treating other 404s 
     await expect(processor.run(job.data)).resolves.toBe("empty");
     expect(save).not.toHaveBeenCalled();
     const missingConnection = new HttpException("Connection not found", 404);
-    jest.spyOn(importer, "findUnprocessedEntries").mockRejectedValue(
+    jest.spyOn(importer, "findUnprocessedCandidates").mockRejectedValue(
         missingConnection,
     );
     await expect(processor.run(job.data)).rejects.toBe(missingConnection);
@@ -74,17 +75,11 @@ function recoveryFixture(size = 2) {
         }),
     };
     const importer = {
-        findUnprocessedEntries: jest.fn(
-            async (_user, _source, dto, afterGameId = 0) => {
-                const remaining = games.filter(
-                    (game) =>
-                        game.gameId > afterGameId &&
-                        !processed.has(game.id) &&
-                        !ignored.has(game.id),
-                );
-                return [remaining.slice(0, dto.limit), remaining.length];
-            },
-        ),
+        findUnprocessedCandidates: jest.fn(async () => {
+            return games.filter(
+                (game) => !processed.has(game.id) && !ignored.has(game.id),
+            );
+        }),
         isProcessedOrIgnored: jest.fn(
             async (_user, id) => processed.has(id) || ignored.has(id),
         ),
@@ -105,12 +100,10 @@ function recoveryFixture(size = 2) {
         importer as any,
         { registerImporterNotification } as any,
         {
-            findOneByUserIdAndType: jest
-                .fn()
-                .mockResolvedValue({
-                    isAutoImportEnabled: true,
-                    autoImportCollectionId: "destination",
-                }),
+            findOneByUserIdAndType: jest.fn().mockResolvedValue({
+                isAutoImportEnabled: true,
+                autoImportCollectionId: "destination",
+            }),
         } as any,
         { createForImport } as any,
     );
@@ -184,15 +177,81 @@ test("pages remain complete when processed filters change and legacy/ignored cho
     expect(fixture.processed.has(1)).toBe(false);
     expect(fixture.ignored.has(2)).toBe(true);
     expect(fixture.notifications).toHaveLength(3);
-    expect(
-        fixture.importer.findUnprocessedEntries.mock.calls.every(
-            ([, , dto]) => dto.limit === 100,
-        ),
-    ).toBe(true);
+    expect(fixture.importer.findUnprocessedCandidates).toHaveBeenCalledTimes(1);
     expect(
         fixture.notifications.reduce(
             (total, row) => total + row.autoImportedCount,
             0,
         ),
     ).toBe(252);
+});
+
+test("1,001 candidates use one full-list scan and bounded pages while new user choices are rechecked", async () => {
+    const fixture = recoveryFixture(1001);
+    const processedRead = jest.fn().mockResolvedValue([]);
+    const ignoredRead = jest.fn().mockResolvedValue([]);
+    const games = Array.from({ length: 1001 }, (_, index) => ({
+        id: index + 1,
+        gameId: index + 1,
+        uid: String(index + 1),
+    })).reverse();
+    const mappingRead = jest
+        .fn()
+        .mockResolvedValue([
+            ...games,
+            { id: 2001, gameId: 1001, uid: "edition" },
+        ]);
+    const importer = new ImporterService(
+        { findBy: processedRead } as any,
+        { findBy: ignoredRead } as any,
+        {} as any,
+        {
+            findOneByUserIdAndTypeOrFail: async () => ({
+                sourceUserId: "account",
+            }),
+        } as any,
+        {
+            getLibraryGames: async () =>
+                games.map((game) => ({
+                    game: { id: game.id },
+                })),
+        } as any,
+        { getExternalGamesForSourceIds: mappingRead } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        new ConnectionProviderRegistry(),
+    );
+    importer.isProcessedOrIgnored = fixture.importer.isProcessedOrIgnored;
+    importer.markProcessed = fixture.importer.markProcessed;
+    Object.assign(fixture.processor, { importerService: importer });
+    const pages = jest.spyOn(fixture.processor as any, "commitPage");
+    fixture.createForImport.mockImplementationOnce(async () => {
+        fixture.ignored.add(501);
+        fixture.processed.add(502);
+        return "imported";
+    });
+
+    await expect(fixture.processor.run(data)).resolves.toBe("complete");
+    expect(processedRead).toHaveBeenCalledTimes(1);
+    expect(ignoredRead).toHaveBeenCalledTimes(1);
+    expect(mappingRead).toHaveBeenCalledTimes(1);
+    const committedPages = pages.mock.calls.map(
+        ([, page]) => page as { gameId: number }[],
+    );
+    expect(committedPages.map((page) => page.length)).toEqual([
+        ...Array(10).fill(100),
+        1,
+    ]);
+    expect(
+        committedPages.flatMap((page) => page.map((game) => game.gameId)),
+    ).toEqual(Array.from({ length: 1001 }, (_, index) => index + 1));
+    expect(fixture.createForImport).toHaveBeenCalledTimes(999);
+    expect(fixture.processed.has(501)).toBe(false);
+    expect(
+        fixture.notifications.reduce(
+            (sum, row) => sum + row.autoImportSkippedCount,
+            0,
+        ),
+    ).toBe(2);
 });

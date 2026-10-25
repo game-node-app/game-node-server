@@ -12,7 +12,8 @@ import {
 } from "./playtime-watch.constants";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { Logger } from "@nestjs/common";
-import { Job } from "bullmq";
+import { Job, UnrecoverableError } from "bullmq";
+import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import { ConnectionsService } from "../../connection/connections.service";
 import { EConnectionType } from "../../connection/connections.constants";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
@@ -57,8 +58,30 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly connectionSyncGateway: ConnectionSyncGateway,
         private readonly gameAchievementSyncQueueService: GameAchievementSyncQueueService,
+        private readonly registry: ConnectionProviderRegistry,
     ) {
         super();
+        registry.registerSyncHandlers(EConnectionType.STEAM, {
+            fetchPlaytime: (job) => this.updateSteamPlaytimeInfo(job),
+        });
+        registry.registerSyncHandlers(EConnectionType.PSN, {
+            fetchPlaytime: (job) => this.updatePsnPlaytimeInfo(job),
+        });
+        registry.registerSyncHandlers(EConnectionType.XBOX, {
+            fetchPlaytime: (job) => this.updateXboxPlaytimeInfo(job),
+        });
+    }
+
+    async updatePlaytimeInfo(
+        source: string | EConnectionType,
+        job: Job<PlaytimeWatchJob>,
+    ) {
+        const provider = this.registry.get(source);
+        const handler = provider.syncHandlers?.fetchPlaytime;
+        if (!provider.isPlaytimeImportViable || !handler) {
+            throw new UnrecoverableError("Unsupported player source");
+        }
+        return handler(job);
     }
 
     async process(_job: Job) {
@@ -528,7 +551,10 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             UserPlaytimeSource.XBOX,
             externalGames.map((game) => game.gameId),
         );
-        const playtimes: CreateUserPlaytimeDto[] = [];
+        // Missing MinutesPlayed must not prevent known recent increments from expiring.
+        const playtimes: CreateUserPlaytimeDto[] = [...existing.values()].map(
+            (playtime) => ({ ...playtime, recentPlaytimeSeconds: undefined }),
+        );
         const gamesByTitle = new Map(
             [...Map.groupBy(allGames, (game) => game.titleId)].map(
                 ([id, games]) => [id, games[0]],

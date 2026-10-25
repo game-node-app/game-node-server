@@ -9,14 +9,24 @@ function fixture() {
     const playtime = {
         updateSteamPlaytimeInfo: jest
             .fn()
-            .mockResolvedValue({ outcome: "complete" }),
+            .mockImplementation(async (_job?: any) => ({
+                outcome: "complete",
+            })),
         updatePsnPlaytimeInfo: jest
             .fn()
-            .mockResolvedValue({ outcome: "complete" }),
+            .mockImplementation(async (_job?: any) => ({
+                outcome: "complete",
+            })),
         updateXboxPlaytimeInfo: jest
             .fn()
-            .mockResolvedValue({ outcome: "complete" }),
+            .mockImplementation(async (_job?: any) => ({
+                outcome: "complete",
+            })),
     };
+    Object.assign(playtime, {
+        updatePlaytimeInfo: (_source: string, job: any) =>
+            playtime.updateSteamPlaytimeInfo(job),
+    });
     const importer = { run: jest.fn().mockResolvedValue("empty") };
     const processor = new PlayerDataProcessor(
         state as any,

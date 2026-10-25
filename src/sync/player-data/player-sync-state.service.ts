@@ -13,7 +13,10 @@ import { DataSource, EntityManager, Not } from "typeorm";
 import { randomUUID } from "node:crypto";
 import { Queue, UnrecoverableError } from "bullmq";
 import { UserConnection } from "../../connection/entity/user-connection.entity";
-import { EConnectionType } from "../../connection/connections.constants";
+import {
+    EConnectionAuthStatus,
+    EConnectionType,
+} from "../../connection/connections.constants";
 import {
     PlayerConnectionSync,
     PlayerSyncOutcome,
@@ -70,6 +73,7 @@ export class PlayerSyncStateService {
                 "connection.profileUserId",
                 "connection.sourceUserId",
                 "connection.type",
+                "connection.authStatus",
             ])
             .where("connection.id = :connectionId", { connectionId })
             .setLock("pessimistic_write")
@@ -165,14 +169,20 @@ export class PlayerSyncStateService {
         return this.ownedTransaction(owner, async () => work());
     }
 
-    async initialize(connectionId: number, sourceUserId: string, dueAt: Date) {
+    async initialize(
+        connectionId: number,
+        sourceUserId: string,
+        dueAt: Date,
+        reset = false,
+    ) {
         return runInTransaction(
             async () => {
                 const manager = this.source.manager;
                 await this.connection(manager, connectionId, sourceUserId);
                 const repo = manager.getRepository(PlayerConnectionSync);
                 const existing = await repo.findOneBy({ connectionId });
-                if (existing?.sourceUserId === sourceUserId) return existing;
+                if (existing?.sourceUserId === sourceUserId && !reset)
+                    return existing;
                 await manager.delete(
                     PlayerGameSync,
                     existing
@@ -260,11 +270,23 @@ export class PlayerSyncStateService {
         const query = this.source
             .getRepository(PlayerConnectionSync)
             .createQueryBuilder("state")
+            .innerJoin(
+                UserConnection,
+                "connection",
+                "connection.id = state.connectionId",
+            )
             .where("state.nextEligibleAt <= :now", { now })
             .andWhere("(state.retryAt IS NULL OR state.retryAt <= :now)")
             .andWhere(
                 "(state.leaseExpiresAt IS NULL OR state.leaseExpiresAt <= :now)",
-            );
+            )
+            .andWhere(
+                "(connection.authStatus IS NULL OR connection.authStatus != :reauthRequired)",
+                { reauthRequired: EConnectionAuthStatus.REAUTH_REQUIRED },
+            )
+            .andWhere("state.outcome != :reauthOutcome", {
+                reauthOutcome: "reauth_required",
+            });
         if (cursor)
             query.andWhere(
                 "(state.nextEligibleAt > :at OR (state.nextEligibleAt = :at AND state.connectionId > :id))",
@@ -362,6 +384,8 @@ export class PlayerSyncStateService {
                 connectionId,
                 sourceUserId,
             );
+            if (connection.authStatus === EConnectionAuthStatus.REAUTH_REQUIRED)
+                return null;
             const now = await this.now(manager);
             let state: PlayerConnectionSync | PlayerGameSync | null;
             if (externalGameId == null)
@@ -599,13 +623,32 @@ export class PlayerSyncStateService {
     }
 
     async finish(owner: PlayerSyncOwner, error?: ProviderSyncError) {
-        return this.ownedTransaction(owner, async (_manager, state, now) => {
+        return this.ownedTransaction(owner, async (manager, state, now) => {
             if (error) {
                 state.outcome = error.outcome;
-                state.retryAt = new Date(
-                    now.getTime() +
-                        Math.max(60 * 60_000, error.retryAfterMs ?? 0),
-                );
+                state.retryAt =
+                    error.outcome === "reauth_required"
+                        ? null
+                        : new Date(
+                              now.getTime() +
+                                  Math.max(
+                                      60 * 60_000,
+                                      error.retryAfterMs ?? 0,
+                                  ),
+                          );
+                if (
+                    error.outcome === "reauth_required" &&
+                    state instanceof PlayerGameSync
+                ) {
+                    await manager.update(
+                        PlayerConnectionSync,
+                        {
+                            connectionId: owner.connectionId,
+                            sourceUserId: owner.sourceUserId,
+                        },
+                        { outcome: "reauth_required", retryAt: null },
+                    );
+                }
             } else if (state instanceof PlayerConnectionSync) {
                 const stages = Object.values(state.stages);
                 state.nextEligibleAt = new Date(

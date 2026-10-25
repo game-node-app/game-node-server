@@ -1,8 +1,9 @@
-import { EConnectionType } from "../connections.constants";
+import { EConnectionAuthMode, EConnectionType } from "../connections.constants";
 
 export class FindAvailableConnectionsResponseDto {
     name: string;
     type: EConnectionType;
+    authMode: EConnectionAuthMode;
     /**
      * If this connection can be used by the importer system to import games
      * e.g.: Steam, PSN

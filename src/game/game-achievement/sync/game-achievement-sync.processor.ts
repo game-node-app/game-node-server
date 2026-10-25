@@ -85,6 +85,13 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
                 if (error instanceof PlayerSyncOwnershipLost)
                     return { outcome: "stale-skip" };
                 if (
+                    error instanceof ProviderSyncError &&
+                    error.outcome === "reauth_required"
+                ) {
+                    await this.state.finish(owner, error);
+                    throw error;
+                }
+                if (
                     error instanceof UnsupportedGameAchievementSourceError ||
                     (error instanceof ProviderSyncError &&
                         error.outcome === "unsupported")

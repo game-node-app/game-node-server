@@ -1,5 +1,5 @@
 import { OnGatewayConnection, WebSocketServer } from "@nestjs/websockets";
-import { Socket } from "socket.io";
+import { Namespace, Socket } from "socket.io";
 import Session from "supertokens-node/recipe/session";
 import { Logger } from "@nestjs/common";
 
@@ -9,7 +9,7 @@ export class WebsocketGateway implements OnGatewayConnection {
     protected readonly logger = new Logger(WebsocketGateway.name);
 
     @WebSocketServer()
-    server: Socket;
+    server: Namespace;
 
     async getUserIdFromClient(client: Socket): Promise<string | null> {
         const token = client.handshake.query.token as string | undefined;
@@ -40,7 +40,7 @@ export class WebsocketGateway implements OnGatewayConnection {
          * Joins the client to a room named after their user ID,
          * which allows for all Socket.IO servers to connect to it.
          */
-        this.server.join(getUserJoinKey(userId));
+        await client.join(getUserJoinKey(userId));
         this.logger.log(`Client ${userId} - ${client.id} connected`);
     }
 

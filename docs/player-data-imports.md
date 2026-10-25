@@ -83,6 +83,12 @@ skipped. No live provider account is needed for these tests.
 
 ## Provider completeness and pagination
 
+Steam owned/recent responses may confirm zero games without a games array.
+The transport normalizes only endpoint-specific explicit zero counts before the
+installed SDK parses them. Missing arrays without that evidence, contradictory
+nonempty arrays, and exposed errors remain failures. The installed-SDK fixture
+covers both endpoints and the complete empty combined library.
+
 Xbox MinutesPlayed batches contain at most 1,000 titles, without overlaps, and
 advance even for an empty `statlistscollection` or empty `stats` array. Missing
 or malformed collections and request failures reject the complete operation;
@@ -125,24 +131,27 @@ fetch. The obtained-achievement consumer propagates set failures before local
 persistence instead of substituting an empty set. Complete empty arrays remain
 cacheable; failed fetches do not cache a partial combined result.
 
-Xbox TitleHub continues to request exactly `maxItems: 5000` without fabricated
-cursor parameters. Valid below-cap/empty libraries succeed. Responses containing
-5,000 or more titles, or indicating remaining results through continuation,
-next-link, more-results, or inconsistent total metadata, fail as incomplete.
-Exactly 5,000 is deliberately rejected even when that might be the full library.
-Failures propagate before discovery/playtime writes and are not cached as
-successful snapshots. Existing imported rows remain intact; no new success is
-reported. Existing queue retry counts remain bounded (five attempts).
+Xbox TitleHub requests `maxItems: 5000` without fabricated cursor parameters and
+processes at most the first 5,000 returned titles. Any structurally valid titles
+array counts as a complete snapshot under this service's bound, including when
+the array reaches the cap or unverified metadata signals additional titles.
+Discovery and playtime process the bounded array, cache it as successful, and
+advance their normal success timestamps. A missing titles array remains an
+incomplete failure. Titles beyond the bound can remain undiscovered or
+unrefreshed; absent titles never delete local rows. The importer HTTP response
+keeps its existing pagination shape and includes candidates only from the
+returned Xbox titles.
 
-Continuation support for this TitleHub endpoint is unverified.
-[Microsoft's generic PagingInfo contract](https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/live/rest/json/json-paginginfo)
-does not establish TitleHub support; an
-[open documentation issue](https://github.com/MicrosoftDocs/xbox-live-docs/issues/53)
-reports that gap. Verify supported endpoint continuation against primary
-documentation or captured multi-page responses before removing the conservative
-cap rejection. Affected provider and importer method caches now use a `complete-v1` namespace.
-Old cache entries are bypassed and expire naturally; unrelated cached services
-keep their existing keys and behavior. No global invalidation is needed.
+No verified continuation contract was found for this TitleHub route. The
+[documented Xbox history/titles endpoint](https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/live/rest/uri/titlehistory/uri-titlehistoryusersxuidhistorytitlesgetv2?view=gdk-2604)
+supports paging but returns titles associated with achievement progress, so it
+does not establish pagination for this full TitleHub library route. An
+[open Microsoft documentation issue](https://github.com/MicrosoftDocs/xbox-live-docs/issues/53)
+reports that continuation parameters do not appear to work on the TitleHub
+route. Verify supported endpoint continuation against primary documentation or
+captured multi-page responses before adding pagination. The TitleHub library
+cache uses a new result-shape namespace; old entries are bypassed and expire
+naturally. Unrelated cached services keep their existing keys and behavior.
 
 Steam discovery and playtime share `getLibraryGames`, which requires both owned
 and recent requests to succeed. It deduplicates app IDs, prefers recent entries,
@@ -351,10 +360,11 @@ rows, and are reported after the page walk. Bootstrap is metadata-only at module
 initialization. The old four-times-daily playtime scan and restart-relative
 importer interval have been removed.
 
-Automatic due ticks are disabled unless `PLAYER_DATA_SYNC_ENABLED=true`. Keep it
-false through migrations, mixed-version draining, and acceptance checks; enable it
-only at the final daily-activation step. Manual/onboarding admission remains
-available under the same durable policy.
+Automatic due ticks are enabled by default. Set
+`PLAYER_DATA_SYNC_ENABLED=false` to pause them through migrations, mixed-version
+draining, and acceptance checks; remove that override or set it to `true` after
+acceptance. Manual/onboarding admission remains available under the same durable
+policy.
 
 All current users share a 24-hour successful full-refresh interval from one policy
 constant; there are no tiers, payment checks, or premium frequency. Manual requests
@@ -575,6 +585,9 @@ or reconstructed sessions. Equal timestamps are ordered by history ID.
 PSN/Xbox recent time derives from the rolling 14-day observation window and
 expires on refresh even when lifetime totals do not change. Steam retains its
 provider-supplied recent total, including that provider's window semantics.
+For mapped Xbox games still present in a complete library, missing or valueless
+MinutesPlayed statistics reuse known cumulative values, dates, and counts while
+recalculating recent time. No zero lifetime sample or new history is invented.
 PSN supplies authoritative play counts. Steam/Xbox retain historical counts;
 polling changes do not create new sessions or reset legacy counts.
 
@@ -607,6 +620,14 @@ selection/admission checks on each run. This test uses an in-memory state adapte
 it does not measure Redis, MySQL admission statements, or provider leaf calls.
 Queue jobs, selection checks, database statements, and provider requests must be
 reported separately. Xbox's absent-statistics selection has its own fixture.
+
+Review regressions also compare the previously repeated work directly. A cold
+Steam obtained/catalogue pair now shares one schema call per attempt instead of
+two; a failed shared fetch can retry. The 1,001-game discovery fixture now reads
+each complete processed/ignored list once instead of 12 times and visits the
+deduplicated candidates in ten pages of 100 and one page of one. Per-item live
+processed/ignored and ownership checks remain in place. These are fixture call
+counts, not an old-versus-new production throughput benchmark.
 
 EXPLAIN of the actual period query initially showed full scans for both current
 window and predecessor observations. With 1,006 target observations, 5,000 older
@@ -657,8 +678,10 @@ frontend compatibility review.
 Background discovery treats a complete empty library as success. Only the HTTP
 controller preserves the no-unprocessed-games 404; an empty search over a nonempty
 library still succeeds. Workers process at most 100 discovered internal-game IDs
-per page, ordered by game ID, and continue after the last ID instead of advancing
-an offset over mutable processed filters. Provider snapshots remain complete;
+per page. They build the deduplicated candidate snapshot once, order it once by
+game ID, and slice that stable list without reloading complete processed/ignored
+lists for every page. Each import still rechecks current choices before writing.
+HTTP pagination retains provider order. Provider snapshots remain complete;
 this page size bounds local processing, not the provider's library size.
 
 Each page commits collection writes, processed transitions, notification source
@@ -878,11 +901,13 @@ without starting workers, bootstrap, or schedulers. Review the manual DTO's
 integer ranges/optional dates and notification outcome fields; private delivery
 markers/identities are excluded from public response schemas.
 
-Final verification for this implementation: `yarn build` passed; the scoped player
+Verification after the four earlier review fixes: `yarn build` passed; the scoped player
 import/controller/journal/collection/activity/notification/provider run passed
-331 tests in 52 suites with both disposable services enabled and no skipped
-integration checks; the separate search regression run passed 116 tests in three
-suites. Strict OpenSpec validation and whitespace checks passed. The regenerated
-Swagger contract verifies integer input bounds, optional played dates, and hidden
-private delivery fields. No IGDB/search implementation files were edited during
-this continuation, no change was archived, and no production cadence was enabled.
+333 tests in 52 suites with both disposable services enabled and no skipped
+integration checks. Strict OpenSpec validation and whitespace checks passed.
+The Xbox 5,000-title service-cap follow-up updated existing fixtures but its
+tests were not rerun. The earlier implementation checkpoint recorded 116
+passing search tests and regenerated Swagger; those checks were not repeated for these internal
+fixes, which change no HTTP schemas or search implementation.
+No change was archived and no production cadence was enabled. Live-provider,
+frontend, and production-load checks remain rollout prerequisites.

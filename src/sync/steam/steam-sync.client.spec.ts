@@ -11,10 +11,11 @@ test("the installed Steam client uses bounded requests and preserves transport f
         setCacheManager({get: async () => undefined, set: async () => undefined});
         const requests = [];
         let failure;
+        let payload = {response: {games: [{appid: 10, playtime_forever: 20}]}};
         axios.get = async (url, config) => {
             requests.push({url, config});
             if (failure) throw failure;
-            return {data: {response: {games: [{appid: 10, playtime_forever: 20}]}}};
+            return {data: payload};
         };
         (async () => {
             const service = new SteamSyncService({get: () => 'fixture-key'});
@@ -26,6 +27,18 @@ test("the installed Steam client uses bounded requests and preserves transport f
             assert.ok(requests[0].config.signal instanceof AbortSignal);
             assert.equal(requests[0].config.params.key, 'fixture-key');
             assert.equal(requests[0].config.params.steamid, '76561198136665859');
+            for (const [method, count] of [['getAllGames', 'game_count'], ['getRecentlyPlayedGames', 'total_count']]) {
+                payload = {response: {[count]: 0}};
+                assert.deepEqual(await service[method]('76561198136665859'), []);
+                payload = {response: {[count]: 0, games: []}};
+                assert.deepEqual(await service[method]('76561198136665859'), []);
+                for (const response of [{}, {[count]: 1}, {[count]: 0, games: [{appid: 10}]}, {[count]: 0, games: null}, {[count]: 0, error: 'private'}]) {
+                    payload = {response};
+                    await assert.rejects(service[method]('76561198136665859'));
+                }
+            }
+            payload = {response: {game_count: 0, total_count: 0}};
+            assert.deepEqual(await service.getLibraryGames('76561198136665859'), []);
             failure = {response: {status: 429, headers: {'retry-after': '60'}}};
             await assert.rejects(service.getAllGames('76561198136665859'), e => e.outcome === 'throttled' && e.retryAfterMs === 60000 && e.cause === failure);
             process.stdout.write('ok');

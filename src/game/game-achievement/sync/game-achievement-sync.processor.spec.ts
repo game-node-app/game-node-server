@@ -1,3 +1,4 @@
+import { ConnectionProviderRegistry } from "../../../connection/connection-provider.registry";
 import {
     playerStateFixture,
     playerOwner,
@@ -49,6 +50,38 @@ function localDataSource(events: string[] = []) {
     };
 }
 
+test("a revoked achievement grant is finalized on its first attempt", async () => {
+    const state = playerStateFixture();
+    const failure = new ProviderSyncError("reauth_required", "revoked");
+    const processor = new GameAchievementSyncProcessor(
+        {
+            findAllByExternalGameIdForSync: jest.fn().mockResolvedValue([]),
+        } as any,
+        {
+            fetchObtainedByExternalGameId: jest.fn().mockRejectedValue(failure),
+        } as any,
+        {} as any,
+        {} as any,
+        state as any,
+        {} as any,
+    );
+    const job = {
+        name: GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME,
+        data: {
+            userId: "user",
+            externalGameId: 1,
+            owner: playerOwner("user", "psn", 1),
+        },
+        attemptsMade: 0,
+        opts: { attempts: 5 },
+    } as any;
+    await expect(processor.process(job)).rejects.toMatchObject({
+        name: "UnrecoverableError",
+        outcome: "reauth_required",
+    });
+    expect(state.finish).toHaveBeenCalledWith(job.data.owner, failure);
+});
+
 test("a failed trophy set cannot persist a partial obtained snapshot or update completion", async () => {
     const failure = new Error("Incomplete PSN trophy-detail response");
     const fetch = jest
@@ -80,6 +113,7 @@ test("a failed trophy set cannot persist a partial obtained snapshot or update c
                 .mockResolvedValue({ sourceUserId: "account" }),
         } as any,
         {} as any,
+        new ConnectionProviderRegistry(),
     );
     const persist = jest.spyOn(obtained, "persistObtainedAchievements");
     const save = jest.fn();

@@ -39,6 +39,11 @@ A successful achievement execution SHALL calculate obtained rows, completion, pl
 - **WHEN** a game refresh produces newly obtained achievements
 - **THEN** completion and activity use the already fetched catalogue and agree on the imported snapshot
 
+#### Scenario: Concurrent Steam catalogue consumers on a cold cache
+- **WHEN** obtained-achievement validation and completion request the same Steam schema during one execution
+- **THEN** they share one in-flight schema fetch, including when the provider cache is cold
+- **AND** a failed fetch remains retryable and is not stored as a successful snapshot
+
 ### Requirement: Atomic local achievement results
 New obtained rows, completion updates, local activity records, and successful synchronization state SHALL commit consistently. Concurrent attempts SHALL NOT duplicate achievements or activities, and failed attempts SHALL NOT leave a false success marker.
 

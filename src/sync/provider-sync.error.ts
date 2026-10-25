@@ -3,7 +3,8 @@ export type ProviderFailureOutcome =
     | "unavailable"
     | "throttled"
     | "incomplete"
-    | "failed";
+    | "failed"
+    | "reauth_required";
 
 const causes = new WeakMap<ProviderSyncError, unknown>();
 
@@ -16,7 +17,11 @@ export class ProviderSyncError extends Error {
         readonly retryAfterMs?: number,
     ) {
         super(message);
-        this.name = "ProviderSyncError";
+        // BullMQ recognizes this name as terminal; keep the provider outcome for logging.
+        this.name =
+            outcome === "reauth_required"
+                ? "UnrecoverableError"
+                : "ProviderSyncError";
         // Keep raw request credentials out of ordinary error inspection/serialization.
         causes.set(this, cause);
     }

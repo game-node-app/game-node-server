@@ -1,3 +1,4 @@
+import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
 import { ImporterService } from "./importer.service";
 import { EImporterSource } from "./importer.constants";
 import { setCacheManager } from "../utils/cacheable";
@@ -41,6 +42,7 @@ test("PSN discovery keeps first-source platform order and filters processed iden
                 ]),
             ),
         } as any,
+        new ConnectionProviderRegistry(),
     );
     const [games, count] = await service.findUnprocessedEntries(
         "user",
@@ -49,4 +51,34 @@ test("PSN discovery keeps first-source platform order and filters processed iden
     );
     expect(count).toBe(1);
     expect(games[0]).toMatchObject({ id: 1, preferredPlatformId: 48 });
+});
+
+test("discovery executes a registered handler without provider branches", async () => {
+    const registry = new ConnectionProviderRegistry();
+    const service = new ImporterService(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        registry,
+    );
+    const handler = jest.fn().mockResolvedValue([{ id: 1, gameId: 10 }]);
+    registry.register({
+        ...registry.get("steam"),
+        type: "future" as any,
+        syncHandlers: { fetchLibraryGames: handler },
+    });
+    await expect(
+        service.findUnprocessedCandidates("user", "future" as any),
+    ).resolves.toEqual([{ id: 1, gameId: 10 }]);
+    expect(handler).toHaveBeenCalledWith("user");
+    registry.get("future").syncHandlers = {};
+    await expect(
+        service.findUnprocessedCandidates("user", "future" as any),
+    ).rejects.toMatchObject({ status: 400 });
 });

@@ -2,12 +2,14 @@ import {
     Column,
     Entity,
     ManyToOne,
+    OneToOne,
     PrimaryGeneratedColumn,
     Unique,
 } from "typeorm";
-import { EConnectionType } from "../connections.constants";
+import { EConnectionAuthStatus, EConnectionType } from "../connections.constants";
 import { Profile } from "../../profile/entities/profile.entity";
 import { Collection } from "../../collections/entities/collection.entity";
+import { UserConnectionCredential } from "./user-connection-credential.entity";
 
 @Entity()
 @Unique(["profile", "type"])
@@ -52,4 +54,22 @@ export class UserConnection {
         length: 36,
     })
     autoImportCollectionId: string | null;
+
+    @Column({
+        type: "varchar",
+        length: 32,
+        nullable: false,
+        default: EConnectionAuthStatus.CONNECTED,
+    })
+    authStatus: EConnectionAuthStatus;
+
+    @OneToOne(
+        () => UserConnectionCredential,
+        (credential) => credential.connection,
+        {
+            cascade: true,
+            nullable: true,
+        },
+    )
+    credential?: UserConnectionCredential;
 }
