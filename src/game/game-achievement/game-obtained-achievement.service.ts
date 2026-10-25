@@ -1,6 +1,8 @@
+import { GameAchievementSyncQueueService } from "./sync/game-achievement-sync-queue.service";
+import { playerSyncWrite } from "../../sync/player-sync-attempt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ObtainedGameAchievement } from "./entity/obtained-game-achievement.entity";
-import { FindOptionsRelations, Repository } from "typeorm";
+import { EntityManager, FindOptionsRelations, Repository } from "typeorm";
 import { ExternalGameService } from "../external-game/external-game.service";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
@@ -12,19 +14,18 @@ import {
     FindObtainedGameAchievementsRequestDto,
     GameObtainedAchievementDto,
 } from "./dto/game-obtained-achievement.dto";
-import { UnrecoverableError } from "bullmq";
 import { EConnectionType } from "../../connection/connections.constants";
 import {
     getPSNAchievementId,
     isValidXboxProductId,
 } from "./game-achievement.utils";
 import { match, P } from "ts-pattern";
-import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
+import { UnsupportedGameAchievementSourceError } from "./game-achievement.errors";
 import { UserThinTrophy } from "psn-api";
 import { GAME_ACHIEVEMENT_ENABLED_SOURCES } from "./game-achievement.constants";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
-import { GameAchievementStatusService } from "./game-achievement-status.service";
 
 @Injectable()
 export class GameObtainedAchievementService {
@@ -37,23 +38,21 @@ export class GameObtainedAchievementService {
     constructor(
         @InjectRepository(ObtainedGameAchievement)
         private readonly obtainedAchievementRepository: Repository<ObtainedGameAchievement>,
-        @Inject(forwardRef(() => GameAchievementStatusService))
-        private readonly gameAchievementStatusService: GameAchievementStatusService,
         private readonly externalGameService: ExternalGameService,
         private readonly steamSyncService: SteamSyncService,
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
         private readonly connectionsService: ConnectionsService,
+        private readonly syncQueue: GameAchievementSyncQueueService,
     ) {}
 
     /**
      * Find all obtained achievements from <strong>source</strong> related to an external game ID. <br />
-     * Internally, this method also updates our database with the obtained achievements that are not yet
-     * persisted and updates the game completion status accordingly, if persistNewlyObtained is truthy.
+     * Persisting the result and updating completion status are handled by the sync worker.
      * @param userId
      * @param externalGameId
      */
-    public async findAllObtainedByExternalGameId(
+    public async fetchObtainedByExternalGameId(
         userId: string | undefined,
         externalGameId: number,
     ) {
@@ -122,10 +121,11 @@ export class GameObtainedAchievementService {
 
                 const totalObtainedTrophies: GameObtainedAchievementDto[] = [];
 
-                const processedNpServiceNames = new Set<string>();
+                const processedMappings = new Set<string>();
 
                 for (const mapping of mappings) {
-                    if (processedNpServiceNames.has(mapping.npServiceName)) {
+                    const identity = `${mapping.npCommunicationId}:${mapping.npServiceName}`;
+                    if (processedMappings.has(identity)) {
                         continue;
                     }
 
@@ -139,6 +139,7 @@ export class GameObtainedAchievementService {
                             );
                     } catch (err) {
                         this.logger.error(err);
+                        throw err;
                     }
 
                     const parsedTrophies = userTrophies.map((trophy) => {
@@ -159,7 +160,7 @@ export class GameObtainedAchievementService {
 
                     totalObtainedTrophies.push(...parsedTrophies);
 
-                    processedNpServiceNames.add(mapping.npServiceName);
+                    processedMappings.add(identity);
                 }
 
                 return totalObtainedTrophies;
@@ -221,63 +222,94 @@ export class GameObtainedAchievementService {
                 },
             )
             .otherwise(() => {
-                throw new UnrecoverableError(
-                    "Category mapping not implemented.",
-                );
+                throw new UnsupportedGameAchievementSourceError();
             });
     }
 
-    /**
-     * Retrieves all obtained items related to a specific game ID.
-     */
+    public async findAllObtainedByExternalGameId(
+        userId: string | undefined,
+        externalGameId: number,
+        viewerUserId?: string,
+    ): Promise<GameObtainedAchievementDto[]> {
+        const externalGame =
+            await this.externalGameService.findOneByIdOrFail(externalGameId);
+        if (!userId) return [];
+        const source = match(externalGame.category)
+            .with(EGameExternalGameCategory.Steam, () => EConnectionType.STEAM)
+            .with(
+                EGameExternalGameCategory.PlaystationStoreUs,
+                () => EConnectionType.PSN,
+            )
+            .with(
+                P.union(
+                    EGameExternalGameCategory.Microsoft,
+                    EGameExternalGameCategory.XboxMarketplace,
+                    EGameExternalGameCategory.XboxGamePassUltimateCloud,
+                ),
+                () => EConnectionType.XBOX,
+            )
+            .otherwise(() => {
+                throw new UnsupportedGameAchievementSourceError();
+            });
+        const rows = await this.obtainedAchievementRepository.findBy({
+            profileUserId: userId,
+            externalGameId,
+        });
+        if (viewerUserId === userId) {
+            try {
+                await this.syncQueue.addUserSyncJob(
+                    userId,
+                    externalGameId,
+                    source,
+                );
+            } catch {
+                this.logger.warn({
+                    event: "achievement-read-refresh-failed",
+                    source,
+                });
+            }
+        }
+        return rows.map((row) => ({
+            externalGameId,
+            externalId: row.externalAchievementId,
+            obtainedAt: row.obtainedAt,
+            isObtained: true,
+            source: externalGame.category!,
+            gameId: externalGame.gameId,
+        }));
+    }
+
     public async findAllObtainedByGameId(
         userId: string | undefined,
         gameId: number,
+        viewerUserId?: string,
     ) {
-        if (userId == undefined) {
-            return [];
-        }
-
-        const externalGames = await this.externalGameService.findAllForGameId([
-            gameId,
-        ]);
-
-        const enabledExternalGames = externalGames.filter((externalGame) =>
-            GAME_ACHIEVEMENT_ENABLED_SOURCES.includes(externalGame.category!),
+        if (!userId) return [];
+        const games = await this.externalGameService.findAllForGameId([gameId]);
+        const results = await Promise.all(
+            games
+                .filter((game) =>
+                    GAME_ACHIEVEMENT_ENABLED_SOURCES.includes(game.category!),
+                )
+                .map((game) =>
+                    this.findAllObtainedByExternalGameId(
+                        userId,
+                        game.id,
+                        viewerUserId,
+                    ),
+                ),
         );
-
-        if (enabledExternalGames.length === 0) {
-            return [];
-        }
-
-        const results: GameObtainedAchievementDto[] = [];
-
-        const promises = await Promise.allSettled(
-            enabledExternalGames.map((externalGame) =>
-                this.findAllObtainedByExternalGameId(userId, externalGame.id),
-            ),
-        );
-
-        for (const promise of promises) {
-            if (promise.status === "fulfilled") {
-                results.push(...promise.value);
-            }
-        }
-
-        this.persistObtainedAchievements(userId, results).catch((err) => {
-            this.logger.error(
-                `Error persisting obtained achievements for user ${userId} and game ${gameId}: ${err}`,
-                err,
-            );
-        });
-
-        return results;
+        return results.flat();
     }
 
     public async persistObtainedAchievements(
         userId: string,
         achievements: GameObtainedAchievementDto[],
+        manager?: EntityManager,
     ) {
+        const repository =
+            manager?.getRepository(ObtainedGameAchievement) ??
+            this.obtainedAchievementRepository;
         const groupedByExternalGameId = Map.groupBy(
             achievements,
             (a) => a.externalGameId,
@@ -294,11 +326,10 @@ export class GameObtainedAchievementService {
                     achievement.isObtained && achievement.obtainedAt != null,
             );
 
-            const existingAchievements =
-                await this.obtainedAchievementRepository.findBy({
-                    externalGameId: externalGameId,
-                    profileUserId: userId,
-                });
+            const existingAchievements = await repository.findBy({
+                externalGameId: externalGameId,
+                profileUserId: userId,
+            });
 
             const existingAchievementsIdsSet = new Set(
                 existingAchievements.map((a) => a.externalAchievementId),
@@ -310,7 +341,7 @@ export class GameObtainedAchievementService {
                         !existingAchievementsIdsSet.has(achievement.externalId),
                 )
                 .map((achievement) => {
-                    return this.obtainedAchievementRepository.create({
+                    return repository.create({
                         externalGameId: achievement.externalGameId,
                         externalAchievementId: achievement.externalId,
                         obtainedAt: achievement.obtainedAt!,
@@ -319,21 +350,13 @@ export class GameObtainedAchievementService {
                 });
 
             if (entitiesToPersist.length > 0) {
-                const result =
-                    await this.obtainedAchievementRepository.save(
-                        entitiesToPersist,
-                    );
+                const save = () => repository.save(entitiesToPersist);
+                const result = manager
+                    ? await save()
+                    : await playerSyncWrite(save);
 
                 persistedEntities.push(...result);
             }
-
-            /**
-             * Temporarily executes update logic for all games while we backfill the data.
-             */
-            await this.gameAchievementStatusService.updateGameCompletionStatus(
-                userId,
-                externalGameId,
-            );
         }
 
         return persistedEntities;

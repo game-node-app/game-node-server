@@ -1,3 +1,4 @@
+import { uncancellableProviderCall } from "../../player-sync-attempt";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
@@ -84,14 +85,19 @@ export class PsnSyncAuthService {
      */
     private async refreshAccessToken(refreshToken?: string) {
         if (refreshToken) {
-            const refreshAuthResponse =
-                await exchangeRefreshTokenForAuthTokens(refreshToken);
+            const refreshAuthResponse = await uncancellableProviderCall(
+                "PSN",
+                () => exchangeRefreshTokenForAuthTokens(refreshToken),
+            );
             return this.setToStore(refreshAuthResponse);
         }
 
-        const accessCode = await exchangeNpssoForCode(this.NPSSO_KEY!);
-
-        const authResponse = await exchangeCodeForAccessToken(accessCode);
+        const accessCode = await uncancellableProviderCall("PSN", () =>
+            exchangeNpssoForCode(this.NPSSO_KEY!),
+        );
+        const authResponse = await uncancellableProviderCall("PSN", () =>
+            exchangeCodeForAccessToken(accessCode),
+        );
 
         return this.setToStore(authResponse);
     }

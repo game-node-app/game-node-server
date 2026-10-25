@@ -792,11 +792,39 @@ export class GameRepositoryCreateService {
 
         await this.handleManyToMany(incoming, existing, "gameEngines", context);
 
+        const enginePlatforms = engines.flatMap(
+            (engine) => (engine.platforms ?? []) as GamePlatform[],
+        );
+        const uniqueEnginePlatforms = [
+            ...new Map(
+                enginePlatforms.map((platform) => [
+                    platform.id!,
+                    platform,
+                ] as const),
+            ).values(),
+        ];
+        if (uniqueEnginePlatforms.length !== 0)
+            await this.leaf(context, () =>
+                context.manager
+                    .getRepository(GamePlatform)
+                    .upsert(uniqueEnginePlatforms, ["id"]),
+            );
+
         for (const engine of engines) {
             const existingPlatforms =
-                existingEnginesMap.get(engine.id!)?.platforms ?? [];
-            const incomingPlatforms = (engine.platforms ??
-                []) as GamePlatform[];
+                existingEnginesMap.get(engine.id!)?.platforms ??
+                ((await repository
+                    .createQueryBuilder()
+                    .relation(GameEngine, "platforms")
+                    .of(engine)
+                    .loadMany()) as GamePlatform[]);
+            const incomingPlatforms = [
+                ...new Map(
+                    ((engine.platforms ?? []) as GamePlatform[]).map(
+                        (platform) => [platform.id!, platform] as const,
+                    ),
+                ).values(),
+            ];
             const existingPlatformIds = new Set(
                 existingPlatforms.map((platform) => platform.id!),
             );

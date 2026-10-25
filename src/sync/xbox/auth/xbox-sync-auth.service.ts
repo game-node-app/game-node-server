@@ -1,10 +1,6 @@
-import {
-    HttpException,
-    HttpStatus,
-    Inject,
-    Injectable,
-    Logger,
-} from "@nestjs/common";
+import { uncancellableProviderCall } from "../../player-sync-attempt";
+import { providerFailure } from "../../provider-sync.error";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import {
@@ -60,18 +56,13 @@ export class XboxSyncAuthService {
         let auth: AuthenticateResponse;
 
         try {
-            auth = (await authenticate(
-                clientId,
-                clientSecret,
+            auth = (await uncancellableProviderCall("Xbox", () =>
+                authenticate(clientId, clientSecret),
             )) as unknown as AuthenticateResponse;
 
             await this.persistCredentialsToStore(auth);
         } catch (err: unknown) {
-            this.logger.error(err);
-            throw new HttpException(
-                `Xbox authentication failed: ${err}`,
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
+            throw providerFailure("Xbox", err);
         }
 
         return auth;

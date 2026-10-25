@@ -1,3 +1,4 @@
+import { PlayerDataModule } from "../sync/player-data/player-data.module";
 import { forwardRef, Module } from "@nestjs/common";
 import { ConnectionsService } from "./connections.service";
 import { ConnectionsController } from "./connections.controller";
@@ -8,11 +9,12 @@ import { PsnSyncModule } from "../sync/psn/psn-sync.module";
 import { PlaytimeModule } from "../playtime/playtime.module";
 import { PlaytimeWatchModule } from "../playtime/watch/playtime-watch.module";
 import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
-import { ConnectionSyncModule } from './connection-sync/connection-sync.module';
+import { ConnectionSyncModule } from "./connection-sync/connection-sync.module";
 import { CollectionsModule } from "../collections/collections.module";
 
 @Module({
     imports: [
+        PlayerDataModule,
         TypeOrmModule.forFeature([UserConnection]),
         SteamSyncModule,
         PsnSyncModule,

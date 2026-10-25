@@ -102,7 +102,7 @@ export async function runCatalogStage<T>(
     let used = await budget.read();
     if (used >= maxAttempts)
         throw new CatalogDataError(
-            "Catalog stage attempt budget exhausted; explicit resume required",
+            "Catalog stage attempt budget exhausted; run will resume after cooldown",
         );
     while (used < maxAttempts) {
         signal?.throwIfAborted();

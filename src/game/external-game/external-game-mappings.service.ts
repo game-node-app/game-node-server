@@ -1,3 +1,4 @@
+import { PlayerSyncWrite } from "../../sync/player-sync-attempt";
 import { Injectable } from "@nestjs/common";
 import { Repository } from "typeorm";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -10,22 +11,17 @@ export class ExternalGameMappingsService {
         private readonly psnExtraMappingsRepository: Repository<PsnExtraMappings>,
     ) {}
 
+    @PlayerSyncWrite()
     public async upsertPsnMappings(
         mappings: Omit<
             PsnExtraMappings,
             "id" | "createdAt" | "deletedAt" | "updatedAt" | "externalGame"
         >,
     ) {
-        const existingMapping = await this.psnExtraMappingsRepository.findOneBy(
-            {
-                externalGameId: mappings.externalGameId,
-                npServiceName: mappings.npServiceName,
-                npCommunicationId: mappings.npCommunicationId,
-            },
-        );
-
-        if (!existingMapping) {
-            await this.psnExtraMappingsRepository.insert(mappings);
-        }
+        await this.psnExtraMappingsRepository.upsert(mappings, [
+            "externalGameId",
+            "npCommunicationId",
+            "npServiceName",
+        ]);
     }
 }

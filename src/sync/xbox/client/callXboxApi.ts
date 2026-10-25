@@ -1,4 +1,5 @@
 import axios, { AxiosRequestConfig } from "axios";
+import { cancellableProviderCall } from "../../player-sync-attempt";
 import { XboxLiveAuthorization } from "../xbox-sync.types";
 
 export const USER_AGENT = [
@@ -35,5 +36,20 @@ export async function callXboxAPI<T = unknown>(
         ...request.headers,
     };
 
-    return (await axios.request(request)).data;
+    return cancellableProviderCall(
+        "Xbox",
+        async (signal) =>
+            (
+                await axios.request({
+                    ...request,
+                    timeout: Math.min(request.timeout || 30_000, 30_000),
+                    signal: request.signal
+                        ? AbortSignal.any([
+                              request.signal as AbortSignal,
+                              signal,
+                          ])
+                        : signal,
+                })
+            ).data,
+    );
 }

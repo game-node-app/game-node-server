@@ -62,6 +62,7 @@ export class GameAchievementController {
         return this.gameAchievementObtainedService.findAllObtainedByExternalGameId(
             session?.getUserId(),
             externalGameId,
+            session?.getUserId(),
         );
     }
 

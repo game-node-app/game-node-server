@@ -427,6 +427,7 @@ export interface XboxGameAchievementsResponse {
     }[];
     pagingInfo: {
         continuationToken: string | null;
-        totalRecords: number;
+        totalRecords?: number;
+        totalItems?: number;
     };
 }

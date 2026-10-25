@@ -1,3 +1,5 @@
+import { GameAchievementSyncModule } from "./sync/game-achievement-sync.module";
+import { PlayerDataModule } from "../../sync/player-data/player-data.module";
 import { forwardRef, Module } from "@nestjs/common";
 import { ExternalGameModule } from "../external-game/external-game.module";
 import { GameAchievementService } from "./game-achievement.service";
@@ -19,6 +21,8 @@ import { GameAchievementStatusService } from "./game-achievement-status.service"
 
 @Module({
     imports: [
+        PlayerDataModule,
+        forwardRef(() => GameAchievementSyncModule),
         TypeOrmModule.forFeature([
             ObtainedGameAchievement,
             ObtainedGameAchievementActivity,

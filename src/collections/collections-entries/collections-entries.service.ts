@@ -1,3 +1,4 @@
+import { Library } from "../../libraries/entities/library.entity";
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -315,6 +316,7 @@ export class CollectionsEntriesService {
     async createOrUpdate(
         userId: string,
         createEntryDto: CreateUpdateCollectionEntryDto,
+        createOnly = false,
     ) {
         const {
             collectionIds,
@@ -345,10 +347,22 @@ export class CollectionsEntriesService {
             finishedAt,
         );
 
+        // Serialize creation across import/manual callers; user/game has no unique constraint.
+        const library = await this.collectionEntriesRepository.manager
+            .getRepository(Library)
+            .findOne({
+                where: { userId },
+                lock: { mode: "pessimistic_write" },
+            });
+        if (!library)
+            throw new HttpException("Library not found", HttpStatus.NOT_FOUND);
+
         const possibleExistingEntry = await this.findOneByUserIdAndGameId(
             userId,
             gameId,
         );
+
+        if (createOnly && possibleExistingEntry) return false;
 
         const updatedPartialEntity: DeepPartial<CollectionEntry> = {
             ...possibleExistingEntry,
@@ -407,6 +421,35 @@ export class CollectionsEntriesService {
             targetUserId: userId,
             category: AchievementCategory.COLLECTIONS,
         });
+    }
+
+    @Transactional()
+    async createForImport(
+        userId: string,
+        gameId: number,
+        platformId: number,
+        collectionId?: string | null,
+    ) {
+        const destination = collectionId
+            ? await this.collectionsService.findOneById(collectionId)
+            : null;
+        if (destination && destination.libraryUserId !== userId)
+            throw new HttpException(
+                "Automatic-import collection does not belong to this user",
+                HttpStatus.FORBIDDEN,
+            );
+        const created = await this.createOrUpdate(
+            userId,
+            {
+                collectionIds: destination ? [destination.id] : [],
+                gameId,
+                platformIds: [platformId],
+                status: CollectionEntryStatus.PLANNED,
+                finishedAt: null,
+            },
+            true,
+        );
+        return created === false ? ("skipped" as const) : ("imported" as const);
     }
 
     private async updateAssociatedCollections(

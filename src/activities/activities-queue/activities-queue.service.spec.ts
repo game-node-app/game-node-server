@@ -4,6 +4,7 @@ import { getQueueToken } from "@nestjs/bullmq";
 
 describe("ActivitiesFeedService", () => {
     let service: ActivitiesQueueService;
+    let add: jest.Mock;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -12,7 +13,7 @@ describe("ActivitiesFeedService", () => {
                 {
                     provide: getQueueToken("activities"),
                     useValue: {
-                        add: jest.fn(async () => {}),
+                        add: (add = jest.fn(async () => ({ id: "activity-job" }))),
                     },
                 },
             ],
@@ -23,5 +24,43 @@ describe("ActivitiesFeedService", () => {
 
     it("should be defined", () => {
         expect(service).toBeDefined();
+    });
+
+    it("uses the source identity as the BullMQ job id and returns its acknowledgement", async () => {
+        const result = await service.register(
+            {
+                type: "OBTAINED_GAME_ACHIEVEMENT" as any,
+                sourceId: 5,
+                profileUserId: "user",
+            },
+            "activity-OBTAINED_GAME_ACHIEVEMENT-5",
+        );
+
+        expect(result).toEqual({ id: "activity-job" });
+        expect(add).toHaveBeenCalledWith(
+            "register",
+            {
+                type: "OBTAINED_GAME_ACHIEVEMENT",
+                sourceId: 5,
+                profileUserId: "user",
+            },
+            { jobId: "activity-OBTAINED_GAME_ACHIEVEMENT-5" },
+        );
+    });
+
+    it("returns queue rejection to callers waiting for confirmation", async () => {
+        const error = new Error("queue unavailable");
+        add.mockRejectedValue(error);
+
+        await expect(
+            service.register(
+                {
+                    type: "OBTAINED_GAME_ACHIEVEMENT" as any,
+                    sourceId: 5,
+                    profileUserId: "user",
+                },
+                "activity-OBTAINED_GAME_ACHIEVEMENT-5",
+            ),
+        ).rejects.toThrow("queue unavailable");
     });
 });

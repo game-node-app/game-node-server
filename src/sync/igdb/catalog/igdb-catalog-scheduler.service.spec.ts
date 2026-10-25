@@ -7,7 +7,7 @@ function setup(days = 7) {
     const state = {
         status: "completed",
         runId: "old",
-        nextEligibleAt: new Date(days * 86400000),
+        nextEligibleAt: new Date(days * 86400000) as Date | null,
         leaseExpiresAt: null as Date | null,
     };
     let claimable = true;
@@ -27,6 +27,17 @@ function setup(days = 7) {
         }),
         releaseOwnership: jest.fn(async () => {
             claimable = true;
+        }),
+        resumeRun: jest.fn(async () => {
+            if (
+                state.status !== "paused" ||
+                (state.nextEligibleAt &&
+                    Date.now() < state.nextEligibleAt.getTime())
+            )
+                return null;
+            state.status = "running";
+            state.nextEligibleAt = null;
+            return { ...state, committedId: 0 };
         }),
     };
     const jobs = new Map<string, any>();
@@ -77,18 +88,36 @@ describe("catalog scheduler", () => {
             }
         },
     );
-    it("starts eligible work immediately and leaves paused work alone", async () => {
+    it("starts eligible work immediately and leaves paused work alone during cooldown", async () => {
         const f = setup();
         f.state.status = "idle";
         f.state.nextEligibleAt = new Date(0);
         await f.make().onModuleInit();
         expect(f.queue.add).toHaveBeenCalledTimes(1);
         f.state.status = "paused";
+        f.state.nextEligibleAt = new Date(Date.now() + 60_000);
         await f.make().reconcile();
         expect(f.queue.add).toHaveBeenCalledTimes(1);
+        expect(f.state.status).toBe("paused");
         f.state.status = "idle";
         await f.make().reconcile();
         expect(f.queue.add).toHaveBeenCalledTimes(1);
+    });
+    it("automatically resumes a paused run once its cooldown elapses", async () => {
+        const f = setup();
+        f.state.status = "paused";
+        f.state.runId = "new";
+        f.state.nextEligibleAt = new Date(0);
+        const retry = jest.fn().mockResolvedValue(undefined);
+        f.jobs.set("igdb-catalog-new", {
+            getState: async () => "failed",
+            retry,
+        });
+        await f.make().reconcile();
+        expect(f.service.resumeRun).toHaveBeenCalledWith(true);
+        expect(f.state.status).toBe("running");
+        expect(retry).toHaveBeenCalledWith("failed");
+        expect(f.queue.add).not.toHaveBeenCalled();
     });
     it("reuses active/waiting work and retries a retained terminal job for the same interrupted run", async () => {
         const f = setup();

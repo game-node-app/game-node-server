@@ -24,6 +24,7 @@ export class JournalPlayLogService {
     async getPlaylog(
         userId: string,
         gameId: number,
+        viewerUserId?: string,
     ): Promise<JournalPlaylogGroupDto[]> {
         const collectionEntry =
             await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
@@ -49,6 +50,7 @@ export class JournalPlayLogService {
         const playlogAchievements = await this.getPlaylogAchievements(
             userId,
             gameId,
+            viewerUserId,
         );
 
         const playlogEntries = statusRelatedEntries.concat(playlogAchievements);
@@ -90,6 +92,7 @@ export class JournalPlayLogService {
     private async getPlaylogAchievements(
         userId: string,
         gameId: number,
+        viewerUserId?: string,
     ): Promise<JournalPlaylogEntryDto[]> {
         const [availableAchievementsGroups, obtainedAchievements] =
             await Promise.all([
@@ -97,6 +100,7 @@ export class JournalPlayLogService {
                 this.gameAchievementsObtainedService.findAllObtainedByGameId(
                     userId,
                     gameId,
+                    viewerUserId,
                 ),
             ]);
 

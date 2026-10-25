@@ -1,3 +1,4 @@
+import { PlayerSyncWrite } from "../sync/player-sync-attempt";
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ImporterProcessedEntry } from "./entity/importer-processed-entry.entity";
@@ -13,7 +14,6 @@ import { ImporterUnprocessedRequestDto } from "./dto/importer-unprocessed-reques
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { ImporterEntry } from "./entity/importer-entry.entity";
 import { PsnSyncService } from "../sync/psn/psn-sync.service";
-import { HttpStatusCode } from "axios";
 import { ImporterResponseItemDto } from "./dto/importer-response-item.dto";
 import { ExternalGameService } from "../game/external-game/external-game.service";
 import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
@@ -23,8 +23,6 @@ import { PreferredPlatformService } from "../preferred-platform/preferred-platfo
 import { getPreferredXboxPlatformAbbreviation } from "../sync/xbox/util/get-preferred-xbox-platform-abbreviation";
 import { GameRepositoryService } from "../game/game-repository/game-repository.service";
 import { getPsnPlatformAbbreviation } from "../sync/psn/util/get-psn-platform-abbreviation";
-import { Cacheable } from "../utils/cacheable";
-import { minutes } from "@nestjs/throttler";
 
 @Injectable()
 export class ImporterService {
@@ -57,13 +55,12 @@ export class ImporterService {
         return processedEntries.concat(ignoredEntries);
     }
 
-    @Cacheable(ImporterService.name, minutes(15))
     private async findUnprocessedSteamEntries(userId: string) {
         const processedEntries = await this.getProcessedEntries(userId);
 
-        const ignoredExternalGamesIds = processedEntries.map((entry) => {
-            return entry.gameExternalGameId;
-        });
+        const ignoredExternalGamesIds = new Set(
+            processedEntries.map((entry) => entry.gameExternalGameId),
+        );
 
         const userConnection =
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
@@ -71,14 +68,9 @@ export class ImporterService {
                 EConnectionType.STEAM,
             );
 
-        const [userGames, fallbackRecentGames] = await Promise.all([
-            this.steamSyncService.getAllGames(userConnection.sourceUserId),
-            this.steamSyncService.getRecentlyPlayedGames(
-                userConnection.sourceUserId,
-            ),
-        ]);
-
-        const games = [...userGames, ...fallbackRecentGames];
+        const games = await this.steamSyncService.getLibraryGames(
+            userConnection.sourceUserId,
+        );
 
         const gamesUids = Array.from(
             new Set(games.map((item) => `${item.game.id}`)),
@@ -91,8 +83,7 @@ export class ImporterService {
             );
 
         const filteredGames = externalGames.filter(
-            (externalGame) =>
-                !ignoredExternalGamesIds.includes(externalGame.id),
+            (externalGame) => !ignoredExternalGamesIds.has(externalGame.id),
         );
 
         return filteredGames.map(
@@ -106,13 +97,12 @@ export class ImporterService {
         );
     }
 
-    @Cacheable(ImporterService.name, minutes(15))
     private async findUnprocessedPsnEntries(userId: string) {
         const processedEntries = await this.getProcessedEntries(userId);
 
-        const ignoredExternalGamesIds = processedEntries.map((entry) => {
-            return entry.gameExternalGameId;
-        });
+        const ignoredExternalGamesIds = new Set(
+            processedEntries.map((entry) => entry.gameExternalGameId),
+        );
 
         const userConnection =
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
@@ -124,12 +114,7 @@ export class ImporterService {
             userConnection.sourceUserId,
         );
 
-        if (games.length === 0) {
-            throw new HttpException(
-                "No games found. PSN may be unavailable or user's profile is set to private.",
-                HttpStatusCode.BadRequest,
-            );
-        }
+        if (games.length === 0) return [];
 
         const gameUids = games.map((item) => {
             return `${item.concept.id}`;
@@ -144,8 +129,7 @@ export class ImporterService {
             );
 
         const filteredGames = externalGames.filter(
-            (externalGame) =>
-                !ignoredExternalGamesIds.includes(externalGame.id),
+            (externalGame) => !ignoredExternalGamesIds.has(externalGame.id),
         );
 
         const platformsMap =
@@ -153,10 +137,13 @@ export class ImporterService {
                 "abbreviation",
             );
 
+        const gamesByConcept = new Map(
+            [...Map.groupBy(games, (game) => String(game.concept.id))].map(
+                ([id, games]) => [id, games[0]],
+            ),
+        );
         return filteredGames.map((item): ImporterResponseItemDto => {
-            const relatedOriginalGame = games.find(
-                (game) => `${game.concept.id}` === item.uid,
-            )!;
+            const relatedOriginalGame = gamesByConcept.get(item.uid)!;
 
             const preferredPlatformAbbreviation = getPsnPlatformAbbreviation(
                 relatedOriginalGame.category,
@@ -173,13 +160,12 @@ export class ImporterService {
         });
     }
 
-    @Cacheable(ImporterService.name, minutes(15))
     public async findUnprocessedXboxEntries(userId: string) {
         const processedEntries = await this.getProcessedEntries(userId);
 
-        const ignoredExternalGamesIds = processedEntries.map((entry) => {
-            return entry.gameExternalGameId;
-        });
+        const ignoredExternalGamesIds = new Set(
+            processedEntries.map((entry) => entry.gameExternalGameId),
+        );
 
         const userConnection =
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
@@ -191,7 +177,7 @@ export class ImporterService {
             userConnection.sourceUserId,
         );
 
-        const sourceUids = allGames.map((game) => game.productId);
+        const sourceUids = [...new Set(allGames.map((game) => game.productId))];
 
         const externalGames =
             await this.externalGameService.getExternalGamesForSourceIds(
@@ -200,8 +186,7 @@ export class ImporterService {
             );
 
         const filteredGames = externalGames.filter(
-            (externalGame) =>
-                !ignoredExternalGamesIds.includes(externalGame.id),
+            (externalGame) => !ignoredExternalGamesIds.has(externalGame.id),
         );
 
         const platformsMap =
@@ -209,10 +194,13 @@ export class ImporterService {
                 "abbreviation",
             );
 
+        const gamesByProduct = new Map(
+            [...Map.groupBy(allGames, (game) => game.productId)].map(
+                ([id, games]) => [id, games[0]],
+            ),
+        );
         return filteredGames.map((externalGame): ImporterResponseItemDto => {
-            const relatedOriginalGame = allGames.find(
-                (game) => game.productId === externalGame.uid,
-            )!;
+            const relatedOriginalGame = gamesByProduct.get(externalGame.uid)!;
             const deviceTitles = relatedOriginalGame.devices.flat(1);
 
             const targetPlatformAbbreviation =
@@ -233,6 +221,7 @@ export class ImporterService {
         userId: string,
         source: EImporterSource,
         dto: ImporterUnprocessedRequestDto,
+        afterGameId?: number,
     ): Promise<TPaginationData<ImporterResponseItemDto>> {
         let entries: ImporterResponseItemDto[] = [];
         switch (source) {
@@ -252,15 +241,13 @@ export class ImporterService {
                 );
         }
 
-        if (entries.length === 0) {
-            throw new HttpException(
-                "No unprocessed entries found",
-                HttpStatus.NOT_FOUND,
-            );
-        }
-
         const uniqueEntriesMap = toMap(entries, "gameId");
-        const uniqueEntries = Array.from(uniqueEntriesMap.values());
+        const uniqueEntries =
+            afterGameId == null
+                ? Array.from(uniqueEntriesMap.values())
+                : Array.from(uniqueEntriesMap.values())
+                      .filter((entry) => entry.gameId > afterGameId)
+                      .sort((a, b) => a.gameId - b.gameId);
 
         const { offset, limit, search } = dto;
         const offsetToUse = offset || 0;
@@ -288,6 +275,26 @@ export class ImporterService {
         return [slicedEntries, uniqueEntries.length];
     }
 
+    public async isProcessedOrIgnored(userId: string, externalGameId: number) {
+        const where = {
+            libraryUserId: userId,
+            gameExternalGameId: externalGameId,
+        };
+        return (
+            (await this.processedEntryRepository.existsBy(where)) ||
+            (await this.ignoredEntryRepository.existsBy(where))
+        );
+    }
+
+    @PlayerSyncWrite()
+    public async markProcessed(userId: string, externalGameId: number) {
+        await this.processedEntryRepository.upsert(
+            { libraryUserId: userId, gameExternalGameId: externalGameId },
+            ["libraryUserId", "gameExternalGameId"],
+        );
+    }
+
+    @PlayerSyncWrite()
     public async changeStatus(
         userId: string,
         dto: ImporterStatusUpdateRequestDto,

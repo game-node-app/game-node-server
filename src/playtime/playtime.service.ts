@@ -1,7 +1,12 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+    PlayerSyncWrite,
+    recordPlayerSyncStats,
+} from "../sync/player-sync-attempt";
+import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindManyOptions,
+    In,
     FindOptionsRelations,
     OrderByCondition,
     Repository,
@@ -26,18 +31,38 @@ import { toCumulativePlaytime } from "./playtime.util";
 import { UserPlaytimeDto } from "./dto/user-playtime.dto";
 import { generateChecksum } from "../utils/checksum";
 import dayjs from "dayjs";
+import { currentPlayerSyncObservationAt } from "../sync/player-sync-attempt";
+import { Transactional } from "typeorm-transactional";
 
-const createChecksum = (dto: CreateUserPlaytimeDto) => {
+const persistedDate = (date: Date | null | undefined) =>
+    date == null
+        ? null
+        : new Date(Math.floor(date.getTime() / 1000) * 1000).toISOString();
+const persistedInteger = (value: number | undefined) =>
+    Math.round(Number(value ?? 0));
+
+const createChecksum = (
+    dto: CreateUserPlaytimeDto,
+    includeRecentPlaytime = dto.source === UserPlaytimeSource.STEAM &&
+        dto.recentPlaytimeSeconds != null,
+) => {
+    // PSN/Xbox recent totals are derived from history; only provider-supplied Steam recent time belongs here.
     const relevantData = {
         profileUserId: dto.profileUserId,
-        gameId: dto.gameId,
+        gameId: Number(dto.gameId),
         source: dto.source,
-        platformId: dto.platformId,
-        totalPlaytimeSeconds: dto.totalPlaytimeSeconds,
-        recentPlaytimeSeconds: dto.recentPlaytimeSeconds,
-        lastPlayedDate: dto.lastPlayedDate,
-        totalPlayCount: dto.totalPlayCount,
-        firstPlayedDate: dto.firstPlayedDate,
+        platformId: Number(dto.platformId),
+        totalPlaytimeSeconds: persistedInteger(dto.totalPlaytimeSeconds),
+        ...(includeRecentPlaytime
+            ? {
+                  recentPlaytimeSeconds: persistedInteger(
+                      dto.recentPlaytimeSeconds,
+                  ),
+              }
+            : {}),
+        lastPlayedDate: persistedDate(dto.lastPlayedDate),
+        totalPlayCount: persistedInteger(dto.totalPlayCount),
+        firstPlayedDate: persistedDate(dto.firstPlayedDate),
     };
 
     return generateChecksum(relevantData);
@@ -45,7 +70,6 @@ const createChecksum = (dto: CreateUserPlaytimeDto) => {
 
 @Injectable()
 export class PlaytimeService {
-    private logger = new Logger(PlaytimeService.name);
     private readonly relations: FindOptionsRelations<UserPlaytime> = {
         platform: true,
     };
@@ -202,66 +226,186 @@ export class PlaytimeService {
         return playtimeMap;
     }
 
-    private async getRecentPlaytimeForGame(playtime: CreateUserPlaytimeDto) {
-        const totalPerGame =
-            await this.playtimeHistoryService.getTotalPlaytimeForPeriod({
-                userId: playtime.profileUserId,
-                source: playtime.source,
-                platformId: playtime.platformId,
-                startDate: getPreviousDate(14),
-                endDate: new Date(),
+    public async findForImport(
+        userId: string,
+        source: UserPlaytimeSource,
+        gameIds: number[],
+    ) {
+        const existing = new Map<string, UserPlaytime>();
+        const ids = [...new Set(gameIds)];
+        for (let offset = 0; offset < ids.length; offset += 500) {
+            const rows = await this.userPlaytimeRepository.findBy({
+                profileUserId: userId,
+                source,
+                gameId: In(ids.slice(offset, offset + 500)),
             });
-
-        const playtimeForGame = totalPerGame.find(
-            (entry) => entry.gameId === playtime.gameId,
-        );
-
-        return playtimeForGame?.totalPlaytimeInPeriodSeconds ?? 0;
+            for (const row of rows)
+                existing.set(`${row.gameId}:${row.platformId}`, row);
+        }
+        return existing;
     }
 
     async save(playtime: CreateUserPlaytimeDto) {
-        const existingPlaytime = await this.findOne(
+        const existing = await this.findOne(
             playtime.profileUserId,
             playtime.gameId,
             playtime.source,
             playtime.platformId,
         );
+        const [saved] = await this.saveImported(
+            [playtime],
+            new Map(
+                existing
+                    ? [[`${existing.gameId}:${existing.platformId}`, existing]]
+                    : [],
+            ),
+        );
+        return saved;
+    }
 
-        const updatedChecksum = createChecksum(playtime);
+    async saveImported(
+        playtimes: CreateUserPlaytimeDto[],
+        existing: Map<string, UserPlaytime>,
+    ) {
+        const result = await this.persistImported(playtimes, existing);
+        recordPlayerSyncStats({ gamesChanged: result.changed });
+        return result.saved;
+    }
 
-        /**
-         * If the checksum matches and the entry was updated in the last 14 days, skip updating
-         * to reduce unnecessary writes.
-         */
+    @PlayerSyncWrite()
+    @Transactional()
+    private async persistImported(
+        playtimes: CreateUserPlaytimeDto[],
+        existing: Map<string, UserPlaytime>,
+    ) {
         if (
-            existingPlaytime != undefined &&
-            existingPlaytime.checksum === updatedChecksum &&
-            dayjs(existingPlaytime.updatedAt).diff(dayjs(), "day") < 14
-        ) {
-            this.logger.log(
-                `Skipping playtime update: no changes detected. (profile: ${playtime.profileUserId}, game: ${playtime.gameId}, source: ${playtime.source}, platform: ${playtime.platformId})`,
+            playtimes.some(
+                (playtime) =>
+                    playtime.profileUserId !== playtimes[0].profileUserId ||
+                    playtime.source !== playtimes[0].source,
+            )
+        )
+            throw new Error(
+                "Imported playtime must belong to one user and source",
             );
-            return existingPlaytime;
-        }
-
-        const updatedPlaytime = {
-            ...existingPlaytime,
-            ...playtime,
+        const observedAt = currentPlayerSyncObservationAt() ?? new Date();
+        const window = {
+            startDate: dayjs(observedAt).subtract(14, "day").toDate(),
+            endDate: observedAt,
         };
-
-        await this.playtimeHistoryService.save(updatedPlaytime);
-
-        let recentPlaytimeSeconds = playtime.recentPlaytimeSeconds;
-        if (recentPlaytimeSeconds == undefined) {
-            recentPlaytimeSeconds =
-                await this.getRecentPlaytimeForGame(updatedPlaytime);
+        const prepared = [] as {
+            playtime: CreateUserPlaytimeDto;
+            previous?: UserPlaytime;
+            checksum: string;
+            changed: boolean;
+        }[];
+        for (const playtime of new Map(
+            playtimes.map((playtime) => [
+                `${playtime.gameId}:${playtime.platformId}`,
+                playtime,
+            ]),
+        ).values()) {
+            const previous = existing.get(
+                `${playtime.gameId}:${playtime.platformId}`,
+            );
+            if (
+                previous &&
+                (previous.profileUserId !== playtime.profileUserId ||
+                    previous.source !== playtime.source)
+            )
+                throw new Error("Mismatched imported playtime identity");
+            const updated = {
+                ...previous,
+                ...playtime,
+                firstPlayedDate:
+                    playtime.firstPlayedDate === undefined
+                        ? previous?.firstPlayedDate
+                        : playtime.firstPlayedDate,
+                lastPlayedDate:
+                    playtime.lastPlayedDate === undefined
+                        ? previous?.lastPlayedDate
+                        : playtime.lastPlayedDate,
+                totalPlayCount:
+                    playtime.totalPlayCount ?? previous?.totalPlayCount,
+                recentPlaytimeSeconds: playtime.recentPlaytimeSeconds,
+            };
+            const checksum = createChecksum(updated);
+            const changed =
+                previous == null ||
+                createChecksum(
+                    previous,
+                    playtime.source === UserPlaytimeSource.STEAM &&
+                        playtime.recentPlaytimeSeconds != null,
+                ) !== checksum;
+            if (changed)
+                await this.playtimeHistoryService.save(updated, observedAt);
+            prepared.push({ playtime: updated, previous, checksum, changed });
         }
-
-        return await this.userPlaytimeRepository.save({
-            ...updatedPlaytime,
-            recentPlaytimeSeconds,
-            checksum: updatedChecksum,
-        });
+        const recentByWindow = new Map<string, Map<number, number>>();
+        for (const { playtime } of prepared) {
+            if (playtime.recentPlaytimeSeconds != null) continue;
+            const key = JSON.stringify([
+                playtime.profileUserId,
+                playtime.source,
+                playtime.platformId,
+            ]);
+            if (!recentByWindow.has(key)) {
+                const totals =
+                    await this.playtimeHistoryService.getTotalPlaytimeForPeriod(
+                        {
+                            userId: playtime.profileUserId,
+                            source: playtime.source,
+                            platformId: playtime.platformId,
+                            ...window,
+                        },
+                    );
+                recentByWindow.set(
+                    key,
+                    new Map(
+                        totals.map((total) => [
+                            total.gameId,
+                            total.totalPlaytimeInPeriodSeconds,
+                        ]),
+                    ),
+                );
+            }
+        }
+        const saved = [] as UserPlaytime[];
+        for (const { playtime, previous, checksum, changed } of prepared) {
+            const key = JSON.stringify([
+                playtime.profileUserId,
+                playtime.source,
+                playtime.platformId,
+            ]);
+            const recentPlaytimeSeconds =
+                playtime.recentPlaytimeSeconds ??
+                recentByWindow.get(key)!.get(playtime.gameId) ??
+                0;
+            const age = previous
+                ? dayjs(observedAt).diff(dayjs(previous.updatedAt), "day")
+                : Infinity;
+            if (
+                previous &&
+                !changed &&
+                age < 14 &&
+                Number(previous.recentPlaytimeSeconds) ===
+                    Number(recentPlaytimeSeconds)
+            ) {
+                saved.push(previous);
+            } else {
+                saved.push(
+                    await this.userPlaytimeRepository.save({
+                        ...playtime,
+                        recentPlaytimeSeconds,
+                        checksum,
+                    }),
+                );
+            }
+        }
+        return {
+            saved,
+            changed: prepared.filter((item) => item.changed).length,
+        };
     }
 
     async submit(userId: string, dto: SubmitUserPlaytimeDto) {

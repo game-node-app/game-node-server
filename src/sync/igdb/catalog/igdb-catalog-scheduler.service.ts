@@ -44,11 +44,12 @@ export class IgdbCatalogSchedulerService
     async tick() {
         try {
             await this.reconcile();
-        } catch {
+        } catch (error) {
             this.logger.error({
                 event: "catalog.scheduler.failed",
                 message:
                     "Catalog reconciliation failed; check local database/queue connectivity",
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
@@ -61,8 +62,17 @@ export class IgdbCatalogSchedulerService
         return this.active;
     }
     private async schedule() {
-        const status = await this.state.readStatus();
-        if (status.status === "paused") return;
+        let status = await this.state.readStatus();
+        if (status.status === "paused") {
+            const resumed = await this.state.resumeRun(true);
+            if (!resumed) return;
+            this.logger.log({
+                event: "catalog.resumed",
+                runId: resumed.runId,
+                cursor: resumed.committedId,
+            });
+            status = resumed;
+        }
         if (status.status === "running" && status.runId) {
             const existing = await this.queue.getJob(
                 catalogJobId(status.runId),

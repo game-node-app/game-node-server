@@ -1,3 +1,4 @@
+import { PlayerLibrarySnapshot } from "../player-sync-attempt";
 import {
     HttpException,
     HttpStatus,
@@ -19,6 +20,7 @@ import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { getXboxPlayerXUID } from "./client/getXboxPlayerXUID";
 import { callXboxAPI } from "./client/callXboxApi";
 import { Cacheable } from "../../utils/cacheable";
+import { ProviderSyncError } from "../provider-sync.error";
 import { days, hours, minutes } from "@nestjs/throttler";
 
 @Injectable()
@@ -63,40 +65,71 @@ export class XboxSyncService {
     }
 
     /**
-     * Returns the entire user's Xbox library, up to X items.
+     * Returns a complete below-cap Xbox library; capped responses fail.
      * This method may take up to 20s to respond depending on the user's library size.
      * @param playerXUID
      */
-    @Cacheable(`${XboxSyncService.name}#getAllGames`, hours(1))
+    @PlayerLibrarySnapshot()
+    @Cacheable(`${XboxSyncService.name}:complete-v1#getAllGames`, hours(1))
     public async getAllGames(playerXUID: string) {
         const auth = await this.authService.getAuthCredentials();
 
-        try {
-            const response: {
-                xuid: string;
-                titles: XboxGameTitle[];
-            } = await callXboxAPI(
-                {
-                    url: `https://titlehub.xboxlive.com/users/xuid(${playerXUID})/titles/titlehistory/decoration/productId`,
-                    params: {
-                        maxItems: 5000,
-                    },
+        const response: {
+            xuid: string;
+            titles: XboxGameTitle[];
+            pagingInfo?: {
+                continuationToken?: string;
+                totalRecords?: number;
+                totalItems?: number;
+            };
+            continuationToken?: string;
+            totalRecords?: number;
+            totalItemCount?: number;
+            hasMore?: boolean;
+            nextLink?: string;
+        } = await callXboxAPI(
+            {
+                url: `https://titlehub.xboxlive.com/users/xuid(${playerXUID})/titles/titlehistory/decoration/productId`,
+                params: {
+                    maxItems: 5000,
                 },
-                auth,
-                2,
-            );
+            },
+            auth,
+            2,
+        );
 
-            return response.titles;
-        } catch (err) {
-            this.logger.error(err);
-            throw new HttpException(
-                "Failed to fetch games. User's library may be set to private.",
-                HttpStatus.BAD_REQUEST,
+        if (
+            !Array.isArray(response?.titles) ||
+            response.titles.length >= 5000 ||
+            response.pagingInfo?.continuationToken ||
+            response.continuationToken ||
+            response.hasMore ||
+            response.nextLink ||
+            [
+                response.pagingInfo?.totalRecords,
+                response.pagingInfo?.totalItems,
+                response.totalRecords,
+                response.totalItemCount,
+            ].some(
+                (total) =>
+                    total != null &&
+                    (!Number.isSafeInteger(total) ||
+                        total !== response.titles.length),
+            )
+        ) {
+            // shortcut: TitleHub continuation is unverified, remove the cap rejection only after verifying its contract.
+            throw new ProviderSyncError(
+                "incomplete",
+                "Incomplete Xbox TitleHub library response",
             );
         }
+        return response.titles;
     }
 
-    @Cacheable(`${XboxSyncService.name}#getBatchMinutesPlayed`, hours(1))
+    @Cacheable(
+        `${XboxSyncService.name}:complete-v1#getBatchMinutesPlayed`,
+        hours(1),
+    )
     public async getBatchMinutesPlayed(playerXUID: string, titleIds: string[]) {
         const items: XboxMinutesPlayedStatsItem[] = [];
 
@@ -108,77 +141,144 @@ export class XboxSyncService {
         const auth = await this.authService.getAuthCredentials();
 
         const MAX_REQUEST_SIZE = 1000;
-        let currentOffset = 0;
 
         const statsRequestItems = titleIds.map((titleId) => ({
             name: "MinutesPlayed",
             titleId: titleId,
         }));
 
-        while (currentOffset < statsRequestItems.length) {
-            try {
-                const slicedItems = statsRequestItems.slice(
-                    currentOffset,
-                    currentOffset + MAX_REQUEST_SIZE + 1,
+        for (
+            let currentOffset = 0;
+            currentOffset < statsRequestItems.length;
+            currentOffset += MAX_REQUEST_SIZE
+        ) {
+            const slicedItems = statsRequestItems.slice(
+                currentOffset,
+                currentOffset + MAX_REQUEST_SIZE,
+            );
+
+            const statsBatch =
+                await callXboxAPI<XboxBatchMinutesPlayedResponse>(
+                    {
+                        method: "POST",
+                        url: `https://userstats.xboxlive.com/batch`,
+                        data: {
+                            arrangebyfield: "xuid",
+                            xuids: [playerXUID],
+                            stats: slicedItems,
+                        },
+                    },
+                    auth,
+                    2,
                 );
 
-                if (slicedItems.length === 0) {
-                    break;
-                }
-
-                const statsBatch =
-                    await callXboxAPI<XboxBatchMinutesPlayedResponse>(
-                        {
-                            method: "POST",
-                            url: `https://userstats.xboxlive.com/batch`,
-                            data: {
-                                arrangebyfield: "xuid",
-                                xuids: [playerXUID],
-                                stats: slicedItems,
-                            },
-                        },
-                        auth,
-                        2,
-                    );
-
-                if (
-                    statsBatch.statlistscollection == undefined ||
-                    statsBatch.statlistscollection.length === 0 ||
-                    statsBatch.statlistscollection[0].stats.length === 0
-                ) {
-                    continue;
-                }
-
-                const resultingStats = statsBatch.statlistscollection[0].stats;
-
-                items.push(...resultingStats);
-
-                currentOffset += MAX_REQUEST_SIZE;
-            } catch (err) {
-                this.logger.error(err);
-                break;
+            if (
+                !Array.isArray(statsBatch?.statlistscollection) ||
+                statsBatch.statlistscollection.some(
+                    (collection) => !Array.isArray(collection?.stats),
+                )
+            ) {
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Incomplete Xbox statistics response",
+                );
             }
+
+            items.push(
+                ...statsBatch.statlistscollection.flatMap(
+                    (collection) => collection.stats,
+                ),
+            );
         }
 
         return items;
     }
 
-    @Cacheable(XboxSyncService.name, minutes(15))
+    @Cacheable(`${XboxSyncService.name}:complete-v1`, minutes(15))
     public async getObtainedAchievements(playerXUID: string, titleId: string) {
         const auth = await this.authService.getAuthCredentials();
 
-        const result = await callXboxAPI<XboxGameAchievementsResponse>(
-            {
-                url: `https://achievements.xboxlive.com/users/xuid(${playerXUID})/achievements`,
-                params: {
-                    titleId,
-                    maxItems: 1000,
-                },
-            },
-            auth,
-        );
+        const achievements: XboxGameAchievementsResponse["achievements"] = [];
+        const seenTokens = new Set<string>();
+        const seenAchievements = new Set<string>();
+        let continuationToken: string | undefined;
+        let expectedTotal: number | undefined;
 
-        return result.achievements;
+        let pages = 0;
+        do {
+            if (++pages > 1000)
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Xbox achievement page limit exceeded",
+                );
+            const result = await callXboxAPI<XboxGameAchievementsResponse>(
+                {
+                    url: `https://achievements.xboxlive.com/users/xuid(${playerXUID})/achievements`,
+                    params: {
+                        titleId,
+                        maxItems: 1000,
+                        ...(continuationToken ? { continuationToken } : {}),
+                    },
+                },
+                auth,
+            );
+            const total =
+                result?.pagingInfo?.totalRecords ??
+                result?.pagingInfo?.totalItems;
+            const next = result?.pagingInfo?.continuationToken;
+            if (
+                !Array.isArray(result?.achievements) ||
+                (total != null &&
+                    (!Number.isSafeInteger(total) || total < 0)) ||
+                (expectedTotal != null &&
+                    total != null &&
+                    expectedTotal !== total) ||
+                (next !== null && typeof next !== "string")
+            )
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Incomplete Xbox achievement response",
+                );
+            expectedTotal = total ?? expectedTotal;
+            for (const achievement of result.achievements) {
+                if (!achievement?.id || !achievement.serviceConfigId)
+                    throw new ProviderSyncError(
+                        "incomplete",
+                        "Invalid Xbox achievement identity",
+                    );
+                const identity = `${achievement.serviceConfigId}:${achievement.id}`;
+                if (seenAchievements.has(identity))
+                    throw new ProviderSyncError(
+                        "incomplete",
+                        "Repeated Xbox achievement identity",
+                    );
+                seenAchievements.add(identity);
+            }
+            achievements.push(...result.achievements);
+            if (
+                expectedTotal != null &&
+                (achievements.length > expectedTotal ||
+                    (!next && achievements.length !== expectedTotal))
+            )
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Incomplete Xbox achievement total",
+                );
+            if (
+                next &&
+                (seenTokens.has(next) ||
+                    result.achievements.length === 0 ||
+                    achievements.length === expectedTotal)
+            )
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Xbox achievement continuation made no progress",
+                );
+            if (next) seenTokens.add(next);
+            continuationToken = next || undefined;
+        } while (continuationToken);
+
+        return achievements;
     }
 
     /**
@@ -186,12 +286,12 @@ export class XboxSyncService {
      * A generic XUID is used, so don't expect 'owned' statistics to be accurate.
      * @param titleId
      */
-    @Cacheable(XboxSyncService.name, hours(24))
+    @Cacheable(`${XboxSyncService.name}:complete-v1`, hours(24))
     public async getAvailableAchievements(titleId: string) {
         return this.getObtainedAchievements(this.GENERIC_XUID, titleId);
     }
 
-    @Cacheable(XboxSyncService.name, days(7))
+    @Cacheable(`${XboxSyncService.name}:complete-v1`, days(7))
     public async getTitleIdByPFN(pfn: string) {
         const response = await callXboxAPI<XboxDisplayCatalogueLookupResponse>(
             {
@@ -230,7 +330,7 @@ export class XboxSyncService {
         );
     }
 
-    @Cacheable(XboxSyncService.name, days(7))
+    @Cacheable(`${XboxSyncService.name}:complete-v1`, days(7))
     public async getPFNByProductId(productId: string) {
         const response = await callXboxAPI<XboxMSStoreCatalogResponse>(
             {

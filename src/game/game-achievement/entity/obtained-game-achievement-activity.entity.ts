@@ -49,6 +49,8 @@ export class ObtainedGameAchievementActivity extends BaseEntity {
         default: false,
     })
     hasObtainedPlatinumTrophy: boolean;
+    @Column({ nullable: false, default: false })
+    pendingDelivery: boolean;
     /**
      * The related external game the achievements were obtained for.
      * All obtained achievements for this activity should be related to this specific external game, but this is not enforced on the database level.

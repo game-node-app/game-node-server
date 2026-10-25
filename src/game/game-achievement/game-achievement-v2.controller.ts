@@ -54,6 +54,7 @@ export class GameAchievementV2Controller {
         return this.gameAchievementObtainedService.findAllObtainedByGameId(
             session?.getUserId(),
             gameId,
+            session?.getUserId(),
         );
     }
 
@@ -76,12 +77,14 @@ export class GameAchievementV2Controller {
     @Get(":userId/:gameId/obtained")
     @Public()
     public async findAllObtainedByUserIdAndGameId(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Param("gameId") gameId: number,
     ) {
         return this.gameAchievementObtainedService.findAllObtainedByGameId(
             userId,
             gameId,
+            session?.getUserId(),
         );
     }
 }

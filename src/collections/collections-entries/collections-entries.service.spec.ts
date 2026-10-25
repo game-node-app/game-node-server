@@ -1,106 +1,83 @@
-import { Test, TestingModule } from "@nestjs/testing";
+import { CollectionEntryStatus } from "./collections-entries.constants";
+jest.mock("typeorm-transactional", () => ({
+    Transactional:
+        () =>
+        (_target: object, _name: string, descriptor: PropertyDescriptor) =>
+            descriptor,
+}));
 import { CollectionsEntriesService } from "./collections-entries.service";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { CollectionEntry } from "./entities/collection-entry.entity";
-import { ActivitiesQueueService } from "../../activities/activities-queue/activities-queue.service";
-import { ReviewsService } from "../../reviews/reviews.service";
-import { Repository } from "typeorm";
-import { Review } from "../../reviews/entities/review.entity";
-import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
-import { getMockRepositoryProvider } from "../../../test/mocks/repositoryMocks";
-import Mocked = jest.Mocked;
-import { ActivitiesQueueMock } from "../../../test/mocks/queue/activities-mocks";
-import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
-import { achievementsQueueMock } from "../../../test/mocks/queue/achievements-mocks";
+import { Library } from "../../libraries/entities/library.entity";
 
-describe("CollectionsEntriesService", () => {
-    let service: jest.Mocked<CollectionsEntriesService>;
-    let repository: jest.Mocked<Repository<CollectionEntry>>;
-    let reviewService: jest.Mocked<ReviewsService>;
+function fixture(existing?: any) {
+    const lock = jest.fn().mockResolvedValue({ userId: "owner" });
+    const repository = {
+        findOne: jest.fn().mockResolvedValue(existing),
+        save: jest.fn(async (row) => ({ ...row, id: "entry" })),
+        update: jest.fn(),
+        manager: { getRepository: jest.fn(() => ({ findOne: lock })) },
+    };
+    const service = new CollectionsEntriesService(
+        repository as any,
+        {} as any,
+        { register: jest.fn() } as any,
+        { addTrackingJob: jest.fn() } as any,
+        { registerLevelExpIncreaseActivity: jest.fn() } as any,
+        { findAllByIds: jest.fn().mockResolvedValue([]) } as any,
+        {} as any,
+    );
+    jest.spyOn(service as any, "updateAssociatedCollections").mockResolvedValue(
+        undefined,
+    );
+    return { service, repository, lock };
+}
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                getMockRepositoryProvider(CollectionEntry),
-                CollectionsEntriesService,
-                {
-                    provide: ActivitiesQueueService,
-                    useValue: ActivitiesQueueMock,
-                },
-                {
-                    provide: AchievementsQueueService,
-                    useValue: achievementsQueueMock,
-                },
-                {
-                    provide: ReviewsService,
-                    useValue: {
-                        findOneByUserIdAndGameId: jest.fn(),
-                        delete: jest.fn(),
-                    },
-                },
-            ],
-        }).compile();
+test("changes favorite status on the authenticated user's entry", async () => {
+    const { service, repository } = fixture({ id: "entry" });
+    await service.changeFavoriteStatus("owner", 7, true);
+    expect(repository.update).toHaveBeenCalledWith(
+        { id: "entry" },
+        expect.objectContaining({ isFavorite: true }),
+    );
+});
 
-        service = module.get<Mocked<CollectionsEntriesService>>(
-            CollectionsEntriesService,
-        );
-        reviewService = module.get<Mocked<ReviewsService>>(ReviewsService);
-        repository = module.get<Mocked<Repository<CollectionEntry>>>(
-            getRepositoryToken(CollectionEntry),
-        );
+test("recreating an entry preserves its existing favorite preference", async () => {
+    const { service, repository, lock } = fixture({
+        id: "entry",
+        isFavorite: true,
     });
-
-    it("should be defined", () => {
-        expect(service).toBeDefined();
+    await service.createOrUpdate("owner", {
+        gameId: 7,
+        status: CollectionEntryStatus.PLANNED,
+        collectionIds: [],
+        platformIds: [6],
     });
+    expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ isFavorite: true }),
+    );
+    expect(repository.manager.getRepository).toHaveBeenCalledWith(Library);
+    expect(lock).toHaveBeenCalledWith({
+        where: { userId: "owner" },
+        lock: { mode: "pessimistic_write" },
+    });
+});
 
-    it("should change favorite status", async () => {
-        const mockCollectionEntry = new CollectionEntry();
-        mockCollectionEntry.id = "123124";
-        mockCollectionEntry.isFavorite = false;
-        jest.spyOn(
-            service,
-            "findOneByUserIdAndGameIdOrFail",
-        ).mockImplementationOnce(async () => {
-            return mockCollectionEntry;
-        });
-        const updateSpy = jest.spyOn(repository, "update");
-        await service.changeFavoriteStatus("12345", 12345, true);
-        expect(updateSpy).toHaveBeenCalledWith(
+test("import creation leaves an existing entry's user data untouched", async () => {
+    const { service, repository } = fixture({
+        id: "entry",
+        isFavorite: true,
+        status: "finished",
+    });
+    expect(
+        await service.createOrUpdate(
+            "owner",
             {
-                id: mockCollectionEntry.id,
+                gameId: 7,
+                status: CollectionEntryStatus.PLANNED,
+                collectionIds: [],
+                platformIds: [6],
             },
-            expect.objectContaining({
-                isFavorite: true,
-            }),
-        );
-    });
-
-    it("should keep favorite parameter when re-creating entry", async () => {
-        const userId = "1";
-        const dto: CreateUpdateCollectionEntryDto = {
-            isFavorite: true,
-            gameId: 1942,
-            collectionIds: ["111111"],
-            platformIds: [6],
-        };
-        jest.spyOn(
-            reviewService,
-            "findOneByUserIdAndGameId",
-        ).mockImplementation(() => {
-            return Promise.resolve({} as Review);
-        });
-        jest.spyOn(repository, "save").mockImplementationOnce(async () => {
-            return { id: "12345" } as CollectionEntry;
-        });
-        const replaceSpy = jest.spyOn(service, "createOrUpdate");
-        const repositorySaveSpy = jest.spyOn(repository, "save");
-        await service.createOrUpdate(userId, dto);
-        expect(replaceSpy).toHaveReturned();
-        expect(repositorySaveSpy).toBeCalledWith(
-            expect.objectContaining({
-                isFavorite: true,
-            }),
-        );
-    });
+            true,
+        ),
+    ).toBe(false);
+    expect(repository.save).not.toHaveBeenCalled();
 });

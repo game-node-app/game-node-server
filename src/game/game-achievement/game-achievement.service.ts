@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ExternalGameService } from "../external-game/external-game.service";
+import { ProviderSyncError } from "../../sync/provider-sync.error";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
 import { match, P } from "ts-pattern";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
@@ -21,6 +22,7 @@ import {
     getPSNAchievementId,
     isValidXboxProductId,
 } from "./game-achievement.utils";
+import { UnsupportedGameAchievementSourceError } from "./game-achievement.errors";
 
 @Injectable()
 export class GameAchievementService {
@@ -54,14 +56,26 @@ export class GameAchievementService {
         return relatedAchievement;
     }
 
-    public async findAllByExternalGameId(externalGameId: number) {
+    public findAllByExternalGameId(externalGameId: number) {
+        return this.getAllByExternalGameId(externalGameId, false);
+    }
+
+    public findAllByExternalGameIdForSync(externalGameId: number) {
+        return this.getAllByExternalGameId(externalGameId, true);
+    }
+
+    private async getAllByExternalGameId(
+        externalGameId: number,
+        forSync: boolean,
+    ) {
         const externalGame =
             await this.externalGameService.findOneByIdOrFail(externalGameId);
 
-        const platformsMap =
-            await this.gameRepositoryService.getGamePlatformsMap(
-                "abbreviation",
-            );
+        const platformsMap = forSync
+            ? null
+            : await this.gameRepositoryService.getGamePlatformsMap(
+                  "abbreviation",
+              );
 
         const achievements = await match<
             EGameExternalGameCategory,
@@ -70,11 +84,23 @@ export class GameAchievementService {
             .with(EGameExternalGameCategory.Steam, async () => {
                 const PC_PLATFORM_ID = 6;
                 const appId = Number.parseInt(externalGame.uid);
-                const [achievements, achievementsPercentage] =
-                    await Promise.all([
-                        this.steamSyncService.getAvailableAchievements(appId),
-                        this.steamSyncService.getAchievementsPercentage(appId),
-                    ]);
+                const achievements = await this.steamSyncService
+                    .getAvailableAchievements(appId)
+                    .catch((error: unknown) => {
+                        if (
+                            !forSync &&
+                            error instanceof ProviderSyncError &&
+                            error.outcome === "unsupported"
+                        )
+                            return [];
+                        throw error;
+                    });
+                if (achievements.length === 0) return [];
+                const achievementsPercentage = forSync
+                    ? []
+                    : await this.steamSyncService.getAchievementsPercentage(
+                          appId,
+                      );
 
                 return achievements.map((achievement) => {
                     const relatedPercentage = achievementsPercentage.find(
@@ -88,11 +114,15 @@ export class GameAchievementService {
                         externalGameId: externalGame.id,
                         gameId: externalGame.gameId,
                         externalId: achievement.name,
-                        steamDetails: {
-                            globalPercentage: Number(
-                                relatedPercentage?.percent ?? 0,
-                            ),
-                        },
+                        ...(forSync
+                            ? {}
+                            : {
+                                  steamDetails: {
+                                      globalPercentage: Number(
+                                          relatedPercentage?.percent ?? 0,
+                                      ),
+                                  },
+                              }),
                         platformIds: [PC_PLATFORM_ID],
                     } satisfies GameAchievementDto;
                 });
@@ -102,6 +132,11 @@ export class GameAchievementService {
                     externalGame.psnExtraMappings == undefined ||
                     externalGame.psnExtraMappings.length === 0
                 ) {
+                    if (forSync)
+                        throw new ProviderSyncError(
+                            "unsupported",
+                            "No trophy catalogue mapping is available",
+                        );
                     throw new HttpException(
                         "Achievements are not yet available for this title.",
                         HttpStatus.NOT_FOUND,
@@ -112,10 +147,11 @@ export class GameAchievementService {
 
                 const totalTrophies: GameAchievementDto[] = [];
 
-                const processedNpServiceNames = new Set<string>();
+                const processedMappings = new Set<string>();
 
                 for (const mapping of mappings) {
-                    if (processedNpServiceNames.has(mapping.npServiceName)) {
+                    const identity = `${mapping.npCommunicationId}:${mapping.npServiceName}`;
+                    if (processedMappings.has(identity)) {
                         continue;
                     }
                     const trophies =
@@ -136,13 +172,15 @@ export class GameAchievementService {
                             iconUrl: trophy.trophyIconUrl!,
                             description: trophy.trophyDetail ?? null,
                             name: trophy.trophyName!,
-                            platformIds: [
-                                mapping.npServiceName === "trophy2"
-                                    ? // PS5
-                                      167
-                                    : // PS4
-                                      48,
-                            ],
+                            platformIds: forSync
+                                ? []
+                                : [
+                                      mapping.npServiceName === "trophy2"
+                                          ? // PS5
+                                            167
+                                          : // PS4
+                                            48,
+                                  ],
                             psnDetails: {
                                 trophyIcon: `psn_trophy_rarity_${trophy.trophyType}`,
                                 trophyType: trophy.trophyType,
@@ -154,7 +192,7 @@ export class GameAchievementService {
 
                     totalTrophies.push(...parsedTrophies);
 
-                    processedNpServiceNames.add(mapping.npServiceName);
+                    processedMappings.add(identity);
                 }
 
                 return totalTrophies;
@@ -170,6 +208,11 @@ export class GameAchievementService {
                         externalGame.uid,
                     );
                     if (!isValidProductId) {
+                        if (forSync)
+                            throw new ProviderSyncError(
+                                "unsupported",
+                                "Invalid Xbox product ID",
+                            );
                         throw new HttpException(
                             "Achievements are not yet available for this title.",
                             HttpStatus.NOT_FOUND,
@@ -196,32 +239,34 @@ export class GameAchievementService {
                             (reward) => reward.type === "Gamerscore",
                         );
 
-                        const availablePlatformIds = achievement.platforms.map(
-                            (platform) => {
-                                return match(platform)
-                                    .with(
-                                        P.union("PC", "Win32"),
-                                        () => platformsMap.get("PC")!.id,
-                                    )
-                                    .with(
-                                        "Xbox360",
-                                        () => platformsMap.get("X360")!.id,
-                                    )
-                                    .with(
-                                        "XboxOne",
-                                        () => platformsMap.get("XONE")!.id,
-                                    )
-                                    .with(
-                                        "XboxSeries",
-                                        () =>
-                                            platformsMap.get("Series X|S")!.id,
-                                    )
-                                    .otherwise(
-                                        () =>
-                                            platformsMap.get("Series X|S")!.id,
-                                    );
-                            },
-                        );
+                        const availablePlatformIds = forSync
+                            ? []
+                            : achievement.platforms.map((platform) => {
+                                  return match(platform)
+                                      .with(
+                                          P.union("PC", "Win32"),
+                                          () => platformsMap!.get("PC")!.id,
+                                      )
+                                      .with(
+                                          "Xbox360",
+                                          () => platformsMap!.get("X360")!.id,
+                                      )
+                                      .with(
+                                          "XboxOne",
+                                          () => platformsMap!.get("XONE")!.id,
+                                      )
+                                      .with(
+                                          "XboxSeries",
+                                          () =>
+                                              platformsMap!.get("Series X|S")!
+                                                  .id,
+                                      )
+                                      .otherwise(
+                                          () =>
+                                              platformsMap!.get("Series X|S")!
+                                                  .id,
+                                      );
+                              });
 
                         return {
                             externalGameId: externalGame.id,
@@ -243,13 +288,10 @@ export class GameAchievementService {
                 },
             )
             .otherwise(() => {
-                throw new HttpException(
-                    "Category mapping not implemented.",
-                    HttpStatus.BAD_REQUEST,
-                );
+                throw new UnsupportedGameAchievementSourceError();
             });
 
-        if (achievements.length === 0) {
+        if (!forSync && achievements.length === 0) {
             throw new HttpException(
                 "Game has no available achievements for this source.",
                 HttpStatus.NOT_FOUND,

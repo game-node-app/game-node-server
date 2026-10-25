@@ -29,6 +29,10 @@
         "test:igdb:services:down": "docker compose -p igdb-sync-test -f test/igdb/docker-compose.yml down -v",
         "test:igdb:unit": "jest --runInBand --testPathPattern=\"(sync/igdb/|game/game-repository/create/|statistics/).*\\.spec\\.ts$\"",
         "test:igdb:integration": "jest --config test/igdb/jest-integration.json --runInBand",
+        "test:search:services:up": "docker compose -p search-api-test -f test/search/docker-compose.yml up -d --wait",
+        "test:search:services:down": "docker compose -p search-api-test -f test/search/docker-compose.yml down -v",
+        "test:search:unit": "jest --runInBand --testPathPattern=\"src/search/.*\\.spec\\.ts$\"",
+        "test:search:integration": "jest --config test/search/jest-integration.json --runInBand",
         "igdb:catalog": "ts-node scripts/igdb-catalog.ts",
         "test:igdb:resources": "ts-node test/igdb/igdb-catalog.resources.ts"
     },

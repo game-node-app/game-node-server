@@ -1,3 +1,4 @@
+import { PlayerDataModule } from "../../sync/player-data/player-data.module";
 import { Module } from "@nestjs/common";
 import { ImporterWatchService } from "./importer-watch.service";
 import { ConnectionsModule } from "../../connection/connections.module";
@@ -21,6 +22,7 @@ import { CollectionsEntriesModule } from "../../collections/collections-entries/
  */
 @Module({
     imports: [
+        PlayerDataModule,
         TypeOrmModule.forFeature([
             ImporterNotifiedEntry,
             ImporterWatchNotification,
@@ -28,6 +30,8 @@ import { CollectionsEntriesModule } from "../../collections/collections-entries/
         BullModule.registerQueue({
             name: IMPORTER_WATCH_QUEUE_NAME,
             defaultJobOptions: {
+                removeOnComplete: { age: 3600, count: 1000 },
+                removeOnFail: { age: 604800, count: 1000 },
                 attempts: 5,
                 backoff: seconds(5),
             },
@@ -40,5 +44,6 @@ import { CollectionsEntriesModule } from "../../collections/collections-entries/
     ],
     providers: [ImporterWatchService, ImporterWatchProcessor],
     controllers: [ImporterWatchController],
+    exports: [ImporterWatchProcessor],
 })
 export class ImporterWatchModule {}

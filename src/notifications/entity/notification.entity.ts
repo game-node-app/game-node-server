@@ -1,3 +1,4 @@
+import { ApiHideProperty } from "@nestjs/swagger";
 import {
     Column,
     CreateDateColumn,
@@ -25,6 +26,11 @@ import { PostComment } from "../../comment/entity/post-comment.entity";
 @Entity()
 @Index(["targetProfileUserId", "createdAt"])
 export class Notification {
+    @ApiHideProperty()
+    @Index("IDX_notification_delivery_identity", { unique: true })
+    @Column({ type: "varchar", length: 255, nullable: true, select: false })
+    deliveryIdentity: string | null;
+
     @PrimaryGeneratedColumn()
     id: number;
     @Column({

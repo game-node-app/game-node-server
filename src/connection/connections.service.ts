@@ -1,3 +1,5 @@
+import { runInTransaction } from "typeorm-transactional";
+import { PlayerSyncStateService } from "../sync/player-data/player-sync-state.service";
 import {
     forwardRef,
     HttpException,
@@ -54,6 +56,7 @@ export class ConnectionsService {
         private readonly playtimeWatchService: PlaytimeWatchService,
         @Inject(forwardRef(() => CollectionsService))
         private readonly collectionsService: CollectionsService,
+        private readonly syncState: PlayerSyncStateService,
     ) {}
 
     public findOneById(id: number) {
@@ -134,11 +137,6 @@ export class ConnectionsService {
             autoImportCollectionId,
         } = dto;
 
-        const possibleExistingConnection = await this.findOneByUserIdAndType(
-            userId,
-            type,
-        );
-
         let sourceUserId: string;
         let sourceUsername: string;
 
@@ -193,18 +191,29 @@ export class ConnectionsService {
             validatedAutoImportCollectionId = autoImportCollectionId;
         }
 
-        const createdConnection: UserConnection =
-            await this.userConnectionRepository.save({
-                ...possibleExistingConnection,
+        const createdConnection = await runInTransaction(async () => {
+            const latest = await this.userConnectionRepository.findOne({
+                where: { profileUserId: userId, type },
+                lock: { mode: "pessimistic_write" },
+            });
+            const saved = await this.userConnectionRepository.save({
+                ...latest,
                 type,
                 profileUserId: userId,
                 sourceUserId,
-                sourceUsername: sourceUsername,
+                sourceUsername,
                 isAutoImportEnabled: finalIsAutoImportEnabled,
                 autoImportCollectionId: validatedAutoImportCollectionId,
             });
+            await this.syncState.initialize(
+                saved.id,
+                saved.sourceUserId,
+                new Date(),
+            );
+            return saved;
+        });
 
-        this.onConnectionCreate(createdConnection);
+        await this.onConnectionCreate(createdConnection);
     }
 
     public async delete(userId: string, id: number) {
@@ -224,13 +233,14 @@ export class ConnectionsService {
     }
 
     private onConnectionCreate(createdConnection: UserConnection) {
-        this.playtimeWatchService
+        return this.playtimeWatchService
             .registerJob(
                 createdConnection.profileUserId,
                 createdConnection.type,
             )
             .catch((err) => {
                 this.logger.error(err);
+                throw err;
             });
     }
 }

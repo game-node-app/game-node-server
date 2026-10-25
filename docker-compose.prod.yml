@@ -103,7 +103,37 @@ services:
     networks:
       - game_node_app
 
-
+  manticore:
+    image: manticoresearch/manticore:7.4.6
+    hostname: manticore
+    environment:
+      TZ: UTC
+      DB_HOST: server-db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_DATABASE: gamenode
+      CREATE_PLAIN_TABLES: "games:0 3 * * *;users:0 * * * *;games;users"
+    entrypoint: ["/bin/bash", "/etc/manticoresearch/entrypoint.sh"]
+    command: ["searchd", "--nodetach"]
+    restart: always
+    deploy:
+      replicas: 1
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - manticore:/var/lib/manticore
+      - ./docker/manticore/manticore.conf.template:/etc/manticoresearch/manticore.conf.template:ro
+      - ./docker/manticore/entrypoint.sh:/etc/manticoresearch/entrypoint.sh:ro
+      - ./docker/manticore/reindex.sh:/etc/manticoresearch/reindex.sh:ro
+    networks:
+      - game_node_app
 
   server:
     image: lamarcke/game-node-server:latest
@@ -115,6 +145,7 @@ services:
       REDIS_URL: redis://server-redis:6379
       BULLMQ_REDIS_URL: redis://server-redis-bullmq:6379
       SUPERTOKENS_CORE_URI: http://@supertokens:3567
+      MANTICORE_URL: http://manticore:9308
       SERVER_PORT: 5000
       DOMAIN_API: https://server.gamenode.app
       DOMAIN_WEBSITE: https://gamenode.app
@@ -203,4 +234,4 @@ volumes:
   db:
   gamenode:
   supertokens-db:
-
+  manticore:

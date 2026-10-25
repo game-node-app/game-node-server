@@ -105,7 +105,24 @@ export class ActivitiesRepositoryService {
         }
     }
 
+    private findExistingAchievementActivity(dto: ActivityCreate) {
+        if (
+            dto.type !== ActivityType.OBTAINED_GAME_ACHIEVEMENT ||
+            typeof dto.sourceId !== "number"
+        )
+            return Promise.resolve(null);
+        return this.activitiesRepository.findOneBy({
+            profileUserId: dto.profileUserId,
+            type: dto.type,
+            obtainedGameAchievementActivityId: dto.sourceId,
+        });
+    }
+
     async create(dto: ActivityCreate) {
+        const existingActivity =
+            await this.findExistingAchievementActivity(dto);
+        if (existingActivity) return existingActivity;
+
         await this.validateCreate(dto);
 
         const { type, sourceId, complementarySourceId, profileUserId } = dto;
@@ -172,6 +189,9 @@ export class ActivitiesRepositoryService {
         } catch (err: unknown) {
             if (err instanceof TypeORMError) {
                 if (err.message.includes("Duplicate entry")) {
+                    const existingActivity =
+                        await this.findExistingAchievementActivity(dto);
+                    if (existingActivity) return existingActivity;
                     throw new UnrecoverableError(
                         "Entry already has an associated activity.",
                     );

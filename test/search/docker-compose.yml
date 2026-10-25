@@ -1,0 +1,61 @@
+name: search-api-test
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: search-test-root
+      MYSQL_DATABASE: search_api_test
+      MYSQL_USER: search_test
+      MYSQL_PASSWORD: search-test-password
+    ports:
+      - "127.0.0.1:${SEARCH_TEST_MYSQL_PORT:-23306}:3306"
+    volumes:
+      - mysql-search-test-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+  manticore:
+    image: manticoresearch/manticore:7.4.6
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      TZ: UTC
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: search_test
+      DB_PASS: search-test-password
+      DB_DATABASE: search_api_test
+      CREATE_PLAIN_TABLES: "games:0 3 * * *;users:0 * * * *"
+    entrypoint: ["/bin/bash", "/etc/manticoresearch/entrypoint.sh"]
+    command: ["searchd", "--nodetach"]
+    ports:
+      - "127.0.0.1:${SEARCH_TEST_MANTICORE_SQL_PORT:-29306}:9306"
+      - "127.0.0.1:${SEARCH_TEST_MANTICORE_HTTP_PORT:-29308}:9308"
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - manticore-search-test-data:/var/lib/manticore
+      - ../../docker/manticore/manticore.conf.template:/etc/manticoresearch/manticore.conf.template:ro
+      - ../../docker/manticore/entrypoint.sh:/etc/manticoresearch/entrypoint.sh:ro
+      - ../../docker/manticore/reindex.sh:/etc/manticoresearch/reindex.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9308'"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  mysql-search-test-data:
+  manticore-search-test-data:

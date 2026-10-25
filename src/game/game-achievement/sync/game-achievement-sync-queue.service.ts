@@ -1,4 +1,12 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+    PlayerSyncStateService,
+    PlayerSyncOwnershipLost,
+} from "../../../sync/player-data/player-sync-state.service";
+import {
+    currentPlayerSyncOwner,
+    recordPlayerSyncStats,
+} from "../../../sync/player-sync-attempt";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import {
     GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME,
@@ -18,21 +26,18 @@ export class GameAchievementSyncQueueService {
     constructor(
         @InjectQueue(GAME_ACHIEVEMENT_SYNC_QUEUE_NAME)
         private readonly queue: Queue,
-    ) {
-        this.addUserSyncJob(
-            "8dfe1233-b865-4a5b-9a9a-a07284dc2ddd",
-            2172451,
-            EConnectionType.PSN,
-            new Date(),
-        );
-    }
+        private readonly state: PlayerSyncStateService,
+    ) {}
 
-    public addUserSyncJob(
+    public async addUserSyncJob(
         userId: string,
         externalGameId: number,
         source: EConnectionType,
-        lastPlayedAt?: Date,
+        activityFingerprint?: string,
     ) {
+        externalGameId = Number(externalGameId);
+        if (!Number.isSafeInteger(externalGameId) || externalGameId <= 0)
+            throw new BadRequestException("Invalid external game identity");
         this.logger.log(
             `Adding user sync job for user ${userId} and game ${externalGameId}`,
         );
@@ -46,17 +51,36 @@ export class GameAchievementSyncQueueService {
             .with(EConnectionType.STEAM, () => GAME_ACHIEVEMENT_STEAM_JOB_NAME)
             .otherwise(() => {
                 this.logger.error(`Unsupported connection type: ${source}`);
-                throw new Error(`Unsupported connection type: ${source}`);
+                throw new BadRequestException(
+                    `Unsupported connection type: ${source}`,
+                );
             });
 
-        this.queue
-            .add(jobName, {
-                userId,
-                externalGameId,
-                lastPlayedAt,
-            } satisfies GameAchievementObtainedUpdateJob)
-            .catch((err) => {
-                this.logger.error(err, err.stack);
-            });
+        const connection = await this.state.findConnection(userId, source);
+        if (!connection) return { status: "disconnected" };
+        const parent = currentPlayerSyncOwner();
+        if (
+            parent &&
+            (parent.connectionId !== connection.id ||
+                parent.sourceUserId !== connection.sourceUserId)
+        )
+            throw new PlayerSyncOwnershipLost();
+        const owner = await this.state.claim(
+            connection.id,
+            connection.sourceUserId,
+            externalGameId,
+            activityFingerprint,
+        );
+        if (!owner) {
+            recordPlayerSyncStats({ gamesSkipped: 1 });
+            return { status: "pending-or-cooldown" };
+        }
+        const result = await this.state.enqueue(owner, this.queue, jobName, {
+            userId,
+            externalGameId,
+            activityFingerprint,
+        });
+        recordPlayerSyncStats({ gamesSelected: 1 });
+        return result;
     }
 }

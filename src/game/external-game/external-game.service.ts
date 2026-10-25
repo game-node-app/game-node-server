@@ -1,8 +1,17 @@
+import {
+    PlayerLibrarySnapshot,
+    PlayerSyncWrite,
+} from "../../sync/player-sync-attempt";
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GameExternalGame } from "./entity/game-external-game.entity";
-import { DeepPartial, FindOptionsRelations, In, Repository } from "typeorm";
-import { days } from "@nestjs/throttler";
+import {
+    DeepPartial,
+    FindOptionsRelations,
+    In,
+    QueryFailedError,
+    Repository,
+} from "typeorm";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 import { toMap } from "../../utils/toMap";
 import { UnmappedExternalGame } from "./entity/unmapped-external-game.entity";
@@ -68,23 +77,25 @@ export class ExternalGameService {
      * @param sourceIds
      * @param category
      */
+    @PlayerLibrarySnapshot()
     public async getExternalGamesForSourceIds(
         sourceIds: string[],
         category: EGameExternalGameCategory,
     ) {
-        const externalGames = await this.gameExternalGameRepository.find({
-            where: {
-                uid: In(sourceIds),
-                category,
-            },
-            cache: {
-                id: `external-games-ids-${category}-${sourceIds}`,
-                milliseconds: days(1),
-            },
-            relations: this.relations,
-        });
-
-        return this.reOrderBySourceIds(sourceIds, externalGames);
+        const ids = [...new Set(sourceIds)];
+        const externalGames: GameExternalGame[] = [];
+        for (let offset = 0; offset < ids.length; offset += 500) {
+            externalGames.push(
+                ...(await this.gameExternalGameRepository.find({
+                    where: {
+                        uid: In(ids.slice(offset, offset + 500)),
+                        category,
+                    },
+                    relations: this.relations,
+                })),
+            );
+        }
+        return this.reOrderBySourceIds(ids, externalGames);
     }
 
     public async findAll(
@@ -114,25 +125,24 @@ export class ExternalGameService {
         });
     }
 
+    @PlayerSyncWrite()
     public async registerUnmappedGame(
         sourceUid: string,
         category: EGameExternalGameCategory,
     ) {
-        const existingEntry =
-            await this.unmappedExternalGameRepository.findOneBy({
+        try {
+            await this.unmappedExternalGameRepository.insert({
                 sourceUid,
                 category,
+                isActive: true,
             });
-
-        if (existingEntry) {
-            return;
+        } catch (error) {
+            if (
+                !(error instanceof QueryFailedError) ||
+                error.driverError?.code !== "ER_DUP_ENTRY"
+            )
+                throw error;
         }
-
-        await this.unmappedExternalGameRepository.insert({
-            sourceUid,
-            category,
-            isActive: true,
-        });
     }
 
     async submit(dto: SubmitExternalGameDto) {

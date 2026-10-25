@@ -2,6 +2,7 @@ export const CATALOG_TIMING = {
     leaseMs: 120_000,
     heartbeatMs: 20_000,
     schedulerMs: 60_000,
+    pauseRetryMs: 3_600_000,
     retryBaseMs: 1_000,
     retryJitterMs: 250,
     retryMaxMs: 30_000,

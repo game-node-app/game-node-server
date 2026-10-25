@@ -4,7 +4,7 @@ import { GameAchievementWithObtainedInfo } from "./game-obtained-achievement.dto
 
 export class GameObtainedAchievementActivityDto extends OmitType(
     ObtainedGameAchievementActivity,
-    ["profile", "obtainedGameAchievements"],
+    ["profile", "obtainedGameAchievements", "pendingDelivery"],
 ) {
     obtainedGameAchievements: GameAchievementWithObtainedInfo[];
 }

@@ -43,7 +43,9 @@ import { UserAccountModule } from "./user/user-account/user-account.module";
 import { PreferredPlatformModule } from "./preferred-platform/preferred-platform.module";
 import { LoggerModule } from "nestjs-pino";
 import { RecapModule } from "./recap/recap.module";
+import { SearchModule } from "./search/search.module";
 import { getRedisConfig } from "./utils/getRedisConfig";
+import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -187,6 +189,8 @@ import { getRedisConfig } from "./utils/getRedisConfig";
         UserAccountModule,
         PreferredPlatformModule,
         RecapModule,
+        SearchModule,
+        PlayerDataWorkerModule,
     ],
 })
 export class AppModule implements NestModule {

@@ -2,6 +2,7 @@ import {
     MessageBody,
     SubscribeMessage,
     WebSocketGateway,
+    WsException,
 } from "@nestjs/websockets";
 import { WebsocketGateway } from "../../utils/ws/WebsocketGateway";
 import { PlaytimeWatchService } from "../../playtime/watch/playtime-watch.service";
@@ -37,7 +38,36 @@ export class ConnectionSyncGateway extends WebsocketGateway {
         @Session() session: SessionContainer,
         @MessageBody("type") type: EConnectionType,
     ) {
+        if (!Object.values(EConnectionType).includes(type))
+            throw new WsException("Unsupported connection type");
         const userId = session.getUserId();
-        await this.playtimeWatchService.registerJob(userId, type);
+        return this.playtimeWatchService.registerJob(userId, type);
+    }
+    @SubscribeMessage("status")
+    public async status(
+        @Session() session: SessionContainer,
+        @MessageBody("type") type: EConnectionType,
+    ) {
+        if (!Object.values(EConnectionType).includes(type))
+            throw new WsException("Unsupported connection type");
+        return this.playtimeWatchService.status(session.getUserId(), type);
+    }
+    @SubscribeMessage("achievement-status")
+    public async achievementStatus(
+        @Session() session: SessionContainer,
+        @MessageBody("type") type: EConnectionType,
+        @MessageBody("externalGameId") externalGameId: number,
+    ) {
+        if (
+            !Object.values(EConnectionType).includes(type) ||
+            !Number.isSafeInteger(externalGameId) ||
+            externalGameId <= 0
+        )
+            throw new WsException("Invalid achievement synchronization target");
+        return this.playtimeWatchService.gameStatus(
+            session.getUserId(),
+            type,
+            externalGameId,
+        );
     }
 }

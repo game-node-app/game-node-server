@@ -292,10 +292,15 @@ export class IgdbCatalogStateService {
     }
 
     async pauseRun(owner: CatalogOwner, failureSummary: string) {
-        return this.mutate(owner, async (state) => {
+        return this.mutate(owner, async (state, manager) => {
             state.status = "paused";
             // Callers provide a classified summary, never raw HTTP errors or payloads.
             state.failureSummary = failureSummary.slice(0, 512);
+            // The scheduler resumes the run automatically after this cooldown.
+            state.nextEligibleAt = new Date(
+                (await this.now(manager)).getTime() +
+                    CATALOG_TIMING.pauseRetryMs,
+            );
             state.ownerToken = null;
             state.leaseExpiresAt = null;
         });
@@ -322,9 +327,17 @@ export class IgdbCatalogStateService {
         });
     }
 
-    async resumeRun() {
+    /** With onlyIfDue, returns null unless a paused run's cooldown has elapsed. */
+    async resumeRun(onlyIfDue = false) {
         return this.source.transaction(async (manager) => {
             const state = await this.locked(manager);
+            if (
+                onlyIfDue &&
+                (state.status !== "paused" ||
+                    (state.nextEligibleAt &&
+                        state.nextEligibleAt > (await this.now(manager))))
+            )
+                return null;
             if (state.status !== "paused")
                 throw new Error("Only a paused catalog run can be resumed");
             state.status = "running";
@@ -333,6 +346,7 @@ export class IgdbCatalogStateService {
             state.retryStage = null;
             state.retryGameId = null;
             state.failureSummary = null;
+            state.nextEligibleAt = null;
             state.ownerToken = null;
             state.leaseExpiresAt = null;
             return manager.save(state);

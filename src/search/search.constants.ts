@@ -1,0 +1,14 @@
+export const SEARCH_DEFAULT_PAGE = 1;
+export const SEARCH_DEFAULT_LIMIT = 20;
+export const SEARCH_MAX_LIMIT = 100;
+export const SEARCH_MAX_OFFSET = 10000;
+export const SEARCH_AUTOCOMPLETE_PAGE = 1;
+export const SEARCH_AUTOCOMPLETE_LIMIT = 5;
+export const SEARCH_MAX_QUERY_LENGTH = 256;
+export const SEARCH_MAX_FILTER_STRING_LENGTH = 256;
+export const SEARCH_MAX_FILTER_ARRAY_LENGTH = 100;
+export const SEARCH_ENGINE_TIMEOUT_MS = 5000;
+export const SEARCH_DEFAULT_MANTICORE_URL = "http://localhost:9308";
+export const SEARCH_SOURCE_MANTICORE = "manticore";
+export const SEARCH_GAMES_TABLE = "games";
+export const SEARCH_USERS_TABLE = "users";

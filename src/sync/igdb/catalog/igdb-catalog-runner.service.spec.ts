@@ -4,6 +4,7 @@ import { IgdbCatalogStateService } from "./igdb-catalog-state.service";
 import { IgdbCatalogClient, CatalogDataError } from "./igdb-catalog.client";
 import { IgdbCatalogImportService } from "./igdb-catalog-import.service";
 import { catalogConfig } from "./igdb-catalog.config";
+import { InvalidGameEntryError } from "../../../game/game-repository/create/game-import-context";
 
 const deferred = () => {
     let resolve!: () => void;
@@ -206,6 +207,28 @@ describe("strict catalog page runner", () => {
         await rejected;
         expect(f.state.pauseRun).toHaveBeenCalledTimes(1);
         expect(f.durable.committedId).toBe(0);
+    });
+    it("skips an invalid source game and keeps scanning without pausing", async () => {
+        const f = fixture();
+        const warns = jest
+            .spyOn(Logger.prototype, "warn")
+            .mockImplementation(() => undefined);
+        try {
+            f.importer.persist.mockRejectedValueOnce(
+                new InvalidGameEntryError(2),
+            );
+            await f.runner.run("fixture");
+            expect(f.state.pauseRun).not.toHaveBeenCalled();
+            expect(f.state.completeRun).toHaveBeenCalledTimes(1);
+            expect(f.durable.committedId).toBe(22);
+            expect(f.budgets.has("game:2")).toBe(false);
+            expect(warns.mock.calls[0][0]).toMatchObject({
+                event: "catalog.game.skipped",
+                gameId: 2,
+            });
+        } finally {
+            warns.mockRestore();
+        }
     });
     it("handles an initially empty catalog without deleting local games", async () => {
         const f = fixture();

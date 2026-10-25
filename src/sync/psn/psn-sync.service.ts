@@ -1,3 +1,4 @@
+import { PlayerLibrarySnapshot } from "../player-sync-attempt";
 import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { PsnSyncAuthService } from "./auth/psn-sync-auth.service";
 import {
@@ -16,6 +17,8 @@ import { HttpStatusCode } from "axios";
 import { ConnectionUserResolveDto } from "../../connection/dto/connection-user-resolve.dto";
 import { hours, minutes } from "@nestjs/throttler";
 import { Cacheable } from "../../utils/cacheable";
+import { uncancellableProviderCall } from "../player-sync-attempt";
+import { ProviderSyncError } from "../provider-sync.error";
 
 @Injectable()
 export class PsnSyncService {
@@ -72,124 +75,144 @@ export class PsnSyncService {
      * @param offset
      * @param limit - max of 200 allowed by PSN api
      */
-    @Cacheable(PsnSyncService.name, minutes(15))
+    @Cacheable(`${PsnSyncService.name}:complete-v1`, minutes(15))
     public async getGames(accountId: string, offset = 0, limit = 20) {
         const authorization = await this.authService.getValidAccessToken();
 
-        try {
-            const response = await getUserPlayedGames(
-                authorization,
-                accountId,
-                {
-                    offset,
-                    limit,
-                },
+        const response = await uncancellableProviderCall("PSN", () =>
+            getUserPlayedGames(authorization, accountId, { offset, limit }),
+        );
+        if (
+            !Array.isArray(response?.titles) ||
+            "error" in response ||
+            !Number.isSafeInteger(response.totalItemCount) ||
+            response.totalItemCount < 0
+        )
+            throw new ProviderSyncError(
+                "incomplete",
+                "Incomplete PSN played-game response",
             );
-
-            return response;
-        } catch (err: unknown) {
-            this.logger.error(err);
-            throw new HttpException(
-                "Failed to fetch user's games. PSN may be unavailable or user profile is set to private.",
-                HttpStatusCode.BadRequest,
-            );
-        }
+        return response;
     }
 
     /**
      * A shorthand that repeatedly calls 'getGames' until the user's library is exhausted.
      * @param accountId
      * @returns a list of games - may be empty if no game was found for the given accountId
-     * may also be incomplete if any of the fetches failed.
+     * Rejects incomplete or non-progressing pagination.
      */
-    @Cacheable(PsnSyncService.name, hours(1))
+    @PlayerLibrarySnapshot()
+    @Cacheable(`${PsnSyncService.name}:complete-v1`, hours(1))
     public async getAllGames(
         accountId: string,
     ): Promise<UserPlayedGamesResponse["titles"]> {
         const totalTitles: UserPlayedGamesResponse["titles"] = [];
 
-        // Max allowed
         const LIMIT_PER_PAGE = 50;
         let currentOffset = 0;
+        let expectedTotal: number | undefined;
+        const seen = new Set<string>();
 
         while (true) {
-            try {
-                const response = await this.getGames(
-                    accountId,
-                    currentOffset,
-                    LIMIT_PER_PAGE,
+            const response = await this.getGames(
+                accountId,
+                currentOffset,
+                LIMIT_PER_PAGE,
+            );
+            if (
+                !Array.isArray(response?.titles) ||
+                !Number.isSafeInteger(response.totalItemCount) ||
+                response.totalItemCount < 0 ||
+                (expectedTotal != null &&
+                    expectedTotal !== response.totalItemCount)
+            ) {
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Incomplete PSN played-game response",
                 );
-
-                if (
-                    response != undefined &&
-                    response.titles != undefined &&
-                    Array.isArray(response.titles)
-                ) {
-                    totalTitles.push(...response.titles);
-                    if (response.totalItemCount > totalTitles.length) {
-                        currentOffset += LIMIT_PER_PAGE;
-                        continue;
-                    }
-                }
-            } catch (err: unknown) {
-                this.logger.error(err);
             }
-
-            // Break by default
-            break;
+            expectedTotal = response.totalItemCount;
+            for (const title of response.titles) {
+                if (!title?.titleId || seen.has(title.titleId)) {
+                    throw new ProviderSyncError(
+                        "incomplete",
+                        "Repeated or invalid PSN played-game identity",
+                    );
+                }
+                seen.add(title.titleId);
+            }
+            totalTitles.push(...response.titles);
+            const nextOffset = currentOffset + response.titles.length;
+            if (nextOffset > expectedTotal)
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Invalid PSN played-game total",
+                );
+            if (
+                response.nextOffset != null &&
+                response.nextOffset !== nextOffset
+            ) {
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Invalid PSN played-game continuation",
+                );
+            }
+            if (nextOffset === expectedTotal) break;
+            if (nextOffset === currentOffset)
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "PSN played-game pagination made no progress",
+                );
+            currentOffset = nextOffset;
         }
 
         return totalTitles;
     }
 
-    @Cacheable(PsnSyncService.name, hours(24))
+    @Cacheable(`${PsnSyncService.name}:complete-v1`, hours(24))
     public async getGameAchievements(
         npCommunicationId: string,
         npServiceName: string,
     ) {
         const authorization = await this.authService.getValidAccessToken();
 
-        const response = await getTitleTrophies(
-            authorization,
-            npCommunicationId,
-            "all",
-            {
+        return this.getAllTrophies((offset, limit) =>
+            getTitleTrophies(authorization, npCommunicationId, "all", {
                 npServiceName: npServiceName as never,
-            },
+                offset,
+                limit,
+            }),
         );
-
-        if ("error" in response) {
-            throw new Error(`Error in getGameAchievements: ${response.error}`);
-        }
-
-        return response.trophies;
     }
 
-    @Cacheable(PsnSyncService.name, hours(24))
+    @Cacheable(`${PsnSyncService.name}:complete-v1`, hours(24))
     public async getGameAchievementGroups(
         npCommunicationId: string,
         npServiceName: string,
     ) {
         const authorization = await this.authService.getValidAccessToken();
 
-        const response = await getTitleTrophyGroups(
-            authorization,
-            npCommunicationId,
-            {
+        const response = await uncancellableProviderCall("PSN", () =>
+            getTitleTrophyGroups(authorization, npCommunicationId, {
                 npServiceName: npServiceName as never,
-            },
+            }),
         );
 
-        if ("error" in response) {
-            throw new Error(
-                `Error in getGameAchievementGroups: ${response.error}`,
+        if (
+            response == null ||
+            "error" in response ||
+            !Array.isArray(response.trophyGroups)
+        ) {
+            throw new ProviderSyncError(
+                "incomplete",
+                "Incomplete PSN trophy-group response",
             );
         }
 
         return response;
     }
 
-    @Cacheable(PsnSyncService.name, minutes(15))
+    @Cacheable(`${PsnSyncService.name}:complete-v1`, minutes(15))
     public async getObtainedAchievements(
         accountId: string,
         npCommunicationId: string,
@@ -197,17 +220,79 @@ export class PsnSyncService {
     ) {
         const authorization = await this.authService.getValidAccessToken();
 
-        const response = await getUserTrophiesEarnedForTitle(
-            authorization,
-            accountId,
-            npCommunicationId,
-            "all",
-            {
-                npServiceName: npServiceName as never,
-            },
+        return this.getAllTrophies((offset, limit) =>
+            getUserTrophiesEarnedForTitle(
+                authorization,
+                accountId,
+                npCommunicationId,
+                "all",
+                { npServiceName: npServiceName as never, offset, limit },
+            ),
         );
+    }
 
-        return response.trophies;
+    private async getAllTrophies<T extends { trophyId: number }>(
+        fetchPage: (
+            offset: number,
+            limit: number,
+        ) => Promise<{
+            trophies: T[];
+            totalItemCount: number;
+            nextOffset?: number;
+        }>,
+    ): Promise<T[]> {
+        const trophies: T[] = [];
+        const seen = new Set<number>();
+        let offset = 0;
+        let expectedTotal: number | undefined;
+        while (true) {
+            const response = await uncancellableProviderCall("PSN", () =>
+                fetchPage(offset, 100),
+            );
+            if (
+                !Array.isArray(response?.trophies) ||
+                "error" in response ||
+                !Number.isSafeInteger(response.totalItemCount) ||
+                response.totalItemCount < 0 ||
+                (expectedTotal != null &&
+                    expectedTotal !== response.totalItemCount)
+            )
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Incomplete PSN trophy-detail response",
+                );
+            expectedTotal = response.totalItemCount;
+            for (const trophy of response.trophies) {
+                if (
+                    !Number.isSafeInteger(trophy?.trophyId) ||
+                    trophy.trophyId < 0 ||
+                    seen.has(trophy.trophyId)
+                )
+                    throw new ProviderSyncError(
+                        "incomplete",
+                        "Repeated or invalid PSN trophy identity",
+                    );
+                seen.add(trophy.trophyId);
+            }
+            trophies.push(...response.trophies);
+            const nextOffset = offset + response.trophies.length;
+            if (
+                nextOffset > expectedTotal ||
+                (response.nextOffset != null &&
+                    response.nextOffset !== nextOffset)
+            )
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Invalid PSN trophy-detail continuation",
+                );
+            if (nextOffset === expectedTotal) return trophies;
+            if (nextOffset === offset)
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "PSN trophy-detail pagination made no progress",
+                );
+            offset = nextOffset;
+        }
     }
 
     /**
@@ -215,7 +300,7 @@ export class PsnSyncService {
      * The {@link GameExternalGame#uid} is not available in this endpoint, so associations may be imprecise.
      * @param accountId
      */
-    @Cacheable(PsnSyncService.name, hours(1))
+    @Cacheable(`${PsnSyncService.name}:complete-v1`, hours(1))
     public async getUserTrophyTitles(accountId: string) {
         const authorization = await this.authService.getValidAccessToken();
 
@@ -224,35 +309,68 @@ export class PsnSyncService {
 
         const titles: UserTitlesResponse["trophyTitles"] = [];
 
+        let expectedTotal: number | undefined;
+        const seen = new Set<string>();
+
         while (true) {
-            try {
-                const response = await getUserTitles(authorization, accountId, {
+            const response = await uncancellableProviderCall("PSN", () =>
+                getUserTitles(authorization, accountId, {
                     offset: currentOffset,
-                });
-
-                const currentQueriedItems = MAX_PER_PAGE - currentOffset;
-
-                if (
-                    response != undefined &&
-                    response.trophyTitles != undefined &&
-                    Array.isArray(response.trophyTitles)
-                ) {
-                    titles.push(...response.trophyTitles);
-                }
-
-                if (
-                    response.totalItemCount != undefined &&
-                    response.totalItemCount - currentQueriedItems >=
-                        MAX_PER_PAGE
-                ) {
-                    currentOffset = response.totalItemCount - MAX_PER_PAGE;
-                    continue;
-                }
-            } catch (err: unknown) {
-                this.logger.error(err);
+                    limit: MAX_PER_PAGE,
+                }),
+            );
+            if (
+                !Array.isArray(response?.trophyTitles) ||
+                "error" in response ||
+                !Number.isSafeInteger(response.totalItemCount) ||
+                response.totalItemCount < 0 ||
+                (expectedTotal != null &&
+                    expectedTotal !== response.totalItemCount)
+            ) {
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Incomplete PSN trophy-title response",
+                );
             }
-
-            break;
+            expectedTotal = response.totalItemCount;
+            for (const title of response.trophyTitles) {
+                if (!title?.npCommunicationId || !title.npServiceName) {
+                    throw new ProviderSyncError(
+                        "incomplete",
+                        "Invalid PSN trophy-title identity",
+                    );
+                }
+                const identity = `${title.npCommunicationId}:${title.npServiceName}`;
+                if (seen.has(identity))
+                    throw new ProviderSyncError(
+                        "incomplete",
+                        "Repeated PSN trophy-title identity",
+                    );
+                seen.add(identity);
+            }
+            titles.push(...response.trophyTitles);
+            const nextOffset = currentOffset + response.trophyTitles.length;
+            if (nextOffset > expectedTotal)
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Invalid PSN trophy-title total",
+                );
+            if (
+                response.nextOffset != null &&
+                response.nextOffset !== nextOffset
+            ) {
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "Invalid PSN trophy-title continuation",
+                );
+            }
+            if (nextOffset === expectedTotal) break;
+            if (nextOffset === currentOffset)
+                throw new ProviderSyncError(
+                    "incomplete",
+                    "PSN trophy-title pagination made no progress",
+                );
+            currentOffset = nextOffset;
         }
 
         return titles;

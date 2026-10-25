@@ -32,7 +32,6 @@ const company = [
     "id",
     "change_date",
     "change_date_category",
-    "changed_company",
     "checksum",
     "country",
     "created_at",

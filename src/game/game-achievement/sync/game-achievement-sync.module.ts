@@ -1,3 +1,4 @@
+import { PlayerDataModule } from "../../../sync/player-data/player-data.module";
 import { forwardRef, Module } from "@nestjs/common";
 import { GameAchievementSyncQueueService } from "./game-achievement-sync-queue.service";
 import { GameAchievementSyncProcessor } from "./game-achievement-sync.processor";
@@ -13,9 +14,12 @@ import { seconds } from "@nestjs/throttler";
  */
 @Module({
     imports: [
+        PlayerDataModule,
         BullModule.registerQueue({
             name: GAME_ACHIEVEMENT_SYNC_QUEUE_NAME,
             defaultJobOptions: {
+                removeOnComplete: { age: 3600, count: 1000 },
+                removeOnFail: { age: 604800, count: 1000 },
                 backoff: seconds(5),
                 attempts: 5,
             },

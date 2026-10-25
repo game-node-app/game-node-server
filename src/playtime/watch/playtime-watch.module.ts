@@ -1,3 +1,4 @@
+import { PlayerDataModule } from "../../sync/player-data/player-data.module";
 import { forwardRef, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { UserPlaytime } from "../entity/user-playtime.entity";
@@ -20,6 +21,7 @@ import { GameAchievementSyncModule } from "../../game/game-achievement/sync/game
 
 @Module({
     imports: [
+        PlayerDataModule,
         TypeOrmModule.forFeature([UserPlaytime]),
         BullModule.registerQueue({
             name: PLAYTIME_WATCH_QUEUE_NAME,
@@ -42,6 +44,6 @@ import { GameAchievementSyncModule } from "../../game/game-achievement/sync/game
         GameAchievementSyncModule,
     ],
     providers: [PlaytimeWatchService, PlaytimeWatchProcessor],
-    exports: [PlaytimeWatchService],
+    exports: [PlaytimeWatchService, PlaytimeWatchProcessor],
 })
 export class PlaytimeWatchModule {}

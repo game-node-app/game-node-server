@@ -1,3 +1,8 @@
+import { generateChecksum } from "../../utils/checksum";
+import {
+    assertPlayerSyncActive,
+    recordPlayerSyncStats,
+} from "../../sync/player-sync-attempt";
 import { OnWorkerEvent, Processor } from "@nestjs/bullmq";
 import {
     PLAYTIME_WATCH_QUEUE_JOB_NAME,
@@ -7,7 +12,7 @@ import {
 } from "./playtime-watch.constants";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
 import { Logger } from "@nestjs/common";
-import { Job, UnrecoverableError } from "bullmq";
+import { Job } from "bullmq";
 import { ConnectionsService } from "../../connection/connections.service";
 import { EConnectionType } from "../../connection/connections.constants";
 import { SteamSyncService } from "../../sync/steam/steam-sync.service";
@@ -56,29 +61,8 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         super();
     }
 
-    async process(job: Job<PlaytimeWatchJob>) {
-        if (job.name === PLAYTIME_WATCH_QUEUE_JOB_NAME) {
-            this.logger.log(
-                `Started playtime update for ${job.data.userId} in source ${job.data.source}`,
-            );
-            this.connectionSyncGateway.sendMessageToUser(
-                job.data.userId,
-                `Started playtime update for ${job.data.userId} in source ${job.data.source}`,
-            );
-
-            switch (job.data.source) {
-                case UserPlaytimeSource.STEAM:
-                    return this.updateSteamPlaytimeInfo(job);
-                case UserPlaytimeSource.PSN:
-                    return this.updatePsnPlaytimeInfo(job);
-                case UserPlaytimeSource.XBOX:
-                    return this.updateXboxPlaytimeInfo(job);
-                default:
-                    throw new UnrecoverableError(
-                        `Playtime source not supported: ${job.data.source}`,
-                    );
-            }
-        }
+    async process(_job: Job) {
+        return { outcome: "legacy-skip" };
     }
 
     @OnWorkerEvent("progress")
@@ -174,32 +158,17 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
          * so we use it as a fallback to at least get some playtime info for affected users.
          * The recently played games endpoint also include Family Sharing games, unlike the getAllGames endpoint.
          */
-        const [listUserGames, fallbackRecentGames] = await Promise.all([
-            this.steamSyncService.getAllGames(connection.sourceUserId),
-            this.steamSyncService.getRecentlyPlayedGames(
-                connection.sourceUserId,
-            ),
-        ]);
-
-        /**
-         * We give priority to the 'recently played' list because it usually includes
-         * all playtime info, including for family sharing games.
-         * We also need to do this to avoid duplicates when calculating the total playtime below.
-         */
-        const gameIdsInFallback = new Set(
-            fallbackRecentGames.map((item) => item.game.id),
-        );
-        const filteredUserGamesList = listUserGames.filter(
-            (item) => !gameIdsInFallback.has(item.game.id),
+        const userGames = await this.steamSyncService.getLibraryGames(
+            connection.sourceUserId,
         );
 
-        const userGames = [...filteredUserGamesList, ...fallbackRecentGames];
-
+        recordPlayerSyncStats({ gamesSeen: userGames.length });
         if (userGames.length === 0) {
             job.updateProgress({
-                error: "No games found for Steam. Your library may be set to private.",
+                totalUpdatedGames: 0,
             } satisfies PlaytimeWatchJobProgress);
             return {
+                outcome: "empty" as const,
                 externalGamesProcessed: [],
             };
         }
@@ -214,18 +183,18 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 EGameExternalGameCategory.Steam,
             );
 
-        const unmappedEntries = userGames.filter((userGame) => {
-            return !externalGames.some(
-                (externalGame) => externalGame.uid === `${userGame.game.id}`,
-            );
-        });
-
-        for (const unmappedEntry of unmappedEntries) {
+        const mappedUids = new Set(externalGames.map((game) => game.uid));
+        for (const uid of gamesUids) {
+            if (mappedUids.has(uid)) continue;
+            assertPlayerSyncActive();
             await this.externalGameService.registerUnmappedGame(
-                `${unmappedEntry.game.id}`,
+                uid,
                 EGameExternalGameCategory.Steam,
             );
         }
+        const userGamesByApp = Map.groupBy(userGames, (game) =>
+            String(game.game.id),
+        );
 
         const PC_PLATFORM_ID = 6;
 
@@ -239,16 +208,16 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             (item) => item.gameId,
         );
 
+        const existing = await this.playtimeService.findForImport(
+            userId,
+            UserPlaytimeSource.STEAM,
+            [...groupedByGameId.keys()],
+        );
+        const playtimes: CreateUserPlaytimeDto[] = [];
         for (const [gameId, items] of groupedByGameId.entries()) {
-            const appIds = items.map((item) => Number.parseInt(item.uid));
-
-            /**
-             * A game may appear more than once if the user owns multiple editions of it
-             * (e.g.: Metro Exodus and Metro Exodus PC Enhanced Edition)
-             */
-            const relatedUserGames = userGames.filter((userGame) => {
-                return appIds.includes(userGame.game.id);
-            });
+            const relatedUserGames = items.flatMap(
+                (item) => userGamesByApp.get(item.uid) ?? [],
+            );
 
             const recentPlaytimeSeconds = relatedUserGames.reduce(
                 (acc, item) => {
@@ -264,11 +233,8 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 0,
             );
 
-            const existingPlaytimeInfo = await this.playtimeService.findOne(
-                userId,
-                gameId,
-                UserPlaytimeSource.STEAM,
-                PC_PLATFORM_ID,
+            const existingPlaytimeInfo = existing.get(
+                `${gameId}:${PC_PLATFORM_ID}`,
             );
 
             const hasChangedTotalPlaytime =
@@ -302,11 +268,20 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             }
 
             for (const externalGame of items) {
-                this.gameAchievementSyncQueueService.addUserSyncJob(
+                assertPlayerSyncActive();
+                await this.gameAchievementSyncQueueService.addUserSyncJob(
                     userId,
                     externalGame.id,
                     EConnectionType.STEAM,
-                    lastPlayedDate,
+                    generateChecksum(
+                        (userGamesByApp.get(externalGame.uid) ?? []).map(
+                            (game) => [
+                                game.game.id,
+                                game.minutes ?? 0,
+                                game.recentMinutes ?? 0,
+                            ],
+                        ),
+                    ),
                 );
             }
 
@@ -326,7 +301,6 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             // We infer the game was played 'today'.
             if (hasChangedTotalPlaytime) {
                 playtime.lastPlayedDate = new Date();
-                playtime.totalPlayCount! += 1;
             }
 
             job.updateProgress({
@@ -335,8 +309,10 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 totalPlaytimeSeconds: totalPlaytimeSeconds,
             } satisfies PlaytimeWatchJobProgress);
 
-            await this.playtimeService.save(playtime);
+            assertPlayerSyncActive();
+            playtimes.push(playtime);
         }
+        await this.playtimeService.saveImported(playtimes, existing);
 
         job.updateProgress({
             totalUpdatedGames: groupedByGameId.size,
@@ -357,14 +333,17 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             this.psnSyncService.getUserTrophyTitles(connection.sourceUserId),
         ]);
 
+        recordPlayerSyncStats({ gamesSeen: userGames.length });
         if (userGames.length === 0) {
             job.updateProgress({
-                error: "No games found for PSN. Your library may be set to private.",
+                totalUpdatedGames: 0,
             });
-            return;
+            return { outcome: "empty" as const };
         }
 
-        const gamesUids = userGames.map((item) => `${item.concept.id}`);
+        const gamesUids = [
+            ...new Set(userGames.map((item) => `${item.concept.id}`)),
+        ];
 
         const externalGames =
             await this.externalGameService.getExternalGamesForSourceIds(
@@ -372,74 +351,83 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 EGameExternalGameCategory.PlaystationStoreUs,
             );
 
-        const unmappedEntries = userGames.filter((userGame) => {
-            return !externalGames.some(
-                (externalGame) => externalGame.uid === `${userGame.concept.id}`,
-            );
-        });
-
-        for (const unmappedEntry of unmappedEntries) {
-            this.externalGameService
+        const mappedUids = new Set(externalGames.map((game) => game.uid));
+        for (const uid of gamesUids) {
+            if (mappedUids.has(uid)) continue;
+            assertPlayerSyncActive();
+            await this.externalGameService
                 .registerUnmappedGame(
-                    `${unmappedEntry.concept.id}`,
+                    uid,
                     EGameExternalGameCategory.PlaystationStoreUs,
                 )
                 .catch((err) => this.logger.error(err));
         }
 
-        /**
-         * Names are not unique across platforms, so we can use this logic to group all related playtime info for a single game
-         * across PS4 and PS5.
-         */
-        const groupedByName = Map.groupBy(userGames, (item) => item.name);
-
+        const groupedByConcept = Map.groupBy(userGames, (item) =>
+            String(item.concept.id),
+        );
         const platformsMap =
             await this.gameRepositoryService.getGamePlatformsMap(
                 "abbreviation",
             );
-
-        for (const [name, titles] of groupedByName.entries()) {
-            // First matching external game
-            const relatedExternalGame = externalGames.find((externalGame) => {
-                return titles.some(
-                    (title) =>
-                        title.concept.id === Number.parseInt(externalGame.uid),
-                );
-            });
-
-            if (!relatedExternalGame) {
-                continue;
-            }
-
-            // Matching is imprecise
-            const relatedTrophyTitles = userTrophyTitles.filter(
-                (trophyTitle) => trophyTitle.trophyTitleName === name,
-            );
-
-            for (const trophyTitle of relatedTrophyTitles) {
-                this.externalGameMappingsService
-                    .upsertPsnMappings({
-                        externalGameId: relatedExternalGame.id,
-                        npServiceName: trophyTitle.npServiceName,
-                        npCommunicationId: trophyTitle.npCommunicationId,
+        const externalByConcept = new Map(
+            externalGames.map((game) => [game.uid, game]),
+        );
+        const trophyByIdentity = new Map(
+            userTrophyTitles.map((title) => [
+                `${title.npCommunicationId}:${title.npServiceName}`,
+                title,
+            ]),
+        );
+        const existing = await this.playtimeService.findForImport(
+            userId,
+            UserPlaytimeSource.PSN,
+            externalGames.map((game) => game.gameId),
+        );
+        const playtimes: CreateUserPlaytimeDto[] = [];
+        let unresolved = 0;
+        for (const [conceptId, titles] of groupedByConcept) {
+            const relatedExternalGame = externalByConcept.get(conceptId);
+            if (!relatedExternalGame) continue;
+            // shortcut: the SDK exposes no concept-to-trophy association, retain persisted mappings until a verified source is available.
+            const mappings = relatedExternalGame.psnExtraMappings ?? [];
+            if (!mappings.length) unresolved++;
+            for (const mapping of mappings)
+                await this.externalGameMappingsService.upsertPsnMappings({
+                    externalGameId: relatedExternalGame.id,
+                    npServiceName: mapping.npServiceName,
+                    npCommunicationId: mapping.npCommunicationId,
+                });
+            if (mappings.length) {
+                const progress = mappings
+                    .map((mapping) => {
+                        const identity = `${mapping.npCommunicationId}:${mapping.npServiceName}`;
+                        const trophy = trophyByIdentity.get(identity);
+                        return [
+                            identity,
+                            trophy?.trophySetVersion ?? null,
+                            trophy?.lastUpdatedDateTime ?? null,
+                            trophy?.progress ?? null,
+                            trophy?.earnedTrophies ?? null,
+                        ];
                     })
-                    .catch((err) => this.logger.error(err));
+                    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+                await this.gameAchievementSyncQueueService.addUserSyncJob(
+                    userId,
+                    relatedExternalGame.id,
+                    EConnectionType.PSN,
+                    generateChecksum(progress),
+                );
             }
-
             for (const title of titles) {
                 const targetPlatform = match(title.category)
                     .with("ps5_native_game", () => platformsMap.get("PS5")!)
                     .with("ps4_game", () => platformsMap.get("PS4")!)
                     .with("pspc_game", () => platformsMap.get("PSP")!)
                     .otherwise(() => platformsMap.get("PS3")!);
-
-                const existingPlaytimeInfo = await this.playtimeService.findOne(
-                    userId,
-                    relatedExternalGame.gameId,
-                    UserPlaytimeSource.PSN,
-                    targetPlatform.id,
+                const existingPlaytimeInfo = existing.get(
+                    `${relatedExternalGame.gameId}:${targetPlatform.id}`,
                 );
-
                 const playtime: CreateUserPlaytimeDto = {
                     ...existingPlaytimeInfo,
                     gameId: relatedExternalGame.gameId,
@@ -449,31 +437,29 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     totalPlaytimeSeconds: dayjs
                         .duration(title.playDuration)
                         .asSeconds(),
-                    // Recent playtime will be calculated on our side
                     recentPlaytimeSeconds: undefined,
                     totalPlayCount: title.playCount,
                     source: UserPlaytimeSource.PSN,
                     platformId: targetPlatform.id,
                 };
-
-                this.gameAchievementSyncQueueService.addUserSyncJob(
-                    userId,
-                    relatedExternalGame.id,
-                    EConnectionType.PSN,
-                    playtime.lastPlayedDate!,
-                );
-
                 job.updateProgress({
                     gameName: relatedExternalGame.name,
                     platform: targetPlatform.abbreviation,
                     totalPlaytimeSeconds: playtime.totalPlaytimeSeconds,
                 } satisfies PlaytimeWatchJobProgress);
-                await this.playtimeService.save(playtime);
+                assertPlayerSyncActive();
+                playtimes.push(playtime);
             }
         }
 
+        await this.playtimeService.saveImported(playtimes, existing);
+        if (unresolved)
+            this.logger.log({
+                event: "psn-unresolved-mapping",
+                games: unresolved,
+            });
         job.updateProgress({
-            totalUpdatedGames: groupedByName.size,
+            totalUpdatedGames: groupedByConcept.size,
         } satisfies PlaytimeWatchJobProgress);
     }
 
@@ -490,14 +476,15 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             connection.sourceUserId,
         );
 
+        recordPlayerSyncStats({ gamesSeen: allGames.length });
         if (allGames.length === 0) {
             job.updateProgress({
-                error: "No games found for Xbox. Your library may be set to private.",
+                totalUpdatedGames: 0,
             });
-            return;
+            return { outcome: "empty" as const };
         }
 
-        const sourceUids = allGames.map((game) => game.productId);
+        const sourceUids = [...new Set(allGames.map((game) => game.productId))];
 
         const externalGames =
             await this.externalGameService.getExternalGamesForSourceIds(
@@ -505,14 +492,25 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 EGameExternalGameCategory.Microsoft,
             );
 
-        const relevantTitleIds = allGames
-            // Get only games with matches
-            .filter((game) =>
-                externalGames.some(
-                    (externalGame) => externalGame.uid === game.productId,
-                ),
-            )
-            .map((game) => game.titleId);
+        const externalByProduct = new Map(
+            externalGames.map((game) => [game.uid, game]),
+        );
+        const relevantTitles = allGames.filter((game) =>
+            externalByProduct.has(game.productId),
+        );
+        for (const game of relevantTitles) {
+            await this.gameAchievementSyncQueueService.addUserSyncJob(
+                userId,
+                externalByProduct.get(game.productId)!.id,
+                EConnectionType.XBOX,
+                generateChecksum([
+                    game.titleId,
+                    game.achievement,
+                    game.titleHistory?.lastTimePlayed ?? null,
+                ]),
+            );
+        }
+        const relevantTitleIds = relevantTitles.map((game) => game.titleId);
 
         // A small portion of the items may not have stats, and some will not have the 'value' defined anyway.
         const playtimeStats = await this.xboxSyncService.getBatchMinutesPlayed(
@@ -525,14 +523,23 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 "abbreviation",
             );
 
+        const existing = await this.playtimeService.findForImport(
+            userId,
+            UserPlaytimeSource.XBOX,
+            externalGames.map((game) => game.gameId),
+        );
+        const playtimes: CreateUserPlaytimeDto[] = [];
+        const gamesByTitle = new Map(
+            [...Map.groupBy(allGames, (game) => game.titleId)].map(
+                ([id, games]) => [id, games[0]],
+            ),
+        );
         for (const stats of playtimeStats) {
             if (stats.value == undefined) continue;
 
-            const relevantGame = allGames.find(
-                (game) => game.titleId === stats.titleid,
-            )!;
-            const relevantExternalGame = externalGames.find(
-                (externalGame) => externalGame.uid === relevantGame.productId,
+            const relevantGame = gamesByTitle.get(stats.titleid)!;
+            const relevantExternalGame = externalByProduct.get(
+                relevantGame.productId,
             )!;
 
             const deviceTitles = relevantGame.devices.flat(1);
@@ -543,11 +550,8 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                 preferredPlatformAbbreviation,
             )!;
 
-            const existingPlaytimeInfo = await this.playtimeService.findOne(
-                userId,
-                relevantExternalGame.gameId,
-                UserPlaytimeSource.XBOX,
-                preferredPlatform.id,
+            const existingPlaytimeInfo = existing.get(
+                `${relevantExternalGame.gameId}:${preferredPlatform.id}`,
             );
 
             const playtime: CreateUserPlaytimeDto = {
@@ -559,30 +563,15 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
                     : null,
                 recentPlaytimeSeconds: undefined,
                 totalPlaytimeSeconds: Number.parseInt(stats.value) * 60,
-                totalPlayCount: 0,
+                totalPlayCount: existingPlaytimeInfo?.totalPlayCount ?? 0,
                 firstPlayedDate: undefined,
                 source: UserPlaytimeSource.XBOX,
                 platformId: preferredPlatform.id,
             };
 
-            this.gameAchievementSyncQueueService.addUserSyncJob(
-                userId,
-                relevantExternalGame.id,
-                EConnectionType.XBOX,
-                playtime.lastPlayedDate ?? undefined,
-            );
-
-            const hasChangedTotalPlaytime =
-                existingPlaytimeInfo != undefined &&
-                existingPlaytimeInfo.totalPlaytimeSeconds !=
-                    playtime.totalPlaytimeSeconds;
-
-            if (hasChangedTotalPlaytime) {
-                playtime.totalPlayCount =
-                    existingPlaytimeInfo!.totalPlayCount + 1;
-            }
-
-            await this.playtimeService.save(playtime);
+            assertPlayerSyncActive();
+            playtimes.push(playtime);
         }
+        await this.playtimeService.saveImported(playtimes, existing);
     }
 }

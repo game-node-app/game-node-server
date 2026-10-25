@@ -1,0 +1,124 @@
+common {
+    plugin_dir = /usr/local/lib/manticore
+}
+
+searchd {
+    listen = 9306:mysql41
+    listen = /var/run/mysqld/mysqld.sock:mysql41
+    listen = 9312
+    listen = 9308:http
+    log = /var/log/manticore/searchd.log
+    query_log = /var/log/manticore/query.log
+    pid_file = /var/run/manticore/searchd.pid
+    query_log_format = sphinxql
+}
+
+source games_source {
+    type             = mysql
+    sql_host         = {{DB_HOST}}
+    sql_port         = {{DB_PORT}}
+    sql_user         = {{DB_USER}}
+    sql_pass         = {{DB_PASS}}
+    sql_db           = {{DB_DATABASE}}
+    sql_query_pre    = SET CHARACTER_SET_RESULTS=utf8mb4
+    sql_query_pre    = SET NAMES utf8mb4
+    sql_query_pre    = SET SESSION group_concat_max_len = 65535
+    sql_query        = \
+    SELECT game.id, \
+           game.name, \
+           game.slug, \
+           game.category, \
+           game.status, \
+           game.url, \
+           COALESCE(UNIX_TIMESTAMP(game.firstReleaseDate), 0) AS first_release_date, \
+           COALESCE(UNIX_TIMESTAMP(game.createdAt), 0)        AS created_at, \
+           COALESCE(UNIX_TIMESTAMP(game.updatedAt), 0)        AS updated_at, \
+           gameCover.url                                      AS cover_url, \
+           alternativeNames                                   AS alternative_names, \
+           platformsNames                                     AS platforms_names, \
+           platformsAbbreviations                             AS platforms_abbreviations, \
+           genresNames                                        AS genres_names, \
+           keywordsNames                                      AS keywords_names, \
+           themesNames                                        AS themes_names, \
+           COALESCE(game_statistics.likesCount, 0)            AS num_likes, \
+           COALESCE(game_statistics.viewsCount, 0)            AS num_views, \
+           'manticore'                                        AS source \
+    FROM game \
+             LEFT JOIN game_cover AS gameCover ON game.id = gameCover.gameId \
+             LEFT JOIN (SELECT gan.gameId, GROUP_CONCAT(DISTINCT gan.name ORDER BY gan.id ASC SEPARATOR ', ') AS alternativeNames FROM game_alternative_name gan GROUP BY gan.gameId) \
+                       AS gameAlternativeName ON gameAlternativeName.gameId = game.id \
+             LEFT JOIN (SELECT gpgg.gameId, \
+                               GROUP_CONCAT(DISTINCT game_platform.name ORDER BY game_platform.id ASC SEPARATOR ', ')         AS platformsNames, \
+                               GROUP_CONCAT(DISTINCT game_platform.abbreviation ORDER BY game_platform.id ASC SEPARATOR ', ') AS platformsAbbreviations \
+                        FROM game_platform \
+                                 INNER JOIN game_platform_games_game gpgg ON gpgg.gamePlatformId = game_platform.id \
+                        GROUP BY gpgg.gameId) AS gamePlatform ON game.id = gamePlatform.gameId \
+             LEFT JOIN (SELECT gggg.gameId, GROUP_CONCAT(DISTINCT game_genre.name ORDER BY game_genre.id ASC SEPARATOR ', ') AS genresNames \
+                        FROM game_genre \
+                                 INNER JOIN game_genres_game_genre gggg ON game_genre.id = gggg.gameGenreId \
+                        GROUP BY gggg.gameId) AS gameGenre ON gameGenre.gameId = game.id \
+             LEFT JOIN (SELECT gkgk.gameId, GROUP_CONCAT(DISTINCT game_keyword.name ORDER BY game_keyword.id ASC SEPARATOR ', ') AS keywordsNames \
+                        FROM game_keyword \
+                                 INNER JOIN game_keywords_game_keyword gkgk ON game_keyword.id = gkgk.gameKeywordId \
+                        GROUP BY gkgk.gameId) AS gameKeywords ON gameKeywords.gameId = game.id \
+             LEFT JOIN (SELECT gtgt.gameId, GROUP_CONCAT(DISTINCT game_theme.name ORDER BY game_theme.id ASC SEPARATOR ', ') AS themesNames \
+                        FROM game_theme \
+                                 INNER JOIN game_themes_game_theme gtgt ON game_theme.id = gtgt.gameThemeId \
+                        GROUP BY gtgt.gameId) AS gameTheme ON gameTheme.gameId = game.id \
+             LEFT JOIN game_statistics ON game.id = game_statistics.gameId;
+
+    sql_attr_timestamp = created_at
+    sql_attr_timestamp = updated_at
+    sql_attr_timestamp = first_release_date
+    sql_attr_string    = url
+    sql_attr_string    = cover_url
+    sql_attr_string    = source
+    sql_attr_bigint    = category
+    sql_attr_bigint    = status
+    sql_attr_bigint    = num_views
+    sql_attr_bigint    = num_likes
+    sql_attr_multi     = bigint genre_ids from query; SELECT gameId, gameGenreId FROM game_genres_game_genre
+    sql_attr_multi     = bigint theme_ids from query; SELECT gameId, gameThemeId FROM game_themes_game_theme
+    sql_attr_multi     = bigint platform_ids from query; SELECT gameId, gamePlatformId FROM game_platform_games_game
+}
+
+source users_source {
+    type             = mysql
+    sql_host         = {{DB_HOST}}
+    sql_port         = {{DB_PORT}}
+    sql_user         = {{DB_USER}}
+    sql_pass         = {{DB_PASS}}
+    sql_db           = {{DB_DATABASE}}
+    sql_query_pre    = SET CHARACTER_SET_RESULTS=utf8mb4
+    sql_query_pre    = SET NAMES utf8mb4
+    sql_query        = \
+    SELECT ROW_NUMBER() OVER (ORDER BY createdAt ASC, userId ASC) AS id, \
+           userId AS user_id, \
+           username, \
+           COALESCE(UNIX_TIMESTAMP(createdAt), 0) AS created_at, \
+           COALESCE(UNIX_TIMESTAMP(updatedAt), 0) AS updated_at \
+    FROM profile \
+    ORDER BY createdAt DESC, userId ASC;
+
+    sql_attr_timestamp = created_at
+    sql_attr_timestamp = updated_at
+    sql_attr_string    = user_id
+}
+
+table games {
+    dict               = keywords
+    type               = plain
+    min_infix_len      = 3
+    index_exact_words  = 1
+    expand_keywords    = 1
+    source             = games_source
+    path               = /var/lib/manticore/games
+}
+
+table users {
+    dict               = keywords
+    type               = plain
+    min_infix_len      = 3
+    source             = users_source
+    path               = /var/lib/manticore/users
+}

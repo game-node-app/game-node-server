@@ -32,10 +32,15 @@ export class JournalController {
     @Get("playlog/:userId/:gameId")
     @Public()
     public async getJournalPlaylog(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Param("gameId") gameId: number,
     ) {
-        return this.journalPlaylogService.getPlaylog(userId, gameId);
+        return this.journalPlaylogService.getPlaylog(
+            userId,
+            gameId,
+            session?.getUserId(),
+        );
     }
 
     @Get("heatmap/:userId")

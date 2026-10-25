@@ -2,6 +2,7 @@ import {
     Body,
     Controller,
     Get,
+    NotFoundException,
     Param,
     Post,
     Query,
@@ -37,11 +38,26 @@ export class ImporterController {
         @Param("source") source: EImporterSource,
         @Query() dto: ImporterUnprocessedRequestDto,
     ) {
-        return (await this.importerService.findUnprocessedEntries(
-            session.getUserId(),
+        const userId = session.getUserId();
+        const result = await this.importerService.findUnprocessedEntries(
+            userId,
             source,
             dto,
-        )) as unknown as ImporterPaginatedResponseDto;
+        );
+        if (result[1] === 0) {
+            const total = dto.search
+                ? (
+                      await this.importerService.findUnprocessedEntries(
+                          userId,
+                          source,
+                          { offset: 0, limit: 1 },
+                      )
+                  )[1]
+                : 0;
+            if (total === 0)
+                throw new NotFoundException("No unprocessed entries found");
+        }
+        return result as unknown as ImporterPaginatedResponseDto;
     }
 
     @Post("status")

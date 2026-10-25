@@ -6,6 +6,7 @@ import {
     IsNull,
     MoreThanOrEqual,
     Repository,
+    QueryFailedError,
 } from "typeorm";
 import { Notification } from "./entity/notification.entity";
 import { Cache } from "cache-manager";
@@ -269,6 +270,7 @@ export class NotificationsService {
                 break;
             case NotificationSourceType.IMPORTER:
                 entity.importerNotificationId = dto.sourceId as number;
+                entity.deliveryIdentity = `importer:${dto.targetUserId}:${dto.sourceId}`;
                 break;
             case NotificationSourceType.PROFILE:
                 entity.profileUserId = dto.sourceId as string;
@@ -294,7 +296,19 @@ export class NotificationsService {
                 );
         }
 
-        await this.notificationRepository.save(entity);
+        if (dto.sourceType === NotificationSourceType.IMPORTER) {
+            try {
+                await this.notificationRepository.insert(entity);
+            } catch (error) {
+                if (
+                    !(error instanceof QueryFailedError) ||
+                    error.driverError?.code !== "ER_DUP_ENTRY"
+                )
+                    throw error;
+            }
+        } else {
+            await this.notificationRepository.save(entity);
+        }
     }
 
     public async updateViewedStatus(

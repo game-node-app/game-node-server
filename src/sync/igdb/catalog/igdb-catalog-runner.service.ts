@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { normalizeIgdbGame } from "../utils/game-conversor-utils";
+import { InvalidGameEntryError } from "../../../game/game-repository/create/game-import-context";
 import { AsyncLeafLimiter } from "./async-leaf-limiter";
 import {
     CATALOG_CONFIG,
@@ -195,7 +196,7 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
                                 );
                                 if (used >= this.config.maxAttempts)
                                     throw new CatalogDataError(
-                                        "Game stage attempt budget exhausted; explicit resume required",
+                                        "Game stage attempt budget exhausted; run will resume after cooldown",
                                     );
                                 await this.state.admitStageAttempt(
                                     owner,
@@ -204,12 +205,29 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
                                     this.config.maxAttempts,
                                 );
                                 ensureActive();
-                                await this.importer.persist(
-                                    normalizeIgdbGame(entry),
-                                    owner,
-                                    limiter,
-                                    claimed.forceReconciliation,
-                                );
+                                try {
+                                    await this.importer.persist(
+                                        normalizeIgdbGame(entry),
+                                        owner,
+                                        limiter,
+                                        claimed.forceReconciliation,
+                                    );
+                                } catch (error) {
+                                    // Source data cannot be fixed locally; skip it so the scan never stalls.
+                                    if (
+                                        !(
+                                            error instanceof
+                                            InvalidGameEntryError
+                                        )
+                                    )
+                                        throw error;
+                                    this.logger.warn({
+                                        event: "catalog.game.skipped",
+                                        runId,
+                                        gameId: entry.id,
+                                        reason: error.message,
+                                    });
+                                }
                                 await this.state.finishAttemptStage(
                                     owner,
                                     "game",
@@ -296,12 +314,7 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
                 const summary =
                     error instanceof CatalogDataError
                         ? error.message
-                        : error &&
-                            typeof error === "object" &&
-                            "code" in error &&
-                            error.code === "IGDB_INVALID_GAME"
-                          ? "Invalid game identity or name"
-                          : `Catalog ${stage} failed; inspect local diagnostics and explicitly resume`;
+                        : `Catalog ${stage} failed; retrying automatically after cooldown`;
                 await this.state.recordFailure(owner, stage, gameId, summary);
                 const failedStatus = await this.state.readStatus();
                 await this.state.pauseRun(owner, summary);
@@ -315,6 +328,8 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
                     attempt: failedStatus.attempt,
                     stage,
                     gameId,
+                    error:
+                        error instanceof Error ? error.message : String(error),
                     durationMs: Date.now() - started,
                 });
             }

@@ -69,10 +69,12 @@ committed cursor, and advances the ownership generation. Renewal extends the
 current owner's lease. Every game transaction locks and validates that owner;
 checkpointing advances committed cursor and counts only after a whole page.
 
-A persistent failure moves `running` to `paused` without advancing the cursor.
-Explicit resume returns that same run to `running`, clears its failing-stage
-attempt budget, and preserves its boundary and progress. Timers leave paused
-runs alone. Successful empty-page completion changes `running` to `completed`,
+A game IGDB returns without a valid identity or name is skipped with a
+`catalog.game.skipped` warning; it never pauses the scan. Any other persistent
+failure moves `running` to `paused` without advancing the cursor and logs the
+error. After a one-hour cooldown the scheduler resumes that same run
+automatically: it returns to `running`, clears its attempt budget, and preserves
+its boundary and progress. No operator action is required. Successful empty-page completion changes `running` to `completed`,
 clears ownership and sets the next eligible time to completion plus 7 or 14
 days in UTC. A later eligible claim starts a new scan. Ownership generations
 fence all mutations by old workers. Disabling or stopping a worker preserves
@@ -209,7 +211,8 @@ yarn igdb:catalog status --local
 yarn igdb:catalog resume --local
 ```
 
-A paused run needs correction followed by explicit resume. Resume preserves run
+Paused runs resume automatically after a one-hour cooldown; `resume` only skips
+that wait. Resume preserves run
 ID, cursor and upper boundary, clears attempt budgets and reconciles the same
 queue job. A failed/retained job is retried, not replaced by a new job each tick.
 Missing jobs are recreated with the same ID. BullMQ stalled-job recovery returns
@@ -219,7 +222,7 @@ old owners. A missing or malformed source response never completes a scan.
 Retry state stores only current-page stage attempt counts (bounded by batch size
 plus fixed orchestration stages), with no game payloads or per-page history.
 Recovery fetches cannot erase an unfinished game's budget. Successful stages
-clear their entries; committed checkpoints and explicit resume clear the ledger.
+clear their entries; committed checkpoints and resume clear the ledger.
 
 Startup and each 60-second tick reconcile eligibility. Seven days is the default
 completion cooldown; set `IGDB_CATALOG_INTERVAL_DAYS=14` on each replica for
@@ -233,7 +236,8 @@ fourteen days.
    internal synchronization starts automatically; there is no legacy queue drain
    check or fallback mode. The first scan starts at zero and forces relationship
    reconciliation.
-3. Inspect `status`; correct persistent failures and use `resume`. Interrupted
+3. No manual step is needed: invalid games are skipped and paused runs resume
+   automatically. `status` is available for inspection. Interrupted
    running work recovers from the previous durable cursor, replaying a page if
    games committed before its checkpoint. Source-absent local games are retained.
 4. There is no producer fallback. Application rollback requires reverting the
