@@ -45,6 +45,7 @@ import { StatisticsTarget } from "../../../statistics/entity/statistics-target.e
  * */
 @Entity()
 @Index("UQ_game_statistics_target", ["statisticsTargetId"], { unique: true })
+@Index("IDX_game_statistics_ranking", ["id", "statisticsTargetId", "status", "category"])
 export class Game {
     /**
      * Should be mapped to the IGDB ID of the game.

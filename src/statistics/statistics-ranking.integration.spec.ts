@@ -138,6 +138,23 @@ describe("statistics rankings", () => {
             const missing = page.items.find((item: any) => item.sourceId === ids[3]);
             if (missing) expect(missing).toMatchObject({ score: 0, viewsCount: 123, likesCount: 7 });
         }
+        const genreId = randomInt(1_000_000, 2_000_000_000);
+        for (const id of [genreId, genreId + 1])
+            await dataSource.query("INSERT INTO game_genre (id, name, slug) VALUES (?, ?, ?)", [id, `Ranking ${id}`, `ranking-${id}`]);
+        await dataSource.query(
+            "INSERT INTO game_genres_game_genre (gameId, gameGenreId) VALUES (?, ?), (?, ?), (?, ?), (?, ?)",
+            [ids[4], genreId, ids[4], genreId + 1, ids[0], genreId, ids[2], genreId + 1],
+        );
+        const filtered = await service.findRankings(undefined, {
+            sourceType: StatisticsSourceType.GAME,
+            mode: "popular" as any,
+            period: "month",
+            criteria: { ids, genres: [genreId, genreId + 1] } as any,
+            limit: 2,
+            offset: 1,
+        });
+        expect(filtered.pagination.total).toBe(3);
+        expect(filtered.items.map((item: any) => item.sourceId)).toEqual([ids[0], ids[2]]);
     });
 
     it("serves missing presets from projected metrics without rebuilding a key during the request", async () => {
@@ -157,6 +174,8 @@ describe("statistics rankings", () => {
                 mode: "popular" as any,
                 period,
                 criteria: { ids: [gameId] } as any,
+                limit: 20,
+                offset: 0,
             });
             expect(page.items).toEqual([expect.objectContaining({ sourceId: gameId, score: expectedScore, viewsCount: 13 })]);
             const [count] = await dataSource.query("SELECT COUNT(*) AS total FROM ranking_score WHERE rankingKey = ?", [key]);

@@ -270,7 +270,7 @@ export class StatisticsRankingService {
                 positiveCount = safeCount(count.total);
             }
             const zeros = await manager.query(
-                `SELECT g.id AS sourceId, t.id AS targetId, 0 AS score
+                `SELECT STRAIGHT_JOIN g.id AS sourceId, t.id AS targetId, 0 AS score
                  ${source.from} LEFT ${positiveJoin}
                  WHERE ${source.where} AND prepared.targetId IS NULL
                  ORDER BY g.id ASC LIMIT ? OFFSET ?`,
@@ -325,8 +325,8 @@ export class StatisticsRankingService {
                 }
             }
             return {
-                // Keep zero-score pagination on the game's native ID index instead of sorting every active target.
-                from: "FROM game g STRAIGHT_JOIN statistics_target t ON t.id = g.statisticsTargetId",
+                // Cover eligibility and ID ordering without fetching the full game row for every candidate.
+                from: "FROM game g USE INDEX (UQ_game_statistics_target, IDX_game_statistics_ranking) STRAIGHT_JOIN statistics_target t ON t.id = g.statisticsTargetId",
                 where: where.join(" AND "),
                 parameters,
                 id: "g.id",

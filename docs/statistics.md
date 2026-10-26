@@ -40,7 +40,9 @@ Series and explicit ranking boundaries are normalized to UTC with microsecond pr
 
 `engagement-v1` assigns one point per accepted view and five points per actor's first known like on a target. Popular presets are rolling 1/7/30/90/180/365-day windows plus popular/all-time. Recent mode requires a finite interval; common recent pages use the rolling week. Rankings filter source eligibility and supported domain criteria in SQL before totals and pagination. Zero-score eligible sources remain, ordered by score then native ID. Review pins only move a review already inside the filtered eligible set. Page cache entries expire within 15 seconds and recheck the current eligible count and cached members before serving.
 
-Prepared popular rankings and recent-week rankings refresh every six hours at 00:00, 06:00, 12:00 and 18:00 UTC. Their rolling windows end at the published calculation time, so new engagement may take up to the next successful refresh to appear. Current eligibility is still checked when rankings are served; a missing prepared key can be calculated on request.
+Prepared popular rankings and recent-week rankings refresh every six hours at 00:00, 06:00, 12:00 and 18:00 UTC. Their rolling windows end at the published calculation time, so new engagement may take up to the next successful refresh to appear. Current eligibility is still checked when rankings are served. When a prepared key is missing, reads calculate scores from projected metrics without rebuilding the key or reserving another database connection; the scheduler publishes the prepared key on its next refresh.
+
+Game pages read positive scores through the existing ranking index, then fill any remaining positions with eligible zero-score games in native ID order. Migration `1792960197571` adds a covering game index for eligibility and filtered pagination; deploy it before the updated ranking service. Views and current likes are fetched only for the selected page. The exact eligible total and cached-member checks still run inside the read transaction.
 
 Public responses contain source IDs, aggregate values, and freshness/coverage metadata. They do not include actor IDs, raw event facts, or internal target IDs. Reads revalidate source/root/comment and current review/collection access. Query-time eligibility makes privacy reversible without rewriting retained facts.
 
@@ -107,7 +109,23 @@ owner or deletion endpoint; catalog updates preserve their targets.
 
 ## Fresh installation
 
-Apply migrations `1792960197568` and `1792960197569` as part of the normal application setup. No statistics conversion or rebuild command is required: source creation initializes targets, the projector processes new facts automatically, and the ranking scheduler refreshes prepared scores. The optional `yarn statistics:projection diagnostics` and `rearm` commands are for inspecting or retrying failed runtime projection work; `--local` selects the disposable `igdb_sync_test` fixture.
+Apply migrations `1792960197568`, `1792960197569` and `1792960197571` as part of the normal application setup. No statistics conversion or rebuild command is required: source creation initializes targets, the projector processes new facts automatically, and the ranking scheduler refreshes prepared scores. The optional `yarn statistics:projection diagnostics` and `rearm` commands are for inspecting or retrying failed runtime projection work; `--local` selects the disposable `igdb_sync_test` fixture.
+
+## Ranking performance correction (2026-10-26)
+
+Local measurements with approximately 302,000 eligible games, 20 items per page and an active catalog import:
+
+| Request | Before | After |
+| --- | --- | --- |
+| Popular/month, offset 100 | 17.55 s | 397 ms |
+| Popular/month, offset 10,000 | Not measured | 436 ms |
+| Genre 12, offset 1,000 | 7.07 s | 144 ms |
+| Genre 12, offset 10,000 | Not measured | 598 ms |
+| Explore Next.js data request | 6.87 s in the supplied HAR | 564 ms |
+
+Four concurrent ranking requests completed in 453 ms; twelve completed in 1.11 s. Combined genre/platform filters at offset 1,000 took 1.28 s. These are individual local measurements, not production latency percentiles. Exact eligible counts still scale with the filtered catalog size.
+
+Validation passed: 10 statistics suites / 48 tests, 3 frontend consumer suites / 4 tests, `yarn build` and `git diff --check`. Coverage includes native-ID ties, positive-to-zero pagination, missing prepared scores, duplicate genre memberships, privacy, cache fallback and applying/reversing/reapplying the covering-index migration. The index was applied to the local application database; no production migration or benchmark was run.
 
 ## Verification record
 

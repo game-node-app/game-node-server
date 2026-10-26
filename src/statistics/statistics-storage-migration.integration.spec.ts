@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
 import { PrepareStatisticsStorage1792960197568 } from "../migrations/1792960197568-PrepareStatisticsStorage";
+import { IndexGameStatisticsRankings1792960197571 } from "../migrations/1792960197571-IndexGameStatisticsRankings";
 
 const sourceTables = ["game", "review", "activity", "post", "review_comment", "activity_comment", "post_comment"];
 const statisticsTables = ["ranking_score", "metric_hour", "metric_total", "statistics_event", "engagement_state", "statistics_maintenance", "statistics_target"];
@@ -46,6 +47,16 @@ describe("statistics storage migration", () => {
             const migration = new PrepareStatisticsStorage1792960197568();
             await migration.up(runner);
             await migration.up(runner);
+
+            const rankingIndex = new IndexGameStatisticsRankings1792960197571();
+            const gamesBefore = await runner.query("SELECT COUNT(*) AS total FROM game");
+            await rankingIndex.up(runner);
+            await rankingIndex.down(runner);
+            await rankingIndex.up(runner);
+            await rankingIndex.up(runner);
+            expect(await runner.query("SELECT COUNT(*) AS total FROM game")).toEqual(gamesBefore);
+            expect((await runner.getTable("game"))?.indices.find((index) => index.name === "IDX_game_statistics_ranking")?.columnNames)
+                .toEqual(["id", "statisticsTargetId", "status", "category"]);
 
             for (const source of sourceTables) {
                 const table = await runner.getTable(source);
