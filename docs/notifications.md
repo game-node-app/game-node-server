@@ -13,10 +13,14 @@ Run `yarn test:igdb:services:down` to remove the test services and their data.
 
 Only use the services-down command after other IGDB tests using this stack finish.
 
-The 2026-10-25 correction pass ran `yarn test:notifications`: 18 suites and 79 tests passed.
-`yarn build` also passed. This verifies the first correction batch; migration upgrades,
-privacy races, finite delivery recovery, and cutover remain tracked as unfinished in
-`openspec/changes/rebuild-notification-system/tasks.md`.
+The 2026-10-25 correction log records a passing `yarn test:notifications` run with
+21 suites / 161 tests. The 2026-10-26 relay correction passed its three focused
+suites/tests (claim query count, processor dispatch, and real Redis scheduling)
+and `yarn build`. A real MySQL temporary-table check also verified the reduced
+claim queries and persisted ownership fields. The current broad run is not green:
+the statistics migration has caller/schema mismatches, a throttling test failed,
+and subsequent MySQL fixture synchronization hit foreign-key drift. See the
+correction verification log in `openspec/changes/rebuild-notification-system/tasks.md`.
 
 ## Architecture and Durability Boundary
 
@@ -163,6 +167,26 @@ GROUP BY state;
 
 Compare pending age with the workload's measured delivery latency; no production
 latency threshold has been established.
+
+### Shared Relay Schedule
+
+Every application replica registers the same BullMQ Job Scheduler, `notifications-relay`,
+with `upsertJobScheduler` during module initialization. The existing notification
+queue dispatches `notifications-relay-tick` jobs to the relay; ordinary outbox jobs
+still go to the projector. There is one recurring schedule across replicas, with
+an initial interval of 1000 ms and at most 100 due rows scanned per tick. Tick jobs
+use one transport attempt and bounded success/failure retention.
+
+A normal batch of N pending rows below the retry limit uses one locking SELECT
+and N UPDATEs for claiming, excluding transaction-control statements. The relay
+reuses the selected rows with their assigned tokens, leases, and attempt counts;
+it does not reread each row. Publication to Redis happens after the claim commits.
+
+The shared schedule reduces empty scans as replicas increase. Queue congestion
+can delay ticks, and the 100-row bound applies to each shared tick. These settings
+are starting bounds, not measured production capacity. Monitor pending age before
+increasing them. Redis or worker unavailability delays processing while committed
+intent remains in MySQL; ownership checks and deduplication still protect retries.
 
 ### Owner Expiry and Crash Recovery
 

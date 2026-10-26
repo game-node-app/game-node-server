@@ -1,9 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { DataSource, Repository } from "typeorm";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Interval } from "@nestjs/schedule";
 import { randomUUID } from "node:crypto";
 import { NotificationOutbox } from "./entity/notification-outbox.entity";
 import {
@@ -11,6 +10,9 @@ import {
     NOTIFICATIONS_JOB_RETENTION_FAIL,
     NOTIFICATIONS_PROCESS_OUTBOX_JOB_NAME,
     NOTIFICATIONS_QUEUE_NAME,
+    NOTIFICATIONS_RELAY_INTERVAL_MS,
+    NOTIFICATIONS_RELAY_SCHEDULER_ID,
+    NOTIFICATIONS_RELAY_TICK_JOB_NAME,
     OUTBOX_BASE_BACKOFF_MS,
     OUTBOX_DEFAULT_CLAIM_LIMIT,
     OUTBOX_DEFAULT_LEASE_MS,
@@ -24,7 +26,7 @@ export interface OutboxProcessJobData {
 }
 
 @Injectable()
-export class NotificationsRelayService {
+export class NotificationsRelayService implements OnModuleInit {
     private readonly logger = new Logger(NotificationsRelayService.name);
     private isTicking = false;
 
@@ -36,7 +38,27 @@ export class NotificationsRelayService {
         private readonly queue: Queue,
     ) {}
 
-    @Interval(1000)
+    async onModuleInit(): Promise<void> {
+        try {
+            await this.queue.upsertJobScheduler(
+                NOTIFICATIONS_RELAY_SCHEDULER_ID,
+                { every: NOTIFICATIONS_RELAY_INTERVAL_MS },
+                {
+                    name: NOTIFICATIONS_RELAY_TICK_JOB_NAME,
+                    data: {},
+                    opts: {
+                        attempts: 1,
+                        removeOnComplete: NOTIFICATIONS_JOB_RETENTION_COMPLETE,
+                        removeOnFail: NOTIFICATIONS_JOB_RETENTION_FAIL,
+                    },
+                },
+            );
+        } catch (error) {
+            this.logger.error("Unable to arm notification relay tick");
+            throw error;
+        }
+    }
+
     async relayTick(): Promise<number> {
         if (this.isTicking) {
             return 0;
@@ -134,12 +156,13 @@ export class NotificationsRelayService {
                     [ownerToken, ownerExpiresAt, row.id],
                 );
 
-                const updated = await manager.findOne(NotificationOutbox, {
-                    where: { id: row.id },
+                claimedRows.push({
+                    ...row,
+                    state: "processing",
+                    ownerToken,
+                    ownerExpiresAt,
+                    attempts: row.attempts + 1,
                 });
-                if (updated) {
-                    claimedRows.push(updated);
-                }
             }
 
             return claimedRows;

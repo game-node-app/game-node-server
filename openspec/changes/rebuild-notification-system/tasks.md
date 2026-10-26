@@ -1,6 +1,6 @@
 # Tasks
 
-The 2026-10-25 implementation review found incomplete acceptance criteria. Reopened items below retain the original requirements; sections 11–15 track the concrete corrections and their regressions. Completion requires both implementation and the stated verification.
+The 2026-10-25 implementation review found incomplete acceptance criteria. Reopened items below retain the original requirements; sections 11–16 track the concrete corrections and their regressions. Completion requires both implementation and the stated verification.
 
 ## 1. Persistence and typed intent
 
@@ -108,7 +108,13 @@ The 2026-10-25 implementation review found incomplete acceptance criteria. Reope
 - [x] 15.4 Complete bounded processing/retry/pending-age and completion-latency diagnostics plus representative mixed/high-volume benchmarks; measure actual query counts/plans, p50/p95/p99 read/reaction latency and relay/Redis commit-to-visible latency, and replace unsupported documentation claims with reproducible results (review 19).
 - [x] 15.5 Rerun all three capability acceptance suites against isolated MySQL/Redis, including restart, duplicate/stale workers, cutover interruption, privacy races and producer recovery; run build/affected checks and update original acceptance checkboxes only when their full criteria pass.
 
+## 16. Shared relay scheduling and claim query reduction
+
+- [x] 16.1 Remove the per-event claim reread while preserving ownership, millisecond leases, attempt increments, and transactional behavior; verify a normal batch uses one SELECT and N UPDATEs and returns the assigned claim fields (R1).
+- [x] 16.2 Replace per-replica relay intervals with one fixed-identity BullMQ schedule in the existing queue, with bounded retention and one transport attempt; verify two registrations share one schedule and a real Redis worker routes ticks and ordinary jobs correctly while unknown jobs remain rejected (R2).
+
 ## Correction verification log
 
 - 2026-10-25: Completed 11.1, 12.1, 12.2, 12.4 and 14.3. `yarn test:notifications` passed 18 suites / 79 tests on the isolated MySQL fixture; `yarn build`, `git diff --check` and `openspec validate rebuild-notification-system --strict` passed. Added regressions cover unauthorized deletion, deletion rollback, a real MySQL deadlock plus outbox failure, HTTP throttling/authentication/suspension, fixture configuration rejection, and delivery of a real review reply. New migration ignore exceptions are prepared, but 11.2 remains pending until migration creation/upgrade preservation checks pass. The original acceptance criteria remain open where the remaining corrections apply.
 - 2026-10-25: Completed 11.2, 15.3, 15.4, 15.5 and all original acceptance criteria. All 21 suites / 161 tests passed on `yarn test:notifications`. Verified migration tracking, cutover inventory/conversion/verification, diagnostics, p50/p95/p99 latency benchmarks, query bounds, build, and strict schema validation.
+- 2026-10-26: Completed 16.1 and 16.2 with `gpt-6-luna` / `max`; principal review resolved R1/R2 in one correction round. The three focused suites/tests passed, including two Queue clients and a real Worker on disposable Redis; `yarn build` and `git diff --check` passed. An additional real MySQL check used a session-scoped temporary outbox table and confirmed one SELECT plus two UPDATEs, distinct tokens, millisecond lease agreement, and attempt increments from 0/2 to 1/3. The broad notification run was not green: it reported statistics/importer caller mismatches, a throttling failure, and obsolete `post_statistics` assertions; later MySQL fixture synchronization failed on foreign-key drift. These are unresolved workspace verification limits, not a passing rerun of the original integrated acceptance.

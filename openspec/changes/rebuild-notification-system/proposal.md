@@ -7,7 +7,7 @@ Notification responses expose references that the frontend must resolve through 
 ## What Changes
 
 - Materialize notification summaries and typed navigation targets before reads, including the triggering comment, root content, game context, and bounded actor previews.
-- Persist notification intent with each domain action in a MySQL transactional outbox; reuse BullMQ for asynchronous projection with recovery, bounded retries, and database-enforced deduplication.
+- Persist notification intent with each domain action in a MySQL transactional outbox; reuse BullMQ for a shared recurring relay schedule and asynchronous projection with recovery, bounded retries, and database-enforced deduplication.
 - Store individual event deliveries separately from inbox groups; aggregate before pagination and persist version-aware read state per recipient.
 - **BREAKING** Replace the existing notification contract in place. Remove the legacy `/notifications/new`, boolean `/notifications/view`, source-ID arrays, and offset-based aggregation. There is one supported contract, with no v1 adapter, parallel v2 API, dual-write rollout, or frontend implementation in this change.
 - **BREAKING** Replace queued like commands with authenticated, idempotent local transactions that derive the recipient from persisted content and atomically update the reaction, counter, and outbox. Remove the client-selected like recipient and obsolete like-job path; retain asynchronous views and statistics initialization.

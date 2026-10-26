@@ -101,6 +101,27 @@ Moderation notifications SHALL be generated only for committed alert, suspension
 - **WHEN** a committed moderation outcome is materialized
 - **THEN** it uses a system actor and only recipient-safe outcome information
 
+### Requirement: Relay scheduling is shared across replicas
+The system SHALL register one idempotent, fixed-identity recurring relay schedule in the existing BullMQ notification queue, shared across replicas. Workers SHALL route ticks and projections separately and reject unknown job kinds. Replicas SHALL NOT run independent polling timers. Batch bounds SHALL apply per shared tick; the interval SHALL NOT imply a delivery deadline or measured production capacity.
+
+#### Scenario: Multiple replicas initialize the relay
+- **WHEN** two application replicas register the relay schedule
+- **THEN** the queue contains one shared recurring schedule with the configured interval
+- **AND** the number of independent polling schedules does not grow with the replica count
+
+#### Scenario: A worker receives a scheduled tick
+- **WHEN** a worker consumes a relay tick from the shared notification queue
+- **THEN** it invokes the bounded outbox relay
+- **AND** ordinary outbox jobs still invoke the projector while unsupported job kinds remain rejected
+
+### Requirement: Relay claims avoid per-event rereads
+The relay SHALL claim an ordinary batch of N pending events below the retry limit with one locking selection and N updates. It SHALL reuse loaded data and newly assigned ownership without rereading each claimed event, preserving the persisted state, attempt token, lease, and attempt count.
+
+#### Scenario: Normal events are claimed in a batch
+- **WHEN** the relay claims N due pending events below the retry limit
+- **THEN** the claim issues one locking selection and N updates, excluding transaction-control statements
+- **AND** returned states, attempt tokens, lease expirations, and attempt counts agree with the persisted claim
+
 ### Requirement: Delivery operations remain bounded and observable
 Recovery SHALL use bounded batches and finite automatic retries. Operations SHALL expose pending age, failures, retry state, and completion latency without secrets or unbounded user-specific metric dimensions. Expired processing ownership SHALL be recoverable without stale workers overwriting a completed result.
 
