@@ -5,14 +5,17 @@ import {
     JoinColumn,
     ManyToOne,
     OneToOne,
+    Index,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
 import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
+import { StatisticsTarget } from "../../statistics/entity/statistics-target.entity";
 
 @Entity()
+@Index("UQ_review_statistics_target", ["statisticsTargetId"], { unique: true })
 export class Review {
     @PrimaryGeneratedColumn("uuid")
     id: string;
@@ -49,4 +52,10 @@ export class Review {
     createdAt: Date;
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @OneToOne(() => StatisticsTarget, { nullable: true, onDelete: "RESTRICT" })
+    @JoinColumn({ name: "statisticsTargetId" })
+    statisticsTarget: StatisticsTarget | null;
+    @Column({ type: "bigint", unsigned: true, nullable: true })
+    statisticsTargetId: number | null;
 }

@@ -591,7 +591,7 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
             ["Reforged Vanguard", "reforged-vanguard", 4001],
         );
         await dataSource.query(
-            "UPDATE `game_statistics` SET `viewsCount` = ? WHERE `gameId` = ?",
+            "UPDATE metric_total m JOIN game g ON g.statisticsTargetId = m.targetId SET m.metricValue = ? WHERE g.id = ? AND m.metricCode = 'views'",
             [250, 4001],
         );
         await dataSource.query(
@@ -903,12 +903,10 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
             const gameValues: string[] = [];
             const genreRelValues: string[] = [];
             const platRelValues: string[] = [];
-            const statValues: string[] = [];
 
             for (let id = start; id <= end; id++) {
                 const isMatching = id <= matchingCount;
                 const category = isMatching ? 0 : 2;
-                const views = isMatching ? 20000 - id : 50000;
                 gameValues.push(
                     `(${id}, 'Deep Window Game ${id}', 'deep-window-game-${id}', ${category}, 0, '2022-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00')`,
                 );
@@ -916,11 +914,27 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
                     genreRelValues.push(`(${id}, 12)`);
                     platRelValues.push(`(6, ${id})`);
                 }
-                statValues.push(`(${id}, ${views}, 1)`);
             }
 
             await dataSource.query(
                 `INSERT INTO \`game\` (\`id\`, \`name\`, \`slug\`, \`category\`, \`status\`, \`firstReleaseDate\`, \`createdAt\`, \`updatedAt\`) VALUES ${gameValues.join(", ")}`,
+            );
+            const targetValues: string[] = [];
+            const metricValues: string[] = [];
+            for (let id = start; id <= end; id++) {
+                const views = id <= matchingCount ? 20000 - id : 50000;
+                targetValues.push("(" + id + ", 'game', 1)");
+                metricValues.push(
+                    "(" + id + ", 'views', " + views + ")",
+                    "(" + id + ", 'likes_current', 1)",
+                );
+            }
+            await dataSource.query(
+                "INSERT INTO statistics_target (id, sourceType, isActive) VALUES " + targetValues.join(", "),
+            );
+            await dataSource.query(
+                "UPDATE game SET statisticsTargetId = id WHERE id BETWEEN ? AND ?",
+                [start, end],
             );
             if (genreRelValues.length > 0) {
                 await dataSource.query(
@@ -933,7 +947,7 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
                 );
             }
             await dataSource.query(
-                `INSERT INTO \`game_statistics\` (\`gameId\`, \`viewsCount\`, \`likesCount\`) VALUES ${statValues.join(", ")}`,
+                "INSERT INTO metric_total (targetId, metricCode, metricValue) VALUES " + metricValues.join(", "),
             );
         }
 
@@ -998,13 +1012,18 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
         // Seed 500 games and 200 profiles for realistic local rebuild work
         const gameValues: string[] = [];
         const genreRelValues: string[] = [];
-        const statValues: string[] = [];
+        const targetValues: string[] = [];
+        const metricValues: string[] = [];
         for (let id = 1; id <= 500; id++) {
             gameValues.push(
                 `(${id}, 'Load Check Game ${id}', 'load-check-game-${id}', 0, 0, '2023-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00')`,
             );
             genreRelValues.push(`(${id}, ${id % 2 === 0 ? 12 : 31})`);
-            statValues.push(`(${id}, ${1000 - id}, 10)`);
+            targetValues.push("(" + id + ", 'game', 1)");
+            metricValues.push(
+                "(" + id + ", 'views', " + (1000 - id) + ")",
+                "(" + id + ", 'likes_current', 10)",
+            );
         }
         await dataSource.query(
             `INSERT INTO \`game\` (\`id\`, \`name\`, \`slug\`, \`category\`, \`status\`, \`firstReleaseDate\`, \`createdAt\`, \`updatedAt\`) VALUES ${gameValues.join(", ")}`,
@@ -1013,7 +1032,13 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
             `INSERT INTO \`game_genres_game_genre\` (\`gameId\`, \`gameGenreId\`) VALUES ${genreRelValues.join(", ")}`,
         );
         await dataSource.query(
-            `INSERT INTO \`game_statistics\` (\`gameId\`, \`viewsCount\`, \`likesCount\`) VALUES ${statValues.join(", ")}`,
+            "INSERT INTO statistics_target (id, sourceType, isActive) VALUES " + targetValues.join(", "),
+        );
+        await dataSource.query(
+            "UPDATE game SET statisticsTargetId = id WHERE id BETWEEN 1 AND 500",
+        );
+        await dataSource.query(
+            "INSERT INTO metric_total (targetId, metricCode, metricValue) VALUES " + metricValues.join(", "),
         );
 
         const profileValues: string[] = [];

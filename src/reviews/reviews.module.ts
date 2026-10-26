@@ -8,7 +8,6 @@ import { ActivitiesQueueModule } from "../activities/activities-queue/activities
 import { CollectionEntry } from "../collections/collections-entries/entities/collection-entry.entity";
 import { CollectionsEntriesModule } from "../collections/collections-entries/collections-entries.module";
 import { AchievementsModule } from "../achievements/achievements.module";
-import { StatisticsQueueModule } from "../statistics/statistics-queue/statistics-queue.module";
 import { LevelModule } from "../level/level.module";
 import { SuspensionModule } from "../suspension/suspension.module";
 import { NotificationsModule } from "../notifications/notifications.module";
@@ -22,7 +21,6 @@ import { NotificationsModule } from "../notifications/notifications.module";
         AchievementsModule,
         forwardRef(() => CollectionsEntriesModule),
         forwardRef(() => NotificationsModule),
-        StatisticsQueueModule,
         LevelModule,
     ],
     controllers: [ReviewsController],

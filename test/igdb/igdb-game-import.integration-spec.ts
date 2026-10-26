@@ -9,8 +9,8 @@ import { expandedGame } from "../../src/sync/igdb/catalog/fixtures/expanded-game
 import { GameCompanyLogo } from "../../src/game/game-repository/entities/game-company-logo.entity";
 import { GameCompany } from "../../src/game/game-repository/entities/game-company.entity";
 import { GameCover } from "../../src/game/game-repository/entities/game-cover.entity";
-import { GameStatistics } from "../../src/statistics/entity/game-statistics.entity";
-import { ensureGameStatistics } from "../../src/statistics/statistics.service";
+import { StatisticsSourceType } from "../../src/statistics/statistics.constants";
+import { ensureStatisticsTarget } from "../../src/statistics/statistics-target.repository";
 import { GameRepositoryCreateService } from "../../src/game/game-repository/create/game-repository-create.service";
 import { AsyncLeafLimiter } from "../../src/sync/igdb/catalog/async-leaf-limiter";
 import { normalizeIgdbGame } from "../../src/sync/igdb/utils/game-conversor-utils";
@@ -27,6 +27,7 @@ describe("transactional game import on isolated MySQL", () => {
         source = await new DataSource({
             ...testEnvironment(process.env).mysql,
             timezone: "Z",
+            entityPrefix: "gi_",
             entities: importEntities(),
             synchronize: true,
         }).initialize();
@@ -45,7 +46,19 @@ describe("transactional game import on isolated MySQL", () => {
         } as ConfigService);
     }, 30_000);
     afterAll(async () => {
-        if (source?.isInitialized) await source.destroy();
+        if (source?.isInitialized) {
+            const cleanup = source.createQueryRunner();
+            try {
+                await cleanup.connect();
+                await cleanup.query("SET FOREIGN_KEY_CHECKS = 0");
+                for (const metadata of source.entityMetadatas)
+                    await cleanup.query(`DROP TABLE IF EXISTS \`${metadata.tableName}\``);
+            } finally {
+                await cleanup.query("SET FOREIGN_KEY_CHECKS = 1");
+                await cleanup.release();
+                await source.destroy();
+            }
+        }
         logs?.mockRestore();
     });
     const context = (
@@ -55,10 +68,14 @@ describe("transactional game import on isolated MySQL", () => {
         ownershipGuard: async () => undefined,
         limiter: new AsyncLeafLimiter(2),
         forceReconciliation: true,
-        ensureStatistics: ensureGameStatistics,
+        ensureStatistics: async (manager, gameId) => {
+            await ensureStatisticsTarget(manager, StatisticsSourceType.GAME, gameId);
+        },
     });
 
     it("creates forward references atomically, preserves existing metadata and later hydrates", async () => {
+        await source.query("ALTER TABLE gi_game MODIFY statisticsTargetId BIGINT UNSIGNED NOT NULL");
+        try {
         const game = normalizeIgdbGame({
             id: 11001,
             name: "Main",
@@ -79,22 +96,31 @@ describe("transactional game import on isolated MySQL", () => {
         expect(
             await source.getRepository(Game).findOneByOrFail({ id: 11002 }),
         ).toMatchObject({ name: "Future", checksum: null });
-        await source
-            .getRepository(GameStatistics)
-            .update({ gameId: 11002 }, { viewsCount: 8, likesCount: 3 });
+        const targetRows = await source.query(
+            "SELECT statisticsTargetId FROM gi_game WHERE id = ?",
+            [11002],
+        );
+        const targetId = Number(targetRows[0].statisticsTargetId);
+        await source.query(
+            "INSERT INTO gi_metric_total (targetId, metricCode, metricValue) VALUES (?, 'views', 8)",
+            [targetId],
+        );
+        await source.query(
+            "UPDATE gi_metric_total SET metricValue = 3 WHERE targetId = ? AND metricCode = 'likes_current'",
+            [targetId],
+        );
         await source.transaction((manager) =>
             service.createOrUpdate(game, context(manager)),
         );
         expect(
-            await source
-                .getRepository(GameStatistics)
-                .countBy({ gameId: 11002 }),
-        ).toBe(1);
+            await source.query("SELECT id FROM gi_statistics_target WHERE id = ?", [targetId]),
+        ).toHaveLength(1);
         expect(
-            await source
-                .getRepository(GameStatistics)
-                .findOneByOrFail({ gameId: 11002 }),
-        ).toMatchObject({ viewsCount: 8, likesCount: 3 });
+            await source.query("SELECT metricCode, metricValue FROM gi_metric_total WHERE targetId = ? ORDER BY metricCode", [targetId]),
+        ).toEqual([
+            { metricCode: "likes_current", metricValue: 3 },
+            { metricCode: "views", metricValue: 8 },
+        ]);
         const full = normalizeIgdbGame({
             id: 11002,
             name: "Hydrated",
@@ -119,6 +145,9 @@ describe("transactional game import on isolated MySQL", () => {
             .getRepository(Game)
             .findOneOrFail({ where: { id: 11001 }, relations: { dlcs: true } });
         expect(linked.dlcs.map((entry) => Number(entry.id))).toEqual([11002]);
+        } finally {
+            await source.query("ALTER TABLE gi_game MODIFY statisticsTargetId BIGINT UNSIGNED NULL");
+        }
     });
 
     it("rolls back base checksum, image, reference row/statistics and junction after failure", async () => {
@@ -140,7 +169,7 @@ describe("transactional game import on isolated MySQL", () => {
             source.transaction(async (manager) => {
                 const importing = context(manager);
                 importing.ensureStatistics = async (transaction, id) => {
-                    await ensureGameStatistics(transaction, id);
+                    await ensureStatisticsTarget(transaction, StatisticsSourceType.GAME, id);
                     if (id === 12001)
                         throw new Error("injected after relations");
                 };
@@ -155,10 +184,8 @@ describe("transactional game import on isolated MySQL", () => {
             await source.getRepository(GameCover).countBy({ id: 12010 }),
         ).toBe(0);
         expect(
-            await source
-                .getRepository(GameStatistics)
-                .countBy({ gameId: 12002 }),
-        ).toBe(0);
+            await source.query("SELECT id FROM gi_statistics_target WHERE id IN (SELECT statisticsTargetId FROM gi_game WHERE id = 12002)"),
+        ).toHaveLength(0);
         await source.transaction((manager) =>
             service.createOrUpdate(game, context(manager)),
         );
@@ -227,17 +254,15 @@ describe("transactional game import on isolated MySQL", () => {
             .insert({ id: 14002, name: "Concurrent", slug: "concurrent" });
         await Promise.all([
             source.transaction((manager) =>
-                ensureGameStatistics(manager, 14002),
+                ensureStatisticsTarget(manager, StatisticsSourceType.GAME, 14002),
             ),
             source.transaction((manager) =>
-                ensureGameStatistics(manager, 14002),
+                ensureStatisticsTarget(manager, StatisticsSourceType.GAME, 14002),
             ),
         ]);
         expect(
-            await source
-                .getRepository(GameStatistics)
-                .countBy({ gameId: 14002 }),
-        ).toBe(1);
+            await source.query("SELECT statisticsTargetId FROM gi_game WHERE id = 14002 AND statisticsTargetId IS NOT NULL"),
+        ).toHaveLength(1);
         await source.getRepository(GameScreenshot).delete(102);
         await source.transaction((manager) =>
             service.createOrUpdate(

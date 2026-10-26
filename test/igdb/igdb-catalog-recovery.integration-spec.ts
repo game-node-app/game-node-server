@@ -11,7 +11,9 @@ import {
     catalogJobId,
 } from "../../src/sync/igdb/catalog/igdb-catalog.constants";
 import { Game } from "../../src/game/game-repository/entities/game.entity";
-import { GameStatistics } from "../../src/statistics/entity/game-statistics.entity";
+import { StatisticsTarget } from "../../src/statistics/entity/statistics-target.entity";
+import { MetricTotal } from "../../src/statistics/entity/metric-total.entity";
+import { StatisticsSourceType } from "../../src/statistics/statistics.constants";
 
 function message(
     child: ChildProcess,
@@ -105,9 +107,12 @@ describe("two-process durable catalog recovery", () => {
                 );
                 await held;
                 expect((await runtime.state.readStatus()).committedId).toBe(0);
-                await runtime.source
-                    .getRepository(GameStatistics)
-                    .update({ gameId: 45 }, { viewsCount: 11 });
+                const existingGame = await runtime.source.getRepository(Game).findOneByOrFail({ id: 45 });
+                await runtime.source.getRepository(MetricTotal).upsert({
+                    targetId: existingGame.statisticsTargetId!,
+                    metricCode: "views",
+                    metricValue: 11,
+                }, ["targetId", "metricCode"]);
                 if (mode === "kill") {
                     const dead = once(first, "exit");
                     first.kill("SIGKILL");
@@ -139,14 +144,14 @@ describe("two-process durable catalog recovery", () => {
                     5,
                 );
                 expect(
-                    await runtime.source.getRepository(GameStatistics).count(),
+                    await runtime.source.getRepository(StatisticsTarget).countBy({ sourceType: StatisticsSourceType.GAME }),
                 ).toBe(5);
                 expect(
                     (
                         await runtime.source
-                            .getRepository(GameStatistics)
-                            .findOneByOrFail({ gameId: 45 })
-                    ).viewsCount,
+                            .getRepository(MetricTotal)
+                            .findOneByOrFail({ targetId: existingGame.statisticsTargetId!, metricCode: "views" })
+                    ).metricValue,
                 ).toBe(11);
                 const game = await runtime.source
                     .getRepository(Game)
@@ -234,7 +239,7 @@ describe("two-process durable catalog recovery", () => {
                     committedGames: 4,
                 });
                 expect(
-                    await runtime.source.getRepository(GameStatistics).count(),
+                    await runtime.source.getRepository(StatisticsTarget).countBy({ sourceType: StatisticsSourceType.GAME }),
                 ).toBe(5);
             } finally {
                 await stop(child);

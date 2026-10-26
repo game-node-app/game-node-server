@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Between, DataSource, DeepPartial, Repository } from "typeorm";
+import { DataSource, DeepPartial, Repository } from "typeorm";
 import { YearRecap } from "./entity/year-recap.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import dayjs from "dayjs";
@@ -15,7 +15,6 @@ import { YearRecapPlayedGame } from "./entity/year-recap-played-game.entity";
 import { ReviewsService } from "../reviews/reviews.service";
 import { FollowService } from "../follow/follow.service";
 import { getTargetRecapYear } from "./recap.utils";
-import { UserLike } from "../statistics/entity/user-like.entity";
 
 interface RecapPeriod {
     startDate: dayjs.Dayjs;
@@ -268,15 +267,26 @@ export class RecapCreateService {
         userId: string,
         period: RecapPeriod,
     ) {
-        const userLikesRepository = this.dataSource.getRepository(UserLike);
-
-        return await userLikesRepository.countBy({
-            profileUserId: userId,
-            createdAt: Between(
-                period.startDate.toDate(),
-                period.endDate.toDate(),
+        const endExclusive = period.endDate.add(1, "millisecond").toDate();
+        const [[count], [maintenance]] = await Promise.all([
+            this.dataSource.query(
+                `SELECT COUNT(*) AS total FROM statistics_event
+                WHERE actorUserId = ? AND eventKind = 'like.added'
+                  AND occurredAt >= ? AND occurredAt < ?`,
+                [userId, period.startDate.toDate(), endExclusive],
             ),
-        });
+            this.dataSource.query(
+                "SELECT historyCompleteSince FROM statistics_maintenance WHERE id = 'main'",
+            ),
+        ]);
+        const completeSince = maintenance?.historyCompleteSince
+            ? new Date(maintenance.historyCompleteSince)
+            : null;
+        return {
+            total: Number(count.total),
+            completeSince,
+            historyComplete: !completeSince || period.startDate.toDate() >= completeSince,
+        };
     }
 
     /**
@@ -351,7 +361,9 @@ export class RecapCreateService {
             profileUserId: userId,
             year: period.startDate.year(),
             // TODO
-            totalLikesPerformed: likesInPeriod,
+            totalLikesPerformed: likesInPeriod.total,
+            likesHistoryComplete: likesInPeriod.historyComplete,
+            likesCompleteSince: likesInPeriod.completeSince,
             totalReviewsCreated: reviewsInPeriod.totalCreatedReviews,
             totalFollowersGained: followersGained,
             totalCollectionsCreated: collectionsInPeriod.totalCreatedInPeriod,

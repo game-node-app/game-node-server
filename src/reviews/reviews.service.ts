@@ -15,7 +15,10 @@ import {
     ReviewScoreDistribution,
     ReviewScoreResponseDto,
 } from "./dto/review-score-response.dto";
-import { StatisticsQueueService } from "../statistics/statistics-queue/statistics-queue.service";
+import {
+    deactivateStatisticsContent,
+    createStatisticsTarget,
+} from "../statistics/statistics-target.repository";
 import { LevelService } from "../level/level.service";
 import { LevelIncreaseActivities } from "../level/level.constants";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
@@ -30,7 +33,6 @@ export class ReviewsService {
         private readonly activitiesQueue: ActivitiesQueueService,
         private readonly collectionsEntriesService: CollectionsEntriesService,
         private readonly achievementsQueueService: AchievementsQueueService,
-        private readonly statisticsQueueService: StatisticsQueueService,
         private readonly levelService: LevelService,
         @Optional()
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
@@ -199,7 +201,13 @@ export class ReviewsService {
             collectionEntry: collectionEntry,
         });
 
-        const insertedEntry = await this.reviewsRepository.save(reviewEntity);
+        const insertedEntry = await this.reviewsRepository.manager.transaction(
+            async (manager) => {
+                reviewEntity.statisticsTargetId = await createStatisticsTarget(manager, StatisticsSourceType.REVIEW);
+                const review = await manager.getRepository(Review).save(reviewEntity);
+                return review;
+            },
+        );
 
         this.activitiesQueue.register({
             type: ActivityType.REVIEW,
@@ -210,11 +218,6 @@ export class ReviewsService {
         this.achievementsQueueService.addTrackingJob({
             targetUserId: userId,
             category: AchievementCategory.REVIEWS,
-        });
-
-        this.statisticsQueueService.createStatistics({
-            sourceType: StatisticsSourceType.REVIEW,
-            sourceId: insertedEntry.id,
         });
 
         this.levelService.registerLevelExpIncreaseActivity(
@@ -240,6 +243,7 @@ export class ReviewsService {
                 reviewId,
                 manager,
             );
+            await deactivateStatisticsContent(manager, "review", reviewId);
             await repository.delete({ id: reviewId, profileUserId: userId });
         });
     }

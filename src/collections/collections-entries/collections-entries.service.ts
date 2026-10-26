@@ -1,5 +1,5 @@
 import { Library } from "../../libraries/entities/library.entity";
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Optional } from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -34,6 +34,8 @@ import { FindRelatedCollectionEntriesResponseDto } from "./dto/find-related-coll
 import { toMap } from "../../utils/toMap";
 import { DEFAULT_ORDERING_GAP } from "../../utils/ordering";
 import { Cacheable } from "../../utils/cacheable";
+import { NotificationsLifecycleService } from "../../notifications/notifications-lifecycle.service";
+import { assertStatisticsWritesAllowed, deactivateStatisticsContent } from "../../statistics/statistics-target.repository";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -55,6 +57,8 @@ export class CollectionsEntriesService {
         private levelService: LevelService,
         private collectionsService: CollectionsService,
         private gameRepositoryService: GameRepositoryService,
+        @Optional()
+        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
 
     async findOneById(id: string) {
@@ -649,8 +653,17 @@ export class CollectionsEntriesService {
             throw new HttpException("Entry not found.", HttpStatus.NOT_FOUND);
         }
 
-        // This removes both the associated review (if any) and the entries in the join-tables.
-        await this.collectionEntriesRepository.delete(entry.id);
+        await this.collectionEntriesRepository.manager.transaction(async (manager) => {
+            await assertStatisticsWritesAllowed(manager);
+            for (const type of ["review", "activity"] as const) {
+                const sources = await manager.query(`SELECT id FROM ${type} WHERE collectionEntryId = ? ORDER BY id FOR UPDATE`, [entry.id]);
+                for (const source of sources) {
+                    await this.notificationsLifecycleService?.invalidateContent(type, source.id, manager);
+                    await deactivateStatisticsContent(manager, type, source.id);
+                }
+            }
+            await manager.getRepository(CollectionEntry).delete(entry.id);
+        });
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {

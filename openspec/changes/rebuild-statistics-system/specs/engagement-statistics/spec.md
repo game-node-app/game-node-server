@@ -45,7 +45,7 @@ The system SHALL retain current like state and whether an authenticated user has
 A real reaction transition SHALL commit current state, the active-like counter, its analytics event, and any qualifying notification intent in one local transaction. Duplicate state requests SHALL add none of those effects. Existing trusted ownership, authorization, idempotence, and non-negative-counter guarantees SHALL remain effective.
 
 #### Scenario: Analytics persistence fails during a like
-- **WHEN** analytics event persistence fails after reaction state and notification intent have been written
+- **WHEN** analytics event persistence fails inside a reaction transaction
 - **THEN** the entire transaction rolls back and retry can perform one real transition
 
 #### Scenario: Notification transport is down
@@ -56,6 +56,15 @@ A real reaction transition SHALL commit current state, the active-like counter, 
 #### Scenario: Several requests repeat the same like
 - **WHEN** concurrent requests request the same existing like state
 - **THEN** one active reaction, one counter increment, one analytics transition, and at most one qualifying notification intent exist
+
+#### Scenario: Reaction writer extends the existing intent contract
+- **WHEN** a qualifying new like is persisted using the replacement engagement storage
+- **THEN** analytics and the existing version-1 notification intent use the same active action transaction and correlated immutable identity
+- **AND** the notification retains its trusted native subject/root identities and valid numeric causal like identifier
+
+#### Scenario: Notification intent validation rejects the action
+- **WHEN** a reaction attempts an unsupported notification payload or an intent append outside its action transaction
+- **THEN** no reaction, counter, or analytics fact is committed through that attempt
 
 ### Requirement: Like history and ranking credit have explicit semantics
 Each real like and unlike SHALL remain a distinct historical fact. Only the first known like by an actor on a target SHALL earn like ranking credit; unlike and later relike SHALL NOT grant another credit. Active counts SHALL reflect current state independently of historical counts and credit.
@@ -116,3 +125,8 @@ Analytics projection, repair, migration, and rebuild SHALL NOT execute a domain 
 #### Scenario: Game or self-like is recorded
 - **WHEN** a valid game like or self-like has no qualifying recipient notification
 - **THEN** its statistics are recorded under the ordinary reaction rules without inventing a recipient
+
+#### Scenario: Pending old notification survives statistics conversion
+- **WHEN** a pre-cutover like notification is delivered after the old active-reaction storage has been removed
+- **THEN** its original notification identity and payload remain valid without looking up the former active-like row
+- **AND** analytics conversion or rebuild does not re-key it or add another inbox contribution

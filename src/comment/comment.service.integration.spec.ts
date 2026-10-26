@@ -14,16 +14,10 @@ import * as outboxModule from "../notifications/notifications-outbox.service";
 describe("CommentService integration (Task 5.1)", () => {
     let dataSource: DataSource;
     let service: CommentService;
-    let mockStatsQueue: any;
 
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
-
-        mockStatsQueue = {
-            createStatistics: jest.fn(),
-        };
-
-        service = new CommentService(dataSource, mockStatsQueue);
+        service = new CommentService(dataSource);
     });
 
     afterAll(async () => {

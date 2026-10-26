@@ -37,7 +37,6 @@ import { GamePlatform } from "../../../src/game/game-repository/entities/game-pl
 import { GameTheme } from "../../../src/game/game-repository/entities/game-theme.entity";
 import { Profile } from "../../../src/profile/entities/profile.entity";
 import { SearchModule } from "../../../src/search/search.module";
-import { GameStatistics } from "../../../src/statistics/entity/game-statistics.entity";
 
 export const REPO_ROOT = path.resolve(__dirname, "../../..");
 export const SEARCH_TEST_COMPOSE_FILE = path.join(
@@ -169,7 +168,6 @@ export function buildSearchEntitySchemas(): EntitySchema[] {
         GameKeyword,
         GameCover,
         GameAlternativeName,
-        GameStatistics,
         Profile,
     ]);
     const storage = getMetadataArgsStorage();
@@ -276,6 +274,8 @@ const SCHEMA_STATEMENTS = [
         \`firstReleaseDate\` datetime NULL,
         \`createdAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
         \`updatedAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+        \`statisticsTargetId\` bigint unsigned NULL,
+        UNIQUE INDEX \`UQ_game_statistics_target\` (\`statisticsTargetId\`),
         PRIMARY KEY (\`id\`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS \`game_cover\` (
@@ -376,13 +376,18 @@ const SCHEMA_STATEMENTS = [
         INDEX \`IDX_gkgk_gameKeywordId\` (\`gameKeywordId\`),
         PRIMARY KEY (\`gameId\`, \`gameKeywordId\`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-    `CREATE TABLE IF NOT EXISTS \`game_statistics\` (
-        \`id\` int NOT NULL AUTO_INCREMENT,
-        \`viewsCount\` bigint NOT NULL DEFAULT 0,
-        \`likesCount\` bigint NOT NULL DEFAULT 0,
-        \`gameId\` bigint NOT NULL,
-        UNIQUE INDEX \`REL_gs_gameId\` (\`gameId\`),
+    `CREATE TABLE IF NOT EXISTS \`statistics_target\` (
+        \`id\` bigint unsigned NOT NULL AUTO_INCREMENT,
+        \`sourceType\` varchar(32) NOT NULL,
+        \`isActive\` tinyint NOT NULL DEFAULT 1,
+        \`createdAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
         PRIMARY KEY (\`id\`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS \`metric_total\` (
+        \`targetId\` bigint unsigned NOT NULL,
+        \`metricCode\` varchar(32) NOT NULL,
+        \`metricValue\` bigint unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY (\`targetId\`, \`metricCode\`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS \`profile\` (
         \`userId\` varchar(36) NOT NULL,
@@ -405,7 +410,8 @@ const ALL_TABLES = [
     "game_keywords_game_keyword",
     "game_cover",
     "game_alternative_name",
-    "game_statistics",
+    "metric_total",
+    "statistics_target",
     "game_genre",
     "game_theme",
     "game_platform",
@@ -546,9 +552,24 @@ export async function seedSearchFixtures(
     }
 
     for (const game of fixture.games ?? []) {
+        let targetId: number | null = null;
+        if (
+            game.includeStatisticsRow ??
+            (game.viewsCount !== undefined || game.likesCount !== undefined)
+        ) {
+            const result = await dataSource.query(
+                "INSERT INTO statistics_target (sourceType, isActive) VALUES ('game', 1)",
+            );
+            targetId = Number(result.insertId);
+            await dataSource.query(
+                "INSERT INTO metric_total (targetId, metricCode, metricValue) VALUES (?, 'views', ?), (?, 'likes_current', ?)",
+                [targetId, game.viewsCount ?? 0, targetId, game.likesCount ?? 0],
+            );
+        }
+
         await dataSource.query(
-            `INSERT INTO \`game\` (\`id\`, \`name\`, \`slug\`, \`category\`, \`status\`, \`url\`, \`firstReleaseDate\`, \`createdAt\`, \`updatedAt\`)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO \`game\` (\`id\`, \`name\`, \`slug\`, \`category\`, \`status\`, \`url\`, \`firstReleaseDate\`, \`createdAt\`, \`updatedAt\`, \`statisticsTargetId\`)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 game.id,
                 game.name,
@@ -559,6 +580,7 @@ export async function seedSearchFixtures(
                 game.firstReleaseDate ?? null,
                 game.createdAt ?? "2024-01-01 00:00:00",
                 game.updatedAt ?? "2024-01-02 00:00:00",
+                targetId,
             ],
         );
 
@@ -604,15 +626,6 @@ export async function seedSearchFixtures(
             );
         }
 
-        if (
-            game.includeStatisticsRow ??
-            (game.viewsCount !== undefined || game.likesCount !== undefined)
-        ) {
-            await dataSource.query(
-                `INSERT INTO \`game_statistics\` (\`gameId\`, \`viewsCount\`, \`likesCount\`) VALUES (?, ?, ?)`,
-                [game.id, game.viewsCount ?? 0, game.likesCount ?? 0],
-            );
-        }
     }
 
     for (const profile of fixture.profiles ?? []) {

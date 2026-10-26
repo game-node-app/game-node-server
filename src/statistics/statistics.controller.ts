@@ -9,35 +9,36 @@ import {
     Put,
     Query,
     UseGuards,
-    UseInterceptors,
     UsePipes,
     ValidationPipe,
 } from "@nestjs/common";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
-import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
-import {
-    GameStatisticsPaginatedResponseDto,
-    ReviewStatisticsPaginatedResponseDto,
-} from "./dto/statistics-paginated-response.dto";
+import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
 import { Session } from "../auth/session.decorator";
-import { StatisticsStatus } from "./dto/statistics-entity.dto";
-import { StatisticsStatusRequestDto } from "./dto/statistics-status-request.dto";
-import { FindStatisticsTrendingGamesDto } from "./dto/find-statistics-trending-games.dto";
-import { FindStatisticsTrendingReviewsDto } from "./dto/find-statistics-trending-reviews.dto";
-import { FindOneStatisticsDto } from "./dto/find-one-statistics.dto";
-import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
-import { StatisticsService } from "./statistics.service";
-import { AnyStatistics } from "./statistics.types";
-import { StatisticsTrendingService } from "./statistics-trending.service";
 import { SuspensionGuard } from "../suspension/suspension.guard";
 import { ThrottlerGuard } from "@nestjs/throttler";
+import { StatisticsService } from "./statistics.service";
+import { StatisticsRankingService } from "./statistics-ranking.service";
+import { ReactionRequestDto, ReactionResponseDto } from "./dto/reaction-request.dto";
 import {
-    ReactionRequestDto,
-    ReactionResponseDto,
-} from "./dto/reaction-request.dto";
+    StatisticsRankingsRequestDto,
+    StatisticsRankingResponseDto,
+    StatisticsSeriesRequestDto,
+    StatisticsSeriesDto,
+    StatisticsSourceRequestDto,
+    StatisticsStatusDto,
+    StatisticsSummaryDto,
+    StatisticsViewRequestDto,
+    StatisticsViewResponseDto,
+} from "./dto/statistics-api.dto";
+
+const strictValidation = new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+});
 
 @Controller("statistics")
 @ApiTags("statistics")
@@ -45,116 +46,69 @@ import {
 export class StatisticsController {
     constructor(
         private readonly statisticsService: StatisticsService,
-        private readonly statisticsTrendingService: StatisticsTrendingService,
+        private readonly rankingService: StatisticsRankingService,
     ) {}
 
     @Put("like")
     @UseGuards(SuspensionGuard, ThrottlerGuard)
-    @UsePipes(
-        new ValidationPipe({
-            whitelist: true,
-            forbidNonWhitelisted: true,
-            transform: true,
-        }),
-    )
+    @UsePipes(strictValidation)
     @HttpCode(HttpStatus.OK)
-    @ApiResponse({
-        status: 200,
-        type: ReactionResponseDto,
-        description: "Applies a like reaction and returns current state and count.",
-    })
-    async addLike(
-        @Session() session: SessionContainer,
-        @Body() dto: ReactionRequestDto,
-    ): Promise<ReactionResponseDto> {
-        const userId = session.getUserId();
-        return this.statisticsService.applyReaction(userId, dto, true);
+    @ApiResponse({ status: 200, type: ReactionResponseDto })
+    async addLike(@Session() session: SessionContainer, @Body() dto: ReactionRequestDto): Promise<ReactionResponseDto> {
+        return this.statisticsService.applyReaction(session.getUserId(), dto, true);
     }
 
     @Delete("like")
     @UseGuards(SuspensionGuard, ThrottlerGuard)
-    @UsePipes(
-        new ValidationPipe({
-            whitelist: true,
-            forbidNonWhitelisted: true,
-            transform: true,
-        }),
-    )
+    @UsePipes(strictValidation)
     @HttpCode(HttpStatus.OK)
-    @ApiResponse({
-        status: 200,
-        type: ReactionResponseDto,
-        description: "Removes a like reaction and returns current state and count.",
-    })
-    async removeLike(
-        @Session() session: SessionContainer,
-        @Body() dto: ReactionRequestDto,
-    ): Promise<ReactionResponseDto> {
-        const userId = session.getUserId();
-        return this.statisticsService.applyReaction(userId, dto, false);
+    @ApiResponse({ status: 200, type: ReactionResponseDto })
+    async removeLike(@Session() session: SessionContainer, @Body() dto: ReactionRequestDto): Promise<ReactionResponseDto> {
+        return this.statisticsService.applyReaction(session.getUserId(), dto, false);
     }
 
     @Post()
-    @HttpCode(HttpStatus.OK)
     @Public()
-    async findOneBySourceIdAndType(@Body() dto: FindOneStatisticsDto) {
-        return this.statisticsService.findOne<AnyStatistics>(
-            dto.sourceId,
-            dto.sourceType,
-        );
-    }
-
-    @Post("trending/games")
-    @Public()
-    @UseInterceptors(PaginationInterceptor)
-    @ApiResponse({
-        status: 200,
-        type: GameStatisticsPaginatedResponseDto,
-    })
+    @UsePipes(strictValidation)
     @HttpCode(HttpStatus.OK)
-    async findTrendingGames(@Body() dto: FindStatisticsTrendingGamesDto) {
-        console.time("trending/games");
-        const result = (await this.statisticsTrendingService.findTrendingGames(
-            dto,
-        )) as unknown as GameStatisticsPaginatedResponseDto;
-        console.timeEnd("trending/games");
-        return result;
-    }
-
-    @Post("trending/reviews")
-    @UseInterceptors(PaginationInterceptor)
-    @UseInterceptors(CacheInterceptor)
-    @CacheTTL(600)
-    @ApiResponse({
-        status: 200,
-        type: ReviewStatisticsPaginatedResponseDto,
-    })
-    @HttpCode(HttpStatus.OK)
-    @Public()
-    async findTrendingReviews(
-        @Session() session: SessionContainer | undefined,
-        @Body() dto: FindStatisticsTrendingReviewsDto,
-    ) {
-        return (await this.statisticsTrendingService.findTrendingReviews(
-            session?.getUserId(),
-            dto,
-        )) as unknown as ReviewStatisticsPaginatedResponseDto;
+    @ApiResponse({ status: 200, type: StatisticsSummaryDto })
+    async findSummary(@Body() dto: StatisticsSourceRequestDto) {
+        return this.statisticsService.findSummary(dto);
     }
 
     @Get("status")
-    @ApiResponse({
-        status: 200,
-        type: StatisticsStatus,
-    })
     @Public()
-    async getStatus(
-        @Session() session: SessionContainer | undefined,
-        @Query() dto: StatisticsStatusRequestDto,
-    ) {
-        return this.statisticsService.getStatus(
-            dto.statisticsId,
-            dto.sourceType,
-            session?.getUserId(),
-        );
+    @UsePipes(strictValidation)
+    @ApiResponse({ status: 200, type: StatisticsStatusDto })
+    async getStatus(@Session() session: SessionContainer | undefined, @Query() dto: StatisticsSourceRequestDto) {
+        return this.statisticsService.getStatus(dto, session?.getUserId());
+    }
+
+    @Post("series")
+    @Public()
+    @UsePipes(strictValidation)
+    @HttpCode(HttpStatus.OK)
+    @ApiResponse({ status: 200, type: StatisticsSeriesDto })
+    async findSeries(@Body() dto: StatisticsSeriesRequestDto) {
+        return this.statisticsService.findSeries(dto);
+    }
+
+    @Post("rankings")
+    @Public()
+    @UsePipes(strictValidation)
+    @HttpCode(HttpStatus.OK)
+    @ApiResponse({ status: 200, type: StatisticsRankingResponseDto })
+    async findRankings(@Session() session: SessionContainer | undefined, @Body() dto: StatisticsRankingsRequestDto) {
+        return this.rankingService.findRankings(session?.getUserId(), dto);
+    }
+
+    @Post("view")
+    @Public()
+    @UseGuards(SuspensionGuard, ThrottlerGuard)
+    @UsePipes(strictValidation)
+    @HttpCode(HttpStatus.ACCEPTED)
+    @ApiResponse({ status: 202, type: StatisticsViewResponseDto })
+    async recordView(@Session() session: SessionContainer | undefined, @Body() dto: StatisticsViewRequestDto) {
+        return this.statisticsService.recordView(session?.getUserId(), dto);
     }
 }

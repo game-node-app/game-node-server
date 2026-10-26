@@ -17,10 +17,11 @@ The 2026-10-25 correction log records a passing `yarn test:notifications` run wi
 21 suites / 161 tests. The 2026-10-26 relay correction passed its three focused
 suites/tests (claim query count, processor dispatch, and real Redis scheduling)
 and `yarn build`. A real MySQL temporary-table check also verified the reduced
-claim queries and persisted ownership fields. The current broad run is not green:
-the statistics migration has caller/schema mismatches, a throttling test failed,
-and subsequent MySQL fixture synchronization hit foreign-key drift. See the
-correction verification log in `openspec/changes/rebuild-notification-system/tasks.md`.
+claim queries and persisted ownership fields. A subsequent 2026-10-26 statistics
+integration run passed `yarn test:notifications`: 23 suites / 162 tests, including
+cutover, reaction, producer, lifecycle and transport behavior on the replacement
+schema. Earlier caller/schema, throttling and fixture failures remain historical
+in `openspec/changes/rebuild-notification-system/tasks.md`.
 
 ## Architecture and Durability Boundary
 
@@ -289,12 +290,13 @@ Validation rules:
 
 ### Atomic Lifecycle & Intent
 
-1. **Pessimistic Locking**: Locks the corresponding `*Statistics` row with `FOR UPDATE`. If missing, initializes default statistics (`likesCount: 0, viewsCount: 0`).
-2. **State Transition**: Checks for existing `UserLike` record:
-   - On `PUT`: If already liked, no-op return current count; if not liked, creates `UserLike`, increments `likesCount`, and appends `content.liked` intent to `notification_outbox` inside the same database transaction.
-   - On `DELETE`: If already unliked, no-op return current count; if liked, deletes `UserLike` and decrements `likesCount` (non-negative).
+1. **Pessimistic Locking**: Locks the source/root/comment context, its `statistics_target`, the actor's `engagement_state`, and the `likes_current` gauge in the existing transaction. Missing target state is initialized with the source.
+2. **State Transition**: An unchanged `PUT` or `DELETE` returns the current count without writing another fact. A real transition updates `engagement_state` and `likes_current`, then appends an immutable `statistics_event` fact.
+   - On `PUT`: The fact key is `like:<transition UUID>`. Its UUID is also the `content.liked` outbox intent ID, and its safe numeric event ID remains the notification payload's `likeId`.
+   - On `DELETE`: The fact key is `unlike:<transition UUID>`; no notification is created. The retained `firstLikedAt` survives so a later relike does not earn another ranking credit.
+   - Analytics fact, active state, gauge, and notification intent commit or roll back together.
 3. **Deadlock Recovery**: Retries up to 3 times on MySQL deadlock (`ER_LOCK_DEADLOCK`).
-4. **Self-Like & Game Suppression**: Self-likes and game likes update the like counter and `UserLike` record, but do not append any notification outbox intent.
+4. **Self-Like & Game Suppression**: Self-likes and game likes retain normal reaction facts and counts, but do not append a notification intent.
 
 ---
 

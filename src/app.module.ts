@@ -7,7 +7,6 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { BullModule } from "@nestjs/bullmq";
 import { GlobalModule } from "./global/global.module";
 import { StatisticsModule } from "./statistics/statistics.module";
-import { StatisticsQueueModule } from "./statistics/statistics-queue/statistics-queue.module";
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
 import { seconds, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
@@ -162,7 +161,6 @@ import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.mo
         ActivitiesFeedModule,
         IgdbSyncModule,
         StatisticsModule,
-        StatisticsQueueModule,
         ProfileMetricsModule,
         LevelModule,
         HealthModule,

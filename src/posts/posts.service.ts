@@ -9,6 +9,11 @@ import { UploadService } from "../upload/upload.service";
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
 import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import { StatisticsSourceType } from "../statistics/statistics.constants";
+import {
+    deactivateStatisticsContent,
+    createStatisticsTarget,
+} from "../statistics/statistics-target.repository";
 
 @Injectable()
 export class PostsService {
@@ -53,7 +58,11 @@ export class PostsService {
             gameId,
         });
 
-        const createdPost = await this.postRepository.save(post);
+        const createdPost = await this.postRepository.manager.transaction(async (manager) => {
+            post.statisticsTargetId = await createStatisticsTarget(manager, StatisticsSourceType.POST);
+            const created = await manager.getRepository(Post).save(post);
+            return created;
+        });
 
         this.activitiesQueueService.register({
             type: ActivityType.POST,
@@ -78,6 +87,12 @@ export class PostsService {
 
     public async delete(userId: string, postId: string) {
         await this.postRepository.manager.transaction(async (manager) => {
+            const repository = manager.getRepository(Post);
+            const post = await repository.findOne({
+                where: { profileUserId: userId, id: postId },
+                lock: { mode: "pessimistic_write" },
+            });
+            if (!post) return;
             const result = await manager.softDelete(Post, {
                 profileUserId: userId,
                 id: postId,
@@ -88,6 +103,7 @@ export class PostsService {
                     postId,
                     manager,
                 );
+                await deactivateStatisticsContent(manager, "post", postId);
             }
         });
     }

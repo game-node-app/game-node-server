@@ -3,7 +3,7 @@ import { IsArray, IsEnum, IsNumber, IsOptional } from "class-validator";
 import { BaseFindDto } from "../../../utils/base-find.dto";
 import { Game } from "../entities/game.entity";
 import { Type } from "class-transformer";
-import { OmitType } from "@nestjs/swagger";
+import { ApiPropertyOptional, OmitType } from "@nestjs/swagger";
 
 export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     "search",
@@ -11,8 +11,9 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
 ]) {
     /**
      * If this is supplied, filtering will be done only for entities specified here. <br>
-     * Useful to filter data received from entities which hold game ids (like GameStatistics, Reviews, etc.)
+     * Useful to filter data received from entities which hold game ids (like games and reviews).
      */
+    @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
     @Type(() => Number)
     @IsArray()
@@ -20,18 +21,21 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
         each: true,
     })
     ids?: number[];
+    @ApiPropertyOptional({ enum: EGameStatus, isArray: true })
     @IsOptional()
     @IsArray()
     @IsEnum(EGameStatus, {
         each: true,
     })
     status?: EGameStatus[];
+    @ApiPropertyOptional({ enum: EGameCategory, isArray: true })
     @IsOptional()
     @IsArray()
     @IsEnum(EGameCategory, {
         each: true,
     })
     category?: EGameCategory[];
+    @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
     @IsArray()
     @Type(() => Number)
@@ -39,6 +43,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
         each: true,
     })
     themes?: number[];
+    @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
     @IsArray()
     @IsNumber(undefined, {
@@ -46,6 +51,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     })
     @Type(() => Number)
     gameModes?: number[];
+    @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
     @IsArray()
     @IsNumber(undefined, {
@@ -53,6 +59,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     })
     @Type(() => Number)
     platforms?: number[];
+    @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
     @IsArray()
     @IsNumber(undefined, {

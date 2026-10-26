@@ -31,8 +31,8 @@ The API SHALL accept either a supported period preset or an explicit start/end i
 ### Requirement: Filters apply to the complete eligible source population
 Game and review rankings SHALL apply current eligibility and their supported domain filters before limiting or paginating results. A fixed unfiltered top-N SHALL NOT remove otherwise matching sources. Sources with zero interactions SHALL remain eligible with zero score and deterministic tie-breaking.
 
-#### Scenario: Matching game lies outside the unfiltered leaders
-- **WHEN** a matching game would lie beyond the former unfiltered 50,000-game cutoff
+#### Scenario: Matching game lies outside the first unfiltered page
+- **WHEN** a matching game has a lower score than the games on the first unfiltered page
 - **THEN** it remains eligible in the filtered ranking and its total
 
 #### Scenario: Review filters are combined
@@ -82,7 +82,7 @@ Common ranking requests SHALL read prepared scores and limited result pages. Exp
 
 #### Scenario: Catalog size grows
 - **WHEN** a page of 20 games is requested from a larger catalog
-- **THEN** the application does not load all matching games or a fixed 50,000-statistics array to produce that page
+- **THEN** the application reads a limited page without loading the complete matching catalog or a catalog-sized statistics array
 
 #### Scenario: Result cache is empty
 - **WHEN** a ranking is requested after cache eviction

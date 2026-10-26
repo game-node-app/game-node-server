@@ -10,7 +10,9 @@ import { GameCompany } from "../../../src/game/game-repository/entities/game-com
 import { GameCompanyLogo } from "../../../src/game/game-repository/entities/game-company-logo.entity";
 import { GameEngineLogo } from "../../../src/game/game-repository/entities/game-engine-logo.entity";
 import { GamePropertyPathToEntityMap } from "../../../src/game/game-repository/create/game-repository-create.constants";
-import { GameStatistics } from "../../../src/statistics/entity/game-statistics.entity";
+import { StatisticsTarget } from "../../../src/statistics/entity/statistics-target.entity";
+import { MetricTotal } from "../../../src/statistics/entity/metric-total.entity";
+import { StatisticsMaintenance } from "../../../src/statistics/entity/statistics-maintenance.entity";
 
 type EntityConstructor = new (...args: any[]) => any;
 
@@ -19,7 +21,9 @@ type EntityConstructor = new (...args: any[]) => any;
 export function importEntities(): EntitySchema[] {
     const targets = new Set<EntityConstructor>([
         Game,
-        GameStatistics,
+        StatisticsTarget,
+        MetricTotal,
+        StatisticsMaintenance,
         GameCompany,
         GameCompanyLogo,
         GameEngineLogo,

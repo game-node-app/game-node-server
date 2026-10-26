@@ -16,8 +16,12 @@ import {
     ObjectWithChecksum,
 } from "./game-repository-create.utils";
 import { GamePlatform } from "../entities/game-platform.entity";
-import { ArrayKeys, NonArrayKeys } from "../../../utils/arrayKeys";
+import { ArrayKeys } from "../../../utils/arrayKeys";
 import { GamePropertyPathToEntityMap } from "./game-repository-create.constants";
+import { createStatisticsTarget } from "../../../statistics/statistics-target.repository";
+import { StatisticsSourceType } from "../../../statistics/statistics.constants";
+import { MetricTotal } from "../../../statistics/entity/metric-total.entity";
+import { StatisticsTarget } from "../../../statistics/entity/statistics-target.entity";
 
 const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -91,7 +95,8 @@ export class GameRepositoryCreateService {
         const gameRepository = context.manager.getRepository(Game);
         const existing = await gameRepository.findOne({
             where: { id: game.id },
-            select: { id: true, checksum: true },
+            select: { id: true, checksum: true, statisticsTargetId: true },
+            lock: { mode: "pessimistic_write" },
         });
 
         this.handleDeprecatedFields(game);
@@ -102,7 +107,9 @@ export class GameRepositoryCreateService {
         if (checksumHasChanged) {
             if (this.shouldProfileSync)
                 this.logger.log(`Upserting game ${game.id} - ${game.name}`);
-            await gameRepository.upsert(game, ["id"]);
+            const statisticsTargetId = existing?.statisticsTargetId ??
+                await this.leaf(context, () => createStatisticsTarget(context.manager, StatisticsSourceType.GAME));
+            await gameRepository.upsert({ ...game, statisticsTargetId }, ["id"]);
         }
 
         const shouldReconcileRelations =
@@ -505,20 +512,27 @@ export class GameRepositoryCreateService {
                     name: string;
                     slug: string;
                 };
-                await this.leaf(context, () =>
-                    context.manager
-                        .createQueryBuilder()
-                        .insert()
-                        .into(Game)
-                        .values({
+                await this.leaf(context, async () => {
+                    const stored = await repository.findOne({
+                        where: { id: entry.id },
+                        select: { id: true },
+                        lock: { mode: "pessimistic_write" },
+                    });
+                    if (!stored) {
+                        const statisticsTargetId = await createStatisticsTarget(context.manager, StatisticsSourceType.GAME);
+                        const inserted = await repository.createQueryBuilder().insert().values({
                             id: entry.id,
                             name: entry.name,
                             slug: entry.slug,
                             checksum: null as unknown as string,
-                        })
-                        .orIgnore()
-                        .execute(),
-                );
+                            statisticsTargetId,
+                        } as any).orIgnore().execute();
+                        if (Number(inserted.raw.affectedRows) === 0) {
+                            await context.manager.delete(MetricTotal, { targetId: statisticsTargetId });
+                            await context.manager.delete(StatisticsTarget, { id: statisticsTargetId });
+                        }
+                    }
+                });
                 await this.leaf(context, () =>
                     context.ensureStatistics(context.manager, entry.id),
                 );
@@ -624,7 +638,7 @@ export class GameRepositoryCreateService {
     }
 
     async handleOneToOne<
-        K extends NonArrayKeys<Game>,
+        K extends "cover",
         V extends Game[K],
         E extends V extends ObjectWithChecksum ? V : never,
     >(

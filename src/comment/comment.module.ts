@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { CommentService } from "./comment.service";
 import { CommentController } from "./comment.controller";
-import { StatisticsQueueModule } from "../statistics/statistics-queue/statistics-queue.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ReviewComment } from "./entity/review-comment.entity";
 import { NotificationsModule } from "../notifications/notifications.module";
@@ -18,7 +17,6 @@ import { PostsModule } from "../posts/posts.module";
 @Module({
     imports: [
         TypeOrmModule.forFeature([ReviewComment, ActivityComment, PostComment]),
-        StatisticsQueueModule,
         NotificationsModule,
         ReviewsModule,
         ActivitiesRepositoryModule,

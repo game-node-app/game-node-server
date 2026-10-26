@@ -13,8 +13,8 @@ import {
     ActivityCreate,
     ActivityType,
 } from "../activities-queue/activities-queue.constants";
-import { StatisticsQueueService } from "../../statistics/statistics-queue/statistics-queue.service";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
+import { createStatisticsTarget, ensureStatisticsTarget } from "../../statistics/statistics-target.repository";
 import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { GameFilterService } from "../../game/game-filter/game-filter.service";
@@ -32,7 +32,6 @@ export class ActivitiesRepositoryService {
     constructor(
         @InjectRepository(Activity)
         private activitiesRepository: Repository<Activity>,
-        private readonly statisticsQueueService: StatisticsQueueService,
         private readonly reviewsService: ReviewsService,
         private readonly collectionEntriesService: CollectionsEntriesService,
         private readonly gameFilterService: GameFilterService,
@@ -121,7 +120,12 @@ export class ActivitiesRepositoryService {
     async create(dto: ActivityCreate) {
         const existingActivity =
             await this.findExistingAchievementActivity(dto);
-        if (existingActivity) return existingActivity;
+        if (existingActivity) {
+            await this.activitiesRepository.manager.transaction((manager) =>
+                ensureStatisticsTarget(manager, StatisticsSourceType.ACTIVITY, existingActivity.id).then(() => undefined),
+            );
+            return existingActivity;
+        }
 
         await this.validateCreate(dto);
 
@@ -185,13 +189,22 @@ export class ActivitiesRepositoryService {
 
         let persistedActivity: Activity;
         try {
-            persistedActivity = await this.activitiesRepository.save(activity);
+            persistedActivity = await this.activitiesRepository.manager.transaction(async (manager) => {
+                activity.statisticsTargetId = await createStatisticsTarget(manager, StatisticsSourceType.ACTIVITY);
+                const saved = await manager.getRepository(Activity).save(activity);
+                return saved;
+            });
         } catch (err: unknown) {
             if (err instanceof TypeORMError) {
                 if (err.message.includes("Duplicate entry")) {
                     const existingActivity =
                         await this.findExistingAchievementActivity(dto);
-                    if (existingActivity) return existingActivity;
+                    if (existingActivity) {
+                        await this.activitiesRepository.manager.transaction((manager) =>
+                            ensureStatisticsTarget(manager, StatisticsSourceType.ACTIVITY, existingActivity.id).then(() => undefined),
+                        );
+                        return existingActivity;
+                    }
                     throw new UnrecoverableError(
                         "Entry already has an associated activity.",
                     );
@@ -199,11 +212,7 @@ export class ActivitiesRepositoryService {
             }
             throw err;
         }
-
-        this.statisticsQueueService.createStatistics({
-            sourceId: persistedActivity.id,
-            sourceType: StatisticsSourceType.ACTIVITY,
-        });
+        return persistedActivity;
     }
 
     async findLatestBy(by: FindManyOptions<Activity>) {

@@ -2,6 +2,27 @@
 
 This runbook documents the staged verification, reverse-proxy routing, scheduled-refresh gates, legacy Go service retirement, and rollback procedure for consolidating `game-node-search` into `game-node-server`.
 
+## Statistics storage replacement
+
+Game indexing now reads `metric_total` through `game.statisticsTargetId`, using
+`views` and `likes_current` with the existing `num_views`/`num_likes` aliases and
+zero defaults. Native game IDs, filtering, ordering and the games' daily `03:00 UTC`
+refresh remain unchanged. After the offline statistics conversion/rebuild, rotate
+the games index with the updated template before reopening traffic. Follow the
+[statistics cutover and coordinated-backup rollback](statistics.md#offline-conversion-rebuild-and-rollback):
+the lossless rollback description for the earlier search-only consolidation below
+does not cover removal of legacy statistics tables.
+
+The affected engine-backed checks are sufficient for this replacement:
+
+```bash
+yarn jest --config test/search/jest-integration.json --runInBand --runTestsByPath test/search/search-harness.integration-spec.ts --testNamePattern='3\.2 |3\.3 |4\.1 '
+```
+
+They cover initial indexing, sparse games/popularity values, HTTP contracts and
+timestamp preservation. The historical load/outage gates below belong to the
+earlier search consolidation and are not repeated for this statistics change.
+
 > **Implementation vs. Production Execution Status**
 >
 > - **Delivered and verified in this repository**:

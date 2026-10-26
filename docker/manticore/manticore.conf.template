@@ -40,8 +40,8 @@ source games_source {
            genresNames                                        AS genres_names, \
            keywordsNames                                      AS keywords_names, \
            themesNames                                        AS themes_names, \
-           COALESCE(game_statistics.likesCount, 0)            AS num_likes, \
-           COALESCE(game_statistics.viewsCount, 0)            AS num_views, \
+           COALESCE(gameLikes.metricValue, 0)                  AS num_likes, \
+           COALESCE(gameViews.metricValue, 0)                  AS num_views, \
            'manticore'                                        AS source \
     FROM game \
              LEFT JOIN game_cover AS gameCover ON game.id = gameCover.gameId \
@@ -65,7 +65,8 @@ source games_source {
                         FROM game_theme \
                                  INNER JOIN game_themes_game_theme gtgt ON game_theme.id = gtgt.gameThemeId \
                         GROUP BY gtgt.gameId) AS gameTheme ON gameTheme.gameId = game.id \
-             LEFT JOIN game_statistics ON game.id = game_statistics.gameId;
+             LEFT JOIN metric_total AS gameLikes ON gameLikes.targetId = game.statisticsTargetId AND gameLikes.metricCode = 'likes_current' \
+             LEFT JOIN metric_total AS gameViews ON gameViews.targetId = game.statisticsTargetId AND gameViews.metricCode = 'views';
 
     sql_attr_timestamp = created_at
     sql_attr_timestamp = updated_at

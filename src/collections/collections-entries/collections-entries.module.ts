@@ -12,6 +12,7 @@ import { CollectionEntryToCollection } from "./entities/collection-entry-to-coll
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 import { CollectionsOrderingService } from "./order/collections-ordering.service";
 import { CollectionsOrderingController } from "./order/collections-ordering.controller";
+import { NotificationsModule } from "../../notifications/notifications.module";
 
 @Module({
     imports: [
@@ -25,6 +26,7 @@ import { CollectionsOrderingController } from "./order/collections-ordering.cont
         LevelModule,
         forwardRef(() => CollectionsModule),
         GameRepositoryModule,
+        NotificationsModule,
     ],
     controllers: [CollectionsEntriesController, CollectionsOrderingController],
     providers: [CollectionsEntriesService, CollectionsOrderingService],

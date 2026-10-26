@@ -62,6 +62,10 @@ export class YearRecap extends BaseEntity {
         nullable: false,
     })
     totalLikesPerformed: number;
+    @Column({ type: "boolean", default: false })
+    likesHistoryComplete: boolean;
+    @Column({ type: "datetime", precision: 6, nullable: true })
+    likesCompleteSince: Date | null;
     @OneToMany(
         () => YearRecapPlayedGame,
         (mostPlayedGame) => mostPlayedGame.recap,

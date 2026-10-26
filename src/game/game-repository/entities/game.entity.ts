@@ -6,6 +6,8 @@ import {
     ManyToMany,
     OneToMany,
     OneToOne,
+    JoinColumn,
+    Index,
     PrimaryColumn,
     UpdateDateColumn,
 } from "typeorm";
@@ -29,6 +31,7 @@ import { GameInvolvedCompany } from "./game-involved-company.entity";
 import { GameTheme } from "./game-theme.entity";
 import { GamePlayerPerspective } from "./game-player-perspective.entity";
 import { GameEngine } from "./game-engine.entity";
+import { StatisticsTarget } from "../../../statistics/entity/statistics-target.entity";
 
 /**
  * For future maintainers:
@@ -41,6 +44,7 @@ import { GameEngine } from "./game-engine.entity";
  * TL;DR: Do not use .save() for this or related models.
  * */
 @Entity()
+@Index("UQ_game_statistics_target", ["statisticsTargetId"], { unique: true })
 export class Game {
     /**
      * Should be mapped to the IGDB ID of the game.
@@ -100,6 +104,12 @@ export class Game {
         type: "datetime",
     })
     updatedAt: Date;
+
+    @OneToOne(() => StatisticsTarget, { nullable: true, onDelete: "RESTRICT" })
+    @JoinColumn({ name: "statisticsTargetId" })
+    statisticsTarget: StatisticsTarget | null;
+    @Column({ type: "bigint", unsigned: true, nullable: true })
+    statisticsTargetId: number | null;
 
     //
     // **Self-referencing relationships**

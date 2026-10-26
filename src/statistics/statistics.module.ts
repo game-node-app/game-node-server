@@ -1,38 +1,41 @@
-import { forwardRef, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { StatisticsController } from "./statistics.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { UserLike } from "./entity/user-like.entity";
-import { UserView } from "./entity/user-view.entity";
-import { NotificationsModule } from "../notifications/notifications.module";
-import { GameStatistics } from "./entity/game-statistics.entity";
-import { ReviewStatistics } from "./entity/review-statistics.entity";
-import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
-import { ActivityStatistics } from "./entity/activity-statistics.entity";
-import { CommentStatistics } from "./entity/comment-statistics.entity";
-import { GameFilterModule } from "../game/game-filter/game-filter.module";
 import { StatisticsService } from "./statistics.service";
-import { StatisticsTrendingService } from "./statistics-trending.service";
-import { PostStatistics } from "./entity/post-statistics.entity";
 import { SuspensionModule } from "../suspension/suspension.module";
+import { StatisticsTarget } from "./entity/statistics-target.entity";
+import { EngagementState } from "./entity/engagement-state.entity";
+import { StatisticsEvent } from "./entity/statistics-event.entity";
+import { MetricTotal } from "./entity/metric-total.entity";
+import { MetricHour } from "./entity/metric-hour.entity";
+import { RankingScore } from "./entity/ranking-score.entity";
+import { StatisticsMaintenance } from "./entity/statistics-maintenance.entity";
+import { StatisticsProjectionModule } from "./statistics-projection.module";
+import { StatisticsRankingService } from "./statistics-ranking.service";
+import { StatisticsRankingScheduler } from "./statistics-ranking.scheduler";
+import { StatisticsMaintenanceService } from "./statistics-maintenance.service";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
-            UserLike,
-            UserView,
-            GameStatistics,
-            ReviewStatistics,
-            ActivityStatistics,
-            CommentStatistics,
-            PostStatistics,
+            StatisticsTarget,
+            EngagementState,
+            StatisticsEvent,
+            MetricTotal,
+            MetricHour,
+            RankingScore,
+            StatisticsMaintenance,
         ]),
-        NotificationsModule,
-        forwardRef(() => GameRepositoryModule),
-        GameFilterModule,
         SuspensionModule,
+        StatisticsProjectionModule,
     ],
-    providers: [StatisticsService, StatisticsTrendingService],
+    providers: [
+        StatisticsService,
+        StatisticsRankingService,
+        StatisticsRankingScheduler,
+        StatisticsMaintenanceService,
+    ],
     controllers: [StatisticsController],
-    exports: [StatisticsService],
+    exports: [StatisticsService, StatisticsMaintenanceService],
 })
 export class StatisticsModule {}

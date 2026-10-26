@@ -62,7 +62,6 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
 
         commentService = new CommentService(
             dataSource,
-            { createStatistics: jest.fn() } as any,
             lifecycleService,
         );
 

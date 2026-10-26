@@ -99,6 +99,11 @@ Removed or inaccessible content SHALL be excluded from public statistics and ran
 - **THEN** remaining sources have correct active-like counts and retained historical facts disclose no deleted actor identity
 - **AND** notification lifecycle behavior remains governed by its own contract
 
+#### Scenario: Statistics extends an existing source invalidation
+- **WHEN** source deletion or a privacy change updates statistics eligibility
+- **THEN** the existing notification invalidation/redaction still participates in the owning action transaction
+- **AND** statistics does not substitute its own eligibility or cleanup for the current content-access rules
+
 ### Requirement: Catalog and search retain their integration guarantees
 Catalog persistence SHALL initialize statistics inside its existing game transaction, preserve counts on replay, and create no statistics backlog. Search SHALL obtain popularity from the replacement statistics model while preserving native IDs, zero defaults for sparse games, existing filters/order, and its established refresh schedule.
 
@@ -132,9 +137,7 @@ Local conversion SHALL preserve source records and active likes, transfer availa
 - **WHEN** removed legacy likes cannot be recovered
 - **THEN** conversion records the coverage limitation without synthesizing unlike events or distributing a counter over time
 
-### Requirement: Acceptance reports measured resource behavior
-Validation SHALL exercise representative sources and periods and report query plans, work bounds, memory use, request latency, and projection lag. Under the documented healthy local workload, committed new events SHALL reach temporal projections and common rankings within 60 seconds; overload or failures SHALL expose lag rather than claim that bound.
-
-#### Scenario: Cold and warm ranking loads are measured
-- **WHEN** the documented local workload runs with caches cold and warm
-- **THEN** results identify event/target counts, query work, latency, projection lag, and test conditions without asserting unmeasured production capacity
+#### Scenario: Notification queue inventory is already complete
+- **WHEN** the previous notification cutover archived old like commands but view or initialization jobs remain
+- **THEN** statistics conversion inventories those remaining jobs independently
+- **AND** it preserves the notification cutover audit and does not replay archived likes or repeat notification conversion

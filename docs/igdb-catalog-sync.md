@@ -90,6 +90,23 @@ share the transaction; failure rolls them all back. Later full ingestion hydrate
 the reference row normally. These inserts do not advance cursor/counts or fetch
 ahead, including references above the current scan boundary.
 
+The statistics replacement reserves each new game's `statistics_target` and
+`likes_current` gauge through the import manager before inserting the source,
+so creation also works after `statisticsTargetId` becomes required. Existing
+targets, counters and timestamps survive replay. Concurrent relationship branches
+can encounter the same reference: insert-if-missing preserves its metadata and
+discards an unused reserved target in that transaction. The final manager-scoped
+initializer verifies the link; no statistics job or engagement fact is emitted.
+See [the statistics cutover](statistics.md#offline-conversion-rebuild-and-rollback)
+for schema ordering. Focused verification:
+
+```bash
+yarn jest --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts
+```
+
+That fixture uses and cleans its own `gi_` tables in the existing
+loopback database, keeping its resets separate from notification/statistics rows.
+
 This approved design resolves the audit's foreign-key failure on an empty
 database. Implementation and regression coverage belong to tasks 4.2–4.5.
 

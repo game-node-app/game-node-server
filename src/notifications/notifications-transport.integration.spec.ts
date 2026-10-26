@@ -227,7 +227,9 @@ describe("durable notification transport on disposable Redis", () => {
                 expect(
                     (
                         await source.query(
-                            "SELECT likesCount FROM post_statistics WHERE postId = ?",
+                            `SELECT metricValue AS likesCount FROM metric_total
+                             WHERE targetId = (SELECT statisticsTargetId FROM post WHERE id = ?)
+                               AND metricCode = 'likes_current'`,
                             [postId],
                         )
                     )[0].likesCount,

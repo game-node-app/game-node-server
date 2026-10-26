@@ -606,7 +606,6 @@ describe("import and notification recovery on disposable MySQL", () => {
             );
             const feed = new ActivitiesRepositoryService(
                 source.getRepository(Activity),
-                { createStatistics: jest.fn() } as any,
                 {} as any,
                 {} as any,
                 { isMature: jest.fn().mockResolvedValue(false) } as any,

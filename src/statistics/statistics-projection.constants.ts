@@ -1,0 +1,3 @@
+export const STATISTICS_PROJECTION_QUEUE = "statistics-projection";
+export const STATISTICS_PROJECTION_BATCH_SIZE = 200;
+export const STATISTICS_PROJECTION_MAX_RETRIES = 5;

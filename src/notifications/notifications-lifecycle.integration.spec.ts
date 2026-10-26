@@ -58,7 +58,6 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
 
         commentService = new CommentService(
             dataSource,
-            { createStatistics: jest.fn() } as any,
             lifecycleService,
         );
 

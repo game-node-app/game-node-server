@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { GameRepositoryCreateService } from "../../../game/game-repository/create/game-repository-create.service";
-import { ensureGameStatistics } from "../../../statistics/statistics.service";
+import { StatisticsSourceType } from "../../../statistics/statistics.constants";
+import { ensureStatisticsTarget } from "../../../statistics/statistics-target.repository";
 import { IGDBPartialGame } from "../../../game/game-repository/game-repository.types";
 import { AsyncLeafLimiter } from "./async-leaf-limiter";
 import {
@@ -27,7 +28,9 @@ export class IgdbCatalogImportService {
                     this.state.assertOwnership(transaction, owner),
                 limiter,
                 forceReconciliation,
-                ensureStatistics: ensureGameStatistics,
+                ensureStatistics: async (manager, gameId) => {
+                    await ensureStatisticsTarget(manager, StatisticsSourceType.GAME, gameId);
+                },
             });
         });
     }

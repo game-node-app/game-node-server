@@ -8,6 +8,10 @@ import {
     InvalidGameEntryError,
 } from "./game-import-context";
 
+jest.mock("../../../statistics/statistics-target.repository", () => ({
+    createStatisticsTarget: jest.fn().mockResolvedValue(1),
+}));
+
 describe("game import validation", () => {
     const getRepository = jest.fn();
     const service = new GameRepositoryCreateService({

@@ -20,6 +20,8 @@ describe("catalog state migration on isolated MySQL", () => {
             migrationsTableName: "igdb_test_migrations",
             connectTimeout: 5000,
         }).initialize();
+        await source.query("DROP TABLE IF EXISTS igdb_catalog_state");
+        await source.query("DROP TABLE IF EXISTS igdb_test_migrations");
     });
     afterAll(async () => {
         if (source?.isInitialized) await source.destroy();

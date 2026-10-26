@@ -3,7 +3,9 @@ import {
     CreateDateColumn,
     Entity,
     Index,
+    JoinColumn,
     ManyToOne,
+    OneToOne,
     PrimaryGeneratedColumn,
     Unique,
     UpdateDateColumn,
@@ -16,6 +18,7 @@ import { UserFollow } from "../../../follow/entity/user-follow.entity";
 import { Collection } from "../../../collections/entities/collection.entity";
 import { Post } from "../../../posts/entity/post.entity";
 import { ObtainedGameAchievementActivity } from "../../../game/game-achievement/entity/obtained-game-achievement-activity.entity";
+import { StatisticsTarget } from "../../../statistics/entity/statistics-target.entity";
 
 @Entity()
 @Unique(["profile", "collectionEntry", "collection"])
@@ -24,6 +27,7 @@ import { ObtainedGameAchievementActivity } from "../../../game/game-achievement/
 @Unique(["profile", "post"])
 @Unique(["profile", "obtainedGameAchievementActivity"])
 @Index(["createdAt", "id"])
+@Index("UQ_activity_statistics_target", ["statisticsTargetId"], { unique: true })
 export class Activity {
     @PrimaryGeneratedColumn("uuid")
     id: string;
@@ -99,4 +103,10 @@ export class Activity {
     createdAt: Date;
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @OneToOne(() => StatisticsTarget, { nullable: true, onDelete: "RESTRICT" })
+    @JoinColumn({ name: "statisticsTargetId" })
+    statisticsTarget: StatisticsTarget | null;
+    @Column({ type: "bigint", unsigned: true, nullable: true })
+    statisticsTargetId: number | null;
 }

@@ -85,7 +85,7 @@ export async function fixtureRuntime(
             const result = fixtureResponse(query, fixture);
             if (invalidGame !== null && query.includes("sort id asc")) {
                 for (const entry of result)
-                    if (entry.id === invalidGame) (entry as any).name = "";
+                    if (entry.id === invalidGame) (entry as any).id = -1;
             }
             if (
                 options.trackPages !== false &&

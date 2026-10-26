@@ -6,7 +6,10 @@ import {
     CommentSourceToStatisticsSource,
     CommentSourceType,
 } from "./comment.constants";
-import { StatisticsQueueService } from "../statistics/statistics-queue/statistics-queue.service";
+import {
+    deactivateStatisticsSource,
+    createStatisticsTarget,
+} from "../statistics/statistics-target.repository";
 import { FindAllCommentsDto } from "./dto/find-all-comments.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
@@ -30,7 +33,6 @@ export class CommentService {
 
     constructor(
         private readonly dataSource: DataSource,
-        private readonly statisticsQueueService: StatisticsQueueService,
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
 
@@ -249,6 +251,7 @@ export class CommentService {
                     profileUserId: userId,
                     content,
                     childOfId: childOf || null,
+                    statisticsTargetId: await createStatisticsTarget(manager, CommentSourceToStatisticsSource[sourceType]),
                     [targetRelationProperty]: sourceId,
                 } as any);
                 const savedComment = (await commentRepo.save(
@@ -291,14 +294,6 @@ export class CommentService {
             },
         );
 
-        const statisticsSource =
-            CommentSourceToStatisticsSource[dto.sourceType];
-
-        this.statisticsQueueService.createStatistics({
-            sourceType: statisticsSource,
-            sourceId: insertedEntry.id,
-        });
-
         return insertedEntry;
     }
 
@@ -319,12 +314,18 @@ export class CommentService {
     async delete(userId: string, commentId: string, dto: DeleteCommentDto) {
         const targetRepository = this.getTargetRepository(dto.sourceType);
         await this.dataSource.transaction(async (manager) => {
-            const result = await manager
-                .getRepository(targetRepository.target)
-                .delete({
-                    profileUserId: userId,
-                    id: commentId,
-                });
+            const repository = manager.getRepository(targetRepository.target);
+            const comment = await repository.findOne({
+                where: { profileUserId: userId, id: commentId } as any,
+                lock: { mode: "pessimistic_write" },
+            });
+            if (!comment) return;
+            await deactivateStatisticsSource(
+                manager,
+                CommentSourceToStatisticsSource[dto.sourceType],
+                commentId,
+            );
+            const result = await repository.delete({ profileUserId: userId, id: commentId } as any);
             if (result.affected) {
                 await this.notificationsLifecycleService?.invalidateComment(
                     commentId,

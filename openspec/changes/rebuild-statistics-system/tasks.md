@@ -1,80 +1,81 @@
 # Tasks
 
-All implementation tasks depend on 1.1. Planning is complete independently of predecessor implementation; an unchecked 1.1 forbids changing overlapping runtime code or running the statistics cutover.
+This is the functional delivery plan for the existing implementation. Continue from the workspace; do not start another rewrite. The pre-storage baseline and reusable harness are already recorded (1.1 and 1.3). Consolidation preserves those two completed tasks and does not mark any additional behavior complete.
 
-## 1. Predecessor integration and contract baseline
+## Completion rules
 
-- [ ] 1.1 Verify rebuild-notification-system is implemented and integrated, including its reaction, source lifecycle, conversion, and integrated acceptance tasks; record its revision and passing reaction/inbox/delivery checks in docs/statistics.md, and do not proceed while that prerequisite is missing.
-- [ ] 1.2 Capture the integrated reaction routes/strict DTOs, transaction-scoped notification append contract, transition identity/numeric likeId semantics, source lock order, deletion hooks, migrations, and queue options; verify the design overlap table still matches them and add regression fixtures for the unchanged committed reaction response and notification history/read state.
-- [ ] 1.3 Add focused statistics unit/integration commands and a disposable test module using existing MySQL/Redis infrastructure; verify discovery includes tests outside src where needed and starts without AppModule, provider credentials, or changes to unrelated connection/import work.
+- Use design section 11 as the acceptance boundary. A task is complete when its behavior is implemented, connected callers/fixtures are adapted, and the smallest relevant check plus code review supports it. Existing tests may cover several tasks; scenarios do not require separate new tests each.
+- Update each checkbox when its own evidence is available. Reuse passing results until a relevant code, schema, or fixture dependency changes. Do not repeat checks for documentation-only or unrelated edits.
+- Run database-mutating checks sequentially with fixture-owned cleanup. No benchmark, million-event seed, fixed-latency gate, full unrelated recovery campaign, or new test framework is required.
+- Fix regressions caused by this change. Report pre-existing failures and infrastructure/tool blockers separately; do not remove a failing product case, weaken an assertion, or mark an unavailable check as passed.
+- No production cutover, restore, commit, archive, or spec sync is part of implementation.
 
-## 2. Shared persistence and source identity
+## 1. Resume from recorded evidence
 
-- [ ] 2.1 Add target, engagement state, event ledger, metric totals/hourly values, ranking scores, and bounded maintenance checkpoint entities plus TypeORM registration and later-ordered additive migrations; verify fresh migration, uniqueness, FKs, due-event indexes, metric access indexes, and safe numeric/native-ID handling on MySQL.
-- [ ] 2.2 Add the unique statistics target FK to all seven existing source types and transaction-scoped insert-if-missing initialization; verify creation rollback, duplicate initialization, source-kind consistency, and preservation of existing targets/counters on replay.
-- [ ] 2.3 Define versioned fact/metric allowlists and one write authority per gauge/counter; verify unknown types/versions, unsupported metric values, and unbounded/private payload fields fail validation before persistence.
-- [ ] 2.4 Document the stores, source FK direction, metric semantics, lock order, and first-known-like policy in docs/statistics.md; verify examples distinguish active likes, historical transitions, credit, and notification counts.
+- [x] 1.1 Record the integrated 76bf0a4 baseline and the pre-storage notification/build results in docs/statistics.md; completion is the existing baseline record, including its reported failures.
+- [x] 1.2 Compare the current diff and recorded results with this plan; identify concrete missing behavior and invalidated checks, then record the next affected check without rerunning the baseline or all suites to rediscover known failures.
+- [x] 1.3 Reuse the focused statistics commands and notification-test-harness.ts with the existing loopback-only disposable MySQL/Redis services; verify test discovery without AppModule, .env, provider credentials, or a second test stack.
 
-## 3. Committed engagement capture
+## 2. Shared storage and source identity
 
-- [ ] 3.1 Adapt the predecessor's single reaction writer to engagement_state and likes_current while adding a correlated analytics fact to its existing transaction; verify duplicate/concurrent likes and unlikes, missing-state initialization, non-negative counts, and notification id/likeId correlation with two MySQL connections.
-- [ ] 3.2 Preserve trusted source/session ownership, strict source-only reaction inputs, existing suspension/throttling checks, and PUT/DELETE /statistics/like responses; verify forged recipient/actor fields, inaccessible targets, game/self-likes, and analytics/outbox/counter failures using predecessor contract tests and injected rollbacks.
-- [ ] 3.3 Persist firstLikedAt across ordinary unlikes and award one first-known-like credit; verify like/unlike/relike produces two additions, one removal, one active like, one credit, and the predecessor's distinct notification transition identities.
-- [ ] 3.4 Add durable POST /statistics/view with source validation and required retry-stable viewId; verify UUID sources, anonymous/authenticated views, concurrent duplicate IDs, binding conflicts, lost acknowledgements, persistence failure, and lastViewedAt using real constraints.
-- [ ] 3.5 Document view impression/retry semantics, transaction durability, actor privacy, and reaction examples in docs/statistics.md and OpenAPI; verify examples contain no client-controlled routing, times, or metric weights.
+- [x] 2.1 Complete target/state/event/total/hour/ranking/maintenance entities, registration, later-ordered migrations, and unique source target FKs for all seven native source types. Verify initialized-fresh and upgraded fixtures, source/init rollback and replay preservation using the existing storage/target tests; review mappings, constraints and safe numeric IDs.
+- [x] 2.2 Complete the versioned fact/metric allowlists and single writer per gauge/counter. Verify invalid input rejection and unchanged counters after replay with focused existing tests; document stores, lock order, metric meanings and the first-known-like policy in docs/statistics.md.
 
-## 4. Bounded projection and recovery
+## 3. Committed capture
 
-- [ ] 4.1 Add the recurring bounded statistics drain trigger and transaction-scoped event projection/completion, with explicit transport options; verify concurrent workers, failure before commit, acknowledgement loss, queue loss, reverse commit order, and bounded admitted events without per-event queue backlog.
-- [ ] 4.2 Add finite durable retry/due state, diagnosable failed events, guarded failure updates, and targeted rearm; verify poison events do not block valid work and a stale failure cannot overwrite another worker's completed effect.
-- [ ] 4.3 Project views, additions, removals, and credit into totals/hour buckets while leaving likes_current exclusively synchronous; verify duplicate replay and late occurrence times produce the expected exact values.
-- [ ] 4.4 Add bounded diagnostics and recovery/retention instructions to docs/statistics.md; verify pending age, failed counts, actual queue retention, and rearm behavior without secrets, identity-valued metric labels, or notification mutation.
+- [x] 3.1 Finish the existing applyReaction writer: engagement state, synchronous likes_current, immutable transition analytics and qualifying version-1 notification intent commit together. Preserve source-only DTOs, guards, source/context locks, three deadlock retries, committed response, numeric likeId/native subjects, and one first-like credit across relikes. Verify duplicate/concurrent requests, credit and rollback with focused reaction coverage; document the unchanged routes and transaction semantics.
+- [x] 3.2 Finish durable POST /statistics/view with validated native source/viewId and authenticated lastViewedAt. Verify retry deduplication, generic binding-conflict rejection, anonymous behavior and persistence rollback with the existing view/controller tests; document accepted-impression and retry semantics.
 
-## 5. Temporal reads and maintenance rebuild
+## 4. Projection and recovery
 
-- [ ] 5.1 Implement source summaries and exact half-open interval reads using complete hours and projected boundary facts; verify exact endpoints, same-hour ranges, partial days, UTC normalization, empty sources, late facts, and no double-counted edge bucket.
-- [ ] 5.2 Add bounded hour/day series and freshness/coverage metadata from durable state; verify historical gaps, failed/pending events, maximum ranges, and no false completeness inferred from maximum event IDs/times.
-- [ ] 5.3 Add exclusive restart-safe maintenance rebuild from facts and current state; verify incremental/rebuilt equivalence, repeated/interrupted runs, active-write refusal, and byte-for-byte unchanged notification event/group/read data for a paused notification fixture.
-- [ ] 5.4 Document range, bucket, coverage, rebuild ownership, and retained-fact guarantees in docs/statistics.md; verify the documented commands reject missing maintenance prerequisites and run on disposable services without replaying domain actions.
+- [x] 4.1 Complete the bounded recurring drain, atomic aggregate/completion writes, per-fact due/retry/failure state and targeted rearm, leaving likes_current synchronous. Verify duplicate processing, rollback/replay, batch bounds and a poison fact followed by valid work using focused database tests; review out-of-order discovery and stale-failure guards. Document diagnostics, retry ownership and retention without building a process-kill/outage harness.
 
-## 6. Popularity and recency queries
+## 5. Source reads and rebuild
 
-- [ ] 6.1 Implement engagement-v1 period and hourly-decayed scores with code-owned weights/half-life; verify preset durations, explicit selectors, old-source/new-interest behavior, the half-life calculation, first-like credit, zero scores, and rejected unbounded recent ranges.
-- [ ] 6.2 Prepare the common game/review score keys with atomic per-key publication and bounded scheduling; verify no partial score set becomes visible, ties follow the documented source ordering, and request memory does not grow with the catalog.
-- [ ] 6.3 Apply game criteria/mature exclusion and review game/author/exclude-own/pinning policies before pagination and totals; verify selective matches beyond the former 50,000 cutoff, inaccessible pinned reviews, accurate empty/last pages, and live refresh semantics.
-- [ ] 6.4 Add short page caching with normalized definition/filter/actor context and current eligibility/count checks; verify cache eviction, two actors' exclude-own requests, deletion/privacy changes between calculation and serving, and bounded result payloads.
-- [ ] 6.5 Document scoring, hourly decay precision, presets/explicit intervals, live pages, cache freshness, and the measured-index strategy in docs/statistics.md; verify representative SQL plans use intended access paths without full-catalog application filtering.
+- [x] 5.1 Complete source summaries/status and bounded hour/day series with strict inputs, native IDs, exact UTC half-open boundaries, empty values and honest freshness/coverage. Verify boundary values and all seven source mappings with the existing small fixtures; review current access and public-field allowlists. Document range limits and response metadata.
+- [x] 5.2 Complete exclusive, checkpointed statistics rebuild from facts/current state. Verify a repeated or resumed small fixture produces the same counters, refuses incompatible writes and preserves notification identities/read state. Document maintenance prerequisites and rollback limits; do not rehearse a real deployment or backup restore.
 
-## 7. Sole statistics API and contract cleanup
+## 6. Rankings
 
-- [ ] 7.1 Replace summaries/status with native-source DTOs and expose series/common rankings using operation-specific validation and existing pagination conventions; verify limits/offsets, unsupported fields/filters/metrics, raw expressions, malformed IDs, and public responses without user-event data/internal target IDs.
-- [ ] 7.2 Refresh OpenAPI and request/response contract fixtures for every operation, preserving committed reaction routes exactly; verify examples include effective intervals/freshness/coverage and cover all seven summary/status source kinds.
-- [ ] 7.3 Remove obsolete trending operations, statisticsId status input, remaining queued view/init operations and unused payload/response DTOs after the migration boundary; verify retired routes cannot mutate state and no legacy adapter or duplicate reaction path remains.
-- [ ] 7.4 Document the sole replacement API, breaking frontend integration requirements, errors, pagination, and accepted-view semantics in docs/statistics.md; verify examples agree with contract tests without editing sibling frontend code.
+- [x] 6.1 Complete engagement-v1 weights, hourly decay, rolling presets, explicit intervals and disclosed version/calculation boundaries. Verify first-like credit, the half-life and invalid/conflicting ranges with small deterministic cases; document scoring precision and live-page semantics.
+- [x] 6.2 Complete atomic common score publication, SQL eligibility/filters before totals/pagination, zero-score/native-ID ties, eligible review pinning and actor-aware bounded caching with current access checks. Verify these observable results on a small dataset including a matching source outside the first unfiltered page and a changed-access/actor case; review that requests do not hydrate the catalog. Document cache and refresh defaults without a latency promise.
 
-## 8. Domain consumers and import/search regressions
+## 7. Domain consumers and lifecycle
 
-- [ ] 8.1 Initialize targets in the owning comment, review, post, and activity creation transactions while preserving the integrated notification producers/validation; verify source/init rollback, duplicate generated activities, and no extra notification or engagement from source creation.
-- [ ] 8.2 Replace ensureGameStatistics and its import-context callback/callers with manager-scoped target initialization; update IGDB fixtures and verify imported/referenced-game rollback, replay preservation, forward references, bounded checkpoints, and no statistics-job accumulation.
-- [ ] 8.3 Replace recap's active-UserLike period count with retained actor/addition facts and coverage metadata; verify unlike-before-recap, exact period bounds, partial legacy history, and unchanged existing recap snapshots and unrelated playtime calculations.
-- [ ] 8.4 Change Manticore source joins/aliases and the explicit search schema/seeds/raw SQL fixtures; verify sparse-game zero popularity, native IDs, relevance/filter/tie behavior, manual rebuild, and the unchanged refresh schedule in existing search integration suites.
-- [ ] 8.5 Update IGDB/search/recap operations documentation for the new storage and history boundary; verify old table/helper references are absent from active runtime/docs except intentional migration material.
+- [x] 7.1 Initialize comment/review/post/activity targets in their owning source transactions, preserving notification producers, update behavior, generated-activity idempotence and post-commit side effects. Verify changed creation paths with existing focused coverage and a source/init rollback case; update the lifecycle matrix.
+- [x] 7.2 Extend source deletion, moderation, privacy and account cleanup under compatible locks while preserving notification invalidation. Reconcile active counts, anonymize retained actors and emit no fabricated unlike. Verify representative deletion/privacy/account behavior using existing lifecycle tests and review cascade coverage for all seven sources; document owners and inapplicable actions.
+- [x] 7.3 Complete manager-scoped IGDB initialization and adapt callbacks/callers/fixtures without queued statistics work. Verify the affected imported/referenced-game rollback and replay cases, including preservation of source timestamps/counters; update the IGDB runbook. Full importer process-kill/resource campaigns are outside acceptance unless their behavior was changed.
+- [x] 7.4 Read recap likes from retained actor/addition facts and disclose incomplete legacy coverage while preserving stored snapshots and unrelated playtime logic. Verify an addition still counts after unlike and exact period boundaries using the focused recap fixture; document the history boundary.
+- [x] 7.5 Complete the Manticore metric joins and affected schema/seeds/raw SQL, preserving sparse-game zero values, native IDs, aliases, filters/order and refresh schedule. Verify the affected engine-backed search contract using a file/name selection; update the search runbook without repeating unrelated deep-pagination/outage campaigns.
 
-## 9. Source deletion account cleanup and access
+## 8. Local conversion and legacy retirement
 
-- [ ] 9.1 Extend the predecessor's hard/soft deletion, moderation, collection privacy, and cascade-descendant handling with target invalidation under compatible locks; verify two-connection delete/project/read races preserve both statistics eligibility and notification redaction.
-- [ ] 9.2 Reconcile active counts and remove engagement state during account cleanup while anonymizing retained actor facts; verify correct remaining counts, no fabricated unlike events, no exposed deleted identity, and unchanged notification cleanup guarantees.
-- [ ] 9.3 Revalidate all supported source kinds at public summary/status/series/ranking reads, including cached pages; verify deleted/private roots and missing actors do not leak identities, scores, protected context, or totals.
-- [ ] 9.4 Document a lifecycle matrix in docs/statistics.md with every source kind and account cleanup owner; verify each path has a regression fixture or an explicitly inapplicable action rather than relying on reverse FK cascades.
+- [x] 8.1 Complete bounded checkpointed target/state/fact conversion and independent legacy view/create queue capture with deterministic identities, original timestamp provenance, corrections and completeSince coverage. Verify restart/idempotence on one small legacy fixture with active likes and known views, preserving notification/audit rows and never replaying archived likes; document the conversion report.
+- [x] 8.2 Guard legacy statistics/action storage retirement with completed conversion/rebuild invariants and final source constraints. Remove stale entities, queue paths, exports and live consumers; verify the focused migration fixture, pending old/new like delivery and repository searches. Document offline ordering, queue capture, Manticore rebuild and coordinated backup/restore limits; actual cutover remains an operator action.
 
-## 10. Local conversion and destructive cleanup
+## 9. Sole API and documentation
 
-- [ ] 10.1 Add a bounded checkpointed conversion for source targets, active state, known views and surviving like facts using deterministic legacy identities; verify restart, duplicate batches, UUID/native mappings, legacy timestamps/provenance, invalid-reference inventories, and no notification replay.
-- [ ] 10.2 Inventory legacy counters and pending/failed view/init payloads, report before/after corrections and ambiguous work, and persist completeSince coverage; verify no missing history is fabricated, domain records/active likes remain intact, and stale queued like handlers are never invoked.
-- [ ] 10.3 After conversion/rebuild checks, enforce final source constraints and remove old statistics/action tables, FKs, registrations, queue modules, helper exports, and stale fixtures; verify pending old and new content.liked payloads still render without UserLike lookup, fresh/upgraded fixtures start, and repository-wide searches find no live legacy consumers.
-- [ ] 10.4 Document and exercise the offline cutover, coordinated backup restore, queue capture, Manticore rebuild, counts/coverage report, and rollback limits in docs/statistics.md; verify rerunning the procedure is safe and post-resume restore is not represented as lossless.
+- [x] 9.1 Finish operation-specific DTOs, OpenAPI/examples and retired-route removal for the sole source summary/status/series/ranking/view API, preserving PUT/DELETE reaction paths and response. Verify approved request/response fields and retired-route behavior with existing contract coverage and review; align docs/statistics.md and affected operations docs, including breaking frontend integration requirements.
 
-## 11. Integrated acceptance and measured limits
+## 10. Final acceptance
 
-- [ ] 11.1 Run the focused unit/contract suites, disposable statistics/notification/IGDB/search integration checks, project build, and affected repository checks; resolve caller/schema/export regressions and record commands/results with unchanged notification read/delivery contracts.
-- [ ] 11.2 Run the documented 100,000-target/1,000,000-event healthy-local workload and skewed/filter-boundary cases, then outage/overload recovery; record cold/warm latency percentiles, query plans/work, peak memory, cache size, admitted batch bounds, and 60-second healthy-local visibility in docs/statistics.md without claiming production capacity.
+- [x] 10.1 Complete one final relevant acceptance pass: build, statistics/notification functional coverage, affected IGDB/search/recap cases, git diff --check and strict OpenSpec validation. Reuse valid earlier and overlapping results; rerun only a failing or subsequently affected selection. Record actual commands/results, remaining blockers and unmeasured capacity in docs/statistics.md. Do not run a workload or tune performance to close this task.
+
+## Traceability from the previous plan
+
+Tasks were consolidated and renumbered; this table preserves the previous coverage, not additional completion credit.
+
+| Previous tasks | Current tasks |
+| --- | --- |
+| 1.1–1.3 | 1.1–1.3 |
+| 2.1–2.4 | 2.1–2.2 |
+| 3.1–3.5 | 3.1–3.2, 9.1 |
+| 4.1–4.4 | 4.1 |
+| 5.1–5.4 | 5.1–5.2 |
+| 6.1–6.5 | 6.1–6.2 |
+| 7.1–7.4 | 5.1, 6.2, 9.1 |
+| 8.1–8.5 | 7.1, 7.3–7.5 |
+| 9.1–9.4 | 7.2 and source/ranking access checks |
+| 10.1–10.4 | 8.1–8.2 |
+| 11.1 | 10.1 |
+| 11.2 | Removed from acceptance: optional future performance exercise, only on a separate request |

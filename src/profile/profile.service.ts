@@ -21,6 +21,7 @@ import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { SuspensionService } from "../suspension/suspension.service";
 import { UploadService } from "../upload/upload.service";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import { cleanupStatisticsProfile } from "../statistics/statistics-target.repository";
 
 @Injectable()
 export class ProfileService {
@@ -261,6 +262,7 @@ export class ProfileService {
                 userId,
                 manager,
             );
+            await cleanupStatisticsProfile(manager, userId);
             await repository.delete({ userId });
         });
     }

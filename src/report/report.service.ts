@@ -32,6 +32,11 @@ import { Post } from "../posts/entity/post.entity";
 import { PostComment } from "../comment/entity/post-comment.entity";
 import { ActivityComment } from "../comment/entity/activity-comment.entity";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import { StatisticsSourceType } from "../statistics/statistics.constants";
+import {
+    deactivateStatisticsContent,
+    deactivateStatisticsSource,
+} from "../statistics/statistics-target.repository";
 
 @Injectable()
 export class ReportService {
@@ -244,6 +249,16 @@ export class ReportService {
                             id,
                             manager,
                         );
+                    if (kind !== "comment")
+                        await deactivateStatisticsContent(manager, kind, id);
+                    else {
+                        const sourceType = entity === ReviewComment
+                            ? StatisticsSourceType.REVIEW_COMMENT
+                            : entity === PostComment
+                              ? StatisticsSourceType.POST_COMMENT
+                              : StatisticsSourceType.ACTIVITY_COMMENT;
+                        await deactivateStatisticsSource(manager, sourceType, id);
+                    }
                     const removed = await repository.delete({
                         id,
                         profileUserId: report.targetProfileUserId,

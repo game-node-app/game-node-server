@@ -13,6 +13,7 @@ import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../achievements/achievements.constants";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import { assertStatisticsWritesAllowed } from "../statistics/statistics-target.repository";
 
 @Injectable()
 export class CollectionsService {
@@ -152,6 +153,7 @@ export class CollectionsService {
     ) {
         return this.collectionsRepository.manager.transaction(
             async (manager) => {
+                await assertStatisticsWritesAllowed(manager);
                 const repository = manager.getRepository(Collection);
                 const collection = await repository.findOne({
                     where: { id: collectionId },
@@ -202,6 +204,7 @@ export class CollectionsService {
     async delete(userId: string, collectionId: string) {
         await this.collectionsRepository.manager.transaction(
             async (manager) => {
+                await assertStatisticsWritesAllowed(manager);
                 const repository = manager.getRepository(Collection);
                 const collection = await repository.findOne({
                     where: { libraryUserId: userId, id: collectionId },
