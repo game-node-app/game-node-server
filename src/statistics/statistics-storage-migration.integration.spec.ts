@@ -57,6 +57,7 @@ describe("statistics storage migration", () => {
             expect(await runner.hasTable("metric_total")).toBe(true);
             expect(await runner.hasTable("metric_hour")).toBe(true);
             expect(await runner.hasTable("ranking_score")).toBe(true);
+            expect(await runner.hasTable("statistics_maintenance")).toBe(false);
 
             for (const [table, expected] of before) {
                 const rows = await runner.query(`SELECT * FROM \`${table}\` ORDER BY 1`);

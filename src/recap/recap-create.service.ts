@@ -268,24 +268,16 @@ export class RecapCreateService {
         period: RecapPeriod,
     ) {
         const endExclusive = period.endDate.add(1, "millisecond").toDate();
-        const [[count], [maintenance]] = await Promise.all([
-            this.dataSource.query(
-                `SELECT COUNT(*) AS total FROM statistics_event
-                WHERE actorUserId = ? AND eventKind = 'like.added'
-                  AND occurredAt >= ? AND occurredAt < ?`,
-                [userId, period.startDate.toDate(), endExclusive],
-            ),
-            this.dataSource.query(
-                "SELECT historyCompleteSince FROM statistics_maintenance WHERE id = 'main'",
-            ),
-        ]);
-        const completeSince = maintenance?.historyCompleteSince
-            ? new Date(maintenance.historyCompleteSince)
-            : null;
+        const [count] = await this.dataSource.query(
+            `SELECT COUNT(*) AS total FROM statistics_event
+            WHERE actorUserId = ? AND eventKind = 'like.added'
+              AND occurredAt >= ? AND occurredAt < ?`,
+            [userId, period.startDate.toDate(), endExclusive],
+        );
         return {
             total: Number(count.total),
-            completeSince,
-            historyComplete: !completeSince || period.startDate.toDate() >= completeSince,
+            completeSince: null,
+            historyComplete: true,
         };
     }
 

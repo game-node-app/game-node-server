@@ -2,16 +2,14 @@
 
 This runbook documents the staged verification, reverse-proxy routing, scheduled-refresh gates, legacy Go service retirement, and rollback procedure for consolidating `game-node-search` into `game-node-server`.
 
-## Statistics storage replacement
+## Statistics storage
 
-Game indexing now reads `metric_total` through `game.statisticsTargetId`, using
+Game indexing reads `metric_total` through `game.statisticsTargetId`, using
 `views` and `likes_current` with the existing `num_views`/`num_likes` aliases and
 zero defaults. Native game IDs, filtering, ordering and the games' daily `03:00 UTC`
-refresh remain unchanged. After the offline statistics conversion/rebuild, rotate
-the games index with the updated template before reopening traffic. Follow the
-[statistics cutover and coordinated-backup rollback](statistics.md#offline-conversion-rebuild-and-rollback):
-the lossless rollback description for the earlier search-only consolidation below
-does not cover removal of legacy statistics tables.
+refresh remain unchanged. A fresh installation needs no statistics conversion or
+special index cutover; use the existing index refresh process when deploying a
+changed search template.
 
 The affected engine-backed checks are sufficient for this replacement:
 

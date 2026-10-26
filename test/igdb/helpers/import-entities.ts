@@ -12,7 +12,6 @@ import { GameEngineLogo } from "../../../src/game/game-repository/entities/game-
 import { GamePropertyPathToEntityMap } from "../../../src/game/game-repository/create/game-repository-create.constants";
 import { StatisticsTarget } from "../../../src/statistics/entity/statistics-target.entity";
 import { MetricTotal } from "../../../src/statistics/entity/metric-total.entity";
-import { StatisticsMaintenance } from "../../../src/statistics/entity/statistics-maintenance.entity";
 
 type EntityConstructor = new (...args: any[]) => any;
 
@@ -23,7 +22,6 @@ export function importEntities(): EntitySchema[] {
         Game,
         StatisticsTarget,
         MetricTotal,
-        StatisticsMaintenance,
         GameCompany,
         GameCompanyLogo,
         GameEngineLogo,

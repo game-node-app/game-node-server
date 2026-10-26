@@ -1,6 +1,6 @@
 # Tasks
 
-This is the functional delivery plan for the existing implementation. Continue from the workspace; do not start another rewrite. The pre-storage baseline and reusable harness are already recorded (1.1 and 1.3). Consolidation preserves those two completed tasks and does not mark any additional behavior complete.
+This is the functional delivery plan for the existing implementation. Continue from the workspace; do not start another rewrite. The pre-storage baseline and reusable harness are already recorded (1.1 and 1.3). Fresh-database scope removes legacy statistics conversion and offline rebuild from this plan; earlier acceptance notes are historical.
 
 ## Completion rules
 
@@ -18,7 +18,7 @@ This is the functional delivery plan for the existing implementation. Continue f
 
 ## 2. Shared storage and source identity
 
-- [x] 2.1 Complete target/state/event/total/hour/ranking/maintenance entities, registration, later-ordered migrations, and unique source target FKs for all seven native source types. Verify initialized-fresh and upgraded fixtures, source/init rollback and replay preservation using the existing storage/target tests; review mappings, constraints and safe numeric IDs.
+- [x] 2.1 Complete target/state/event/total/hour/ranking entities, registration, later-ordered migrations, and unique source target FKs for all seven native source types. Verify initialized-fresh and upgraded fixtures, source/init rollback and replay preservation using the existing storage/target tests; review mappings, constraints and safe numeric IDs.
 - [x] 2.2 Complete the versioned fact/metric allowlists and single writer per gauge/counter. Verify invalid input rejection and unchanged counters after replay with focused existing tests; document stores, lock order, metric meanings and the first-known-like policy in docs/statistics.md.
 
 ## 3. Committed capture
@@ -30,10 +30,9 @@ This is the functional delivery plan for the existing implementation. Continue f
 
 - [x] 4.1 Complete the bounded recurring drain, atomic aggregate/completion writes, per-fact due/retry/failure state and targeted rearm, leaving likes_current synchronous. Verify duplicate processing, rollback/replay, batch bounds and a poison fact followed by valid work using focused database tests; review out-of-order discovery and stale-failure guards. Document diagnostics, retry ownership and retention without building a process-kill/outage harness.
 
-## 5. Source reads and rebuild
+## 5. Source reads
 
 - [x] 5.1 Complete source summaries/status and bounded hour/day series with strict inputs, native IDs, exact UTC half-open boundaries, empty values and honest freshness/coverage. Verify boundary values and all seven source mappings with the existing small fixtures; review current access and public-field allowlists. Document range limits and response metadata.
-- [x] 5.2 Complete exclusive, checkpointed statistics rebuild from facts/current state. Verify a repeated or resumed small fixture produces the same counters, refuses incompatible writes and preserves notification identities/read state. Document maintenance prerequisites and rollback limits; do not rehearse a real deployment or backup restore.
 
 ## 6. Rankings
 
@@ -45,13 +44,8 @@ This is the functional delivery plan for the existing implementation. Continue f
 - [x] 7.1 Initialize comment/review/post/activity targets in their owning source transactions, preserving notification producers, update behavior, generated-activity idempotence and post-commit side effects. Verify changed creation paths with existing focused coverage and a source/init rollback case; update the lifecycle matrix.
 - [x] 7.2 Extend source deletion, moderation, privacy and account cleanup under compatible locks while preserving notification invalidation. Reconcile active counts, anonymize retained actors and emit no fabricated unlike. Verify representative deletion/privacy/account behavior using existing lifecycle tests and review cascade coverage for all seven sources; document owners and inapplicable actions.
 - [x] 7.3 Complete manager-scoped IGDB initialization and adapt callbacks/callers/fixtures without queued statistics work. Verify the affected imported/referenced-game rollback and replay cases, including preservation of source timestamps/counters; update the IGDB runbook. Full importer process-kill/resource campaigns are outside acceptance unless their behavior was changed.
-- [x] 7.4 Read recap likes from retained actor/addition facts and disclose incomplete legacy coverage while preserving stored snapshots and unrelated playtime logic. Verify an addition still counts after unlike and exact period boundaries using the focused recap fixture; document the history boundary.
+- [x] 7.4 Read recap likes from retained actor/addition facts while preserving stored snapshots and unrelated playtime logic. Verify an addition still counts after unlike and exact period boundaries using the focused recap fixture.
 - [x] 7.5 Complete the Manticore metric joins and affected schema/seeds/raw SQL, preserving sparse-game zero values, native IDs, aliases, filters/order and refresh schedule. Verify the affected engine-backed search contract using a file/name selection; update the search runbook without repeating unrelated deep-pagination/outage campaigns.
-
-## 8. Local conversion and legacy retirement
-
-- [x] 8.1 Complete bounded checkpointed target/state/fact conversion and independent legacy view/create queue capture with deterministic identities, original timestamp provenance, corrections and completeSince coverage. Verify restart/idempotence on one small legacy fixture with active likes and known views, preserving notification/audit rows and never replaying archived likes; document the conversion report.
-- [x] 8.2 Guard legacy statistics/action storage retirement with completed conversion/rebuild invariants and final source constraints. Remove stale entities, queue paths, exports and live consumers; verify the focused migration fixture, pending old/new like delivery and repository searches. Document offline ordering, queue capture, Manticore rebuild and coordinated backup/restore limits; actual cutover remains an operator action.
 
 ## 9. Sole API and documentation
 
@@ -71,11 +65,11 @@ Tasks were consolidated and renumbered; this table preserves the previous covera
 | 2.1–2.4 | 2.1–2.2 |
 | 3.1–3.5 | 3.1–3.2, 9.1 |
 | 4.1–4.4 | 4.1 |
-| 5.1–5.4 | 5.1–5.2 |
+| 5.1–5.4 | 5.1 |
 | 6.1–6.5 | 6.1–6.2 |
 | 7.1–7.4 | 5.1, 6.2, 9.1 |
-| 8.1–8.5 | 7.1, 7.3–7.5 |
+| 8.1–8.5 | 7.1, 7.3–7.5; legacy conversion/retirement removed for fresh-database scope |
 | 9.1–9.4 | 7.2 and source/ranking access checks |
-| 10.1–10.4 | 8.1–8.2 |
+| 10.1–10.4 | Removed: no legacy statistics conversion/rebuild in fresh-database scope |
 | 11.1 | 10.1 |
 | 11.2 | Removed from acceptance: optional future performance exercise, only on a separate request |

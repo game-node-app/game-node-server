@@ -119,8 +119,8 @@ describe("statistics views and temporal reads", () => {
         ];
         for (const [index, occurredAt] of times.entries()) {
             await dataSource.query(
-                `INSERT INTO statistics_event (eventKey, eventVersion, eventKind, targetId, occurredAt, provenance, projectionState, nextAttemptAt)
-                VALUES (?, 1, 'view.recorded', ?, ?, 'live', 'pending', CURRENT_TIMESTAMP(6))`,
+                `INSERT INTO statistics_event (eventKey, eventVersion, eventKind, targetId, occurredAt, projectionState, nextAttemptAt)
+                VALUES (?, 1, 'view.recorded', ?, ?, 'pending', CURRENT_TIMESTAMP(6))`,
                 [`series-boundary:${randomUUID()}:${index}`, targetId, occurredAt],
             );
         }
@@ -154,8 +154,8 @@ describe("statistics views and temporal reads", () => {
             "2024-02-01 12:10:00.000123",
         ].entries()) {
             await dataSource.query(
-                `INSERT INTO statistics_event (eventKey, eventVersion, eventKind, targetId, occurredAt, provenance, projectionState, nextAttemptAt)
-                VALUES (?, 1, 'view.recorded', ?, ?, 'live', 'pending', CURRENT_TIMESTAMP(6))`,
+                `INSERT INTO statistics_event (eventKey, eventVersion, eventKind, targetId, occurredAt, projectionState, nextAttemptAt)
+                VALUES (?, 1, 'view.recorded', ?, ?, 'pending', CURRENT_TIMESTAMP(6))`,
                 [`micro-boundary:${namespace}:${index}`, targetId, occurredAt],
             );
         }

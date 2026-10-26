@@ -9,11 +9,11 @@ Per-entity counters, nullable per-source interaction relations, and request-time
 - Introduce one internal statistics target per supported entity, current user engagement state, and a typed historical event ledger; replace the five statistics tables and their per-source action foreign keys.
 - Keep active-like state and its counter synchronous. Record analytics events in the same local transaction as the action, and build additive totals/hourly aggregates through recoverable, idempotent bounded processing.
 - Support explicit time ranges, historical additions/removals, and versioned popularity/recency calculations. Materialize common rankings and apply eligibility and domain filters before pagination.
-- **BREAKING** Replace statistics reads/status and trending payloads with source-based summaries, time-series, and a common bounded ranking contract. Replace queued view acceptance with durable view recording; remove obsolete view/init jobs after local conversion.
+- **BREAKING** Replace statistics reads/status and trending payloads with source-based summaries, time-series, and a common bounded ranking contract. Replace queued view acceptance with durable view recording; remove obsolete view/init jobs.
 - Extend the existing `StatisticsService.applyReaction`, preserving `PUT/DELETE /statistics/like`, strict source-only DTOs, suspension/throttling, committed `{ isLiked, likesCount }`, source locks, and whole-transaction retries. Append analytics and the existing version-1 notification intent through the same active transaction, with correlated identities and the required numeric `likeId`; preserve existing pending delivery without rewriting its payloads.
-- Reuse the implemented source/root/comment access checks and lifecycle hooks. Keep notification inbox/outbox, delivery/read state, cutover audit records, and retry/Redis configuration independent from statistics projection and rebuild.
+- Reuse the implemented source/root/comment access checks and lifecycle hooks. Keep notification inbox/outbox, delivery/read state, cutover audit records, and retry/Redis configuration independent from statistics projection.
 - Update IGDB initialization, content creation/lifecycle paths, recap queries, Manticore indexing, TypeORM registration, OpenAPI, and affected fixtures together. Preserve native game/UUID identities and imported-game transaction/backpressure guarantees.
-- Provide a bounded local conversion/rebuild and coordinated backup rollback after the integrated notification migrations. Separately inventory remaining view/init work: the predecessor's statistics-queue archive covers only old likes. Preserve domain records and active likes, report corrections/incomplete history, and never replay notification conversion or fabricate missing events.
+- Scope storage setup to a fresh database. Do not carry a legacy statistics conversion, rebuild, or rollback workflow into the application.
 - Deliver against focused functional checks on small deterministic fixtures, reusing existing coverage and valid results. Capacity benchmarking, long-running traffic generation, and a fixed projection-latency promise are outside this change's acceptance.
 
 ## Capabilities
@@ -21,7 +21,7 @@ Per-entity counters, nullable per-source interaction relations, and request-time
 ### New Capabilities
 
 - `engagement-statistics`: Trusted target identity, committed interaction state, durable historical facts, view deduplication, and notification-safe reaction integration.
-- `statistics-projections`: Rebuildable totals and temporal aggregates, recoverable processing, source/account lifecycle, consumer integration, and local data conversion.
+- `statistics-projections`: Totals and temporal aggregates, recoverable processing, source/account lifecycle, and consumer integration.
 - `popularity-rankings`: Explicit period/recency semantics, versioned scores, eligible filtered rankings, bounded API access, and cache freshness.
 
 ### Modified Capabilities

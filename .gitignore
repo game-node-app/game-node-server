@@ -55,7 +55,6 @@ wrapper
 !/src/migrations/1792960197567-RetireLegacyNotificationStorage.ts
 !/src/migrations/1792960197568-PrepareStatisticsStorage.ts
 !/src/migrations/1792960197569-AddRecapStatisticsCoverage.ts
-!/src/migrations/1792960197570-RetireLegacyStatisticsStorage.ts
 /public/uploads/*
 !/public
 !/public/uploads

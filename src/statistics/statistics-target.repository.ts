@@ -1,5 +1,4 @@
 import { EntityManager } from "typeorm";
-import { ServiceUnavailableException } from "@nestjs/common";
 import { StatisticsSourceType } from "./statistics.constants";
 
 export const STATISTICS_SOURCE_TABLES: Record<StatisticsSourceType, { table: string; id: string }> = {
@@ -23,31 +22,11 @@ function requireTransaction(manager: EntityManager) {
     }
 }
 
-export async function assertStatisticsWritesAllowed(manager: EntityManager): Promise<void> {
-    requireTransaction(manager);
-    const maintenanceTable = getTableName(manager, "statistics_maintenance");
-    try {
-        const rows = await manager.query(`SELECT 1 FROM ${maintenanceTable} WHERE id = 'main' LIMIT 1`);
-        if (!rows.length) return;
-        const lockRows = await manager.query(
-            `SELECT state FROM ${maintenanceTable} WHERE id = 'main' LOCK IN SHARE MODE`,
-        );
-        if (lockRows[0]?.state === "running")
-            throw new ServiceUnavailableException("Statistics maintenance is active");
-    } catch (err: any) {
-        if (err?.code === "ER_NO_SUCH_TABLE") {
-            return;
-        }
-        throw err;
-    }
-}
-
 export async function createStatisticsTarget(
     manager: EntityManager,
     sourceType: StatisticsSourceType,
 ): Promise<number> {
     requireTransaction(manager);
-    await assertStatisticsWritesAllowed(manager);
     const targetTable = getTableName(manager, "statistics_target");
     const metricTotalTable = getTableName(manager, "metric_total");
     const result = await manager.query(
@@ -72,7 +51,6 @@ export async function linkStatisticsTarget(
     targetId: number,
 ): Promise<void> {
     requireTransaction(manager);
-    await assertStatisticsWritesAllowed(manager);
     const source = STATISTICS_SOURCE_TABLES[sourceType];
     if (!source) throw new Error(`Unsupported statistics source: ${sourceType}`);
     const targetTable = getTableName(manager, "statistics_target");
@@ -93,7 +71,6 @@ export async function ensureStatisticsTarget(
     sourceId: number | string,
 ): Promise<number | null> {
     requireTransaction(manager);
-    await assertStatisticsWritesAllowed(manager);
     const source = STATISTICS_SOURCE_TABLES[sourceType];
     if (!source) throw new Error(`Unsupported statistics source: ${sourceType}`);
     const sourceTable = getTableName(manager, source.table);
@@ -135,7 +112,6 @@ export async function deactivateStatisticsTargets(
 ): Promise<void> {
     if (sourceIds.length === 0) return;
     requireTransaction(manager);
-    await assertStatisticsWritesAllowed(manager);
     const source = STATISTICS_SOURCE_TABLES[sourceType];
     if (!source) throw new Error(`Unsupported statistics source: ${sourceType}`);
     const sourceTable = getTableName(manager, source.table);
@@ -160,7 +136,6 @@ export async function deactivateStatisticsSource(
     sourceId: number | string,
 ): Promise<void> {
     requireTransaction(manager);
-    await assertStatisticsWritesAllowed(manager);
     const source = STATISTICS_SOURCE_TABLES[sourceType];
     if (!source) throw new Error(`Unsupported statistics source: ${sourceType}`);
     const sourceTable = getTableName(manager, source.table);
@@ -207,7 +182,6 @@ export async function cleanupStatisticsProfile(
     userId: string,
 ): Promise<void> {
     requireTransaction(manager);
-    await assertStatisticsWritesAllowed(manager);
     const stateTable = getTableName(manager, "engagement_state");
     const metricTotalTable = getTableName(manager, "metric_total");
     const eventTable = getTableName(manager, "statistics_event");

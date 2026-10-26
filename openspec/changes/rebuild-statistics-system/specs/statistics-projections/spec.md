@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provide reliable accumulated and temporal statistics that can be rebuilt from retained facts without changing domain data or notification delivery.
+Provide reliable accumulated and temporal statistics from retained facts without changing domain data or notification delivery.
 
 ## ADDED Requirements
 
@@ -44,7 +44,7 @@ Committed events SHALL remain recoverable independently of queue/cache contents.
 - **THEN** it remains diagnosable while later valid work continues and rearm does not repeat a domain action
 
 ### Requirement: Period queries use explicit boundaries and occurrence times
-Temporal statistics SHALL use half-open start-inclusive/end-exclusive intervals and normalized UTC instants. Aggregation SHALL use each fact's trusted occurrence time, or its identified historical timestamp approximation. Partial aggregation buckets SHALL NOT silently include events outside the requested interval.
+Temporal statistics SHALL use half-open start-inclusive/end-exclusive intervals and normalized UTC instants. Aggregation SHALL use each fact's trusted occurrence time. Partial aggregation buckets SHALL NOT silently include events outside the requested interval.
 
 #### Scenario: Events fall on the interval boundaries
 - **WHEN** events occur exactly at the requested start and end
@@ -58,34 +58,19 @@ Temporal statistics SHALL use half-open start-inclusive/end-exclusive intervals 
 - **WHEN** an event is recorded after its occurrence bucket was previously projected
 - **THEN** processing updates its original bucket and subsequent applicable rankings
 
-### Requirement: Summaries and series disclose freshness and coverage
-Statistics summaries and series SHALL expose projection freshness and whether their requested history is complete. Empty valid sources SHALL return zero additive values. Reads SHALL NOT present queue acceptance, historical conversion time, or the latest processed event timestamp as proof of complete history.
-
-#### Scenario: Known old history is incomplete
-- **WHEN** a request includes time before the local conversion boundary
-- **THEN** the response identifies incomplete historical coverage
+### Requirement: Summaries and series disclose freshness
+Statistics summaries and series SHALL expose projection freshness and report complete history from the fresh installation. Empty valid sources SHALL return zero additive values. Reads SHALL NOT present queue acceptance or the latest processed event timestamp as proof that projection is current.
 
 #### Scenario: Projection is behind
 - **WHEN** committed facts are still pending projection
 - **THEN** the response identifies lag rather than claiming every recent fact is already reflected
 
-### Requirement: Rebuild is deterministic and isolated
-Rebuilding statistics from retained facts and current engagement state SHALL produce the same aggregates as incremental processing under the same definitions. Rebuild SHALL prevent concurrent incompatible statistics writes or projection and SHALL NOT mutate source content, emit notifications, or reset notification delivery/read state.
-
-#### Scenario: Two rebuilds use the same input
-- **WHEN** statistics is rebuilt twice with unchanged retained facts and current state
-- **THEN** both results match the expected incremental totals and buckets
-
-#### Scenario: Another writer is active
-- **WHEN** a rebuild cannot establish its documented maintenance boundary
-- **THEN** it refuses to reset or publish partial statistics
-
 ### Requirement: Retention preserves declared query and replay guarantees
-Facts required by supported period queries, recap, view deduplication, or rebuild SHALL NOT be purged silently. The initial local implementation SHALL retain historical facts and their identities; any later retention policy SHALL declare which historical queries and rebuild guarantees it changes.
+Facts required by supported period queries, recap, or view deduplication SHALL NOT be purged silently. The initial local implementation SHALL retain historical facts and their identities; any later retention policy SHALL declare which query and deduplication guarantees it changes.
 
 #### Scenario: Transport history expires
 - **WHEN** completed queue jobs or result-cache entries expire
-- **THEN** retained facts still support deduplication, supported time queries, and rebuild
+- **THEN** retained facts still support deduplication, recap, and supported time queries
 
 ### Requirement: Source and account lifecycle preserves safe statistics
 Removed or inaccessible content SHALL be excluded from public statistics and rankings using current eligibility. Account cleanup SHALL remove active reactions, reconcile affected active counters, and remove actor identity from retained facts under the existing deletion policy. Such cleanup SHALL NOT fabricate user-initiated unlike history.
@@ -116,28 +101,9 @@ Catalog persistence SHALL initialize statistics inside its existing game transac
 - **THEN** search retains the game with zero popularity and the existing game document contract
 
 ### Requirement: Recap uses actor history without depending on active likes
-The likes-performed recap SHALL count retained like-addition facts by actor and interval, including likes subsequently removed. Conversion limitations SHALL be disclosed for old periods. Recomputing statistics SHALL NOT modify already persisted recap snapshots without an explicit recap operation.
+The likes-performed recap SHALL count retained like-addition facts by actor and interval, including likes subsequently removed. Recomputing statistics SHALL NOT modify already persisted recap snapshots without an explicit recap operation.
 
 #### Scenario: User unlikes before recap generation
 - **WHEN** a retained like-addition event lies in the recap period but is no longer active
 - **THEN** that addition remains included in the newly generated recap
 
-### Requirement: Local conversion preserves domain state and known facts
-Local conversion SHALL preserve source records and active likes, transfer available interaction facts with restart-safe identities, and report counter corrections, excluded invalid references, and unavailable history. Missing facts SHALL NOT be invented. Old workers SHALL be stopped or their work captured before obsolete storage is removed.
-
-#### Scenario: Conversion is interrupted and repeated
-- **WHEN** a conversion batch is retried
-- **THEN** already converted state and facts remain singular and no notification or domain action is replayed
-
-#### Scenario: Legacy counters disagree with retained facts
-- **WHEN** available view records or active likes differ from their stored counters
-- **THEN** rebuilt values follow the retained facts and current state, with the before/after correction included in the conversion report
-
-#### Scenario: Historical unlike facts are missing
-- **WHEN** removed legacy likes cannot be recovered
-- **THEN** conversion records the coverage limitation without synthesizing unlike events or distributing a counter over time
-
-#### Scenario: Notification queue inventory is already complete
-- **WHEN** the previous notification cutover archived old like commands but view or initialization jobs remain
-- **THEN** statistics conversion inventories those remaining jobs independently
-- **AND** it preserves the notification cutover audit and does not replay archived likes or repeat notification conversion

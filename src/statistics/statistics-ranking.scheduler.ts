@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Cron, CronExpression } from "@nestjs/schedule";
+import { Cron } from "@nestjs/schedule";
 import { StatisticsRankingService } from "./statistics-ranking.service";
 
 @Injectable()
@@ -9,7 +9,7 @@ export class StatisticsRankingScheduler {
 
     constructor(private readonly rankingService: StatisticsRankingService) {}
 
-    @Cron(CronExpression.EVERY_30_SECONDS)
+    @Cron("0 */6 * * *", { timeZone: "UTC" })
     async refresh(): Promise<void> {
         if (this.running) return;
         this.running = true;

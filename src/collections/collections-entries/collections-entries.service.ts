@@ -35,7 +35,7 @@ import { toMap } from "../../utils/toMap";
 import { DEFAULT_ORDERING_GAP } from "../../utils/ordering";
 import { Cacheable } from "../../utils/cacheable";
 import { NotificationsLifecycleService } from "../../notifications/notifications-lifecycle.service";
-import { assertStatisticsWritesAllowed, deactivateStatisticsContent } from "../../statistics/statistics-target.repository";
+import { deactivateStatisticsContent } from "../../statistics/statistics-target.repository";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -654,7 +654,6 @@ export class CollectionsEntriesService {
         }
 
         await this.collectionEntriesRepository.manager.transaction(async (manager) => {
-            await assertStatisticsWritesAllowed(manager);
             for (const type of ["review", "activity"] as const) {
                 const sources = await manager.query(`SELECT id FROM ${type} WHERE collectionEntryId = ? ORDER BY id FOR UPDATE`, [entry.id]);
                 for (const source of sources) {

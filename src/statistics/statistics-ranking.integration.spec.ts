@@ -109,6 +109,61 @@ describe("statistics rankings", () => {
         expect(allGames.items.map((item: any) => item.score)).toEqual([0, 0]);
     });
 
+    it("pages across positive scores, zero scores and games missing from the prepared key in native ID order", async () => {
+        const firstId = 2_050_000_000 - randomInt(100_000);
+        const ids = Array.from({ length: 5 }, (_, index) => firstId + index);
+        const targets = new Map<number, number>();
+        for (const id of [...ids].reverse()) targets.set(id, await createGame(id));
+        for (const [index, score] of [[0, 2], [1, 9], [2, 0], [4, 9]]) {
+            await dataSource.query(
+                `INSERT INTO ranking_score (rankingKey, targetId, score, definitionVersion, computedAt)
+                 VALUES ('game:popular:month', ?, ?, 'engagement-v1', CURRENT_TIMESTAMP(6))`,
+                [targets.get(ids[index]), score],
+            );
+        }
+        await setMetric(targets.get(ids[3])!, "views", 123);
+        await setMetric(targets.get(ids[3])!, "likes_current", 7);
+        const expected = [ids[1], ids[4], ids[0], ids[2], ids[3]];
+        for (const offset of [0, 1, 2, 3, 4, 5, 10000]) {
+            const page = await service.findRankings(undefined, {
+                sourceType: StatisticsSourceType.GAME,
+                mode: "popular" as any,
+                period: "month",
+                criteria: { ids } as any,
+                limit: 2,
+                offset,
+            });
+            expect(page.items.map((item: any) => item.sourceId)).toEqual(expected.slice(offset, offset + 2));
+            expect(page.pagination).toEqual({ total: 5, limit: 2, offset, hasNextPage: offset + 2 < 5 });
+            const missing = page.items.find((item: any) => item.sourceId === ids[3]);
+            if (missing) expect(missing).toMatchObject({ score: 0, viewsCount: 123, likesCount: 7 });
+        }
+    });
+
+    it("serves missing presets from projected metrics without rebuilding a key during the request", async () => {
+        const gameId = 2_060_000_000 - randomInt(100_000);
+        const targetId = await createGame(gameId);
+        await setMetric(targetId, "views", 13);
+        await setMetric(targetId, "like_credit", 2);
+        await dataSource.query(
+            "INSERT INTO metric_hour (targetId, metricCode, bucketStart, metricValue) VALUES (?, 'views', DATE_FORMAT(UTC_TIMESTAMP() - INTERVAL 2 HOUR, '%Y-%m-%d %H:00:00'), 3)",
+            [targetId],
+        );
+        for (const [period, expectedScore] of [["all", 23], ["day", 3]] as const) {
+            const key = `game:popular:${period}`;
+            await dataSource.query("DELETE FROM ranking_score WHERE rankingKey = ?", [key]);
+            const page = await service.findRankings(undefined, {
+                sourceType: StatisticsSourceType.GAME,
+                mode: "popular" as any,
+                period,
+                criteria: { ids: [gameId] } as any,
+            });
+            expect(page.items).toEqual([expect.objectContaining({ sourceId: gameId, score: expectedScore, viewsCount: 13 })]);
+            const [count] = await dataSource.query("SELECT COUNT(*) AS total FROM ranking_score WHERE rankingKey = ?", [key]);
+            expect(Number(count.total)).toBe(0);
+        }
+    });
+
     it("pins only eligible reviews and rejects unbounded recent/all rankings", async () => {
         const gameId = 2_000_000_000 - randomInt(100_000);
         await createGame(gameId);
@@ -147,8 +202,8 @@ describe("statistics rankings", () => {
             "2025-04-12 10:20:00.000125",
         ].entries()) {
             await dataSource.query(
-                `INSERT INTO statistics_event (eventKey, eventVersion, eventKind, targetId, occurredAt, provenance, projectionState, nextAttemptAt)
-                VALUES (?, 1, 'view.recorded', ?, ?, 'live', 'done', CURRENT_TIMESTAMP(6))`,
+                `INSERT INTO statistics_event (eventKey, eventVersion, eventKind, targetId, occurredAt, projectionState, nextAttemptAt)
+                VALUES (?, 1, 'view.recorded', ?, ?, 'done', CURRENT_TIMESTAMP(6))`,
                 [`ranking-micro:${namespace}:${index}`, targetId, occurredAt],
             );
         }

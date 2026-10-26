@@ -27,13 +27,12 @@ describe("recap likes from retained statistics facts", () => {
         const target = await dataSource.query("INSERT INTO statistics_target (sourceType, isActive) VALUES ('post', 1)");
         const targetId = Number(target.insertId);
         await dataSource.query(
-            `INSERT INTO statistics_event (eventKey, eventVersion, eventKind, targetId, actorUserId, occurredAt, provenance, projectionState, nextAttemptAt)
-             VALUES (?, 1, 'like.added', ?, ?, '2024-01-01 00:00:00.000000', 'live', 'done', CURRENT_TIMESTAMP(6)),
-                    (?, 1, 'like.removed', ?, ?, '2024-01-01 12:00:00.000000', 'live', 'done', CURRENT_TIMESTAMP(6)),
-                    (?, 1, 'like.added', ?, ?, '2024-01-02 00:00:00.000000', 'live', 'done', CURRENT_TIMESTAMP(6))`,
+            `INSERT INTO statistics_event (eventKey, eventVersion, eventKind, targetId, actorUserId, occurredAt, projectionState, nextAttemptAt)
+             VALUES (?, 1, 'like.added', ?, ?, '2024-01-01 00:00:00.000000', 'done', CURRENT_TIMESTAMP(6)),
+                    (?, 1, 'like.removed', ?, ?, '2024-01-01 12:00:00.000000', 'done', CURRENT_TIMESTAMP(6)),
+                    (?, 1, 'like.added', ?, ?, '2024-01-02 00:00:00.000000', 'done', CURRENT_TIMESTAMP(6))`,
             [randomUUID(), targetId, actor, randomUUID(), targetId, actor, randomUUID(), targetId, actor],
         );
-        await dataSource.query("INSERT INTO statistics_maintenance (id, historyCompleteSince) VALUES ('main', '2024-01-01 00:00:00.000000') ON DUPLICATE KEY UPDATE historyCompleteSince = VALUES(historyCompleteSince)");
 
         const result = await (service as any).getLikesPerformedInPeriod(actor, {
             startDate: dayjs("2024-01-01T00:00:00.000Z"),
@@ -41,6 +40,6 @@ describe("recap likes from retained statistics facts", () => {
         });
 
         expect(result).toMatchObject({ total: 1, historyComplete: true });
-        expect(result.completeSince.toISOString()).toBe("2024-01-01T00:00:00.000Z");
+        expect(result.completeSince).toBeNull();
     });
 });

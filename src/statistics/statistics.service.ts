@@ -23,7 +23,6 @@ import {
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
 import { ensureStatisticsTarget } from "./statistics-target.repository";
 import {
-    parseMySqlStatisticsInstant,
     parseStatisticsInstant,
     statisticsInstantAtMicros,
 } from "./statistics-time";
@@ -143,8 +142,8 @@ export class StatisticsService {
                     const eventKind = isLike ? "like.added" : "like.removed";
                     const inserted = await manager.query(
                         `INSERT INTO statistics_event
-                            (eventKey, eventVersion, eventKind, targetId, actorUserId, occurredAt, provenance, firstLikeCredit, projectionState, attempts, nextAttemptAt)
-                        VALUES (?, 1, ?, ?, ?, ?, 'live', ?, 'pending', 0, CURRENT_TIMESTAMP(6))`,
+                            (eventKey, eventVersion, eventKind, targetId, actorUserId, occurredAt, firstLikeCredit, projectionState, attempts, nextAttemptAt)
+                        VALUES (?, 1, ?, ?, ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP(6))`,
                         [`${isLike ? "like" : "unlike"}:${transitionId}`, eventKind, context.targetId, userId, occurredAt, firstLikeCredit ? 1 : 0],
                     );
                     const eventId = assertSafeCount(inserted.insertId);
@@ -189,8 +188,8 @@ export class StatisticsService {
                     const occurredAt = new Date();
                     await manager.query(
                         `INSERT IGNORE INTO statistics_event
-                            (eventKey, eventVersion, eventKind, targetId, actorUserId, occurredAt, provenance, firstLikeCredit, projectionState, attempts, nextAttemptAt)
-                        VALUES (?, 1, 'view.recorded', ?, ?, ?, 'live', 0, 'pending', 0, CURRENT_TIMESTAMP(6))`,
+                            (eventKey, eventVersion, eventKind, targetId, actorUserId, occurredAt, firstLikeCredit, projectionState, attempts, nextAttemptAt)
+                        VALUES (?, 1, 'view.recorded', ?, ?, ?, 0, 'pending', 0, CURRENT_TIMESTAMP(6))`,
                         [eventKey, context.targetId, userId ?? null, occurredAt],
                     );
                     const [event] = await manager.query(
@@ -332,7 +331,7 @@ export class StatisticsService {
                 to: toInstant.iso,
                 granularity: dto.granularity,
                 buckets: starts.map((bucket) => ({ start: isoUtc(bucket), value: values.get(bucket.toISOString())! })),
-                ...(await this.freshness(manager, context.targetId, fromInstant)),
+                ...(await this.freshness(manager, context.targetId)),
             };
         });
     }
@@ -346,7 +345,7 @@ export class StatisticsService {
         }
     }
 
-    private async freshness(manager: EntityManager, targetId?: number, from?: ReturnType<typeof parseStatisticsInstant>) {
+    private async freshness(manager: EntityManager, targetId?: number) {
         const targetFilter = targetId === undefined ? "" : " AND targetId = ?";
         const parameters = targetId === undefined ? [] : [targetId];
         const [row] = await manager.query(
@@ -355,20 +354,13 @@ export class StatisticsService {
             FROM statistics_event WHERE projectionState IN ('pending', 'failed')${targetFilter}`,
             parameters,
         );
-        const [maintenance] = await manager.query(
-            "SELECT DATE_FORMAT(historyCompleteSince, '%Y-%m-%dT%H:%i:%s.%fZ') AS historyCompleteSince FROM statistics_maintenance WHERE id = 'main'",
-        );
-        const completeSince = maintenance?.historyCompleteSince
-            ? parseMySqlStatisticsInstant(String(maintenance.historyCompleteSince).replace(/Z$/, "")).iso
-            : null;
-        const incompleteFrom = completeSince ? parseStatisticsInstant(completeSince) : null;
         const oldest = row.oldestPendingAt ? new Date(row.oldestPendingAt).getTime() : null;
         return {
             asOf: new Date().toISOString(),
             projectionLagSeconds: oldest === null ? 0 : Math.max(0, (Date.now() - oldest) / 1000),
             hasFailedEvents: Number(row.failedCount || 0) > 0,
-            historyComplete: !incompleteFrom || Boolean(from && from.epochMicros >= incompleteFrom.epochMicros),
-            completeSince,
+            historyComplete: true,
+            completeSince: null,
         };
     }
 

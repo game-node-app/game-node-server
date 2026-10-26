@@ -97,8 +97,8 @@ targets, counters and timestamps survive replay. Concurrent relationship branche
 can encounter the same reference: insert-if-missing preserves its metadata and
 discards an unused reserved target in that transaction. The final manager-scoped
 initializer verifies the link; no statistics job or engagement fact is emitted.
-See [the statistics cutover](statistics.md#offline-conversion-rebuild-and-rollback)
-for schema ordering. Focused verification:
+See [the fresh statistics installation](statistics.md#fresh-installation) for
+schema ordering. Focused verification:
 
 ```bash
 yarn jest --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts

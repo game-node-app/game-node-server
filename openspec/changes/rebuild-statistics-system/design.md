@@ -19,9 +19,9 @@ Pre-implementation baseline on 2026-10-26 at commit 76bf0a4d8ec6676344e1589e0ac2
 
 ## Goals / Non-Goals
 
-**Goals:** Make source identity and interaction semantics reusable; preserve durable facts; keep reaction results exact; make period/recency reads bounded and explainable; complete the local replacement with focused functional evidence.
+**Goals:** Make source identity and interaction semantics reusable; preserve durable facts; keep reaction results exact; make period/recency reads bounded and explainable; complete a fresh-database implementation with focused functional evidence.
 
-**Non-Goals:** Domain event sourcing, a shared notification/analytics event bus, a new service or database, new business engagement kinds, a formula editor, exact unique visitors, frontend implementation, live dual writes, capacity benchmarking, an exhaustive fault-injection campaign, or a fixed delivery-latency guarantee.
+**Non-Goals:** Legacy statistics conversion or rebuild, domain event sourcing, a shared notification/analytics event bus, a new service or database, new business engagement kinds, a formula editor, exact unique visitors, frontend implementation, live dual writes, capacity benchmarking, an exhaustive fault-injection campaign, or a fixed delivery-latency guarantee.
 
 ## Decisions
 
@@ -32,18 +32,18 @@ The predecessor dependency is satisfied at the reviewed revision. Task 1.1's pre
 | Shared area | Integrated behavior to preserve | Statistics adaptation |
 | --- | --- | --- |
 | StatisticsService and controller | applyReaction transaction/retries, strict source-only DTOs, session/suspension/throttling, source/root locks and committed response | Replace storage inside that writer and append analytics with the same manager; retain paths, DTO semantics and guards |
-| Remaining statistics queue | Only view/create mutations are supported; old like commands fail | Retire view/init mutations after separate capture and introduce a statistics projection trigger |
+| Remaining statistics queue | Only view/create mutations are supported; old like commands fail | Remove obsolete view/init mutations and introduce a statistics projection trigger |
 | Source creation | Comment action/notification transaction; post/review/activity persistence and existing post-commit side effects | Initialize comment targets in its current transaction; add minimal source/target transactions for the other creators, preserving notifications and other side effects |
-| Deletion/privacy/profile cleanup | invalidateContent, invalidateComment, invalidateCollection and invalidateProfile plus source-context lock helpers | Add statistics maintenance in the same owning domain transactions; do not import StatisticsService into NotificationsModule or replace its hooks |
-| Notification stores and cutover audit | Outbox/event/inbox rows, identities, payload versions, leases/retries, read versions and notification_cutover_* records | Keep schemas/data and their retry/retention authority unchanged; analytics migration/rebuild never replays them |
-| Migrations | Tracked notification DDL through 1792960197567 and verified predecessor maintenance | Allocate later statistics migrations; verify the actual upgraded baseline rather than rerunning notification conversion |
+| Deletion/privacy/profile cleanup | invalidateContent, invalidateComment, invalidateCollection and invalidateProfile plus source-context lock helpers | Add statistics updates in the same owning domain transactions; do not import StatisticsService into NotificationsModule or replace its hooks |
+| Notification stores and cutover audit | Outbox/event/inbox rows, identities, payload versions, leases/retries, read versions and notification_cutover_* records | Keep schemas/data and their retry/retention authority unchanged; statistics capture/projection/retry never replays them |
+| Migrations | Tracked notification DDL through 1792960197567 | Apply the fresh statistics storage and recap coverage migrations after the notification chain |
 | Redis/transport | Existing BullMQ noeviction/AOF, separate cache Redis, notification attempt tokens and retry configuration | Reuse infrastructure and leave notification job/schedule/configuration behavior unchanged |
 
 Extend applyReaction to generate a server-owned transition UUID for each real analytics transition. Store eventKey like:<UUID> or unlike:<UUID>; for a qualifying like pass that UUID as the existing notification intent id, the same occurredAt, and the newly persisted analytics event's positive safe-integer numeric id as payload.likeId. This is a new correlation step replacing savedLike.id for future likes, not an identity contract the old writer already implements. A rolled-back transaction retries as a whole; a repeated committed state returns without inserting another analytics or notification event.
 
 Use the existing version-1 ContentLikedPayload allowlist: likeId, subjectType, subjectId, and permitted optional rootType/rootId. Preserve comment subjectType comment with the real post/review/activity root and native subject identity. Add no analytics fields to that strict payload and no new notification version/table. The append helper requires manager.queryRunner.isTransactionActive and uses insert; never call it through a default repository manager, a separate transaction, or an upsert that overwrites a prior event.
 
-Pre-cutover notification IDs and numeric likeId payload values remain unchanged. Deduplication uses the existing string event identity and recipient, so numeric causal IDs from the two eras need no shared sequence. A like notification remains historical after unlike and after UserLike is removed. Neither asynchronous consumer waits for the other; neither derives completion from the other ledger.
+Notification IDs and numeric likeId payload values remain owned by the notification outbox. Deduplication uses the existing string event identity and recipient. A like notification remains historical after unlike. Neither asynchronous consumer waits for the other; neither derives completion from the other ledger.
 
 The predecessor's decision to retain per-entity statistics was its implementation boundary, not a permanent behavior requirement. Its content-reactions/notification specs remain authoritative. Alternative rejected: another reaction writer, shared notification/analytics retry state, or changing the completed notification contract to accommodate analytics.
 
@@ -55,17 +55,16 @@ Keep the following stores under src/statistics, using the existing TypeORM conve
 | --- | --- | --- |
 | statistics_target | Numeric id, supported source kind, active/tombstone state | Internal target identity |
 | engagement_state | Unique (targetId, profileUserId), likedAt, firstLikedAt, lastViewedAt | Current authenticated-user state and first-known-like credit admission |
-| statistics_event | Numeric id, unique eventKey, version/kind, targetId, nullable actor, occurredAt, recordedAt, provenance, first-like-credit flag, projection status/attempts/due time/bounded error | Retained interaction facts; delivery metadata belongs only to the statistics projector |
+| statistics_event | Numeric id, unique eventKey, version/kind, targetId, nullable actor, occurredAt, recordedAt, first-like-credit flag, projection status/attempts/due time/bounded error | Retained interaction facts; delivery metadata belongs only to the statistics projector |
 | metric_total | Unique (targetId, metricCode), numeric value | Derived totals; only the reaction transaction writes likes_current |
 | metric_hour | Unique (targetId, metricCode, bucketStart), numeric value | Derived additive hourly facts |
 | ranking_score | Unique (rankingKey, targetId), score, definitionVersion, computedAt | Disposable prepared ranking values |
-| statistics_maintenance | One bounded checkpoint/control record for conversion/rebuild and history-complete-since metadata | Restart-safe local maintenance progress and coverage, not a general workflow engine |
 
-Add a unique statisticsTargetId FK to Game, Review, Activity, Post, ReviewComment, ActivityComment, and PostComment. Create source and target together; source upserts preserve the existing FK. Existing databases get bounded backfill before NOT NULL enforcement. There is no source-ID string coercion in hot metric joins, and public APIs continue to use native IDs.
+Add a unique statisticsTargetId FK to Game, Review, Activity, Post, ReviewComment, ActivityComment, and PostComment. Create source and target together; source upserts preserve the existing FK. Existing sources without a target can be initialized lazily by their typed resolver. There is no source-ID string coercion in hot metric joins, and public APIs continue to use native IDs.
 
 Generic facts/state reference statistics_target through real FKs. The source-to-target FK does not automatically delete its parent when a source is deleted: lifecycle code must mark the target inactive in the owning transaction. Keep tombstones where retained facts still reference them. Typed source resolvers check the actual native source and existing access policy; an internal target is never sufficient evidence of access.
 
-firstLikedAt survives an ordinary unlike, even if likedAt becomes null. lastViewedAt supports isViewed after rebuilding projections. Anonymous views have no engagement_state row and no durable anonymous tracking identifier. A view UUID represents one accepted navigation impression, not one person.
+firstLikedAt survives an ordinary unlike, even if likedAt becomes null. lastViewedAt supports isViewed without scanning historical events. Anonymous views have no engagement_state row and no durable anonymous tracking identifier. A view UUID represents one accepted navigation impression, not one person.
 
 Use selected repository fields and small source mappings; preserve the existing layers. Adding a new supported source requires its domain FK/initializer/resolver/lifecycle coverage, not another statistics/action table. Adding an additive metric requires an allowlisted definition and projector rule. Non-additive metrics require an explicit definition rather than automatic summing.
 
@@ -77,7 +76,7 @@ Initial event kinds are view.recorded, like.added, and like.removed, version 1. 
 
 | Metric | Meaning and writer |
 | --- | --- |
-| likes_current | Exact active count, synchronously changed by reaction/account-cleanup transactions; rebuilt from engagement_state |
+| likes_current | Exact active count, synchronously changed by reaction/account-cleanup transactions; initialized for new targets and reconciled during account cleanup |
 | views | Accepted recorded impressions, projected into totals and hourly buckets |
 | likes_added | Every real like transition, including relikes; projected |
 | likes_removed | Every real user unlike transition; projected |
@@ -87,9 +86,9 @@ Do not let the projector change likes_current, and do not let a synchronous view
 
 Keep business fact fields immutable except explicit account-identity redaction. Mutable retry/completion fields are operational metadata. Store no content HTML, arbitrary URLs, credentials, private profile snapshots, raw IPs, or client-selected metric values.
 
-For authenticated requests, derive the actor from the session. For online interactions, occurrence time comes from the server action; recordedAt identifies ledger admission. Historical conversion uses known legacy createdAt with legacy-recorded provenance and does not claim those worker-time timestamps are precise original occurrence times.
+For authenticated requests, derive the actor from the session. Occurrence time comes from the server action; recordedAt identifies ledger admission. All facts are captured by this application; there is no historical import path or timestamp provenance field.
 
-The first-known-like policy prevents accumulating ranking credit by toggling unlike/relike. It is distinct from notification semantics: every genuine relike still has a new transition and may notify under content-reactions. Legacy deleted likes cannot reveal an actor's first-ever interaction; that limitation is covered by history metadata.
+The first-known-like policy prevents accumulating ranking credit by toggling unlike/relike. It is distinct from notification semantics: every genuine relike still has a new transition and may notify under content-reactions.
 
 Alternative rejected: ranking directly from raw like-addition traffic or defining impressions as unique people. Both would make otherwise valid aggregation misleading.
 
@@ -115,7 +114,7 @@ Track pending/done/failed state and a bounded last error. Use five automatic att
 
 Never advance a single maximum-event-ID watermark: auto-increment allocation and commit order can differ. Completion is per fact. The event ledger itself is the durable pending source and cannot be inferred from notification delivery state.
 
-Expose oldest pending age, failed-event count, and ranking calculation age from existing durable state. Failed facts degrade freshness without blocking unrelated work. The five-second drain and 30-second score schedules are implementation defaults, not an end-to-end latency promise. A new telemetry or benchmark system is not required.
+Expose oldest pending age, failed-event count, and ranking calculation age from existing durable state. Failed facts degrade freshness without blocking unrelated work. The five-second drain and six-hour score schedules are implementation defaults, not an end-to-end latency promise. A new telemetry or benchmark system is not required.
 
 Alternative rejected: rebuilding the entire ranking for every view, relying on transient enqueue callbacks, or multiplying queue retries and database retries without one authority.
 
@@ -127,9 +126,7 @@ Use complete hourly buckets for the interior of an interval and successfully pro
 
 Indexes initially serve (targetId, metricCode, bucketStart) and (metricCode, bucketStart, targetId). Event indexes support due status/time/id, target/occurrence boundary reads, and actor/kind/occurrence recap reads. Inspect the bounded SQL access paths during review; use EXPLAIN when investigating an observed query problem, without making a query-plan report a release gate.
 
-Return calculated/asOf time, effectiveFrom/effectiveTo where applicable, projectionLagSeconds, hasFailedEvents, and historyComplete/completeSince. Lag is based on unfinished recorded work, not the maximum occurrence time seen. An old failed fact is distinguishable from missing legacy history. Initial retention keeps all facts and deduplication identities; no silent pruning is part of this local rewrite.
-
-For a rebuild, stop statistics ingress and projection, establish exclusive database maintenance ownership, reset derived views/flows/credits/hourly/ranking data, seed likes_current from current state, and replay facts in bounded batches. Persist progress and resume after interruption. Keep notification delivery and domain mutation APIs out of the rebuild code path. A rebuild without the maintenance boundary must refuse to run.
+Return calculated/asOf time, effectiveFrom/effectiveTo where applicable, projectionLagSeconds, hasFailedEvents, and the complete-history fields. History is complete from the fresh installation, so `completeSince` is null. Lag is based on unfinished recorded work, not the maximum occurrence time seen. Initial retention keeps all facts and deduplication identities; no silent pruning is part of this rewrite.
 
 Alternative rejected: daily-only storage, summing distinct-per-hour visitors, or declaring a rolling interval exact after rounding it to bucket boundaries.
 
@@ -139,7 +136,7 @@ Initial definition engagement-v1 assigns view weight 1 and like_credit weight 5.
 
 Game and review rankings are the initial supported ranking categories. Preserve existing game criteria and mature-theme exclusion, and review game/author/excludeOwn filters. If reviewId is provided for the existing priority behavior, it is validated and pinned only when it passes the same eligibility/filter rules. Series/summary/status support all seven current source kinds.
 
-Prepare popular day/week/month/quarter/half-year/year/all and recent week scores on a 30-second schedule. Anchor calculations to one UTC instant. Refresh one ranking key with set-based database work and atomically publish its complete replacement in a transaction; record computedAt/version on its rows. Do not publish partial per-key results. Use an index beginning with rankingKey and descending score; source-native identity supplies the final tie-break after the typed source join. Review that ordering explicitly; a targetId index alone does not order native UUIDs.
+Prepare popular day/week/month/quarter/half-year/year/all and recent week scores every six hours, at 00:00, 06:00, 12:00 and 18:00 UTC. Anchor calculations to one UTC instant. Refresh one ranking key with set-based database work and atomically publish its complete replacement in a transaction; record computedAt/version on its rows. Do not publish partial per-key results. Use an index beginning with rankingKey and descending score; source-native identity supplies the final tie-break after the typed source join. Review that ordering explicitly; a targetId index alone does not order native UUIDs.
 
 Other finite requests use hourly aggregates and exact boundary facts. Popular all-time reads additive totals; recent all-time is rejected. Default ranking is popular/week. Explicit finite intervals must be positive and at most 366 days.
 
@@ -176,27 +173,19 @@ Profile cleanup: collect the user's active reactions, reconcile affected likes_c
 
 IGDB: replace ensureGameStatistics with an insert-if-missing target initializer using its supplied manager. Preserve the GameImportContext requirement, per-game transaction, forward references, checksum/reconciliation behavior, and no secondary backlog. Update the callback/type/callers and the existing tests together.
 
-Recap: use actor/kind/occurredAt facts for totalLikesPerformed. Preserve existing persisted recap snapshots; an explicit new recap can use historical additions with coverage metadata for pre-cutover periods. Other recap/playtime/provider logic is outside scope.
+Recap: use actor/kind/occurredAt facts for totalLikesPerformed. Preserve existing persisted recap snapshots; new recaps use retained additions from the beginning of statistics capture. Other recap/playtime/provider logic is outside scope.
 
-Manticore: change only the source join from game_statistics to source target plus views/likes_current metric totals, with COALESCE zero defaults and original num_views/num_likes aliases. Preserve sparse games, game IDs, relevance/filter rules and the existing refresh schedule. Rebuild the index after local cutover. Update test/search's explicit schema/seeds and all raw SQL fixtures.
+Manticore: change only the source join from game_statistics to source target plus views/likes_current metric totals, with COALESCE zero defaults and original num_views/num_likes aliases. Preserve sparse games, game IDs, relevance/filter rules and the existing refresh schedule. Update test/search's explicit schema/seeds and all raw SQL fixtures.
 
-Review notification handler fixtures for any selected old statistics relation or causal FK assumption; native source references and immutable transition identities must continue resolving after the old statistics tables disappear. Exercise a pending pre-cutover content.liked payload and a new analytics-backed numeric likeId after UserLike removal; both must render under the existing intent identity without consulting active reaction storage. No notification store migration or public notification contract change belongs here.
+Review notification handler fixtures for any selected old statistics relation or causal FK assumption; native source references and immutable transition identities must continue resolving independently of statistics storage. No notification store migration or public notification contract change belongs here.
 
-### 10. Convert known local data with an honest history boundary
+### 10. Start with a fresh statistics store
 
-Use an offline local statistics maintenance cutover on the implemented notification baseline. Preserve a coordinated database/code/queue backup; stop ingress, source producers, and obsolete statistics workers. Order statistics migrations after 1792960197567-RetireLegacyNotificationStorage, or any later integrated migration at apply time, and keep them tracked despite the repository's migration ignore rules. Verify actual predecessor DDL/migration records and FK constraints before dropping old statistics storage. Do not rerun notification conversion or recreate its removed notification table/pendingDelivery column.
+This implementation assumes statistics begin with a fresh database. Apply the statistics storage migration and recap coverage migration in the normal application migration chain. Do not inventory or import old statistics rows or queue jobs, create a conversion checkpoint, or run a one-time aggregate rebuild.
 
-Retain notification_outbox, notification_event, notification_inbox and notification_cutover_state/job/exclusion, their IDs, read versions, payloads and predecessor backup references. Converted databases retain their existing audit; fresh databases need no fabricated legacy conversion rows. The notification fixture harness synchronizes a disposable domain baseline and has migration-specific upgrade checks; it does not establish that the ignored initial full-application schema is reproducible. Test new statistics DDL against both an initialized fresh fixture and the actual integrated upgrade baseline without claiming that wider migration gap was fixed here.
+Source creation initializes its statistics target inside the owning source transaction. Existing sources that do not yet have a target can be initialized by the typed source resolver before a statistics operation. New facts begin at installation and are projected by the normal recurring worker; ranking scores refresh on their regular schedule. History coverage is complete from this starting point.
 
-Backfill source targets and state in bounded batches. Map surviving likes to current state and first-known-like timestamps; derive lastViewedAt from known authenticated views. Convert views and surviving like rows with deterministic keys legacy:view:<id> and legacy:like:<id>, preserving known timestamps/provenance. Counters seed from available facts/current state, not from already inconsistent legacy counters.
-
-Record per-table counts, mapping coverage, invalid/orphan references, before/after counters, and corrections. Preserve original rows in the backup. An old counter with no corresponding facts does not justify inventing temporal events. Deleted historical likes/unlikes cannot be reconstructed. Set persistent completeSince to the cutover boundary and return incomplete-history metadata for earlier periods; a fresh empty install has no legacy gap.
-
-Capture outstanding view/create payloads using statistics-owned checkpoint state before retiring their workers. NotificationsCutoverService.captureLegacyQueue archived only job.name like from statistics-queue, and its completed queue checkpoints cannot be reused to skip this inventory. Leave that archive intact and never reinterpret its rejected like commands as new transitions. Valid captured views receive deterministic legacy-job identities and timestamp provenance; completed jobs without a durable identity cannot be promised deduplicated against an indistinguishable historical row, so inventory ambiguity rather than double-counting silently. Initialization work only repairs targets. Neither pending/delivered notifications nor their archived jobs are a complete engagement history or a backfill source.
-
-Rebuild and compare projections, switch the sole API, rebuild Manticore, then drop obsolete statistics entities/action FKs and queue paths only after conversion invariants pass. A scoped local maintenance command may share checkpoint state for conversion/rebuild; do not add a general migration framework or runtime legacy fallback.
-
-Rollback before reopening writes restores the coordinated backup and previous code with writers stopped. A down migration cannot reconstruct discarded columns or missing history. After new writes resume, restore would discard them; use a forward correction or a separate explicit recovery decision.
+Keep notification_outbox, notification_event, notification_inbox and notification_cutover_state/job/exclusion independent. Statistics capture, projection and retry never modify notification IDs, payloads, read state, or audit records.
 
 ### 11. Finish with finite functional acceptance
 
@@ -210,7 +199,6 @@ Use small deterministic fixtures. Add rows beyond a page or batch limit only whe
 | Projection and reads | Duplicate processing has one aggregate effect; a failed fact can be rearmed without blocking valid work; intervals, first-like weights, and zero/lag/coverage responses have the expected values. Exercise rollback/replay through database transactions rather than building a process-kill or network-outage harness. |
 | Rankings and lifecycle | A small filtered/paginated dataset includes low-score matches, zero scores and an ineligible source; current privacy and actor context are respected. Check changed creation/cleanup paths using existing lifecycle coverage and a representative rollback/account-cleanup fixture. Review the mappings for all seven sources. |
 | Consumers | Run the affected IGDB import/rollback/replay cases, one engine-backed search contract covering the replacement popularity join, and the recap history case. Full catalog recovery, resource-bound, provider, and search outage campaigns are not required unless changes touch their behavior or reveal a regression. |
-| Conversion and rebuild | One small legacy fixture covers active likes, known views, independent queue capture, restart/idempotence, and unchanged notification identities/read state. Verify the additive schema on an initialized fresh fixture and upgrade fixture. Keep backup requirements and refusal guards for destructive operations; actual deployment/restore is outside this implementation. |
 
 During implementation, run the smallest affected test selection after a meaningful change. After a failure, diagnose it, make a concrete correction, and rerun that selection. A passing result remains valid until a later change affects its code, schema, or fixture dependencies; edits to unrelated files or documentation do not invalidate it. Mark the corresponding task immediately using that evidence, rather than waiting for every suite to pass.
 
@@ -223,25 +211,21 @@ Acceptance ends when the functional tasks are supported by code review and the c
 ## Risks / Trade-offs
 
 - [Statistics storage replacement can regress completed reaction/lifecycle behavior] -> Use the recorded integrated revision, extend its one writer/hooks, and rerun existing notification/reaction contracts on the replacement schema.
-- [Notification cutover queue checkpoints omit view/create work] -> Capture that work with statistics-owned progress and preserve the predecessor's like-job inventory without replay.
 - [Extra local ledger writes add latency and source lock contention] -> Keep facts minimal and avoid I/O under locks; investigate observed contention without making capacity tuning part of functional delivery.
 - [Long-range sums still examine temporal rows] -> Prepare common scores, index measured paths, bound ranges, and keep cold queries out of full-history application scans.
 - [A complete ranking-key refresh can contend on a large score set] -> Use set-based SQL and atomic publication; generation swapping or capacity tuning requires a separately observed need.
 - [Production capacity remains unmeasured] -> Keep batch/page bounds and freshness metadata, disclose the limit, and schedule a separate performance exercise only when requested.
 - [Hourly recency is approximate] -> Document its representative timestamp and keep exact interval inclusion; finer buckets require a measured product requirement.
 - [Anonymous impressions and new identities can inflate interest] -> Preserve existing rate limits, deduplicate transport retries and first-like credit, and avoid claiming unique/fraud-proof traffic.
-- [Legacy counters or removed likes lack supporting facts] -> Report corrections/coverage and retain the coordinated backup; do not manufacture history.
+- [The application starts without historical statistics facts] -> Scope this implementation to a fresh statistics database; no legacy history import is provided.
 - [An event ledger grows indefinitely] -> Retain initially for honest replay; a future retention change must explicitly preserve or narrow query/deduplication guarantees.
 - [New source FKs point toward a shared target] -> Explicit source/account lifecycle maintenance and eligibility checks are mandatory; automatic reverse cascade is not assumed.
 
 ## Migration Plan
 
-1. Reuse the recorded notification baseline at 76bf0a4d8ec6676344e1589e0ac2ea2ed56676fd and allocate tracked statistics migrations after the integrated chain; verify only affected later changes.
-2. Prepare the replacement stores, writers, projections, consumers, API definitions and focused tests without a live dual-write rollout.
-3. Establish local maintenance, export the coordinated backup, and inventory source/interaction counts, constraints, and legacy statistics queue payloads.
-4. Run restart-safe target/state/fact conversion, record coverage/corrections, rebuild aggregates/rankings, and verify active reactions plus unchanged notification state.
-5. Switch the sole statistics runtime, rebuild Manticore, verify the affected source-based API/recap/catalog contracts, then remove old storage and stale mutation routes after conversion invariants pass.
-6. Restore the coordinated backup/code if acceptance fails before writes reopen; document forward correction and data-loss implications afterward.
+1. Apply the statistics storage and recap coverage migrations after the integrated notification migration chain.
+2. Start the application with statistics capture, projection, and ranking refresh enabled. No old statistics data or queue work is imported.
+3. Rebuild the search index through the regular deployment process if the search template changed.
 
 ## References
 

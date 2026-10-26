@@ -23,7 +23,6 @@ describe("statistics source API coverage", () => {
     });
 
     it("serves summaries, anonymous status, and series for all seven native source kinds", async () => {
-        await dataSource.query("UPDATE statistics_maintenance SET historyCompleteSince = NULL WHERE id = 'main'");
         const owner = randomUUID();
         const postId = randomUUID();
         const reviewId = randomUUID();

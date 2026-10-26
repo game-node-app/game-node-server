@@ -9,11 +9,9 @@ import { StatisticsEvent } from "./entity/statistics-event.entity";
 import { MetricTotal } from "./entity/metric-total.entity";
 import { MetricHour } from "./entity/metric-hour.entity";
 import { RankingScore } from "./entity/ranking-score.entity";
-import { StatisticsMaintenance } from "./entity/statistics-maintenance.entity";
 import { StatisticsProjectionModule } from "./statistics-projection.module";
 import { StatisticsRankingService } from "./statistics-ranking.service";
 import { StatisticsRankingScheduler } from "./statistics-ranking.scheduler";
-import { StatisticsMaintenanceService } from "./statistics-maintenance.service";
 
 @Module({
     imports: [
@@ -24,7 +22,6 @@ import { StatisticsMaintenanceService } from "./statistics-maintenance.service";
             MetricTotal,
             MetricHour,
             RankingScore,
-            StatisticsMaintenance,
         ]),
         SuspensionModule,
         StatisticsProjectionModule,
@@ -33,9 +30,8 @@ import { StatisticsMaintenanceService } from "./statistics-maintenance.service";
         StatisticsService,
         StatisticsRankingService,
         StatisticsRankingScheduler,
-        StatisticsMaintenanceService,
     ],
     controllers: [StatisticsController],
-    exports: [StatisticsService, StatisticsMaintenanceService],
+    exports: [StatisticsService],
 })
 export class StatisticsModule {}

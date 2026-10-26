@@ -94,15 +94,11 @@ A valid view SHALL be confirmed only after its historical fact and any authentic
 - **THEN** the operation does not confirm acceptance or leave partial user state
 
 ### Requirement: Interaction identity and event time are trusted
-Authenticated actors SHALL derive from the session. Event kind, occurrence time, metric values, source ownership, and notification routing SHALL derive from server-controlled actions. Public requests SHALL NOT select those facts. Historical import SHALL retain known timestamps and provenance without turning ingestion time into new interest.
+Authenticated actors SHALL derive from the session. Event kind, occurrence time, metric values, source ownership, and notification routing SHALL derive from server-controlled actions. Public requests SHALL NOT select those facts.
 
 #### Scenario: Client forges event details
 - **WHEN** a view or reaction request supplies an actor, recipient, timestamp, weight, or unsupported property
 - **THEN** validation rejects it before changing state
-
-#### Scenario: Old data is converted today
-- **WHEN** an old view is imported using its known recorded timestamp
-- **THEN** its provenance identifies the historical timestamp limitation and it earns no new interest merely because conversion ran today
 
 ### Requirement: Capture enforces existing abuse and access controls
 Reaction and view operations SHALL enforce applicable authentication, suspension, visibility, and existing request-throttling rules. Views SHALL be described as accepted impressions, without a promise of exact unique visitors or fraud-proof traffic attribution.
@@ -116,17 +112,17 @@ Reaction and view operations SHALL enforce applicable authentication, suspension
 - **THEN** no new state or event is recorded
 
 ### Requirement: Analytics cannot replay notification delivery
-Analytics projection, repair, migration, and rebuild SHALL NOT execute a domain mutation, append notification intent, change notification read state, or depend on notification retention or delivery status. Correlated reaction facts SHALL preserve the original transition identity without sharing completion state.
+Analytics projection and targeted retry SHALL NOT execute a domain mutation, append notification intent, change notification read state, or depend on notification retention or delivery status. Correlated reaction facts SHALL preserve the original transition identity without sharing completion state.
 
-#### Scenario: Analytics is rebuilt repeatedly
-- **WHEN** the same committed reaction facts are projected multiple times
+#### Scenario: Analytics fact is retried
+- **WHEN** a committed reaction fact is projected again after a retry
 - **THEN** analytics converges to the same values and notification events, groups, versions, and read state are unchanged
 
 #### Scenario: Game or self-like is recorded
 - **WHEN** a valid game like or self-like has no qualifying recipient notification
 - **THEN** its statistics are recorded under the ordinary reaction rules without inventing a recipient
 
-#### Scenario: Pending old notification survives statistics conversion
-- **WHEN** a pre-cutover like notification is delivered after the old active-reaction storage has been removed
+#### Scenario: Notification retry is independent from analytics retry
+- **WHEN** a notification retry and an analytics retry occur for the same committed reaction
 - **THEN** its original notification identity and payload remain valid without looking up the former active-like row
-- **AND** analytics conversion or rebuild does not re-key it or add another inbox contribution
+- **AND** analytics retry does not re-key it or add another inbox contribution

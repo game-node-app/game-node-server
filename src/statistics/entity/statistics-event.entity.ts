@@ -11,7 +11,6 @@ import {
 import { StatisticsTarget } from "./statistics-target.entity";
 
 export type StatisticsEventKind = "view.recorded" | "like.added" | "like.removed";
-export type StatisticsEventProvenance = "live" | "legacy-recorded" | "legacy-job";
 export type StatisticsProjectionState = "pending" | "done" | "failed";
 
 @Entity("statistics_event")
@@ -48,9 +47,6 @@ export class StatisticsEvent {
 
     @CreateDateColumn({ type: "datetime", precision: 6 })
     recordedAt: Date;
-
-    @Column({ type: "varchar", length: 32, default: "live" })
-    provenance: StatisticsEventProvenance;
 
     @Column({ type: "boolean", default: false })
     firstLikeCredit: boolean;

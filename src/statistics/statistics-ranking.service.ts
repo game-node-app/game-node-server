@@ -6,7 +6,6 @@ import { DataSource, EntityManager } from "typeorm";
 import { GameRankingCriteriaDto, StatisticsRankingsRequestDto } from "./dto/statistics-api.dto";
 import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 import { StatisticsSourceType } from "./statistics.constants";
-import { assertStatisticsWritesAllowed } from "./statistics-target.repository";
 import {
     floorStatisticsMicros,
     parseStatisticsInstant,
@@ -45,14 +44,6 @@ export class StatisticsRankingService {
     ) {}
 
     async refreshCommonScores(): Promise<void> {
-        await this.refreshCommonScoresForMaintenance(false);
-    }
-
-    async rebuildCommonScores(): Promise<void> {
-        await this.refreshCommonScoresForMaintenance(true);
-    }
-
-    private async refreshCommonScoresForMaintenance(maintenance: boolean): Promise<void> {
         const gameKeys: Array<{ sourceType: StatisticsSourceType.GAME; mode: string; period: string }> = [
             ...preparedPeriods.map((period) => ({ sourceType: StatisticsSourceType.GAME as const, mode: "popular", period })),
             { sourceType: StatisticsSourceType.GAME, mode: "recent", period: "week" },
@@ -63,16 +54,15 @@ export class StatisticsRankingService {
         ];
         for (let i = 0; i < gameKeys.length; i += 4) {
             const batch = gameKeys.slice(i, i + 4);
-            await Promise.all(batch.map((k) => this.refreshKey(k.sourceType, k.mode, k.period, maintenance)));
+            await Promise.all(batch.map((k) => this.refreshKey(k.sourceType, k.mode, k.period)));
         }
-        await Promise.all(reviewKeys.map((k) => this.refreshKey(k.sourceType, k.mode, k.period, maintenance)));
+        await Promise.all(reviewKeys.map((k) => this.refreshKey(k.sourceType, k.mode, k.period)));
     }
 
     private async refreshKey(
         sourceType: StatisticsSourceType.GAME | StatisticsSourceType.REVIEW,
         mode: string,
         period: string,
-        maintenance = false,
     ): Promise<void> {
         const asOf = new Date();
         const from = period === "all" ? null : new Date(asOf.getTime() - (periodDays[period] ?? 7) * dayMs);
@@ -83,7 +73,6 @@ export class StatisticsRankingService {
         while (attempts < 3) {
             try {
                 await this.dataSource.transaction(async (tx) => {
-                    if (!maintenance) await assertStatisticsWritesAllowed(tx);
                     await tx.query(
                         `INSERT INTO ranking_score (rankingKey, targetId, score, definitionVersion, computedAt)
                         SELECT ?, t.id, COALESCE(score.score, 0), ?, ?
@@ -165,12 +154,11 @@ export class StatisticsRankingService {
             fromInstant = from ? statisticsInstantFromDate(from) : null;
             rankingKey = `${sourceType}:${mode}:${period}`;
             if (period === "all" || period === "week" || mode === "popular") {
-                await this.ensureCommonKey(sourceType, mode, period, rankingKey);
                 const [published] = await manager.query(
-                    "SELECT MAX(computedAt) AS computedAt FROM ranking_score WHERE rankingKey = ?",
+                    "SELECT computedAt FROM ranking_score WHERE rankingKey = ? LIMIT 1",
                     [rankingKey],
                 );
-                if (published.computedAt) {
+                if (published?.computedAt) {
                     asOf = new Date(published.computedAt);
                     to = asOf;
                     toInstant = statisticsInstantFromDate(to);
@@ -189,7 +177,7 @@ export class StatisticsRankingService {
             throw new BadRequestException("Recent rankings require a finite interval");
         const score = rankingKey
             ? { sql: "SELECT targetId, score FROM ranking_score WHERE rankingKey = ?", parameters: [rankingKey] }
-            : this.scoreQuery(mode, fromInstant, toInstant, false);
+            : this.scoreQuery(mode, fromInstant, toInstant, fromInstant === null);
         const source = this.sourceQuery(sourceType, dto, actorId);
         const cacheKey = this.cacheKey(actorId, dto, fromInstant, toInstant);
         const countRows = await manager.query(
@@ -206,7 +194,7 @@ export class StatisticsRankingService {
                   ? 0
                   : -1;
             if (memberCount === ids.length) {
-                const freshness = await this.freshness(manager, cached.effectiveFrom ? parseStatisticsInstant(cached.effectiveFrom) : null);
+                const freshness = await this.freshness(manager);
                 return this.response(
                     cached.items,
                     total,
@@ -228,14 +216,16 @@ export class StatisticsRankingService {
         const scoreJoin = `LEFT JOIN (${score.sql}) prepared ON prepared.targetId = t.id`;
         const metricJoins = `LEFT JOIN metric_total views ON views.targetId = t.id AND views.metricCode = 'views'
             LEFT JOIN metric_total likes ON likes.targetId = t.id AND likes.metricCode = 'likes_current'`;
-        const rows = await manager.query(
-            `SELECT ${source.alias}.id AS sourceId, COALESCE(prepared.score, 0) AS score,
-                COALESCE(views.metricValue, 0) AS viewsCount, COALESCE(likes.metricValue, 0) AS likesCount
-            ${source.from} ${scoreJoin} ${metricJoins}
-            WHERE ${source.where}
-            ORDER BY ${order} LIMIT ? OFFSET ?`,
-            [...score.parameters, ...source.parameters, ...orderParameters, limit, offset],
-        );
+        const rows = sourceType === StatisticsSourceType.GAME
+            ? await this.gameRankingPage(manager, source, score, limit, offset)
+            : await manager.query(
+                `SELECT ${source.alias}.id AS sourceId, COALESCE(prepared.score, 0) AS score,
+                    COALESCE(views.metricValue, 0) AS viewsCount, COALESCE(likes.metricValue, 0) AS likesCount
+                ${source.from} ${scoreJoin} ${metricJoins}
+                WHERE ${source.where}
+                ORDER BY ${order} LIMIT ? OFFSET ?`,
+                [...score.parameters, ...source.parameters, ...orderParameters, limit, offset],
+            );
         const items = rows.map((row: any) => {
             const sourceId = sourceType === StatisticsSourceType.GAME ? safeCount(row.sourceId) : String(row.sourceId);
             const score = Number(row.score);
@@ -257,21 +247,49 @@ export class StatisticsRankingService {
             effectiveFrom: fromInstant?.iso ?? null,
             effectiveTo: toInstant.iso,
         }, 15_000).catch(() => undefined);
-        const freshness = await this.freshness(manager, fromInstant);
+        const freshness = await this.freshness(manager);
         return this.response(items, total, limit, offset, mode, asOfInstant, fromInstant, toInstant, freshness);
     }
 
-    private async ensureCommonKey(
-        sourceType: StatisticsSourceType.GAME | StatisticsSourceType.REVIEW,
-        mode: string,
-        period: string,
-        key: string,
-    ) {
-        const [score] = await this.dataSource.query(
-            "SELECT targetId FROM ranking_score WHERE rankingKey = ? LIMIT 1",
-            [key],
+    private async gameRankingPage(manager: EntityManager, source: SourceQuery, score: ScoreQuery, limit: number, offset: number) {
+        const positiveJoin = `JOIN (${score.sql}) prepared ON prepared.targetId = t.id AND prepared.score > 0`;
+        const parameters = [...score.parameters, ...source.parameters];
+        const rows = await manager.query(
+            `SELECT g.id AS sourceId, t.id AS targetId, prepared.score
+             ${source.from} ${positiveJoin} WHERE ${source.where}
+             ORDER BY prepared.score DESC, g.id ASC LIMIT ? OFFSET ?`,
+            [...parameters, limit, offset],
         );
-        if (!score) await this.refreshKey(sourceType, mode, period);
+        if (rows.length < limit) {
+            let positiveCount = offset + rows.length;
+            if (offset > 0 && rows.length === 0) {
+                const [count] = await manager.query(
+                    `SELECT COUNT(*) AS total ${source.from} ${positiveJoin} WHERE ${source.where}`,
+                    parameters,
+                );
+                positiveCount = safeCount(count.total);
+            }
+            const zeros = await manager.query(
+                `SELECT g.id AS sourceId, t.id AS targetId, 0 AS score
+                 ${source.from} LEFT ${positiveJoin}
+                 WHERE ${source.where} AND prepared.targetId IS NULL
+                 ORDER BY g.id ASC LIMIT ? OFFSET ?`,
+                [...parameters, limit - rows.length, Math.max(0, offset - positiveCount)],
+            );
+            rows.push(...zeros);
+        }
+        if (!rows.length) return rows;
+        const metrics = await manager.query(
+            `SELECT t.id AS targetId, COALESCE(views.metricValue, 0) AS viewsCount,
+                COALESCE(likes.metricValue, 0) AS likesCount
+             FROM statistics_target t
+             LEFT JOIN metric_total views ON views.targetId = t.id AND views.metricCode = 'views'
+             LEFT JOIN metric_total likes ON likes.targetId = t.id AND likes.metricCode = 'likes_current'
+             WHERE t.id IN (?)`,
+            [rows.map((row: any) => row.targetId)],
+        );
+        const byTarget = new Map<number, any>(metrics.map((row: any) => [row.targetId, row]));
+        return rows.map((row: any) => ({ ...row, ...byTarget.get(row.targetId) }));
     }
 
     private sourceQuery(
@@ -307,7 +325,8 @@ export class StatisticsRankingService {
                 }
             }
             return {
-                from: "FROM game g JOIN statistics_target t ON t.id = g.statisticsTargetId",
+                // Keep zero-score pagination on the game's native ID index instead of sorting every active target.
+                from: "FROM game g STRAIGHT_JOIN statistics_target t ON t.id = g.statisticsTargetId",
                 where: where.join(" AND "),
                 parameters,
                 id: "g.id",
@@ -428,24 +447,18 @@ export class StatisticsRankingService {
         return `statistics:rank:${definitionVersion}:${digest}`;
     }
 
-    private async freshness(manager: EntityManager, from: StatisticsInstant | null) {
+    private async freshness(manager: EntityManager) {
         const [row] = await manager.query(
             `SELECT SUM(projectionState = 'failed') AS failedCount,
                 MIN(CASE WHEN projectionState = 'pending' THEN recordedAt END) AS oldestPendingAt
              FROM statistics_event WHERE projectionState IN ('pending', 'failed')`,
         );
-        const [maintenance] = await manager.query(
-            "SELECT DATE_FORMAT(historyCompleteSince, '%Y-%m-%dT%H:%i:%s.%fZ') AS historyCompleteSince FROM statistics_maintenance WHERE id = 'main'",
-        );
         const oldest = row.oldestPendingAt ? new Date(row.oldestPendingAt).getTime() : null;
-        const completeSince = maintenance?.historyCompleteSince
-            ? parseStatisticsInstant(String(maintenance.historyCompleteSince)).iso
-            : null;
         return {
             projectionLagSeconds: oldest === null ? 0 : Math.max(0, (Date.now() - oldest) / 1000),
             hasFailedEvents: Number(row.failedCount || 0) > 0,
-            historyComplete: !completeSince || Boolean(from && from.epochMicros >= parseStatisticsInstant(completeSince).epochMicros),
-            completeSince,
+            historyComplete: true,
+            completeSince: null,
         };
     }
 

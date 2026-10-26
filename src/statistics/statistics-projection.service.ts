@@ -5,7 +5,6 @@ import {
     STATISTICS_PROJECTION_BATCH_SIZE,
     STATISTICS_PROJECTION_MAX_RETRIES,
 } from "./statistics-projection.constants";
-import { assertStatisticsWritesAllowed } from "./statistics-target.repository";
 
 type DueEvent = {
     id: number;
@@ -31,7 +30,6 @@ export class StatisticsProjectionService {
             let event: DueEvent | undefined;
             try {
                 const found = await this.dataSource.transaction(async (manager) => {
-                    await assertStatisticsWritesAllowed(manager);
                     [event] = await manager.query(
                         `SELECT id, eventVersion, eventKind, targetId, occurredAt, firstLikeCredit, attempts
                         FROM statistics_event
@@ -115,7 +113,6 @@ export class StatisticsProjectionService {
         if (!Number.isSafeInteger(eventId) || eventId < 1)
             throw new Error("Statistics event id must be a positive safe integer");
         return this.dataSource.transaction(async (manager) => {
-            await assertStatisticsWritesAllowed(manager);
             const result = await manager.query(
                 "UPDATE statistics_event SET projectionState = 'pending', attempts = 0, nextAttemptAt = CURRENT_TIMESTAMP(6), lastError = NULL WHERE id = ? AND projectionState = 'failed'",
                 [eventId],
