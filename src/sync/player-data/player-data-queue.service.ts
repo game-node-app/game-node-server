@@ -50,18 +50,6 @@ export class PlayerDataQueueService implements OnModuleInit {
         };
     }
 
-    status(userId: string, source: EConnectionType) {
-        return this.state.status(userId, source);
-    }
-
-    gameStatus(
-        userId: string,
-        source: EConnectionType,
-        externalGameId: number,
-    ) {
-        return this.state.gameStatus(userId, source, externalGameId);
-    }
-
     @Cron("*/5 * * * *")
     async registerDueJobs() {
         if (this.config.get<string>("PLAYER_DATA_SYNC_ENABLED") === "false")

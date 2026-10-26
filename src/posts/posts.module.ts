@@ -6,11 +6,13 @@ import { Post } from "./entity/post.entity";
 import { PostsRepository } from "./posts.repository";
 import { SuspensionModule } from "../suspension/suspension.module";
 import { ActivitiesQueueModule } from "../activities/activities-queue/activities-queue.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Post]),
         SuspensionModule,
+        NotificationsModule,
         forwardRef(() => ActivitiesQueueModule),
     ],
     providers: [PostsService, PostsRepository],

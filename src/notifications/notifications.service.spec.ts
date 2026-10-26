@@ -1,82 +1,101 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotificationsService } from "./notifications.service";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { Notification } from "./entity/notification.entity";
-import { getMockRepositoryProvider } from "../../test/mocks/repositoryMocks";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Repository } from "typeorm";
-import { Cache } from "cache-manager";
-import { ENotificationCategory } from "./notifications.constants";
+import { NotificationInbox } from "./entity/notification-inbox.entity";
+import { Profile } from "../profile/entities/profile.entity";
+import { DataSource, Repository } from "typeorm";
 import Mocked = jest.Mocked;
+import { Logger } from "@nestjs/common";
 
 describe("NotificationsService", () => {
     let service: NotificationsService;
-    let repository: Mocked<Repository<Notification>>;
-    let cacheManager: Mocked<Cache>;
+    let inboxRepo: Mocked<Repository<NotificationInbox>>;
+    let profileRepo: Mocked<Repository<Profile>>;
+    let dataSource: Mocked<DataSource>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 NotificationsService,
-                getMockRepositoryProvider(Notification),
                 {
-                    provide: CACHE_MANAGER,
+                    provide: getRepositoryToken(NotificationInbox),
                     useValue: {
-                        get: jest.fn(),
-                        set: jest.fn(),
+                        createQueryBuilder: jest.fn(),
+                        find: jest.fn(),
+                        update: jest.fn(),
+                    },
+                },
+                {
+                    provide: getRepositoryToken(Profile),
+                    useValue: {
+                        find: jest.fn(),
+                    },
+                },
+                {
+                    provide: DataSource,
+                    useValue: {
+                        query: jest.fn(),
                     },
                 },
             ],
         }).compile();
 
         service = module.get<NotificationsService>(NotificationsService);
-        repository = module.get(getRepositoryToken(Notification));
-        cacheManager = module.get(CACHE_MANAGER);
+        inboxRepo = module.get(getRepositoryToken(NotificationInbox));
+        profileRepo = module.get(getRepositoryToken(Profile));
+        dataSource = module.get(DataSource);
     });
 
     it("should be defined", () => {
         expect(service).toBeDefined();
     });
 
-    it("should find and aggregate similar notifications", async () => {
-        const mockUserId = "12345";
-        const mockReviewId = "a-review-123";
-        const mockNotifications = [
-            {
-                id: 123,
-                reviewId: mockReviewId,
-                category: ENotificationCategory.LIKE,
-            } as Notification,
-            {
-                id: 456,
-                reviewId: mockReviewId,
-                category: ENotificationCategory.LIKE,
-            } as Notification,
-            {
-                id: 789,
-                reviewId: "another-review-321",
-                category: ENotificationCategory.LIKE,
-            } as Notification,
-        ];
-        const mockLastCheckedDate = new Date();
-        mockLastCheckedDate.setDate(-30);
-        cacheManager.get.mockResolvedValueOnce(
-            mockLastCheckedDate.toISOString(),
-        );
-        repository.findAndCount.mockResolvedValue([
-            structuredClone(mockNotifications),
-            mockNotifications.length,
+    it("returns paginated data with unread count", async () => {
+        const debug = jest
+            .spyOn(Logger.prototype, "debug")
+            .mockImplementation(() => undefined);
+        const mockQb: any = {
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            addOrderBy: jest.fn().mockReturnThis(),
+            take: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([
+                {
+                    id: 1,
+                    recipientUserId: "recipient-1",
+                    type: "content.liked",
+                    actorIds: ["u1"],
+                    eventCount: 1,
+                    actorCount: 1,
+                    lastEventAt: new Date(),
+                    version: 1,
+                    readVersion: 0,
+                    preview: { text: "Liked your post" },
+                    target: { type: "post", id: "p1" },
+                },
+            ]),
+            getCount: jest.fn().mockResolvedValue(1),
+        };
+
+        inboxRepo.createQueryBuilder.mockReturnValue(mockQb);
+        dataSource.query.mockResolvedValue([{ id: 1 }]);
+        profileRepo.find.mockResolvedValue([
+            { userId: "u1", username: "user_one", avatar: null } as any,
         ]);
 
-        const [aggregations, _] = await service.findAllAndAggregate(
-            mockUserId,
-            { offset: 0 },
-        );
-
-        const firstAggregation = aggregations[0];
-        expect(aggregations.length).toEqual(2);
-        expect(firstAggregation.category).toBe(ENotificationCategory.LIKE);
-        expect(firstAggregation.sourceId).toBe(mockReviewId);
-        expect(firstAggregation.notifications.length).toBe(2);
+        const result = await service.findAll("recipient-1", { limit: 20 });
+        expect(result.data).toHaveLength(1);
+        expect(result.data[0].actors[0].username).toBe("user_one");
+        expect(result.unreadCount).toBe(1);
+        expect(debug).toHaveBeenCalledWith({
+            event: "notification-inbox-read",
+            durationMs: expect.any(Number),
+            returnedCount: 1,
+            scannedCount: 1,
+            limit: 20,
+        });
+        expect(JSON.stringify(debug.mock.calls)).not.toContain("recipient-1");
+        debug.mockRestore();
     });
 });

@@ -7,6 +7,7 @@ import { LibrariesModule } from "../libraries/libraries.module";
 import { ReviewsModule } from "../reviews/reviews.module";
 import { CollectionsEntriesModule } from "./collections-entries/collections-entries.module";
 import { AchievementsModule } from "../achievements/achievements.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { AchievementsModule } from "../achievements/achievements.module";
         LibrariesModule,
         forwardRef(() => CollectionsEntriesModule),
         AchievementsModule,
+        NotificationsModule,
     ],
     controllers: [CollectionsController],
     providers: [CollectionsService],

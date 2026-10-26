@@ -1,13 +1,17 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
     HttpCode,
     HttpStatus,
     Post,
+    Put,
     Query,
     UseGuards,
     UseInterceptors,
+    UsePipes,
+    ValidationPipe,
 } from "@nestjs/common";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
@@ -28,6 +32,12 @@ import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { StatisticsService } from "./statistics.service";
 import { AnyStatistics } from "./statistics.types";
 import { StatisticsTrendingService } from "./statistics-trending.service";
+import { SuspensionGuard } from "../suspension/suspension.guard";
+import { ThrottlerGuard } from "@nestjs/throttler";
+import {
+    ReactionRequestDto,
+    ReactionResponseDto,
+} from "./dto/reaction-request.dto";
 
 @Controller("statistics")
 @ApiTags("statistics")
@@ -37,6 +47,52 @@ export class StatisticsController {
         private readonly statisticsService: StatisticsService,
         private readonly statisticsTrendingService: StatisticsTrendingService,
     ) {}
+
+    @Put("like")
+    @UseGuards(SuspensionGuard, ThrottlerGuard)
+    @UsePipes(
+        new ValidationPipe({
+            whitelist: true,
+            forbidNonWhitelisted: true,
+            transform: true,
+        }),
+    )
+    @HttpCode(HttpStatus.OK)
+    @ApiResponse({
+        status: 200,
+        type: ReactionResponseDto,
+        description: "Applies a like reaction and returns current state and count.",
+    })
+    async addLike(
+        @Session() session: SessionContainer,
+        @Body() dto: ReactionRequestDto,
+    ): Promise<ReactionResponseDto> {
+        const userId = session.getUserId();
+        return this.statisticsService.applyReaction(userId, dto, true);
+    }
+
+    @Delete("like")
+    @UseGuards(SuspensionGuard, ThrottlerGuard)
+    @UsePipes(
+        new ValidationPipe({
+            whitelist: true,
+            forbidNonWhitelisted: true,
+            transform: true,
+        }),
+    )
+    @HttpCode(HttpStatus.OK)
+    @ApiResponse({
+        status: 200,
+        type: ReactionResponseDto,
+        description: "Removes a like reaction and returns current state and count.",
+    })
+    async removeLike(
+        @Session() session: SessionContainer,
+        @Body() dto: ReactionRequestDto,
+    ): Promise<ReactionResponseDto> {
+        const userId = session.getUserId();
+        return this.statisticsService.applyReaction(userId, dto, false);
+    }
 
     @Post()
     @HttpCode(HttpStatus.OK)

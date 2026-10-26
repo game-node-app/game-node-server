@@ -62,7 +62,7 @@ retention before the fix and now verify retention plus attempts/backoff.
 Run unit tests from the repository root:
 
 ```sh
-npx jest --runInBand --testPathPattern='(importer-watch|game-achievement-sync|playtime-watch.service|connections.service|connection-sync.gateway).*spec.ts$'
+npx jest --runInBand --testPathPattern='(importer-watch|game-achievement-sync|playtime-watch|connections.service|player-data-queue.service).*spec.ts$'
 ```
 
 For lifecycle integration, use a disposable local Redis instance:
@@ -363,12 +363,12 @@ importer interval have been removed.
 Automatic due ticks are enabled by default. Set
 `PLAYER_DATA_SYNC_ENABLED=false` to pause them through migrations, mixed-version
 draining, and acceptance checks; remove that override or set it to `true` after
-acceptance. Manual/onboarding admission remains available under the same durable
+acceptance. Onboarding admission remains available under the same durable
 policy.
 
 All current users share a 24-hour successful full-refresh interval from one policy
-constant; there are no tiers, payment checks, or premium frequency. Manual requests
-use the same admission/cooldown as the tick. New links and changed source accounts
+constant; there are no tiers, payment checks, or premium frequency. Onboarding
+uses the same admission/cooldown as the tick. New links and changed source accounts
 are immediately eligible; settings-only updates and restarts preserve eligibility.
 Normal automatic visibility can lag by up to the tick interval plus queue/provider
 latency after eligibility. This is a freshness interval, not an exact-time SLA.
@@ -389,19 +389,11 @@ worker directly reuses their processing functions. Drain or explicitly reject ol
 jobs before activation. Retained diagnostic jobs cannot block later daily runs,
 because each admitted owner has a distinct job ID.
 
-The existing authenticated `connection-sync` WebSocket namespace supports:
-
-- `sync` with `{ "type": "steam" }` (also `psn`/`xbox`) requests shared admission.
-- `status` with the same body reads status without enqueueing work.
-
-Both use only the authenticated session's user ID and reject invalid source values.
-Responses distinguish `accepted`, `pending`, `cooldown`, `failed`, `eligible`,
-`unknown`, and `disconnected` as applicable. They include outcome, last successful
-refresh, next eligibility, pending work, and independent stage status where state
-exists. Owner tokens and raw source-account identities are not returned. Failed
-Redis writes reject the request; they never return accepted. Clients should display
-earlier success separately from a failed or pending new attempt. Frontend support
-for these additive acknowledgements must be checked before rollout.
+Full refreshes run on initial connection/account replacement and periodic due
+ticks. The `connection-sync` WebSocket namespace has been removed, including
+manual refresh, status requests, and playtime progress messages. Connection
+creation still awaits queue admission and rejects failed Redis writes. Workers
+retain progress and failure logs.
 
 Real MySQL/Redis fixtures exercise all three providers with stage adapters across
 two competing service instances, a restart, cooldown immediately before eligibility,
@@ -657,20 +649,16 @@ across all owner routes. Queue rejection does not discard readable stale rows.
 Available catalogue/rarity display paths retain their existing provider caches;
 they are separate from account-specific obtained refreshes.
 
-Send `achievement-status` on the authenticated `connection-sync` namespace with
-`{ "type": "steam", "externalGameId": 123 }` (also psn/xbox). This reads only the
-session owner's current connection. Responses identify `unknown`, `pending`,
-`cooldown`, `eligible`, `failed`, or `disconnected`, with successful outcome,
-last-success and next eligibility when present. An outcome of `empty` is a
-successful check with no obtained rows; `unknown` is not evidence of a complete
-empty account. Status never returns source-account IDs or lease owner tokens.
-Sources and positive integer targets are validated; games must belong to the
-requested provider in admission and again before worker persistence.
+The removed `connection-sync` namespace no longer exposes `achievement-status`.
+Per-game cooldowns, leases, and outcomes remain part of internal admission and
+worker persistence. Games must belong to the requested provider in admission and
+again before worker persistence.
 
 Frontend source is outside this repository. Before rollout, its maintainers must
-verify initial-empty versus unknown/pending presentation, stale-read timestamps,
-owner cooldown acknowledgements, unchanged public-read payloads, and the stricter
-manual-playtime validation. This is a rollout prerequisite, not a completed
+remove connection websocket calls and progress subscriptions, and verify
+initial-empty versus unknown/pending presentation, stale-read timestamps,
+unchanged public-read payloads, and the stricter manual-playtime validation.
+This is a rollout prerequisite, not a completed
 frontend compatibility review.
 
 ## Auto-import and notification recovery
@@ -701,30 +689,38 @@ on each notification describe that page's committed outcomes. Failed imports
 remain failures even if their discovery was notified. Existing legacy markers
 start with retryable false, so enabling this code does not bulk-replay them.
 
-New notification source records commit with `pendingDelivery = 1`. Enqueue is
-awaited with job ID `importer-notification-<sourceId>`; only acknowledgement clears
-the marker. A five-minute recovery tick retries up to 100 pending records without
-reimporting games. The downstream notification has a unique nullable delivery
-identity for new importer deliveries, so acknowledgement loss/retry does not
-create another notification or reset a user's viewed flag. Existing notifications
-keep a null identity and are not rewritten or deduplicated destructively.
+New discovery notification intents append directly to `notification_outbox`
+inside `commitPage` in the same database transaction as the page commit, with
+event type `import.discovery-completed`. Delivery is decoupled from the importer
+run: `NotificationsRelayService` claims pending outbox rows and enqueues them to
+the shared `notifications-queue`. Delivery retries, backoff, and diagnostics are
+governed by the central outbox lifecycle rather than legacy cron polling or
+fire-and-forget queues. Downstream materialization aggregates outcomes into the user's
+inbox idempotently by discovery result identity. Existing pending legacy records
+are transferred during maintenance cutover using `importer-result-<resultId>`.
+The same identity is used for new intents. Exact discovered-game totals and three
+bounded internal-game samples come from committed results; counts are not inferred
+from automatic-import totals, which may all be zero. The old importer delivery cron,
+queue publisher and `pendingDelivery` field are removed. See `docs/notifications.md`
+for the inventory/convert/verify commands and coordinated backup requirement.
 
-Inspect/recover only a specific source record:
+Inspect/recover an importer notification through the shared outbox:
 
 ```sql
-SELECT id, libraryUserId, source, autoImportedCount, autoImportSkippedCount,
-       autoImportFailedCount, pendingDelivery
-FROM importer_watch_notification
-WHERE pendingDelivery = 1 ORDER BY id LIMIT 100;
-SELECT id, isViewed FROM notification
-WHERE deliveryIdentity = 'importer:<userId>:<sourceId>';
-UPDATE importer_watch_notification SET pendingDelivery = 1
-WHERE id = <sourceId> AND libraryUserId = '<userId>' AND pendingDelivery = 0;
+SELECT id, eventType, eventVersion, occurredAt, recipientUserId, state, attempts, nextAttemptAt, lastError
+FROM notification_outbox
+WHERE eventType = 'import.discovery-completed'
+  AND recipientUserId = '<userId>'
+ORDER BY occurredAt DESC LIMIT 20;
+
+-- Targeted rearm if delivery attempts were exhausted:
+UPDATE notification_outbox
+SET state = 'pending', attempts = 0, ownerToken = NULL, ownerExpiresAt = NULL, nextAttemptAt = NOW()
+WHERE id = '<outboxId>' AND state = 'failed';
 ```
 
-Check that source's BullMQ job first: if it exhausted its worker retries, retry
-that failed job explicitly before rearming delivery. Queue acceptance is not proof
-of completed consumption. Do not reset processed/ignored rows or rerun imports to
+Queue acceptance is not proof of completed consumption. Outbox state remains the
+single retry authority. Do not reset processed/ignored rows or rerun imports to
 repair publication.
 
 For deliberate legacy import recovery, review one user/external-game identity,
@@ -732,9 +728,13 @@ ensure it is absent from both processed and ignored tables, and rearm only that
 notified row's `autoImportRetryable` flag. Let the next eligible daily attempt
 perform the import; never update all legacy markers or delete history. Confirm
 the destination and current account before this opt-in repair. The MySQL recovery
-suite verifies migration defaults, page rollback, publication recovery, concurrent
-creation, preserved user changes, ownership/deletion fallback, and downstream
-notification idempotency.
+suite runs on the existing `igdb_sync_test` MySQL/Redis fixture through
+`yarn test:notifications`, without dotenv or application database settings. It
+verifies outbox and page rollback, mixed-outcome retry, preserved manual/ignored
+choices, ownership/deletion fallback, idempotent projection/read versions, and
+real queued full/manual/read races across a second daily cycle. Run migrations
+for the application with `yarn migration:run`; never point these fixture suites
+at the application database.
 
 ## Operational summaries and health checks
 
@@ -774,7 +774,8 @@ SELECT outcome, COUNT(*) AS games FROM player_game_sync
 WHERE outcome IN ('throttled', 'failed', 'incomplete', 'unavailable')
 GROUP BY outcome;
 SELECT COUNT(*) AS pendingActivities FROM obtained_game_achievement_activity WHERE pendingDelivery = 1;
-SELECT COUNT(*) AS pendingNotifications FROM importer_watch_notification WHERE pendingDelivery = 1;
+SELECT state, COUNT(*) AS notifications FROM notification_outbox
+WHERE eventType = 'import.discovery-completed' GROUP BY state;
 ```
 
 Inspect BullMQ counts without payloads or credentials, using the deployment's
@@ -811,8 +812,10 @@ success. These checks require no provider secrets or raw response bodies.
    Apply `yarn migration:run` using the deployment's database configuration.
    `SHOW TABLES LIKE 'player_%_sync'` and `SHOW INDEX FROM user_playtime_history`
    must show the additive sync tables and observation indexes. Check that the
-   notification/entry marker columns exist and legacy flags default false. No
-   migration deletes or rewrites imported history.
+   importer entry retry state remains intact. Notification-only markers/storage
+   are retired through the separate guarded maintenance cutover in
+   `docs/notifications.md`; conversion and MySQL/Redis backup verification must
+   finish before its cleanup migration. Domain import history is retained.
 3. Start only the new binary with cadence still disabled. Bootstrap runs in
    bounded pages and persists a deterministic daily spread. Inspect
    `SELECT MIN(nextEligibleAt), MAX(nextEligibleAt), COUNT(*) FROM player_connection_sync`

@@ -21,6 +21,7 @@
         "healthcheck": "node src/health/healthcheck.js",
         "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
         "test": "jest",
+        "test:notifications": "jest --runInBand --testTimeout=120000 --testPathPattern=\"(notifications/|statistics/statistics-reaction|comment/comment.service.integration|follow/follow.service.integration|report/report.service.integration|importer/importer-watch/importer-watch.(processor|recovery.integration).spec)\"",
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
@@ -34,7 +35,9 @@
         "test:search:unit": "jest --runInBand --testPathPattern=\"src/search/.*\\.spec\\.ts$\"",
         "test:search:integration": "jest --config test/search/jest-integration.json --runInBand",
         "igdb:catalog": "ts-node scripts/igdb-catalog.ts",
-        "test:igdb:resources": "ts-node test/igdb/igdb-catalog.resources.ts"
+        "test:igdb:resources": "ts-node test/igdb/igdb-catalog.resources.ts",
+        "notifications:cutover": "ts-node scripts/notifications-cutover.ts",
+        "seed:notifications": "ts-node scripts/seed-example-notifications.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.758.0",
@@ -48,13 +51,11 @@
         "@nestjs/core": "^11.0.11",
         "@nestjs/mapped-types": "*",
         "@nestjs/platform-express": "^11.0.11",
-        "@nestjs/platform-socket.io": "^11.1.5",
         "@nestjs/schedule": "^5.0.1",
         "@nestjs/swagger": "^11.0.6",
         "@nestjs/terminus": "^11.0.0",
         "@nestjs/throttler": "^6.4.0",
         "@nestjs/typeorm": "^11.0.0",
-        "@nestjs/websockets": "^11.1.5",
         "@opentelemetry/api": "^1.9.0",
         "@opentelemetry/auto-instrumentations-node": "^0.62.0",
         "@opentelemetry/exporter-trace-otlp-http": "^0.208.0",

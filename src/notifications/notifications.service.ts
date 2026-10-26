@@ -1,328 +1,228 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import {
-    FindOptionsRelations,
-    In,
-    IsNull,
-    MoreThanOrEqual,
-    Repository,
-    QueryFailedError,
-} from "typeorm";
-import { Notification } from "./entity/notification.entity";
-import { Cache } from "cache-manager";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { DataSource, In, Repository } from "typeorm";
+import { NOTIFICATION_ELIGIBILITY_SQL } from "./notifications-lifecycle.service";
+import { NotificationTarget } from "./notifications.types";
+import { NotificationInbox } from "./entity/notification-inbox.entity";
+import { Profile } from "../profile/entities/profile.entity";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
-import { TPaginationData } from "../utils/pagination/pagination-response.dto";
-import { NotificationAggregateDto } from "./dto/notification-aggregate.dto";
+import { NotificationReadRequestDto } from "./dto/notification-read.dto";
 import {
-    ENotificationCategory,
-    NotificationSourceType,
-} from "./notifications.constants";
-import { CreateNotificationDto } from "./dto/create-notification.dto";
-import { minutes } from "@nestjs/throttler";
-import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
-import { UnrecoverableError } from "bullmq";
+    NotificationActorDto,
+    NotificationInboxItemDto,
+    NotificationsResponseDto,
+} from "./dto/notifications-response.dto";
+import {
+    decodeNotificationCursor,
+    encodeNotificationCursor,
+} from "./notifications.utils";
 
 @Injectable()
 export class NotificationsService {
     private readonly logger = new Logger(NotificationsService.name);
-
-    private readonly relations: FindOptionsRelations<Notification> = {
-        profile: true,
-    };
-
     constructor(
-        @InjectRepository(Notification)
-        private notificationRepository: Repository<Notification>,
-        @Inject(CACHE_MANAGER)
-        private cacheManager: Cache,
+        @InjectRepository(NotificationInbox)
+        private notificationInboxRepository: Repository<NotificationInbox>,
+        @InjectRepository(Profile)
+        private profileRepository: Repository<Profile>,
+        private dataSource: DataSource,
     ) {}
 
-    private getCheckedDateKey(userId: string) {
-        return `notification-${userId}-last-checked-date`;
-    }
-
-    private async getLastCheckedDate(
-        userId: string,
-    ): Promise<Date | undefined> {
-        const dateString = await this.cacheManager.get<string>(
-            this.getCheckedDateKey(userId),
-        );
-        if (!dateString) return undefined;
-        return new Date(dateString);
-    }
-
-    private setLastCheckedDate(userId: string, date: Date) {
-        return this.cacheManager.set(
-            this.getCheckedDateKey(userId),
-            date.toISOString(),
-            minutes(5),
-        );
-    }
-
-    private async findAllAfterDate(userId: string, date: Date) {
-        return await this.notificationRepository.find({
-            where: {
-                targetProfileUserId: userId,
-                createdAt: MoreThanOrEqual(date),
-            },
-
-            relations: this.relations,
-            order: {
-                createdAt: "DESC",
-            },
-        });
-    }
-
-    /**
-     * Creates groups of related notifications
-     * @param notifications - notifications to aggregate
-     * @returns Array - Array with aggregated entities. <br>
-     * @private
-     */
-    private aggregate(
-        notifications: Notification[],
-    ): NotificationAggregateDto[] {
-        const aggregationCategories = [
-            ENotificationCategory.LIKE,
-            ENotificationCategory.COMMENT,
-        ];
-        const aggregations: NotificationAggregateDto[] = [];
-        const processedEntities = new Map<any, Notification>();
-
-        /**
-         * The logic here is:
-         * Given a notification, find other ones which are similar to it (refer to the same target entity).
-         * With this information, store it as 'processedEntities' to avoid re-using said notifications in
-         * future iterations.
-         */
-        for (const notification of notifications) {
-            if (processedEntities.has(notification.id)) {
-                continue;
-            }
-
-            /**
-             * Notifications similar to this one (including current iteration notification) that can be grouped for aggregation
-             */
-            const similarNotifications = notifications.filter(
-                (comparedNotification) => {
-                    const isAlreadyProcessed = processedEntities.has(
-                        comparedNotification.id,
-                    );
-                    const hasValidCategory = aggregationCategories.includes(
-                        comparedNotification.category,
-                    );
-
-                    const comparableSourceIds: (keyof Notification)[] = [
-                        "reviewId",
-                        "activityId",
-                        "postId",
-                        "reviewCommentId",
-                        "activityCommentId",
-                        "postCommentId",
-                    ];
-
-                    const hasSameCategory =
-                        notification.category === comparedNotification.category;
-                    const hasSameSourceType =
-                        notification.sourceType ===
-                        comparedNotification.sourceType;
-
-                    const hasSameSourceId = comparableSourceIds.some(
-                        (property) => {
-                            return (
-                                comparedNotification[property] != undefined &&
-                                comparedNotification[property] ===
-                                    notification[property]
-                            );
-                        },
-                    );
-
-                    const isSimilar =
-                        !isAlreadyProcessed &&
-                        hasValidCategory &&
-                        hasSameCategory &&
-                        hasSameSourceType &&
-                        hasSameSourceId;
-
-                    if (isSimilar) {
-                        processedEntities.set(
-                            comparedNotification.id,
-                            comparedNotification,
-                        );
-                    }
-
-                    return isSimilar;
-                },
-            );
-
-            // Includes current notification if the list is empty. Usually means the category can not be aggregated.
-            const aggregationNotifications =
-                similarNotifications.length > 0
-                    ? similarNotifications
-                    : [notification];
-
-            aggregations.push({
-                category: notification.category,
-                // Matches any relation property that's not null
-                sourceId:
-                    notification.reviewId! ||
-                    notification.activityId! ||
-                    notification.postId ||
-                    notification.importerNotificationId! ||
-                    notification.reportId! ||
-                    notification.reviewCommentId! ||
-                    notification.activityCommentId! ||
-                    notification.postCommentId ||
-                    // profileUserId should be last, otherwise you will get weird issues.
-                    notification.profileUserId!,
-
-                sourceType: notification.sourceType,
-                notifications: aggregationNotifications,
-            });
-        }
-
-        return aggregations;
-    }
-
-    public async findAllAndAggregate(
+    public async findAll(
         userId: string,
         dto: FindNotificationsDto,
-    ): Promise<TPaginationData<NotificationAggregateDto>> {
-        const offset = dto.offset || 0;
-        const limit = dto.limit || 20;
-        const [notifications, total] =
-            await this.notificationRepository.findAndCount({
-                skip: offset,
-                take: limit,
-                where: [
+    ): Promise<NotificationsResponseDto> {
+        const startedAt = Date.now();
+        const limit = dto.limit ?? 20;
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+            throw new BadRequestException("Invalid notification limit");
+        }
+        let cursorData: { lastEventAt: Date; id: number } | null = null;
+        if (dto.cursor) {
+            cursorData = decodeNotificationCursor(dto.cursor, userId);
+        }
+
+        const pageItems: NotificationInbox[] = [];
+        let scanned = 0;
+        let hasMore = false;
+        // Bound refill to five pages of candidates, including inaccessible groups.
+        const scanBudget = limit * 5;
+        while (pageItems.length < limit && scanned < scanBudget) {
+            const batchSize = Math.min(limit, scanBudget - scanned);
+            const qb = this.notificationInboxRepository
+                .createQueryBuilder("inbox")
+                .where("inbox.recipientUserId = :userId", { userId })
+                .andWhere("inbox.isVisible = :isVisible", { isVisible: true });
+            if (cursorData) {
+                qb.andWhere(
+                    "(inbox.lastEventAt < :cursorTime OR (inbox.lastEventAt = :cursorTime AND inbox.id < :cursorId))",
                     {
-                        targetProfileUserId: userId,
+                        cursorTime: cursorData.lastEventAt,
+                        cursorId: cursorData.id,
                     },
-                    {
-                        targetProfileUserId: IsNull(),
-                    },
-                ],
-                order: {
-                    createdAt: "DESC",
+                );
+            }
+            const candidates = await qb
+                .orderBy("inbox.lastEventAt", "DESC")
+                .addOrderBy("inbox.id", "DESC")
+                .take(batchSize + 1)
+                .getMany();
+            const eligible = new Set(
+                (
+                    await this.filterEligibleCandidates(
+                        candidates.slice(0, batchSize),
+                    )
+                ).map((item) => item.id),
+            );
+            let consumed = 0;
+            for (const item of candidates.slice(0, batchSize)) {
+                scanned++;
+                consumed++;
+                cursorData = { lastEventAt: item.lastEventAt, id: item.id };
+                if (eligible.has(item.id)) pageItems.push(item);
+                if (pageItems.length === limit) break;
+            }
+            hasMore = candidates.length > consumed;
+            if (!hasMore) break;
+        }
+        const nextCursor =
+            hasMore && cursorData
+                ? encodeNotificationCursor(
+                      userId,
+                      cursorData.lastEventAt,
+                      cursorData.id,
+                  )
+                : null;
+
+        const allActorIds = Array.from(
+            new Set(pageItems.flatMap((i) => i.actorIds || [])),
+        ).filter(Boolean);
+
+        const profileMap = new Map<string, NotificationActorDto>();
+        if (allActorIds.length > 0) {
+            const profiles = await this.profileRepository.find({
+                where: { userId: In(allActorIds) },
+                select: {
+                    userId: true,
+                    username: true,
+                    avatar: { id: true, filename: true },
                 },
-                relations: this.relations,
+                relations: { avatar: true },
             });
-        const aggregations = this.aggregate(notifications);
+            for (const p of profiles) {
+                profileMap.set(p.userId, {
+                    userId: p.userId,
+                    username: p.username,
+                    avatar: p.avatar
+                        ? { id: p.avatar.id, filename: p.avatar.filename }
+                        : null,
+                });
+            }
+        }
 
-        return [aggregations, total];
+        const data: NotificationInboxItemDto[] = pageItems.map((item) => ({
+            id: item.id,
+            type: item.type,
+            actors: (item.actorIds || []).map(
+                (actorId) =>
+                    profileMap.get(actorId) || {
+                        userId: actorId,
+                        username: "[Deleted User]",
+                        avatar: null,
+                    },
+            ),
+            preview: item.preview,
+            target: item.target as NotificationTarget | null,
+            eventCount: item.eventCount,
+            actorCount: item.actorCount,
+            lastEventAt: item.lastEventAt,
+            version: item.version,
+            readVersion: item.readVersion,
+        }));
+
+        const unreadCount = await this.notificationInboxRepository
+            .createQueryBuilder("inbox")
+            .where("inbox.recipientUserId = :userId", { userId })
+            .andWhere("inbox.isVisible = :isVisible", { isVisible: true })
+            .andWhere("inbox.readVersion < inbox.version")
+            .andWhere(NOTIFICATION_ELIGIBILITY_SQL)
+            .getCount();
+
+        this.logger.debug({
+            event: "notification-inbox-read",
+            durationMs: Date.now() - startedAt,
+            returnedCount: data.length,
+            scannedCount: scanned,
+            limit,
+        });
+        return {
+            data,
+            pagination: {
+                nextCursor,
+                hasMore,
+            },
+            unreadCount,
+        };
     }
 
-    public async findNewNotifications(userId: string): Promise<Notification[]> {
-        const now = new Date();
-        const lastCheckedDate = await this.getLastCheckedDate(userId);
-        /*
-        Avoids notifying users when they first connect.
-         */
-        if (!lastCheckedDate) {
-            await this.setLastCheckedDate(userId, now);
-            return [];
-        }
-        const notifications = await this.findAllAfterDate(
-            userId,
-            lastCheckedDate,
+    private async filterEligibleCandidates(
+        candidates: NotificationInbox[],
+    ): Promise<NotificationInbox[]> {
+        if (candidates.length === 0) return [];
+        const recipientUserId = candidates[0].recipientUserId;
+        const rows: Array<{ id: number }> = await this.dataSource.query(
+            `SELECT inbox.id FROM notification_inbox inbox WHERE inbox.recipientUserId = ? AND inbox.id IN (?) AND (${NOTIFICATION_ELIGIBILITY_SQL})`,
+            [recipientUserId, candidates.map((item) => item.id)],
         );
-        await this.setLastCheckedDate(userId, now);
-        return notifications;
+        const eligible = new Set(rows.map((row) => row.id));
+        return candidates.filter((item) => eligible.has(item.id));
     }
 
-    public async create(dto: CreateNotificationDto) {
-        if (
-            dto.sourceId == undefined ||
-            dto.sourceType == undefined ||
-            dto.category == undefined
-        ) {
-            throw new UnrecoverableError(
-                "Error while creating notification: missing sourceId or sourceType or category.",
-            );
-        } else if (dto.targetUserId == undefined) {
-            throw new UnrecoverableError(
-                "Common notifications can't be targeted at all users (targetProfileUserId is null): " +
-                    JSON.stringify(dto),
-            );
-        } else if (dto.userId === dto.targetUserId) {
-            throw new UnrecoverableError(
-                `Skipping attempt to make user notify itself: ${JSON.stringify(dto)}}`,
-            );
-        }
+    public async acknowledgeRead(
+        userId: string,
+        dto: NotificationReadRequestDto,
+    ): Promise<{ success: boolean }> {
+        const itemIds = dto.items.map((i) => i.id);
+        const uniqueItemIds = Array.from(new Set(itemIds));
 
-        const entity = this.notificationRepository.create({
-            profileUserId: dto.userId,
-            targetProfileUserId: dto.targetUserId,
-            sourceType: dto.sourceType,
-            category: dto.category,
+        const inboxes = await this.notificationInboxRepository.find({
+            where: {
+                id: In(uniqueItemIds),
+                recipientUserId: userId,
+            },
         });
 
-        switch (dto.sourceType) {
-            case NotificationSourceType.GAME:
-                entity.gameId = dto.sourceId as number;
-                break;
-            case NotificationSourceType.REVIEW:
-                entity.reviewId = dto.sourceId as string;
-                break;
-            case NotificationSourceType.ACTIVITY:
-                entity.activityId = dto.sourceId as string;
-                break;
-            case NotificationSourceType.IMPORTER:
-                entity.importerNotificationId = dto.sourceId as number;
-                entity.deliveryIdentity = `importer:${dto.targetUserId}:${dto.sourceId}`;
-                break;
-            case NotificationSourceType.PROFILE:
-                entity.profileUserId = dto.sourceId as string;
-                break;
-            case NotificationSourceType.REPORT:
-                entity.reportId = dto.sourceId as number;
-                break;
-            case NotificationSourceType.ACTIVITY_COMMENT:
-                entity.activityCommentId = dto.sourceId as string;
-                break;
-            case NotificationSourceType.REVIEW_COMMENT:
-                entity.reviewCommentId = dto.sourceId as string;
-                break;
-            case NotificationSourceType.POST:
-                entity.postId = dto.sourceId as string;
-                break;
-            case NotificationSourceType.POST_COMMENT:
-                entity.postCommentId = dto.sourceId as string;
-                break;
-            default:
-                throw new UnrecoverableError(
-                    `Invalid sourceType for notification: ${JSON.stringify(dto)}`,
+        if (inboxes.length !== uniqueItemIds.length) {
+            throw new BadRequestException(
+                "One or more notification items do not exist or belong to another recipient",
+            );
+        }
+
+        const inboxMap = new Map(inboxes.map((i) => [i.id, i]));
+        for (const item of dto.items) {
+            const inbox = inboxMap.get(item.id)!;
+            if (item.version > inbox.version) {
+                throw new BadRequestException(
+                    `Acknowledged version ${item.version} exceeds current item version ${inbox.version} for item ${item.id}`,
                 );
-        }
-
-        if (dto.sourceType === NotificationSourceType.IMPORTER) {
-            try {
-                await this.notificationRepository.insert(entity);
-            } catch (error) {
-                if (
-                    !(error instanceof QueryFailedError) ||
-                    error.driverError?.code !== "ER_DUP_ENTRY"
-                )
-                    throw error;
             }
-        } else {
-            await this.notificationRepository.save(entity);
         }
-    }
 
-    public async updateViewedStatus(
-        userId: string,
-        dto: NotificationViewUpdateDto,
-    ) {
-        await this.notificationRepository.update(
-            {
-                id: In(dto.notificationIds),
-                targetProfileUserId: userId,
-            },
-            {
-                isViewed: dto.isViewed,
-            },
-        );
+        for (const item of dto.items) {
+            await this.notificationInboxRepository
+                .createQueryBuilder()
+                .update(NotificationInbox)
+                .set({
+                    readVersion: () =>
+                        `GREATEST(readVersion, ${Number(item.version)})`,
+                })
+                .where("id = :id AND recipientUserId = :userId", {
+                    id: item.id,
+                    userId,
+                })
+                .execute();
+        }
+
+        return { success: true };
     }
 }

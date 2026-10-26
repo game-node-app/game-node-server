@@ -4,10 +4,9 @@ import {
     Get,
     HttpCode,
     HttpStatus,
-    Put,
+    Patch,
     Query,
     UseGuards,
-    UseInterceptors,
 } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { NotificationsService } from "./notifications.service";
@@ -15,11 +14,8 @@ import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
-import { NotificationViewUpdateDto } from "./dto/notification-view-update.dto";
-import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
-import { PaginatedNotificationAggregationDto } from "./dto/paginated-notification-aggregation.dto";
-import { ThrottlerGuard } from "@nestjs/throttler";
-import { Notification } from "./entity/notification.entity";
+import { NotificationReadRequestDto } from "./dto/notification-read.dto";
+import { NotificationsResponseDto } from "./dto/notifications-response.dto";
 
 @Controller("notifications")
 @ApiTags("notifications")
@@ -28,40 +24,23 @@ export class NotificationsController {
     constructor(private readonly notificationsService: NotificationsService) {}
 
     @Get()
-    @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
-        type: PaginatedNotificationAggregationDto,
+        type: NotificationsResponseDto,
     })
-    async findAllAndAggregate(
+    async findAll(
         @Session() session: SessionContainer,
         @Query() dto: FindNotificationsDto,
-    ) {
-        return this.notificationsService.findAllAndAggregate(
-            session.getUserId(),
-            dto,
-        );
+    ): Promise<NotificationsResponseDto> {
+        return this.notificationsService.findAll(session.getUserId(), dto);
     }
 
-    /**
-     * Finds new notifications that have been created after last checked time. <br>
-     * Returns an empty array on first connection.
-     * @param session
-     */
-    @Get("new")
-    async getNewNotifications(@Session() session: SessionContainer) {
-        return this.notificationsService.findNewNotifications(
-            session.getUserId(),
-        );
-    }
-
-    @Put("view")
-    @UseGuards(ThrottlerGuard)
+    @Patch("read")
     @HttpCode(HttpStatus.OK)
-    async updateViewedStatus(
+    async acknowledgeRead(
         @Session() session: SessionContainer,
-        @Body() dto: NotificationViewUpdateDto,
-    ) {
-        await this.notificationsService.updateViewedStatus(
+        @Body() dto: NotificationReadRequestDto,
+    ): Promise<{ success: boolean }> {
+        return this.notificationsService.acknowledgeRead(
             session.getUserId(),
             dto,
         );

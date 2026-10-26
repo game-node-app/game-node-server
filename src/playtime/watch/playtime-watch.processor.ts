@@ -30,7 +30,6 @@ import * as process from "process";
 import { seconds } from "@nestjs/throttler";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import { match } from "ts-pattern";
-import { ConnectionSyncGateway } from "../../connection/connection-sync/connection-sync.gateway";
 import { getPreferredXboxPlatformAbbreviation } from "../../sync/xbox/util/get-preferred-xbox-platform-abbreviation";
 import { GameAchievementSyncQueueService } from "../../game/game-achievement/sync/game-achievement-sync-queue.service";
 
@@ -56,7 +55,6 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
         private readonly gameRepositoryService: GameRepositoryService,
-        private readonly connectionSyncGateway: ConnectionSyncGateway,
         private readonly gameAchievementSyncQueueService: GameAchievementSyncQueueService,
         private readonly registry: ConnectionProviderRegistry,
     ) {
@@ -95,31 +93,18 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         }
         const userId = job.data.userId;
         const source = job.data.source;
-        const {
-            error,
-            totalPlaytimeSeconds,
-            totalUpdatedGames,
-            gameName,
-            platform,
-        } = job.progress as PlaytimeWatchJobProgress;
+        const { error, totalUpdatedGames, gameName, platform } =
+            job.progress as PlaytimeWatchJobProgress;
 
         if (error) {
             this.logger.error(
                 `Playtime update failed for user ${userId} in ${source}: ${error}`,
-            );
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                `[PLAYTIME] Update failed: ${error}`,
             );
             return;
         }
         if (totalUpdatedGames != undefined) {
             this.logger.log(
                 `Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
-            );
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                `[PLAYTIME] Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
             );
             return;
         }
@@ -128,21 +113,6 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             this.logger.log(
                 `Updated playtime for game ${gameName} in platform ${platform} for user ${userId} in ${source}.`,
             );
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                `[PLAYTIME] Updated playtime for ${gameName} in platform ${platform}: ${totalPlaytimeSeconds} seconds.`,
-            );
-        }
-
-        if (totalUpdatedGames != undefined) {
-            this.logger.log(
-                `Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
-            );
-            this.connectionSyncGateway.sendMessageToUser(
-                userId,
-                `[PLAYTIME] Updated ${totalUpdatedGames} games for user ${userId} in ${source}.`,
-            );
-            return;
         }
     }
 
@@ -157,10 +127,6 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         const source = job.data.source;
         this.logger.error(
             `Playtime update failed for user ${userId} in ${source}: ${failedReason}`,
-        );
-        this.connectionSyncGateway.sendMessageToUser(
-            userId,
-            `[PLAYTIME] Update failed: ${failedReason}`,
         );
     }
 

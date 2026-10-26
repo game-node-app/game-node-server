@@ -11,6 +11,7 @@ import { AchievementsModule } from "../achievements/achievements.module";
 import { StatisticsQueueModule } from "../statistics/statistics-queue/statistics-queue.module";
 import { LevelModule } from "../level/level.module";
 import { SuspensionModule } from "../suspension/suspension.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { SuspensionModule } from "../suspension/suspension.module";
         forwardRef(() => ActivitiesQueueModule),
         AchievementsModule,
         forwardRef(() => CollectionsEntriesModule),
+        forwardRef(() => NotificationsModule),
         StatisticsQueueModule,
         LevelModule,
     ],

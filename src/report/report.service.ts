@@ -1,22 +1,37 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Injectable,
+    Logger,
+    Optional,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Report } from "./entity/report.entity";
-import { FindOptionsWhere, Repository } from "typeorm";
+import {
+    DataSource,
+    EntityManager,
+    FindOptionsWhere,
+    Repository,
+} from "typeorm";
 import { CreateReportRequestDto } from "./dto/create-report-request.dto";
 import { ReportHandleAction, ReportSourceType } from "./report.constants";
 import { FindLatestReportRequestDto } from "./dto/find-report-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { ReviewsService } from "../reviews/reviews.service";
 import { HandleReportRequestDto } from "./dto/handle-report-request.dto";
-import { NotificationsQueueService } from "../notifications/notifications-queue.service";
-import {
-    ENotificationCategory,
-    NotificationSourceType,
-} from "../notifications/notifications.constants";
 import { SuspensionService } from "../suspension/suspension.service";
 import { CommentService } from "../comment/comment.service";
 import { CommentSourceType } from "../comment/comment.constants";
 import { PostsService } from "../posts/posts.service";
+import { match } from "ts-pattern";
+import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
+import { UserSuspension } from "../suspension/entity/user-suspension.entity";
+import { Review } from "../reviews/entities/review.entity";
+import { ReviewComment } from "../comment/entity/review-comment.entity";
+import { Post } from "../posts/entity/post.entity";
+import { PostComment } from "../comment/entity/post-comment.entity";
+import { ActivityComment } from "../comment/entity/activity-comment.entity";
+import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 
 @Injectable()
 export class ReportService {
@@ -25,11 +40,14 @@ export class ReportService {
     constructor(
         @InjectRepository(Report)
         private readonly reportRepository: Repository<Report>,
-        private readonly notificationsQueueService: NotificationsQueueService,
         private readonly reviewsService: ReviewsService,
         private readonly commentService: CommentService,
         private readonly suspensionService: SuspensionService,
         private readonly postsService: PostsService,
+        @Optional()
+        private readonly dataSource?: DataSource,
+        @Optional()
+        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
 
     findOneById(reportId: number) {
@@ -160,61 +178,122 @@ export class ReportService {
             );
         }
 
-        switch (action) {
-            case ReportHandleAction.SUSPEND:
-                await this.suspensionService.create(
-                    handlerUserId,
-                    report.targetProfileUserId,
-                    "suspension",
-                );
-                break;
-            case ReportHandleAction.BAN:
-                await this.suspensionService.create(
-                    handlerUserId,
-                    report.targetProfileUserId,
-                    "ban",
-                );
-                break;
-            // An alert will be emitted below
-            case ReportHandleAction.ALERT:
-                break;
-            case ReportHandleAction.DISCARD:
-                await this.close(
-                    handlerUserId,
-                    reportId,
-                    ReportHandleAction.DISCARD,
-                );
-                return;
-        }
-        // ...Action is different from DISCARD
-
-        if (deleteReportedContent) {
-            if (report.targetReviewId != undefined) {
-                await this.reviewsService.delete(
-                    report.targetProfileUserId,
-                    report.targetReviewId,
-                );
-            }
-            if (report.targetReviewCommentId != undefined) {
-                await this.commentService.delete(
-                    report.targetProfileUserId,
-                    report.targetReviewCommentId,
-                    {
-                        sourceType: CommentSourceType.REVIEW,
-                    },
-                );
-            }
+        if (action === ReportHandleAction.DISCARD) {
+            await this.close(
+                handlerUserId,
+                reportId,
+                ReportHandleAction.DISCARD,
+            );
+            return;
         }
 
-        this.notificationsQueueService.registerNotification({
-            sourceId: report.id,
-            userId: undefined,
-            sourceType: NotificationSourceType.REPORT,
-            category: ENotificationCategory.ALERT,
-            targetUserId: report.targetProfileUserId,
-        });
+        if (action === ReportHandleAction.BAN) {
+            await this.suspensionService.checkBanPermission(handlerUserId);
+        }
 
-        await this.close(handlerUserId, reportId, action);
+        const mappedAction: "alert" | "suspension" | "ban" = match(action)
+            .with(ReportHandleAction.SUSPEND, () => "suspension" as const)
+            .with(ReportHandleAction.BAN, () => "ban" as const)
+            .with(ReportHandleAction.ALERT, () => "alert" as const)
+            .exhaustive();
+
+        const runTransaction = async (manager: EntityManager) => {
+            if (
+                action === ReportHandleAction.SUSPEND ||
+                action === ReportHandleAction.BAN
+            ) {
+                const fourteenDaysFromNow = new Date();
+                fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
+
+                const suspensionRepo = manager.getRepository(UserSuspension);
+                const suspension = suspensionRepo.create({
+                    isSuspension: action === ReportHandleAction.SUSPEND,
+                    isBan: action === ReportHandleAction.BAN,
+                    endDate: fourteenDaysFromNow,
+                    issuerUserId: handlerUserId,
+                    userId: report.targetProfileUserId,
+                });
+                await suspensionRepo.save(suspension);
+            }
+
+            if (deleteReportedContent) {
+                for (const [entity, id, kind] of [
+                    [Review, report.targetReviewId, "review"],
+                    [Post, report.targetPostId, "post"],
+                    [ReviewComment, report.targetReviewCommentId, "comment"],
+                    [PostComment, report.targetPostCommentId, "comment"],
+                    [
+                        ActivityComment,
+                        report.targetActivityCommentId,
+                        "comment",
+                    ],
+                ] as const) {
+                    if (id == null) continue;
+                    const repository = manager.getRepository(entity);
+                    const content = await repository.findOne({
+                        where: {
+                            id,
+                            profileUserId: report.targetProfileUserId,
+                        },
+                        lock: { mode: "pessimistic_write" },
+                    });
+                    if (!content) continue;
+                    if (kind !== "comment")
+                        await this.notificationsLifecycleService?.invalidateContent(
+                            kind,
+                            id,
+                            manager,
+                        );
+                    const removed = await repository.delete({
+                        id,
+                        profileUserId: report.targetProfileUserId,
+                    });
+                    if (removed.affected && kind === "comment")
+                        await this.notificationsLifecycleService?.invalidateComment(
+                            id,
+                            manager,
+                        );
+                }
+            }
+
+            const reportRepo = manager.getRepository(Report);
+            const updateResult = await reportRepo.update(
+                {
+                    id: reportId,
+                    isClosed: false,
+                },
+                {
+                    closeProfileUserId: handlerUserId,
+                    closeHandleAction: action,
+                    isClosed: true,
+                },
+            );
+
+            if (updateResult.affected === 0) {
+                throw new HttpException(
+                    "Report is already closed or does not exist",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+
+            await appendNotificationIntent(manager, {
+                eventType: "moderation.applied",
+                eventVersion: 1,
+                occurredAt: new Date(),
+                recipientUserId: report.targetProfileUserId,
+                actorUserId: null,
+                payload: {
+                    reportId: report.id,
+                    action: mappedAction,
+                },
+            });
+        };
+
+        if (this.dataSource?.transaction) {
+            await this.dataSource.transaction(runTransaction);
+        } else {
+            await runTransaction(this.reportRepository.manager);
+        }
     }
 
     private async close(

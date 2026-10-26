@@ -25,7 +25,7 @@ function fixture() {
     };
 }
 
-test("manual refresh awaits queue acknowledgement and never reports Redis rejection as accepted", async () => {
+test("initial refresh awaits queue acknowledgement and never reports Redis rejection as accepted", async () => {
     const { state, queue, service } = fixture();
     await expect(
         service.request("user", EConnectionType.STEAM),

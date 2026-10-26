@@ -60,7 +60,6 @@ test("playtime executes the registered handler and rejects missing capabilities"
         {} as any,
         {} as any,
         {} as any,
-        {} as any,
         registry,
     );
     const handler = jest.fn().mockResolvedValue({ outcome: "empty" });
@@ -107,7 +106,6 @@ test("a capped TitleHub response leaves previous playtime and queued achievement
         {} as any,
         xbox,
         {} as any,
-        {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
     );
@@ -149,7 +147,6 @@ test("a late PSN library cannot reach playtime writes or achievement admission",
             ),
             getUserTrophyTitles: jest.fn().mockResolvedValue([]),
         } as any,
-        {} as any,
         {} as any,
         {} as any,
         { addUserSyncJob: enqueue } as any,
@@ -195,7 +192,6 @@ it.each(["steam", "psn", "xbox"])(
             } as any,
             { getAllGames: jest.fn().mockResolvedValue([]) } as any,
             {} as any,
-            { sendMessageToUser: jest.fn() } as any,
             { addUserSyncJob: enqueue } as any,
             new ConnectionProviderRegistry(),
         );
@@ -228,7 +224,6 @@ test("legacy jobs never reach provider work", async () => {
     const state = playerStateFixture();
     state.runOwned.mockRejectedValue(new PlayerSyncOwnershipLost());
     const processor = new PlaytimeWatchProcessor(
-        {} as any,
         {} as any,
         {} as any,
         {} as any,
@@ -324,7 +319,6 @@ test("Steam selection uses recent-list data for timestamp-free and Family Sharin
         } as any,
         {} as any,
         steam,
-        {} as any,
         {} as any,
         {} as any,
         {} as any,
@@ -450,7 +444,6 @@ test("PSN title progress fingerprints keep same-service communication IDs distin
                     new Map([["PS4", { id: 48, abbreviation: "PS4" }]]),
                 ),
         } as any,
-        {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
     );
@@ -552,7 +545,6 @@ test("Xbox achievement selection follows title progress when playtime stats are 
             getBatchMinutesPlayed,
         } as any,
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
-        {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
     );
@@ -698,7 +690,6 @@ test("PSN maps persist before one enqueue per concept and same-name titles stay 
                 ]),
             ),
         } as any,
-        {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
     );
@@ -811,7 +802,6 @@ it.each(["steam", "xbox"])(
                         .fn()
                         .mockResolvedValue(new Map([["XONE", { id: 49 }]])),
                 } as any,
-                {} as any,
                 { addUserSyncJob: jest.fn() } as any,
                 new ConnectionProviderRegistry(),
             );
@@ -858,7 +848,6 @@ test("Steam editions sharing one game contribute once to its cumulative observat
                 { game: { id: 43 }, minutes: 60, recentMinutes: 5 },
             ]),
         } as any,
-        {} as any,
         {} as any,
         {} as any,
         {} as any,

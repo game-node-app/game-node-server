@@ -1,18 +1,14 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserFollow } from "./entity/user-follow.entity";
-import { FindOptionsWhere, Repository } from "typeorm";
+import { DataSource, EntityManager, FindOptionsWhere, Repository } from "typeorm";
 import { FollowStatusDto } from "./dto/follow-status.dto";
-import { NotificationsQueueService } from "../notifications/notifications-queue.service";
-import {
-    ENotificationCategory,
-    NotificationSourceType,
-} from "../notifications/notifications.constants";
 import { FollowInfoRequestDto } from "./dto/follow-info-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
 import { PeriodRange } from "../utils/period";
+import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
 
 @Injectable()
 export class FollowService {
@@ -21,8 +17,10 @@ export class FollowService {
     constructor(
         @InjectRepository(UserFollow)
         private userFollowRepository: Repository<UserFollow>,
-        private readonly notificationsQueue: NotificationsQueueService,
-        private readonly activitiesQueueService: ActivitiesQueueService,
+        @Optional()
+        private readonly dataSource?: DataSource,
+        @Optional()
+        private readonly activitiesQueueService?: ActivitiesQueueService,
     ) {}
 
     public async countFollowers(
@@ -76,24 +74,65 @@ export class FollowService {
                 HttpStatus.I_AM_A_TEAPOT,
             );
         }
-        try {
-            await this.userFollowRepository.save({
-                follower: {
-                    userId: followerUserId,
-                },
-                followed: {
-                    userId: followedUserId,
+
+        const runTransaction = async (manager?: EntityManager) => {
+            const followRepo =
+                manager && typeof manager.getRepository === "function"
+                    ? manager.getRepository(UserFollow)
+                    : this.userFollowRepository;
+
+            if (!manager || typeof manager.createQueryBuilder !== "function") {
+                const followToSave = {
+                    follower: {
+                        userId: followerUserId,
+                    },
+                    followed: {
+                        userId: followedUserId,
+                    },
+                };
+                return await followRepo.save(followToSave as any);
+            }
+
+            const insertResult: any = await manager.query(
+                `INSERT IGNORE INTO user_follow (followerUserId, followedUserId, createdAt, updatedAt) VALUES (?, ?, NOW(), NOW())`,
+                [followerUserId, followedUserId],
+            );
+
+            const isNew = insertResult?.affectedRows > 0;
+
+            const follow = await followRepo.findOne({
+                where: {
+                    followerUserId,
+                    followedUserId,
                 },
             });
 
-            this.notificationsQueue.registerNotification({
-                userId: followerUserId,
-                targetUserId: followedUserId,
-                category: ENotificationCategory.FOLLOW,
-                sourceType: NotificationSourceType.PROFILE,
-                sourceId: followerUserId,
-            });
-        } catch (e) {
+            if (isNew && follow) {
+                await appendNotificationIntent(manager, {
+                    eventType: "profile.followed",
+                    eventVersion: 1,
+                    occurredAt: new Date(),
+                    recipientUserId: followedUserId,
+                    actorUserId: followerUserId,
+                    payload: {
+                        followId: follow.id,
+                    },
+                });
+            }
+
+            return follow;
+        };
+
+        try {
+            if (this.dataSource?.transaction) {
+                return await this.dataSource.transaction(runTransaction);
+            } else {
+                return await runTransaction(this.userFollowRepository.manager);
+            }
+        } catch (e: any) {
+            if (e instanceof HttpException) {
+                throw e;
+            }
             this.logger.error(e);
             throw new HttpException(
                 "Error while registering user follow",

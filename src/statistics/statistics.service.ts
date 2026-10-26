@@ -1,8 +1,13 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+    BadRequestException,
+    Injectable,
+    InternalServerErrorException,
+    Logger,
+    NotFoundException,
+} from "@nestjs/common";
 import { DataSource, EntityManager, EntityTarget, Repository } from "typeorm";
 import {
     StatisticsCreateAction,
-    StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue/statistics-queue.types";
 import { AnyStatistics } from "./statistics.types";
@@ -17,13 +22,18 @@ import { CommentStatistics } from "./entity/comment-statistics.entity";
 import { UserLike } from "./entity/user-like.entity";
 import { UserView } from "./entity/user-view.entity";
 import { StatisticsStatus } from "./dto/statistics-entity.dto";
-import {
-    ENotificationCategory,
-    NotificationSourceType,
-} from "../notifications/notifications.constants";
-import { NotificationsQueueService } from "../notifications/notifications-queue.service";
 import { PostStatistics } from "./entity/post-statistics.entity";
 import { match, P } from "ts-pattern";
+import {
+    lockNotificationRoot,
+    lockNotificationComment,
+    NotificationRootType,
+} from "../notifications/notifications-lifecycle.service";
+import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
+import {
+    ReactionRequestDto,
+    ReactionResponseDto,
+} from "./dto/reaction-request.dto";
 
 /** Import-only, transaction-scoped initialization. Unique gameId preserves counters on replay. */
 export async function ensureGameStatistics(
@@ -46,10 +56,7 @@ export class StatisticsService {
     private readonly userLikeRepository: Repository<UserLike>;
     private readonly userViewRepository: Repository<UserView>;
 
-    constructor(
-        private readonly dataSource: DataSource,
-        private readonly notificationsQueueService: NotificationsQueueService,
-    ) {
+    constructor(private readonly dataSource: DataSource) {
         this.userLikeRepository = dataSource.getRepository(UserLike);
         this.userViewRepository = dataSource.getRepository(UserView);
     }
@@ -131,35 +138,6 @@ export class StatisticsService {
             .exhaustive();
     }
 
-    protected getTargetNotificationCategory(
-        sourceType: StatisticsSourceType,
-    ): NotificationSourceType {
-        return match(sourceType)
-            .with(
-                StatisticsSourceType.REVIEW,
-                () => NotificationSourceType.REVIEW,
-            )
-            .with(StatisticsSourceType.GAME, () => NotificationSourceType.GAME)
-            .with(
-                StatisticsSourceType.ACTIVITY,
-                () => NotificationSourceType.ACTIVITY,
-            )
-            .with(StatisticsSourceType.POST, () => NotificationSourceType.POST)
-            .with(
-                StatisticsSourceType.ACTIVITY_COMMENT,
-                () => NotificationSourceType.ACTIVITY_COMMENT,
-            )
-            .with(
-                StatisticsSourceType.REVIEW_COMMENT,
-                () => NotificationSourceType.REVIEW_COMMENT,
-            )
-            .with(
-                StatisticsSourceType.POST_COMMENT,
-                () => NotificationSourceType.POST_COMMENT,
-            )
-            .exhaustive();
-    }
-
     async findOne<T>(
         sourceId: string | number,
         sourceType: StatisticsSourceType,
@@ -190,89 +168,223 @@ export class StatisticsService {
         })) as unknown as T;
     }
 
-    async handleLike(data: StatisticsLikeAction) {
-        const { sourceId, userId, action, sourceType } = data;
-        const entry = await this.create({
-            sourceId,
-            sourceType: sourceType,
-        });
-
-        const targetRepository = this.getTargetRepository(sourceType);
-
-        const targetActionRelation =
-            this.getTargetActionTableRelationProperty(sourceType);
-
-        const isLiked = await this.userLikeRepository.existsBy({
-            profileUserId: userId,
-            [targetActionRelation]: entry,
-        });
-
-        const invalidIncrement =
-            action === StatisticsActionType.INCREMENT && isLiked;
-        const invalidDecrement =
-            action === StatisticsActionType.DECREMENT && !isLiked;
-
-        if (invalidIncrement || invalidDecrement) {
-            return;
-        }
-
-        if (action === StatisticsActionType.DECREMENT) {
-            await this.userLikeRepository.delete({
-                profile: {
-                    userId,
-                },
-                [targetActionRelation]: entry,
-            });
-
-            if (entry.likesCount > 0) {
-                await targetRepository.decrement(
-                    {
-                        id: entry.id,
-                    },
-                    "likesCount",
-                    1,
-                );
+    async applyReaction(
+        userId: string,
+        dto: ReactionRequestDto,
+        isLike: boolean,
+    ): Promise<ReactionResponseDto> {
+        // Enforce strict property check: only sourceType and sourceId are allowed
+        const allowedKeys = ["sourceType", "sourceId"];
+        for (const key of Object.keys(dto)) {
+            if (!allowedKeys.includes(key)) {
+                throw new BadRequestException(`Unknown property: ${key}`);
             }
-
-            return;
         }
 
-        // This will fail if the user doesn't have a profile.
-        await this.userLikeRepository.save({
-            profile: {
-                userId,
-            },
-            [targetActionRelation]: entry,
-        });
+        const { sourceType, sourceId } = dto;
+        let retries = 0;
+        while (true) {
+            try {
+                return await this.dataSource.transaction(async (manager) => {
+                    let ownerUserId: string | null = null;
+                    let rootType = String(sourceType);
+                    let rootId = String(sourceId);
+                    if (sourceType === StatisticsSourceType.GAME) {
+                        const games = await manager.query(
+                            "SELECT id FROM game WHERE id = ? FOR UPDATE",
+                            [sourceId],
+                        );
+                        if (!games.length)
+                            throw new NotFoundException("Game not found");
+                    } else if (
+                        ["post", "review", "activity"].includes(sourceType)
+                    ) {
+                        const source = await lockNotificationRoot(
+                            manager,
+                            sourceType as NotificationRootType,
+                            String(sourceId),
+                        );
+                        if (!source)
+                            throw new NotFoundException(
+                                "Content not found or inaccessible",
+                            );
+                        ownerUserId = source.profileUserId;
+                    } else if (
+                        [
+                            "post_comment",
+                            "review_comment",
+                            "activity_comment",
+                        ].includes(sourceType)
+                    ) {
+                        rootType = sourceType.replace("_comment", "");
+                        const rows = await manager.query(
+                            `SELECT ${rootType}Id AS rootId FROM ${sourceType} WHERE id = ?`,
+                            [sourceId],
+                        );
+                        if (!rows[0])
+                            throw new NotFoundException("Comment not found");
+                        rootId = rows[0].rootId;
+                        const source = await lockNotificationComment(
+                            manager,
+                            rootType as NotificationRootType,
+                            rootId,
+                            String(sourceId),
+                        );
+                        if (!source)
+                            throw new NotFoundException(
+                                "Comment not found or inaccessible",
+                            );
+                        ownerUserId = source.profileUserId;
+                    } else
+                        throw new BadRequestException(
+                            "Unsupported source type",
+                        );
+                    const targetEntity = this.getTargetEntity(sourceType);
+                    const statsRepo = manager.getRepository(targetEntity);
+                    const targetRelationIdProp =
+                        this.getTargetRelationIdProperty(sourceType);
 
-        await targetRepository.increment(
-            {
-                id: entry.id,
-            },
-            "likesCount",
-            1,
-        );
+                    // Lock or initialize statistics
+                    let stats: any = await statsRepo
+                        .createQueryBuilder("s")
+                        .setLock("pessimistic_write")
+                        .where(`s.${targetRelationIdProp} = :sourceId`, {
+                            sourceId,
+                        })
+                        .getOne();
 
-        this.createLikeNotification(data);
-    }
+                    if (!stats) {
+                        await manager
+                            .createQueryBuilder()
+                            .insert()
+                            .into(targetEntity)
+                            .values({
+                                [targetRelationIdProp]: sourceId,
+                                likesCount: 0,
+                                viewsCount: 0,
+                            } as any)
+                            .orIgnore()
+                            .execute();
+                        stats = await statsRepo
+                            .createQueryBuilder("s")
+                            .setLock("pessimistic_write")
+                            .where(`s.${targetRelationIdProp} = :sourceId`, {
+                                sourceId,
+                            })
+                            .getOne();
+                    }
 
-    private createLikeNotification(data: StatisticsLikeAction) {
-        const { sourceId, sourceType, targetUserId, userId } = data;
+                    if (!stats) {
+                        throw new InternalServerErrorException(
+                            "Failed to load statistics",
+                        );
+                    }
 
-        if (targetUserId == undefined) {
-            return;
+                    const targetActionRelation =
+                        this.getTargetActionTableRelationProperty(sourceType);
+                    const userLikeRepo = manager.getRepository(UserLike);
+
+                    const existingLike = await userLikeRepo
+                        .createQueryBuilder("l")
+                        .setLock("pessimistic_write")
+                        .where("l.profileUserId = :userId", { userId })
+                        .andWhere(`l.${targetActionRelation}Id = :statsId`, {
+                            statsId: stats.id,
+                        })
+                        .getOne();
+
+                    if (isLike) {
+                        if (existingLike) {
+                            return {
+                                isLiked: true,
+                                likesCount: Number(stats.likesCount),
+                            };
+                        }
+
+                        const newLike = userLikeRepo.create({
+                            profileUserId: userId,
+                            [targetActionRelation]: stats,
+                        });
+                        const savedLike = await userLikeRepo.save(newLike);
+
+                        const nextLikesCount = Number(stats.likesCount) + 1;
+                        stats.likesCount = nextLikesCount;
+                        await statsRepo.save(stats);
+
+                        let eventSubjectType:
+                            | "review"
+                            | "post"
+                            | "activity"
+                            | "comment"
+                            | "game";
+                        if (sourceType === StatisticsSourceType.REVIEW)
+                            eventSubjectType = "review";
+                        else if (sourceType === StatisticsSourceType.POST)
+                            eventSubjectType = "post";
+                        else if (sourceType === StatisticsSourceType.ACTIVITY)
+                            eventSubjectType = "activity";
+                        else if (sourceType === StatisticsSourceType.GAME)
+                            eventSubjectType = "game";
+                        else eventSubjectType = "comment";
+
+                        if (ownerUserId && ownerUserId !== userId) {
+                            await appendNotificationIntent(manager, {
+                                eventType: "content.liked",
+                                eventVersion: 1,
+                                occurredAt: new Date(),
+                                recipientUserId: ownerUserId,
+                                actorUserId: userId,
+                                payload: {
+                                    likeId: savedLike.id,
+                                    subjectType: eventSubjectType,
+                                    subjectId: String(sourceId),
+                                    rootType,
+                                    rootId,
+                                },
+                            });
+                        }
+
+                        return {
+                            isLiked: true,
+                            likesCount: nextLikesCount,
+                        };
+                    } else {
+                        if (!existingLike) {
+                            return {
+                                isLiked: false,
+                                likesCount: Number(stats.likesCount),
+                            };
+                        }
+
+                        await userLikeRepo.delete({ id: existingLike.id });
+                        const nextLikesCount = Math.max(
+                            0,
+                            Number(stats.likesCount) - 1,
+                        );
+                        stats.likesCount = nextLikesCount;
+                        await statsRepo.save(stats);
+
+                        return {
+                            isLiked: false,
+                            likesCount: nextLikesCount,
+                        };
+                    }
+                });
+            } catch (err: any) {
+                if (
+                    (err?.code === "ER_LOCK_DEADLOCK" ||
+                        err?.message?.includes("Deadlock")) &&
+                    retries < 3
+                ) {
+                    retries++;
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, 20 * retries),
+                    );
+                    continue;
+                }
+                throw err;
+            }
         }
-
-        const notificationSourceType =
-            this.getTargetNotificationCategory(sourceType);
-
-        this.notificationsQueueService.registerNotification({
-            sourceId,
-            sourceType: notificationSourceType,
-            category: ENotificationCategory.LIKE,
-            userId,
-            targetUserId,
-        });
     }
 
     async handleView(data: StatisticsViewAction) {

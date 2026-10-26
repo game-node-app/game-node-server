@@ -1,42 +1,20 @@
-/**
- * The action a notification represents (e.g. a new like, a new comment)
- */
-export enum ENotificationCategory {
-    FOLLOW = "follow",
-    LIKE = "like",
-    COMMENT = "comment",
-    // Used by watch services like 'importer-watch'
-    WATCH = "watch",
-    // Used by the suspension module
-    ALERT = "alert",
-    MENTION = "mention",
-}
-
-/**
- * The source type the notification relates to.
- * This one can and should be pretty diverse, to easily represent a target entity.
- * @example a 'like' notification on a 'review'
- * @example a 'comment' notification on a 'review'
- * @example a 'watch' notification from the 'importer-watch' system, which generated a 'importer-watch-notification' entry.
- * @example a 'follow' notification related to a 'profile'
- * @example a 'alert' notification related to a 'report'
- */
-export enum NotificationSourceType {
-    GAME = "game",
-    REVIEW = "review",
-    POST = "post",
-    POST_COMMENT = "post_comment",
-    REVIEW_COMMENT = "review_comment",
-    ACTIVITY = "activity",
-    ACTIVITY_COMMENT = "activity_comment",
-    /**
-     * Generally used for followers related notifications
-     */
-    PROFILE = "profile",
-    IMPORTER = "importer",
-    REPORT = "report",
-}
-
 export const NOTIFICATIONS_QUEUE_NAME = "notifications-queue";
 
-export const NOTIFICATIONS_REGISTER_JOB_NAME = "notifications-register";
+export const NOTIFICATIONS_PROCESS_OUTBOX_JOB_NAME =
+    "notifications-process-outbox";
+
+export const OUTBOX_DEFAULT_CLAIM_LIMIT = 100;
+export const OUTBOX_DEFAULT_LEASE_MS = 30000;
+export const OUTBOX_MAX_ATTEMPTS = 5;
+export const OUTBOX_BASE_BACKOFF_MS = 1000;
+export const OUTBOX_MAX_BACKOFF_MS = 60000;
+
+export const NOTIFICATIONS_JOB_RETENTION_COMPLETE = {
+    age: 3600,
+    count: 1000,
+};
+
+export const NOTIFICATIONS_JOB_RETENTION_FAIL = {
+    age: 86400,
+    count: 1000,
+};

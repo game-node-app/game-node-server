@@ -1,8 +1,7 @@
 import { Processor } from "@nestjs/bullmq";
-import { Job } from "bullmq";
+import { Job, UnrecoverableError } from "bullmq";
 import {
     StatisticsCreateAction,
-    StatisticsLikeAction,
     StatisticsViewAction,
 } from "./statistics-queue.types";
 import { STATISTICS_QUEUE_NAME } from "./statistics-queue.constants";
@@ -20,21 +19,15 @@ export class StatisticsQueueProcessor extends WorkerHostProcessor {
     }
 
     async process(
-        job: Job<
-            StatisticsLikeAction | StatisticsViewAction | StatisticsCreateAction
-        >,
+        job: Job<StatisticsViewAction | StatisticsCreateAction>,
     ) {
-        if (job.name === "like") {
-            await this.statisticsService.handleLike(
-                job.data as StatisticsLikeAction,
-            );
-        } else if (job.name === "view") {
+        if (job.name === "view") {
             await this.statisticsService.handleView(
                 job.data as StatisticsViewAction,
             );
         } else if (job.name === "create") {
             await this.statisticsService.create(job.data);
-        }
+        } else throw new UnrecoverableError("Unsupported statistics job; inspect the cutover inventory");
 
         return `${job.name}-${job.data.sourceType}-${job.data.sourceId}`;
     }

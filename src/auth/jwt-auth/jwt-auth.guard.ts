@@ -11,7 +11,7 @@ import * as process from "process";
 import { Request } from "express";
 
 /**
- * Jwt based auth guard. Can be used for microservice-microservice communication, or for websockets.
+ * Jwt based auth guard for microservice-microservice communication.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {

@@ -10,11 +10,9 @@ export class ImporterWatchService {
         private readonly notifications: Repository<ImporterWatchNotification>,
     ) {}
     async findNotification(userId: string, notificationId: number) {
-        const { pendingDelivery: _pendingDelivery, ...notification } =
-            await this.notifications.findOneOrFail({
-                where: { libraryUserId: userId, id: notificationId },
-                relations: { games: true },
-            });
-        return notification;
+        return this.notifications.findOneOrFail({
+            where: { libraryUserId: userId, id: notificationId },
+            relations: { games: true },
+        });
     }
 }

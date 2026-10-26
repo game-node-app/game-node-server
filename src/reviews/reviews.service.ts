@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Logger } from "@nestjs/common";
+import { HttpException, HttpStatus, Logger, Optional } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Review } from "./entities/review.entity";
@@ -18,6 +18,7 @@ import {
 import { StatisticsQueueService } from "../statistics/statistics-queue/statistics-queue.service";
 import { LevelService } from "../level/level.service";
 import { LevelIncreaseActivities } from "../level/level.constants";
+import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 
 export class ReviewsService {
     private readonly logger = new Logger(ReviewsService.name);
@@ -31,6 +32,8 @@ export class ReviewsService {
         private readonly achievementsQueueService: AchievementsQueueService,
         private readonly statisticsQueueService: StatisticsQueueService,
         private readonly levelService: LevelService,
+        @Optional()
+        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
 
     async findOneById(id: string) {
@@ -221,26 +224,23 @@ export class ReviewsService {
     }
 
     async delete(userId: string, reviewId: string) {
-        const review = await this.reviewsRepository.findOne({
-            where: {
-                id: reviewId,
-                profile: {
-                    userId,
-                },
-            },
-            relations: {
-                collectionEntry: true,
-            },
-        });
-        if (review == undefined) {
-            throw new HttpException("No review found.", HttpStatus.NOT_FOUND);
-        }
-
-        await this.reviewsRepository.delete({
-            id: reviewId,
-            profile: {
-                userId,
-            },
+        await this.reviewsRepository.manager.transaction(async (manager) => {
+            const repository = manager.getRepository(Review);
+            const review = await repository.findOne({
+                where: { id: reviewId, profileUserId: userId },
+                lock: { mode: "pessimistic_write" },
+            });
+            if (!review)
+                throw new HttpException(
+                    "No review found.",
+                    HttpStatus.NOT_FOUND,
+                );
+            await this.notificationsLifecycleService?.invalidateContent(
+                "review",
+                reviewId,
+                manager,
+            );
+            await repository.delete({ id: reviewId, profileUserId: userId });
         });
     }
 }

@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Injectable,
+    Logger,
+    Optional,
+} from "@nestjs/common";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Profile } from "./entities/profile.entity";
@@ -14,6 +20,7 @@ import { ProfileBanner } from "./entities/profile-banner.entity";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { SuspensionService } from "../suspension/suspension.service";
 import { UploadService } from "../upload/upload.service";
+import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 
 @Injectable()
 export class ProfileService {
@@ -27,6 +34,8 @@ export class ProfileService {
         private profileBannerRepository: Repository<ProfileBanner>,
         private readonly suspensionService: SuspensionService,
         private readonly uploadService: UploadService,
+        @Optional()
+        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
 
     /**
@@ -241,8 +250,18 @@ export class ProfileService {
     }
 
     async deleteByUserId(userId: string) {
-        await this.profileRepository.delete({
-            userId: userId,
+        await this.profileRepository.manager.transaction(async (manager) => {
+            const repository = manager.getRepository(Profile);
+            const profile = await repository.findOne({
+                where: { userId },
+                lock: { mode: "pessimistic_write" },
+            });
+            if (!profile) return;
+            await this.notificationsLifecycleService?.invalidateProfile(
+                userId,
+                manager,
+            );
+            await repository.delete({ userId });
         });
     }
 }

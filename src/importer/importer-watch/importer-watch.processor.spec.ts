@@ -14,6 +14,7 @@ import { ImporterWatchProcessor } from "./importer-watch.processor";
 import { ImporterService } from "../importer.service";
 import { EImporterSource } from "../importer.constants";
 import { IMPORTER_WATCH_JOB_NAME } from "./importer-watch.constants";
+import * as outboxModule from "../../notifications/notifications-outbox.service";
 
 it("a complete empty discovery completes the worker without treating other 404s as success", async () => {
     const importer: ImporterService = Object.assign(
@@ -27,7 +28,6 @@ it("a complete empty discovery completes the worker without treating other 404s 
         { save } as any,
         { save, find: jest.fn().mockResolvedValue([]) } as any,
         importer,
-        {} as any,
         {} as any,
         {} as any,
     );
@@ -58,7 +58,11 @@ function recoveryFixture(size = 2) {
     const ignored = new Set<number>();
     const notified = new Map<number, any>();
     const notifications: any[] = [];
+    const outboxIntents: any[] = [];
     const notificationRepository = {
+        manager: {
+            getRepository: jest.fn(),
+        },
         find: jest.fn(async () =>
             notifications.filter((row) => row.pendingDelivery),
         ),
@@ -74,6 +78,12 @@ function recoveryFixture(size = 2) {
             );
         }),
     };
+    jest.spyOn(outboxModule, "appendNotificationIntent").mockImplementation(
+        async (_manager, intent) => {
+            outboxIntents.push(intent);
+            return {} as any;
+        },
+    );
     const importer = {
         findUnprocessedCandidates: jest.fn(async () => {
             return games.filter(
@@ -88,7 +98,6 @@ function recoveryFixture(size = 2) {
         }),
     };
     const createForImport = jest.fn().mockResolvedValue("imported");
-    const registerImporterNotification = jest.fn().mockResolvedValue({});
     const processor = new ImporterWatchProcessor(
         {
             findBy: jest.fn(async () => [...notified.values()]),
@@ -98,7 +107,6 @@ function recoveryFixture(size = 2) {
         } as any,
         notificationRepository as any,
         importer as any,
-        { registerImporterNotification } as any,
         {
             findOneByUserIdAndType: jest.fn().mockResolvedValue({
                 isAutoImportEnabled: true,
@@ -113,10 +121,10 @@ function recoveryFixture(size = 2) {
         ignored,
         notified,
         notifications,
+        outboxIntents,
         notificationRepository,
         importer,
         createForImport,
-        registerImporterNotification,
     };
 }
 const data = { userId: "user", source: EImporterSource.STEAM };
@@ -134,33 +142,26 @@ test("notified failed games retry independently without duplicate discovery noti
     expect(fixture.notifications[0]).toMatchObject({
         autoImportedCount: 1,
         autoImportFailedCount: 1,
-        pendingDelivery: false,
     });
     await expect(fixture.processor.run(data)).resolves.toBe("complete");
     expect(fixture.processed).toEqual(new Set([1, 2]));
     expect(fixture.createForImport).toHaveBeenCalledTimes(3);
     expect(fixture.notifications).toHaveLength(1);
-    expect(fixture.registerImporterNotification).toHaveBeenCalledTimes(1);
+    expect(fixture.outboxIntents).toHaveLength(1);
 });
 
-test("publication failure recovers the committed source record without repeating imports", async () => {
+test("discovery commits outbox intent without repeating imports or using legacy publisher", async () => {
     const fixture = recoveryFixture();
-    fixture.registerImporterNotification.mockRejectedValueOnce(
-        new Error("Redis unavailable"),
-    );
-    await expect(fixture.processor.run(data)).rejects.toThrow(
-        "Redis unavailable",
-    );
-    expect(fixture.notifications[0].pendingDelivery).toBe(true);
-    await expect(fixture.processor.run(data)).resolves.toBe("empty");
-    expect(fixture.notifications[0].pendingDelivery).toBe(false);
+    await expect(fixture.processor.run(data)).resolves.toBe("complete");
     expect(fixture.notifications).toHaveLength(1);
+    expect(fixture.outboxIntents).toHaveLength(1);
     expect(fixture.createForImport).toHaveBeenCalledTimes(2);
-    expect(
-        fixture.registerImporterNotification.mock.calls.map(
-            ([dto]) => dto.sourceId,
-        ),
-    ).toEqual([1, 1]);
+
+    // Subsequent run recovers without repeating imports or emitting duplicate outbox intent
+    await expect(fixture.processor.run(data)).resolves.toBe("empty");
+    expect(fixture.notifications).toHaveLength(1);
+    expect(fixture.outboxIntents).toHaveLength(1);
+    expect(fixture.createForImport).toHaveBeenCalledTimes(2);
 });
 
 test("pages remain complete when processed filters change and legacy/ignored choices stay untouched", async () => {
@@ -254,4 +255,19 @@ test("1,001 candidates use one full-list scan and bounded pages while new user c
             0,
         ),
     ).toBe(2);
+});
+
+test("commitPage appends discovery outbox intent with result identity and counts", async () => {
+    const fixture = recoveryFixture(3);
+    await fixture.processor.run(data);
+    expect(fixture.outboxIntents).toHaveLength(1);
+    const intent = fixture.outboxIntents[0];
+    expect(intent.eventType).toBe("import.discovery-completed");
+    expect(intent.recipientUserId).toBe(data.userId);
+    const payload = intent.payload as any;
+    expect(payload.discoveryResultId).toBe(1);
+    expect(payload.provider).toBe("steam");
+    expect(payload.gameCount).toBe(3);
+    expect(payload.importedCount).toBe(3);
+    expect(payload.gameSample).toHaveLength(3);
 });

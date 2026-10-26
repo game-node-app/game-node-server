@@ -1,4 +1,3 @@
-import { Cron } from "@nestjs/schedule";
 import { Transactional } from "typeorm-transactional";
 import {
     PlayerSyncWrite,
@@ -20,16 +19,12 @@ import { ImporterNotifiedEntry } from "../entity/importer-notified-entry.entity"
 import { In, Repository } from "typeorm";
 import { ImporterWatchNotification } from "../entity/importer-notification.entity";
 import { ImporterService } from "../importer.service";
-import { NotificationsQueueService } from "../../notifications/notifications-queue.service";
 import { EImporterSource } from "../importer.constants";
-import {
-    ENotificationCategory,
-    NotificationSourceType,
-} from "../../notifications/notifications.constants";
 import { ConnectionsService } from "../../connection/connections.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { importerToConnectionSource } from "../importer.util";
 import { ImporterResponseItemDto } from "../dto/importer-response-item.dto";
+import { appendNotificationIntent } from "../../notifications/notifications-outbox.service";
 
 @Processor(IMPORTER_WATCH_QUEUE_NAME, {
     limiter: {
@@ -46,7 +41,6 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
         @InjectRepository(ImporterWatchNotification)
         private readonly importerNotificationRepository: Repository<ImporterWatchNotification>,
         private readonly importerService: ImporterService,
-        private readonly notificationsQueueService: NotificationsQueueService,
         private readonly connectionsService: ConnectionsService,
         private readonly collectionsEntriesService: CollectionsEntriesService,
     ) {
@@ -61,7 +55,6 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
         let seen = 0;
         let worked = false;
         let failed = 0;
-        await this.recoverPendingNotifications();
         const candidates = await this.importerService.findUnprocessedCandidates(
             data.userId,
             data.source,
@@ -79,8 +72,6 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
                 skippedImports: result.stats.skipped,
                 failedImports: result.stats.failed,
             });
-            if (result.notification)
-                await this.deliverNotification(result.notification);
         }
         if (failed) throw new Error(`${failed} automatic imports failed`);
         return worked ? ("complete" as const) : ("empty" as const);
@@ -171,46 +162,41 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
                   autoImportFailedCount: newOutcomes.filter(
                       (outcome) => outcome === "failed",
                   ).length,
-                  pendingDelivery: true,
               })
             : null;
+
+        if (notification) {
+            await appendNotificationIntent(
+                this.importerNotificationRepository.manager,
+                {
+                    id: `importer-result-${notification.id}`,
+                    eventType: "import.discovery-completed",
+                    eventVersion: 1,
+                    occurredAt: new Date(),
+                    recipientUserId: data.userId,
+                    actorUserId: null,
+                    payload: {
+                        discoveryResultId: notification.id,
+                        provider: data.source,
+                        gameCount: newGames.length,
+                        importedCount: notification.autoImportedCount,
+                        skippedCount: notification.autoImportSkippedCount,
+                        failedCount: notification.autoImportFailedCount,
+                        gameSample: newGames
+                            .slice(0, 3)
+                            .map((game) => ({
+                                id: game.gameId,
+                                title: (game.name || "Game").slice(0, 100),
+                            })),
+                    },
+                },
+            );
+        }
+
         return {
             notification,
             stats,
             worked: !!notification || outcomes.size > 0,
         };
-    }
-
-    private async deliverNotification(notification: ImporterWatchNotification) {
-        await this.notificationsQueueService.registerImporterNotification({
-            targetUserId: notification.libraryUserId,
-            category: ENotificationCategory.WATCH,
-            sourceType: NotificationSourceType.IMPORTER,
-            userId: undefined,
-            sourceId: notification.id,
-        });
-        await this.importerNotificationRepository.update(
-            { id: notification.id, pendingDelivery: true },
-            { pendingDelivery: false },
-        );
-    }
-
-    @Cron("*/5 * * * *")
-    public async recoverPendingNotifications() {
-        const pending = await this.importerNotificationRepository.find({
-            where: { pendingDelivery: true },
-            order: { id: "ASC" },
-            take: 100,
-        });
-        for (const notification of pending) {
-            try {
-                await this.deliverNotification(notification);
-            } catch {
-                this.logger.warn({
-                    event: "importer-notification-delivery-failed",
-                    source: notification.source,
-                });
-            }
-        }
     }
 }

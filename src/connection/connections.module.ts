@@ -12,7 +12,6 @@ import { PlaytimeModule } from "../playtime/playtime.module";
 import { PlaytimeWatchModule } from "../playtime/watch/playtime-watch.module";
 import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
 import { XboxConnectionAuthProvider } from "../sync/xbox/xbox-connection-auth.provider";
-import { ConnectionSyncModule } from "./connection-sync/connection-sync.module";
 import { CollectionsModule } from "../collections/collections.module";
 import { ConnectionCredentialCryptoService } from "./connection-credential-crypto.service";
 import { ConnectionCredentialService } from "./connection-credential.service";
@@ -35,7 +34,6 @@ import { PsnSyncService } from "../sync/psn/psn-sync.service";
         XboxSyncModule,
         forwardRef(() => PlaytimeWatchModule),
         forwardRef(() => CollectionsModule),
-        ConnectionSyncModule,
     ],
     providers: [
         ConnectionsService,

@@ -47,6 +47,12 @@ wrapper
 !/src/migrations/1792886400001-CreatePlayerGameSync.ts
 !/src/migrations/1792886400002-AddPendingAchievementActivityDelivery.ts
 !/src/migrations/1792886400003-AddConnectionAuth.ts
+!/src/migrations/1792886400004-RecoverImporterNotifications.ts
+!/src/migrations/1792960197563-CreateNotificationOutboxAndInbox.ts
+!/src/migrations/1792960197564-NotificationTimestampPrecision.ts
+!/src/migrations/1792960197565-IndexNotificationCommentTriggers.ts
+!/src/migrations/1792960197566-CreateNotificationCutoverLedger.ts
+!/src/migrations/1792960197567-RetireLegacyNotificationStorage.ts
 /public/uploads/*
 !/public
 !/public/uploads

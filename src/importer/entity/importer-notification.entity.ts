@@ -1,8 +1,6 @@
-import { ApiHideProperty } from "@nestjs/swagger";
 import {
     Column,
     Entity,
-    Index,
     JoinTable,
     ManyToMany,
     ManyToOne,
@@ -13,7 +11,6 @@ import { GameExternalGame } from "../../game/external-game/entity/game-external-
 import { EImporterSource } from "../importer.constants";
 
 @Entity()
-@Index("IDX_importer_pending_delivery", ["pendingDelivery", "id"])
 export class ImporterWatchNotification {
     @PrimaryGeneratedColumn()
     id: number;
@@ -52,8 +49,4 @@ export class ImporterWatchNotification {
     autoImportSkippedCount: number;
     @Column({ default: 0 })
     autoImportFailedCount: number;
-
-    @ApiHideProperty()
-    @Column({ default: false })
-    pendingDelivery: boolean;
 }

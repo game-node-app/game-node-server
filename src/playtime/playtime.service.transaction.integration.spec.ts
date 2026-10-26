@@ -611,7 +611,6 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
                             getBatchMinutesPlayed,
                         } as any,
                         { getGamePlatformsMap: async () => new Map() } as any,
-                        {} as any,
                         { addUserSyncJob: async () => undefined } as any,
                         new ConnectionProviderRegistry(),
                     );

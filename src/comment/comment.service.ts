@@ -12,20 +12,17 @@ import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { UpdateCommentDto } from "./dto/update-comment.dto";
 import { DeleteCommentDto } from "./dto/delete-comment.dto";
-import { NotificationsQueueService } from "../notifications/notifications-queue.service";
-import { ReviewsService } from "../reviews/reviews.service";
-import {
-    ENotificationCategory,
-    NotificationSourceType,
-} from "../notifications/notifications.constants";
 import { BaseFindDto } from "../utils/base-find.dto";
 import { UserComment } from "./entity/user-comment.entity";
 import { ActivityComment } from "./entity/activity-comment.entity";
-import { ActivitiesRepositoryService } from "../activities/activities-repository/activities-repository.service";
-import { match, P } from "ts-pattern";
+import { match } from "ts-pattern";
 import { PostComment } from "./entity/post-comment.entity";
 import { AnyComment } from "./comment.types";
-import { PostsService } from "../posts/posts.service";
+import { Review } from "../reviews/entities/review.entity";
+import { Post } from "../posts/entity/post.entity";
+import { Activity } from "../activities/activities-repository/entities/activity.entity";
+import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
+import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 
 @Injectable()
 export class CommentService {
@@ -34,10 +31,7 @@ export class CommentService {
     constructor(
         private readonly dataSource: DataSource,
         private readonly statisticsQueueService: StatisticsQueueService,
-        private readonly notificationsQueueService: NotificationsQueueService,
-        private readonly reviewsService: ReviewsService,
-        private readonly activitiesRepositoryService: ActivitiesRepositoryService,
-        private readonly postsService: PostsService,
+        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
 
     private getTargetRepository(
@@ -164,29 +158,138 @@ export class CommentService {
     async create(userId: string, dto: CreateCommentDto) {
         const { sourceType, sourceId, content, childOf } = dto;
 
-        if (childOf) {
-            const mainComment = await this.findOneByIdOrFail(
-                sourceType,
-                childOf,
-            );
-            if (mainComment.childOfId != undefined) {
-                throw new HttpException(
-                    "Deep-nested comments are not allowed. Comments must be a children of a single comment.",
-                    HttpStatus.BAD_REQUEST,
-                );
-            }
-        }
+        const targetEntity = match<CommentSourceType, any>(sourceType)
+            .with(CommentSourceType.REVIEW, () => ReviewComment)
+            .with(CommentSourceType.ACTIVITY, () => ActivityComment)
+            .with(CommentSourceType.POST, () => PostComment)
+            .exhaustive();
 
-        const targetRepository = this.getTargetRepository(sourceType);
         const targetRelationProperty =
             this.getTargetRelationIdProperty(sourceType);
 
-        const insertedEntry = await targetRepository.save({
-            profileUserId: userId,
-            content,
-            childOfId: childOf,
-            [targetRelationProperty]: sourceId,
-        });
+        const rootType = match<
+            CommentSourceType,
+            "review" | "post" | "activity"
+        >(sourceType)
+            .with(CommentSourceType.REVIEW, () => "review")
+            .with(CommentSourceType.ACTIVITY, () => "activity")
+            .with(CommentSourceType.POST, () => "post")
+            .exhaustive();
+
+        const insertedEntry = await this.dataSource.transaction(
+            async (manager) => {
+                let rootOwnerId: string | null = null;
+                if (sourceType === CommentSourceType.REVIEW) {
+                    const review = await manager
+                        .getRepository(Review)
+                        .findOneBy({ id: sourceId });
+                    if (!review) {
+                        throw new HttpException(
+                            "Target review not found",
+                            HttpStatus.NOT_FOUND,
+                        );
+                    }
+                    rootOwnerId = review.profileUserId;
+                } else if (sourceType === CommentSourceType.POST) {
+                    const post = await manager
+                        .getRepository(Post)
+                        .findOneBy({ id: sourceId });
+                    if (!post) {
+                        throw new HttpException(
+                            "Target post not found",
+                            HttpStatus.NOT_FOUND,
+                        );
+                    }
+                    rootOwnerId = post.profileUserId;
+                } else if (sourceType === CommentSourceType.ACTIVITY) {
+                    const activity = await manager
+                        .getRepository(Activity)
+                        .findOneBy({ id: sourceId });
+                    if (!activity) {
+                        throw new HttpException(
+                            "Target activity not found",
+                            HttpStatus.NOT_FOUND,
+                        );
+                    }
+                    rootOwnerId = activity.profileUserId;
+                }
+
+                let parentComment: AnyComment | null = null;
+                if (childOf) {
+                    parentComment =
+                        (await manager
+                            .getRepository<AnyComment>(targetEntity)
+                            .findOneBy({ id: childOf } as any)) || null;
+                    if (!parentComment) {
+                        throw new HttpException(
+                            "Parent comment not found",
+                            HttpStatus.NOT_FOUND,
+                        );
+                    }
+                    if (parentComment.childOfId != null) {
+                        throw new HttpException(
+                            "Deep-nested comments are not allowed. Comments must be a children of a single comment.",
+                            HttpStatus.BAD_REQUEST,
+                        );
+                    }
+                    const parentRootId = (parentComment as any)[
+                        targetRelationProperty
+                    ];
+                    if (parentRootId !== sourceId) {
+                        throw new HttpException(
+                            "Parent comment belongs to a different root",
+                            HttpStatus.BAD_REQUEST,
+                        );
+                    }
+                }
+
+                const commentRepo =
+                    manager.getRepository<AnyComment>(targetEntity);
+                const newComment = commentRepo.create({
+                    profileUserId: userId,
+                    content,
+                    childOfId: childOf || null,
+                    [targetRelationProperty]: sourceId,
+                } as any);
+                const savedComment = (await commentRepo.save(
+                    newComment as any,
+                )) as AnyComment;
+
+                if (childOf && parentComment) {
+                    const recipientUserId = parentComment.profileUserId;
+                    if (recipientUserId && recipientUserId !== userId) {
+                        await appendNotificationIntent(manager, {
+                            eventType: "comment.replied",
+                            eventVersion: 1,
+                            occurredAt: new Date(),
+                            recipientUserId,
+                            actorUserId: userId,
+                            payload: {
+                                commentId: savedComment.id,
+                                parentCommentId: parentComment.id,
+                                rootType,
+                                rootId: sourceId,
+                            },
+                        });
+                    }
+                } else if (rootOwnerId && rootOwnerId !== userId) {
+                    await appendNotificationIntent(manager, {
+                        eventType: "comment.created",
+                        eventVersion: 1,
+                        occurredAt: new Date(),
+                        recipientUserId: rootOwnerId,
+                        actorUserId: userId,
+                        payload: {
+                            commentId: savedComment.id,
+                            rootType,
+                            rootId: sourceId,
+                        },
+                    });
+                }
+
+                return savedComment;
+            },
+        );
 
         const statisticsSource =
             CommentSourceToStatisticsSource[dto.sourceType];
@@ -196,120 +299,7 @@ export class CommentService {
             sourceId: insertedEntry.id,
         });
 
-        this.createNotification(insertedEntry.id, sourceType)
-            .then()
-            .catch((err) => {
-                this.logger.error(err);
-            });
-    }
-
-    /**
-     * Registers notification for target entity (e.g. review, review comment) when a new comment is inserted.
-     * @param commentId
-     * @param sourceType
-     */
-    async createNotification(commentId: string, sourceType: CommentSourceType) {
-        const comment = await this.findOneByIdOrFail(sourceType, commentId);
-
-        let sourceId: string | undefined;
-
-        let targetUserId: string;
-        if (comment.childOfId != undefined) {
-            const parentComment = await this.findOneByIdOrFail(
-                sourceType,
-                comment.childOfId,
-            );
-            targetUserId = parentComment.profileUserId;
-            sourceId = parentComment.id;
-        } else {
-            const targetInfo = await match<
-                CommentSourceType,
-                Promise<{
-                    targetUserId: string;
-                    sourceId: string;
-                }>
-            >(sourceType)
-                .with(CommentSourceType.REVIEW, async () => {
-                    const review = await this.reviewsService.findOneByIdOrFail(
-                        (comment as ReviewComment).reviewId,
-                    );
-                    return {
-                        targetUserId: review.profileUserId,
-                        sourceId: review.id,
-                    };
-                })
-                .with(CommentSourceType.ACTIVITY, async () => {
-                    const activity =
-                        await this.activitiesRepositoryService.findOneByOrFail({
-                            where: {
-                                id: (comment as ActivityComment).activityId,
-                            },
-                        });
-                    return {
-                        targetUserId: activity.profileUserId,
-                        sourceId: activity.id,
-                    };
-                })
-                .with(CommentSourceType.POST, async () => {
-                    const post = await this.postsService.findOneByIdOrFail(
-                        (comment as PostComment).postId,
-                    );
-                    return {
-                        targetUserId: post.profileUserId,
-                        sourceId: post.id,
-                    };
-                })
-                .exhaustive();
-            targetUserId = targetInfo.targetUserId;
-            sourceId = targetInfo.sourceId;
-        }
-
-        const notificationSourceType = match([comment.childOfId, sourceType])
-            .returnType<NotificationSourceType>()
-            .with(
-                [P.nonNullable, CommentSourceType.REVIEW],
-                () => NotificationSourceType.REVIEW_COMMENT,
-            )
-            .with(
-                [P.nullish, CommentSourceType.REVIEW],
-                () => NotificationSourceType.REVIEW,
-            )
-            .with(
-                [P.nonNullable, CommentSourceType.POST],
-                () => NotificationSourceType.POST_COMMENT,
-            )
-            .with(
-                [P.nullish, CommentSourceType.POST],
-                () => NotificationSourceType.POST,
-            )
-            .with(
-                [P.nonNullable, CommentSourceType.ACTIVITY],
-                () => NotificationSourceType.ACTIVITY_COMMENT,
-            )
-            .with(
-                [P.nullish, CommentSourceType.ACTIVITY],
-                () => NotificationSourceType.ACTIVITY,
-            )
-            .exhaustive();
-
-        if (
-            sourceId == undefined ||
-            targetUserId == undefined ||
-            notificationSourceType == undefined
-        ) {
-            this.logger.error(
-                "Failed to generate comment notification: could not determine comment notification target.",
-            );
-            return;
-        }
-
-        this.notificationsQueueService.registerNotification({
-            userId: comment.profileUserId,
-            sourceId: sourceId,
-            sourceType: notificationSourceType,
-            targetUserId: targetUserId,
-            category: ENotificationCategory.COMMENT,
-        });
+        return insertedEntry;
     }
 
     async update(userId: string, commentId: string, dto: UpdateCommentDto) {
@@ -328,10 +318,19 @@ export class CommentService {
 
     async delete(userId: string, commentId: string, dto: DeleteCommentDto) {
         const targetRepository = this.getTargetRepository(dto.sourceType);
-
-        await targetRepository.delete({
-            profileUserId: userId,
-            id: commentId,
+        await this.dataSource.transaction(async (manager) => {
+            const result = await manager
+                .getRepository(targetRepository.target)
+                .delete({
+                    profileUserId: userId,
+                    id: commentId,
+                });
+            if (result.affected) {
+                await this.notificationsLifecycleService?.invalidateComment(
+                    commentId,
+                    manager,
+                );
+            }
         });
     }
 }

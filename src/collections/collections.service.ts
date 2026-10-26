@@ -1,4 +1,9 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Injectable,
+    Optional,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Collection } from "./entities/collection.entity";
 import { FindOptionsRelations, In, Repository } from "typeorm";
@@ -7,6 +12,7 @@ import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
 import { AchievementCategory } from "../achievements/achievements.constants";
+import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 
 @Injectable()
 export class CollectionsService {
@@ -19,6 +25,8 @@ export class CollectionsService {
         private collectionsRepository: Repository<Collection>,
         private readonly librariesService: LibrariesService,
         private readonly achievementsQueueService: AchievementsQueueService,
+        @Optional()
+        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
 
     async findOneById(id: string) {
@@ -142,40 +150,48 @@ export class CollectionsService {
         collectionId: string,
         updateCollectionDto: UpdateCollectionDto,
     ) {
-        const collection = await this.findOneByIdOrFail(collectionId, {
-            library: true,
-        });
-
-        if (collection.libraryUserId !== userId) {
-            throw new HttpException(
-                "User is not the owner of the library.",
-                HttpStatus.FORBIDDEN,
-            );
-        }
-
-        const privateCollectionRequest =
-            !collection.isPublic ||
-            (updateCollectionDto.isPublic != undefined &&
-                !updateCollectionDto.isPublic);
-
-        if (privateCollectionRequest) {
-            if (collection.isFeatured || updateCollectionDto.isFeatured) {
-                throw new HttpException(
-                    "Featured collections must be public.",
-                    HttpStatus.BAD_REQUEST,
+        return this.collectionsRepository.manager.transaction(
+            async (manager) => {
+                const repository = manager.getRepository(Collection);
+                const collection = await repository.findOne({
+                    where: { id: collectionId },
+                    relations: { library: true },
+                    lock: { mode: "pessimistic_write" },
+                });
+                if (!collection)
+                    throw new HttpException(
+                        "Collection not found.",
+                        HttpStatus.NOT_FOUND,
+                    );
+                if (collection.libraryUserId !== userId)
+                    throw new HttpException(
+                        "User is not the owner of the library.",
+                        HttpStatus.FORBIDDEN,
+                    );
+                const wasPublic = collection.isPublic;
+                const isPrivate =
+                    updateCollectionDto.isPublic === false ||
+                    (updateCollectionDto.isPublic === undefined && !wasPublic);
+                if (
+                    isPrivate &&
+                    (collection.isFeatured || updateCollectionDto.isFeatured)
+                ) {
+                    throw new HttpException(
+                        "Featured collections must be public.",
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
+                const saved = await repository.save(
+                    repository.merge(collection, updateCollectionDto),
                 );
-            }
-        }
-
-        const updatedCollection = this.collectionsRepository.merge(
-            collection,
-            updateCollectionDto,
+                if (wasPublic && !saved.isPublic)
+                    await this.notificationsLifecycleService?.invalidateCollection(
+                        collectionId,
+                        manager,
+                    );
+                return saved;
+            },
         );
-
-        return await this.collectionsRepository.save({
-            ...updatedCollection,
-            id: collection.id,
-        });
     }
 
     /**
@@ -184,20 +200,24 @@ export class CollectionsService {
      * @param collectionId
      */
     async delete(userId: string, collectionId: string) {
-        const collection = await this.collectionsRepository.findOne({
-            where: {
-                libraryUserId: userId,
-                id: collectionId,
+        await this.collectionsRepository.manager.transaction(
+            async (manager) => {
+                const repository = manager.getRepository(Collection);
+                const collection = await repository.findOne({
+                    where: { libraryUserId: userId, id: collectionId },
+                    lock: { mode: "pessimistic_write" },
+                });
+                if (!collection)
+                    throw new HttpException(
+                        "No collection found.",
+                        HttpStatus.NOT_FOUND,
+                    );
+                await this.notificationsLifecycleService?.invalidateCollection(
+                    collectionId,
+                    manager,
+                );
+                await repository.delete({ id: collectionId });
             },
-        });
-        if (!collection) {
-            throw new HttpException(
-                "No collection found.",
-                HttpStatus.NOT_FOUND,
-            );
-        }
-        await this.collectionsRepository.delete({
-            id: collection.id,
-        });
+        );
     }
 }

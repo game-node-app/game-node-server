@@ -13,6 +13,7 @@ import { GameFilterModule } from "../game/game-filter/game-filter.module";
 import { StatisticsService } from "./statistics.service";
 import { StatisticsTrendingService } from "./statistics-trending.service";
 import { PostStatistics } from "./entity/post-statistics.entity";
+import { SuspensionModule } from "../suspension/suspension.module";
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { PostStatistics } from "./entity/post-statistics.entity";
         NotificationsModule,
         forwardRef(() => GameRepositoryModule),
         GameFilterModule,
+        SuspensionModule,
     ],
     providers: [StatisticsService, StatisticsTrendingService],
     controllers: [StatisticsController],

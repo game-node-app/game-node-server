@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { UploadPostImageResponseDto } from "./dto/upload-post-image.dto";
 import { FindManyOptions, FindOneOptions } from "typeorm";
 import { Post } from "./entity/post.entity";
@@ -8,6 +8,7 @@ import { GetPostsRequestDto } from "./dto/get-posts.dto";
 import { UploadService } from "../upload/upload.service";
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
 import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
+import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 
 @Injectable()
 export class PostsService {
@@ -17,6 +18,8 @@ export class PostsService {
         private readonly postRepository: PostsRepository,
         private readonly uploadService: UploadService,
         private readonly activitiesQueueService: ActivitiesQueueService,
+        @Optional()
+        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
 
     public async findAll(options: FindManyOptions<Post>) {
@@ -74,9 +77,18 @@ export class PostsService {
     }
 
     public async delete(userId: string, postId: string) {
-        await this.postRepository.softDelete({
-            profileUserId: userId,
-            id: postId,
+        await this.postRepository.manager.transaction(async (manager) => {
+            const result = await manager.softDelete(Post, {
+                profileUserId: userId,
+                id: postId,
+            });
+            if (result.affected) {
+                await this.notificationsLifecycleService?.invalidateContent(
+                    "post",
+                    postId,
+                    manager,
+                );
+            }
         });
     }
 }
