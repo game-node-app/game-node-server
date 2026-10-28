@@ -21,13 +21,21 @@ import { EConnectionType } from "./connections.constants";
 import { PlayerProviderBudgetModule } from "../sync/player-provider-budget.module";
 import { ConnectionProviderModule } from "./connection-provider.module";
 import { PsnSyncService } from "../sync/psn/psn-sync.service";
+import { ConnectionsSummaryService } from "./connections-summary.service";
+import { CollectionEntry } from "../collections/collections-entries/entities/collection-entry.entity";
+import { PlayerConnectionSync } from "../sync/player-data/entity/player-connection-sync.entity";
 
 @Module({
     imports: [
         PlayerProviderBudgetModule,
         ConnectionProviderModule,
         PlayerDataModule,
-        TypeOrmModule.forFeature([UserConnection, UserConnectionCredential]),
+        TypeOrmModule.forFeature([
+            UserConnection,
+            UserConnectionCredential,
+            CollectionEntry,
+            PlayerConnectionSync,
+        ]),
         SteamSyncModule,
         PsnSyncModule,
         PlaytimeModule,
@@ -37,6 +45,7 @@ import { PsnSyncService } from "../sync/psn/psn-sync.service";
     ],
     providers: [
         ConnectionsService,
+        ConnectionsSummaryService,
         ConnectionCredentialCryptoService,
         ConnectionCredentialService,
         ConnectionAuthStateService,

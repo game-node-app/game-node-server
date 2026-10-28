@@ -9,7 +9,7 @@ import {
     Post,
     UseGuards,
 } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { Session } from "../auth/session.decorator";
 import { SessionContainer } from "supertokens-node/recipe/session";
 import { AuthGuard } from "../auth/auth.guard";
@@ -20,12 +20,17 @@ import { Public } from "../auth/public.decorator";
 import { ConnectionAuthInitDto } from "./dto/connection-auth-init.dto";
 import { ConnectionAuthCallbackDto } from "./dto/connection-auth-callback.dto";
 import { ConnectionSettingsUpdateDto } from "./dto/connection-settings-update.dto";
+import { ConnectionsSummaryService } from "./connections-summary.service";
+import { OwnUserConnectionDto } from "./dto/own-user-connection.dto";
 
 @Controller("connections")
 @ApiTags("connections")
 @UseGuards(AuthGuard)
 export class ConnectionsController {
-    constructor(private readonly connectionsService: ConnectionsService) {}
+    constructor(
+        private readonly connectionsService: ConnectionsService,
+        private readonly summaries: ConnectionsSummaryService,
+    ) {}
 
     @Get()
     @Public()
@@ -34,19 +39,28 @@ export class ConnectionsController {
     }
 
     @Get("own")
+    @ApiOkResponse({ type: OwnUserConnectionDto, isArray: true })
     async findOwn(@Session() session: SessionContainer) {
-        return this.connectionsService.findAllByUserId(session.getUserId());
+        const userId = session.getUserId();
+        return this.summaries.enrich(
+            userId,
+            await this.connectionsService.findAllByUserId(userId),
+        );
     }
 
     @Get("own/:type")
+    @ApiOkResponse({ type: OwnUserConnectionDto })
     async findOwnByType(
         @Session() session: SessionContainer,
         @Param("type") type: EConnectionType,
     ) {
-        return this.connectionsService.findOneByUserIdAndTypeOrFail(
-            session.getUserId(),
-            type,
-        );
+        const userId = session.getUserId();
+        const connection =
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                type,
+            );
+        return (await this.summaries.enrich(userId, [connection]))[0];
     }
 
     @Get("user/:userId")

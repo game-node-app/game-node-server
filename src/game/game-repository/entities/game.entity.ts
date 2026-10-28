@@ -32,6 +32,7 @@ import { GameTheme } from "./game-theme.entity";
 import { GamePlayerPerspective } from "./game-player-perspective.entity";
 import { GameEngine } from "./game-engine.entity";
 import { StatisticsTarget } from "../../../statistics/entity/statistics-target.entity";
+import { ApiProperty } from "@nestjs/swagger";
 
 /**
  * For future maintainers:
@@ -88,7 +89,7 @@ export class Game {
         nullable: true,
     })
     checksum: string;
-    @Column({
+    @Column("text", {
         nullable: true,
     })
     url: string;
@@ -172,6 +173,7 @@ export class Game {
     @OneToOne(() => GameCover, (cover) => cover.game, {
         nullable: true,
     })
+    @ApiProperty({ type: () => GameCover, nullable: true })
     cover: GameCover;
     @OneToMany(
         () => GameAlternativeName,

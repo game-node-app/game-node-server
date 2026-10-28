@@ -9,6 +9,7 @@ import {
 } from "../../../src/sync/igdb/catalog/igdb-catalog.constants";
 import { Game } from "../../../src/game/game-repository/entities/game.entity";
 import { StatisticsTarget } from "../../../src/statistics/entity/statistics-target.entity";
+import { StatisticsSourceType } from "../../../src/statistics/statistics.constants";
 import { GameCover } from "../../../src/game/game-repository/entities/game-cover.entity";
 
 async function main() {
@@ -109,7 +110,9 @@ async function main() {
             "Unexpected game row count",
         );
         assert(
-            (await runtime.source.getRepository(StatisticsTarget).countBy({ sourceType: "game" })) ===
+            (await runtime.source
+                .getRepository(StatisticsTarget)
+                .countBy({ sourceType: StatisticsSourceType.GAME })) ===
                 expected.statisticsRows,
             "Unexpected statistics row count",
         );

@@ -1,4 +1,5 @@
 import { GameExternalGame } from "../../game/external-game/entity/game-external-game.entity";
+import { ApiProperty } from "@nestjs/swagger";
 
 export class ImporterResponseItemDto extends GameExternalGame {
     /**
@@ -6,4 +7,7 @@ export class ImporterResponseItemDto extends GameExternalGame {
      * @see CollectionsEntriesService#createOrUpdate
      */
     preferredPlatformId: number;
+
+    @ApiProperty({ type: Boolean, required: true })
+    isInLibrary?: boolean;
 }

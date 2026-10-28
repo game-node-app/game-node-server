@@ -85,6 +85,7 @@ function recoveryFixture(size = 2) {
         },
     );
     const importer = {
+        lockLibrary: jest.fn(),
         findUnprocessedCandidates: jest.fn(async () => {
             return games.filter(
                 (game) => !processed.has(game.id) && !ignored.has(game.id),
@@ -222,9 +223,12 @@ test("1,001 candidates use one full-list scan and bounded pages while new user c
         {} as any,
         {} as any,
         new ConnectionProviderRegistry(),
+        {} as any,
+        {} as any,
     );
     importer.isProcessedOrIgnored = fixture.importer.isProcessedOrIgnored;
     importer.markProcessed = fixture.importer.markProcessed;
+    importer.lockLibrary = fixture.importer.lockLibrary;
     Object.assign(fixture.processor, { importerService: importer });
     const pages = jest.spyOn(fixture.processor as any, "commitPage");
     fixture.createForImport.mockImplementationOnce(async () => {

@@ -4,12 +4,18 @@ import {
     Get,
     NotFoundException,
     Param,
+    ParseEnumPipe,
     Post,
     Query,
     UseGuards,
     UseInterceptors,
 } from "@nestjs/common";
-import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import {
+    ApiCreatedResponse,
+    ApiOkResponse,
+    ApiParam,
+    ApiTags,
+} from "@nestjs/swagger";
 import { AuthGuard } from "../auth/auth.guard";
 import { ImporterService } from "./importer.service";
 import { ImporterStatusUpdateRequestDto } from "./dto/importer-status-update-request.dto";
@@ -21,12 +27,19 @@ import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { ImporterPaginatedResponseDto } from "./dto/importer-paginated-response.dto";
 import { CacheInterceptor, CacheTTL } from "@nestjs/cache-manager";
 import { minutes } from "@nestjs/throttler";
+import { ImporterBatchStatusRequestDto } from "./dto/importer-batch-status-request.dto";
+import { ImporterBatchImportRequestDto } from "./dto/importer-batch-import-request.dto";
+import { ImporterBatchImportService } from "./importer-batch-import.service";
+import { ImporterBatchImportResponseDto } from "./dto/importer-batch-import-response.dto";
 
 @Controller("importer")
 @ApiTags("importer")
 @UseGuards(AuthGuard)
 export class ImporterController {
-    constructor(private importerService: ImporterService) {}
+    constructor(
+        private importerService: ImporterService,
+        private readonly batchImportService: ImporterBatchImportService,
+    ) {}
 
     @Get(":source")
     @UseInterceptors(PaginationInterceptor)
@@ -50,7 +63,11 @@ export class ImporterController {
                       await this.importerService.findUnprocessedEntries(
                           userId,
                           source,
-                          { offset: 0, limit: 1 },
+                          {
+                              offset: 0,
+                              limit: 1,
+                              excludeInLibrary: dto.excludeInLibrary,
+                          },
                       )
                   )[1]
                 : 0;
@@ -66,5 +83,25 @@ export class ImporterController {
         @Body() dto: ImporterStatusUpdateRequestDto,
     ) {
         return this.importerService.changeStatus(session.getUserId(), dto);
+    }
+
+    @Post("status/batch")
+    async changeStatusBatch(
+        @Session() session: SessionContainer,
+        @Body() dto: ImporterBatchStatusRequestDto,
+    ) {
+        return this.importerService.changeStatusBatch(session.getUserId(), dto);
+    }
+
+    @Post(":source/import")
+    @ApiCreatedResponse({ type: ImporterBatchImportResponseDto })
+    @ApiParam({ name: "source", enum: EImporterSource })
+    async importBatch(
+        @Session() session: SessionContainer,
+        @Param("source", new ParseEnumPipe(EImporterSource))
+        source: EImporterSource,
+        @Body() dto: ImporterBatchImportRequestDto,
+    ) {
+        return this.batchImportService.import(session.getUserId(), source, dto);
     }
 }

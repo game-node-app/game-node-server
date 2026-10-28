@@ -7,10 +7,13 @@ describe("ConnectionsController", () => {
             .fn()
             .mockResolvedValue({ id: 5 });
         const updateSettings = jest.fn().mockResolvedValue({ id: 5 });
-        const controller = new ConnectionsController({
-            findOneByUserIdAndTypeOrFail,
-            updateSettings,
-        } as any);
+        const controller = new ConnectionsController(
+            {
+                findOneByUserIdAndTypeOrFail,
+                updateSettings,
+            } as any,
+            {} as any,
+        );
         const dto = { isAutoImportEnabled: true };
         await controller.updateOwnSettings(
             { getUserId: () => "owner" } as any,
@@ -25,7 +28,10 @@ describe("ConnectionsController", () => {
     });
     test("connection updates use the authenticated owner", async () => {
         const createOrUpdate = jest.fn().mockResolvedValue({ id: 1 });
-        const controller = new ConnectionsController({ createOrUpdate } as any);
+        const controller = new ConnectionsController(
+            { createOrUpdate } as any,
+            {} as any,
+        );
         const dto = {
             type: EConnectionType.STEAM,
             sourceUserId: "account",
@@ -44,9 +50,12 @@ describe("ConnectionsController", () => {
             authorizationUrl: "https://auth.example.com",
             state: "state-123",
         });
-        const controller = new ConnectionsController({
-            initRedirectAuth,
-        } as any);
+        const controller = new ConnectionsController(
+            {
+                initRedirectAuth,
+            } as any,
+            {} as any,
+        );
         const dto = { isAutoImportEnabled: true };
 
         const result = await controller.initRedirectAuth(
@@ -71,9 +80,12 @@ describe("ConnectionsController", () => {
             id: 1,
             type: EConnectionType.STEAM,
         });
-        const controller = new ConnectionsController({
-            completeRedirectAuth,
-        } as any);
+        const controller = new ConnectionsController(
+            {
+                completeRedirectAuth,
+            } as any,
+            {} as any,
+        );
         const dto = {
             state: "state-123",
             callbackParams: { code: "oauth-code" },
@@ -98,7 +110,10 @@ describe("ConnectionsController", () => {
             id: 5,
             isAutoImportEnabled: false,
         });
-        const controller = new ConnectionsController({ updateSettings } as any);
+        const controller = new ConnectionsController(
+            { updateSettings } as any,
+            {} as any,
+        );
         const dto = { isAutoImportEnabled: false };
 
         const result = await controller.updateSettings(

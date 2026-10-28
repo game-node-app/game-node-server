@@ -81,6 +81,7 @@ export class ExternalGameService {
     public async getExternalGamesForSourceIds(
         sourceIds: string[],
         category: EGameExternalGameCategory,
+        includeAllMappings = false,
     ) {
         const ids = [...new Set(sourceIds)];
         const externalGames: GameExternalGame[] = [];
@@ -94,6 +95,10 @@ export class ExternalGameService {
                     relations: this.relations,
                 })),
             );
+        }
+        if (includeAllMappings) {
+            const byUid = Map.groupBy(externalGames, (game) => game.uid);
+            return ids.flatMap((id) => byUid.get(id) ?? []);
         }
         return this.reOrderBySourceIds(ids, externalGames);
     }

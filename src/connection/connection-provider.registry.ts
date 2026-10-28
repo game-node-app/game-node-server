@@ -59,7 +59,11 @@ export interface ConnectionProviderSyncHandlers {
     fetchPlaytime?(
         job: Job<PlaytimeWatchJob>,
     ): Promise<{ outcome: string } | undefined>;
-    fetchLibraryGames?(userId: string): Promise<ImporterResponseItemDto[]>;
+    fetchLibraryGames?(
+        userId: string,
+        includeMarked?: boolean,
+        sourceUserId?: string,
+    ): Promise<ImporterResponseItemDto[]>;
     fetchObtainedAchievements?(
         userId: string,
         externalGame: GameExternalGame,

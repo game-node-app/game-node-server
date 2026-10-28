@@ -151,6 +151,8 @@ describe("import and notification recovery on disposable MySQL", () => {
             {} as any,
             {} as any,
             new ConnectionProviderRegistry(),
+            {} as any,
+            {} as any,
         );
         const notifications = source.getRepository(ImporterWatchNotification);
         const worker = new ImporterWatchProcessor(

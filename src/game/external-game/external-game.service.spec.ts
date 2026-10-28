@@ -28,6 +28,26 @@ test("mapping reads use bounded distinct IDs and preserve source order within on
     ).toEqual([500, 500, 1]);
 });
 
+test("provider snapshots retain all mappings while normal discovery stays compatible", async () => {
+    const find = jest.fn().mockResolvedValue([
+        { id: 1, uid: "a", gameId: 7 },
+        { id: 2, uid: "a", gameId: 7 },
+        { id: 3, uid: "b", gameId: 8 },
+    ]);
+    const service = new ExternalGameService({ find } as any, {} as any);
+    const all = await service.getExternalGamesForSourceIds(
+        ["b", "a"],
+        EGameExternalGameCategory.Steam,
+        true,
+    );
+    expect(all.map((item) => item.id)).toEqual([3, 1, 2]);
+    const legacy = await service.getExternalGamesForSourceIds(
+        ["a"],
+        EGameExternalGameCategory.Steam,
+    );
+    expect(legacy.map((item) => item.id)).toEqual([2]);
+});
+
 test("concurrent unmapped registration tolerates only duplicate identities", async () => {
     const duplicate = new QueryFailedError(
         "INSERT",

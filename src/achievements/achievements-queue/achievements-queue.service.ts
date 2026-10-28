@@ -18,10 +18,13 @@ export class AchievementsQueueService {
      * A new job should be added to each category of Achievements that the caller wants to verify.
      * @param job
      */
-    addTrackingJob(job: AchievementsQueueJob) {
-        this.achievementQueue
-            .add(ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME, job)
-            .then()
-            .catch((e) => console.error(e));
+    addTrackingJob(job: AchievementsQueueJob, jobId?: string) {
+        const queued = this.achievementQueue.add(
+            ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME,
+            job,
+            jobId ? { jobId } : undefined,
+        );
+        queued.catch((e) => console.error(e));
+        return queued;
     }
 }

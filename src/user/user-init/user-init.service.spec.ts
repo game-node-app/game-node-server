@@ -1,9 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UserInitService } from "./user-init.service";
-import { CollectionsService } from "../collections/collections.service";
-import { LibrariesService } from "../libraries/libraries.service";
-import { ProfileService } from "../profile/profile.service";
-import { LevelService } from "../level/level.service";
+import { CollectionsService } from "../../collections/collections.service";
+import { LibrariesService } from "../../libraries/libraries.service";
+import { ProfileService } from "../../profile/profile.service";
+import { LevelService } from "../../level/level.service";
+import UserRoles from "supertokens-node/recipe/userroles";
 import Mocked = jest.Mocked;
 
 const mockUserId = "1234";
@@ -12,7 +13,6 @@ describe("UserInitService", () => {
     let service: UserInitService;
     let librariesService: Mocked<LibrariesService>;
     let profileService: Mocked<ProfileService>;
-    let userLevelService: Mocked<LevelService>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -53,7 +53,10 @@ describe("UserInitService", () => {
         service = module.get<UserInitService>(UserInitService);
         librariesService = module.get(LibrariesService);
         profileService = module.get(ProfileService);
-        userLevelService = module.get(LevelService);
+        jest.spyOn(UserRoles, "getRolesForUser").mockResolvedValue({
+            status: "OK",
+            roles: ["user"],
+        });
     });
 
     it("should be defined", () => {
@@ -70,11 +73,5 @@ describe("UserInitService", () => {
         profileService.findOneById.mockResolvedValueOnce(null);
         await service.init(mockUserId);
         expect(profileService.create).toHaveBeenCalledWith(mockUserId);
-    });
-
-    it("should create a user user-level entity", async () => {
-        userLevelService.findOneOrCreateByUserId.mockResolvedValueOnce(null);
-        await service.init(mockUserId);
-        expect(userLevelService.create).toHaveBeenCalledWith(mockUserId);
     });
 });

@@ -83,6 +83,7 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
         data: ImporterWatchJob,
         games: ImporterResponseItemDto[],
     ) {
+        await this.importerService.lockLibrary(data.userId);
         const notified = await this.importerNotifiedEntryRepository.findBy({
             libraryUserId: data.userId,
             gameExternalGameId: In(games.map((game) => game.id)),
@@ -182,12 +183,10 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
                         importedCount: notification.autoImportedCount,
                         skippedCount: notification.autoImportSkippedCount,
                         failedCount: notification.autoImportFailedCount,
-                        gameSample: newGames
-                            .slice(0, 3)
-                            .map((game) => ({
-                                id: game.gameId,
-                                title: (game.name || "Game").slice(0, 100),
-                            })),
+                        gameSample: newGames.slice(0, 3).map((game) => ({
+                            id: game.gameId,
+                            title: (game.name || "Game").slice(0, 100),
+                        })),
                     },
                 },
             );

@@ -270,7 +270,7 @@ const SCHEMA_STATEMENTS = [
         \`summary\` text NULL,
         \`storyline\` text NULL,
         \`checksum\` varchar(255) NULL,
-        \`url\` varchar(255) NULL,
+        \`url\` text NULL,
         \`firstReleaseDate\` datetime NULL,
         \`createdAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
         \`updatedAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),

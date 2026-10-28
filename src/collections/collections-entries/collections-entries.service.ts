@@ -1,5 +1,10 @@
 import { Library } from "../../libraries/entities/library.entity";
-import { HttpException, HttpStatus, Injectable, Optional } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Injectable,
+    Optional,
+} from "@nestjs/common";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -36,6 +41,8 @@ import { DEFAULT_ORDERING_GAP } from "../../utils/ordering";
 import { Cacheable } from "../../utils/cacheable";
 import { NotificationsLifecycleService } from "../../notifications/notifications-lifecycle.service";
 import { deactivateStatisticsContent } from "../../statistics/statistics-target.repository";
+import { randomUUID } from "node:crypto";
+import { ImporterResponseItemDto } from "../../importer/dto/importer-response-item.dto";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -345,12 +352,6 @@ export class CollectionsEntriesService {
             id: id,
         }));
 
-        const inferredStatusAndDates = await this.inferStatusAndAssociatedDates(
-            uniqueCollectionIds,
-            status,
-            finishedAt,
-        );
-
         // Serialize creation across import/manual callers; user/game has no unique constraint.
         const library = await this.collectionEntriesRepository.manager
             .getRepository(Library)
@@ -360,6 +361,12 @@ export class CollectionsEntriesService {
             });
         if (!library)
             throw new HttpException("Library not found", HttpStatus.NOT_FOUND);
+
+        const inferredStatusAndDates = await this.inferStatusAndAssociatedDates(
+            uniqueCollectionIds,
+            status,
+            finishedAt,
+        );
 
         const possibleExistingEntry = await this.findOneByUserIdAndGameId(
             userId,
@@ -454,6 +461,87 @@ export class CollectionsEntriesService {
             true,
         );
         return created === false ? ("skipped" as const) : ("imported" as const);
+    }
+
+    async createMissingForBatch(
+        userId: string,
+        candidates: ImporterResponseItemDto[],
+        status: CollectionEntryStatus,
+        collectionIds: string[],
+    ) {
+        if (!candidates.length) return [];
+        const existing = await this.collectionEntriesRepository.find({
+            select: { gameId: true },
+            where: {
+                libraryUserId: userId,
+                gameId: In(candidates.map((candidate) => candidate.gameId)),
+            },
+        });
+        const existingIds = new Set(existing.map((entry) => entry.gameId));
+        const missing = candidates.filter(
+            (candidate) => !existingIds.has(candidate.gameId),
+        );
+        if (!missing.length) return [];
+        const dates = await this.inferStatusAndAssociatedDates(
+            [],
+            status,
+            null,
+        );
+        const entries = missing.map((candidate) => ({
+            id: randomUUID(),
+            libraryUserId: userId,
+            gameId: candidate.gameId,
+            ...dates,
+        }));
+        const manager = this.collectionEntriesRepository.manager;
+        const junction =
+            this.collectionEntriesRepository.metadata.relations.find(
+                (relation) => relation.propertyName === "ownedPlatforms",
+            )!.junctionEntityMetadata!.tableName;
+        for (let offset = 0; offset < entries.length; offset += 500) {
+            const page = entries.slice(offset, offset + 500);
+            await this.collectionEntriesRepository.insert(page);
+            await manager
+                .createQueryBuilder()
+                .insert()
+                .into(junction)
+                .values(
+                    page.map((entry, index) => ({
+                        collectionEntryId: entry.id,
+                        gamePlatformId:
+                            missing[offset + index].preferredPlatformId,
+                    })),
+                )
+                .execute();
+        }
+        if (collectionIds.length) {
+            const orders = await this.collectionEntryToCollectionRepository
+                .createQueryBuilder("map")
+                .select("map.collectionId", "collectionId")
+                .addSelect("MAX(map.order)", "maxOrder")
+                .where("map.collectionId IN (:...collectionIds)", {
+                    collectionIds,
+                })
+                .groupBy("map.collectionId")
+                .getRawMany<{ collectionId: string; maxOrder: number }>();
+            const maxOrders = new Map(
+                orders.map((row) => [row.collectionId, Number(row.maxOrder)]),
+            );
+            const maps = entries.flatMap((entry, index) =>
+                collectionIds.map((collectionId) => ({
+                    collectionEntryId: entry.id,
+                    collectionId,
+                    order:
+                        (maxOrders.get(collectionId) ?? 0) +
+                        (index + 1) * DEFAULT_ORDERING_GAP,
+                })),
+            );
+            for (let offset = 0; offset < maps.length; offset += 500)
+                await this.collectionEntryToCollectionRepository.insert(
+                    maps.slice(offset, offset + 500),
+                );
+        }
+        return entries;
     }
 
     private async updateAssociatedCollections(
@@ -653,16 +741,29 @@ export class CollectionsEntriesService {
             throw new HttpException("Entry not found.", HttpStatus.NOT_FOUND);
         }
 
-        await this.collectionEntriesRepository.manager.transaction(async (manager) => {
-            for (const type of ["review", "activity"] as const) {
-                const sources = await manager.query(`SELECT id FROM ${type} WHERE collectionEntryId = ? ORDER BY id FOR UPDATE`, [entry.id]);
-                for (const source of sources) {
-                    await this.notificationsLifecycleService?.invalidateContent(type, source.id, manager);
-                    await deactivateStatisticsContent(manager, type, source.id);
+        await this.collectionEntriesRepository.manager.transaction(
+            async (manager) => {
+                for (const type of ["review", "activity"] as const) {
+                    const sources = await manager.query(
+                        `SELECT id FROM ${type} WHERE collectionEntryId = ? ORDER BY id FOR UPDATE`,
+                        [entry.id],
+                    );
+                    for (const source of sources) {
+                        await this.notificationsLifecycleService?.invalidateContent(
+                            type,
+                            source.id,
+                            manager,
+                        );
+                        await deactivateStatisticsContent(
+                            manager,
+                            type,
+                            source.id,
+                        );
+                    }
                 }
-            }
-            await manager.getRepository(CollectionEntry).delete(entry.id);
-        });
+                await manager.getRepository(CollectionEntry).delete(entry.id);
+            },
+        );
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {
