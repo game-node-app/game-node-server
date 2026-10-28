@@ -21,7 +21,7 @@ import { NotificationsModule } from "../../notifications/notifications.module";
             GamePlatform,
             CollectionEntryToCollection,
         ]),
-        ActivitiesQueueModule,
+        forwardRef(() => ActivitiesQueueModule),
         AchievementsModule,
         LevelModule,
         forwardRef(() => CollectionsModule),

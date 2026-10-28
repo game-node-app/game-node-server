@@ -165,7 +165,7 @@ export class StatisticsRankingsRequestDto {
     @IsUUID()
     reviewId?: string;
 
-    @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+    @ApiPropertyOptional({ type: Number, default: 20, minimum: 1, maximum: 100 })
     @IsOptional()
     @Type(() => Number)
     @IsInt()
@@ -173,7 +173,7 @@ export class StatisticsRankingsRequestDto {
     @Max(100)
     limit = 20;
 
-    @ApiPropertyOptional({ default: 0, minimum: 0, maximum: 10000 })
+    @ApiPropertyOptional({ type: Number, default: 0, minimum: 0, maximum: 10000 })
     @IsOptional()
     @Type(() => Number)
     @IsInt()

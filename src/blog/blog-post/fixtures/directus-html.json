@@ -1,0 +1,3 @@
+{
+  "content": "<h2>Olá</h2><p onclick=\"alert(1)\">Hello <strong>world</strong><script>alert(1)</script></p><a href=\"javascript:alert(1)\">bad</a><a href=\"https://example.com\">good</a><img src=\"javascript:alert(1)\" onerror=\"alert(1)\"><img src=\"https://example.com/img.png\" alt=\"capa\">"
+}

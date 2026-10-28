@@ -1,0 +1,129 @@
+{
+  "scope": "Directus container only; local MySQL, no application co-load or VPS claims",
+  "image": "directus/directus:12.6.0",
+  "database": "mysql:8.0",
+  "limits": {
+    "cpu": 1,
+    "memory_mib": 1024
+  },
+  "upload_bytes": 2360847,
+  "phases": [
+    {
+      "name": "idle",
+      "elapsed_s": 30.0,
+      "clients": 0,
+      "successful_operations": 0,
+      "operations_per_s": 0.0,
+      "p95_ms": null,
+      "peak_memory_mib": 288.55859375,
+      "mean_cpu_percent_one_core": 1.1407092405173271,
+      "peak_cpu_percent_one_core": 5.9098163932639896,
+      "errors": {},
+      "samples": 30
+    },
+    {
+      "name": "public_reads_1",
+      "elapsed_s": 20.01,
+      "clients": 1,
+      "successful_operations": 3335,
+      "operations_per_s": 166.71,
+      "p95_ms": 6.9578840002577635,
+      "peak_memory_mib": 301.52734375,
+      "mean_cpu_percent_one_core": 85.20474311184341,
+      "peak_cpu_percent_one_core": 99.62717809051973,
+      "errors": {},
+      "samples": 20
+    },
+    {
+      "name": "public_reads_5",
+      "elapsed_s": 20.01,
+      "clients": 5,
+      "successful_operations": 4446,
+      "operations_per_s": 222.23,
+      "p95_ms": 38.1467489996794,
+      "peak_memory_mib": 321.02734375,
+      "mean_cpu_percent_one_core": 99.48876989477996,
+      "peak_cpu_percent_one_core": 102.66599629097453,
+      "errors": {
+        "ConnectionResetError: [Errno 104] Connection reset by peer": 2979
+      },
+      "samples": 20
+    },
+    {
+      "name": "public_reads_10",
+      "elapsed_s": 20.01,
+      "clients": 10,
+      "successful_operations": 2224,
+      "operations_per_s": 111.16,
+      "p95_ms": 15.20253299986507,
+      "peak_memory_mib": 310.3984375,
+      "mean_cpu_percent_one_core": 67.98937871696457,
+      "peak_cpu_percent_one_core": 75.74877191473324,
+      "errors": {
+        "ConnectionResetError: [Errno 104] Connection reset by peer": 17838,
+        "RemoteDisconnected: Remote end closed connection without response": 14890
+      },
+      "samples": 20
+    },
+    {
+      "name": "public_reads_20",
+      "elapsed_s": 20.01,
+      "clients": 20,
+      "successful_operations": 1427,
+      "operations_per_s": 71.31,
+      "p95_ms": 25.513067000247247,
+      "peak_memory_mib": 304.42578125,
+      "mean_cpu_percent_one_core": 45.342844857504446,
+      "peak_cpu_percent_one_core": 56.9898244051791,
+      "errors": {
+        "ConnectionResetError: [Errno 104] Connection reset by peer": 4046,
+        "RemoteDisconnected: Remote end closed connection without response": 30403
+      },
+      "samples": 20
+    },
+    {
+      "name": "edit",
+      "elapsed_s": 20.38,
+      "clients": 1,
+      "successful_operations": 38,
+      "operations_per_s": 1.86,
+      "p95_ms": 46.49906400027248,
+      "peak_memory_mib": 298.3671875,
+      "mean_cpu_percent_one_core": 2.5070384987890995,
+      "peak_cpu_percent_one_core": 4.835836449575162,
+      "errors": {
+        "ConnectionResetError: [Errno 104] Connection reset by peer": 1
+      },
+      "samples": 21
+    },
+    {
+      "name": "upload_and_thumbnail",
+      "elapsed_s": 15.09,
+      "clients": 1,
+      "successful_operations": 13,
+      "operations_per_s": 0.86,
+      "p95_ms": 260.1601980004489,
+      "peak_memory_mib": 339.1796875,
+      "mean_cpu_percent_one_core": 21.580741069935435,
+      "peak_cpu_percent_one_core": 34.37935389112817,
+      "errors": {},
+      "samples": 16
+    },
+    {
+      "name": "recovery_idle",
+      "elapsed_s": 20.0,
+      "clients": 0,
+      "successful_operations": 0,
+      "operations_per_s": 0.0,
+      "p95_ms": null,
+      "peak_memory_mib": 323.875,
+      "mean_cpu_percent_one_core": 0.9433572912977576,
+      "peak_cpu_percent_one_core": 4.9704463029496555,
+      "errors": {},
+      "samples": 20
+    }
+  ],
+  "oom_killed": false,
+  "unexpected_restarts": 0,
+  "passed_local_limits": false
+}

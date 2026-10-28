@@ -1,0 +1,6 @@
+{
+  "name": "directus-extension-blog-game-picker",
+  "version": "1.0.0",
+  "type": "module",
+  "directus:extension": { "type": "interface", "path": "index.js", "source": "index.js", "host": "^12.6.0" }
+}

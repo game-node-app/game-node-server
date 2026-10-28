@@ -1,0 +1,121 @@
+{
+  "scope": "Directus container only; local MySQL, no application co-load or VPS claims",
+  "image": "directus/directus:12.6.0",
+  "database": "mysql:8.0",
+  "limits": {
+    "cpu": 1,
+    "memory_mib": 1024
+  },
+  "upload_bytes": 2360847,
+  "phases": [
+    {
+      "name": "idle",
+      "elapsed_s": 30.0,
+      "clients": 0,
+      "successful_operations": 0,
+      "operations_per_s": 0.0,
+      "p95_ms": null,
+      "peak_memory_mib": 287.5859375,
+      "mean_cpu_percent_one_core": 1.0869850518269144,
+      "peak_cpu_percent_one_core": 3.730558920742941,
+      "errors": {},
+      "samples": 30
+    },
+    {
+      "name": "public_reads_1",
+      "elapsed_s": 20.0,
+      "clients": 1,
+      "successful_operations": 4240,
+      "operations_per_s": 211.97,
+      "p95_ms": 6.04947300053027,
+      "peak_memory_mib": 308.18359375,
+      "mean_cpu_percent_one_core": 94.54454179731789,
+      "peak_cpu_percent_one_core": 100.83308352247396,
+      "errors": {},
+      "samples": 20
+    },
+    {
+      "name": "public_reads_5",
+      "elapsed_s": 20.01,
+      "clients": 5,
+      "successful_operations": 5164,
+      "operations_per_s": 258.03,
+      "p95_ms": 37.85421500015218,
+      "peak_memory_mib": 348.6953125,
+      "mean_cpu_percent_one_core": 99.9826460536601,
+      "peak_cpu_percent_one_core": 103.42903740048719,
+      "errors": {},
+      "samples": 20
+    },
+    {
+      "name": "public_reads_10",
+      "elapsed_s": 20.02,
+      "clients": 10,
+      "successful_operations": 5066,
+      "operations_per_s": 253.04,
+      "p95_ms": 76.16036999934295,
+      "peak_memory_mib": 365.94140625,
+      "mean_cpu_percent_one_core": 99.94127470526875,
+      "peak_cpu_percent_one_core": 104.80926407767876,
+      "errors": {},
+      "samples": 20
+    },
+    {
+      "name": "public_reads_20",
+      "elapsed_s": 20.13,
+      "clients": 20,
+      "successful_operations": 4572,
+      "operations_per_s": 227.16,
+      "p95_ms": 201.72403800006578,
+      "peak_memory_mib": 360.45703125,
+      "mean_cpu_percent_one_core": 100.18159893109383,
+      "peak_cpu_percent_one_core": 103.00476910176239,
+      "errors": {},
+      "samples": 21
+    },
+    {
+      "name": "edit",
+      "elapsed_s": 20.36,
+      "clients": 1,
+      "successful_operations": 39,
+      "operations_per_s": 1.92,
+      "p95_ms": 24.250047999885282,
+      "peak_memory_mib": 357.390625,
+      "mean_cpu_percent_one_core": 2.9983131271587475,
+      "peak_cpu_percent_one_core": 11.150117963817374,
+      "errors": {},
+      "samples": 21
+    },
+    {
+      "name": "upload_and_thumbnail",
+      "elapsed_s": 15.54,
+      "clients": 1,
+      "successful_operations": 14,
+      "operations_per_s": 0.9,
+      "p95_ms": 246.14731300061976,
+      "peak_memory_mib": 348.77734375,
+      "mean_cpu_percent_one_core": 23.067956269753903,
+      "peak_cpu_percent_one_core": 35.94447121857199,
+      "errors": {},
+      "samples": 16
+    },
+    {
+      "name": "recovery_idle",
+      "elapsed_s": 20.0,
+      "clients": 0,
+      "successful_operations": 0,
+      "operations_per_s": 0.0,
+      "p95_ms": null,
+      "peak_memory_mib": 335.78515625,
+      "mean_cpu_percent_one_core": 1.0027662383607394,
+      "peak_cpu_percent_one_core": 3.1883605004882214,
+      "errors": {},
+      "samples": 20
+    }
+  ],
+  "startup_to_http_ready_s": 61.661554,
+  "cgroup_lifetime_peak_memory_mib": 437.3125,
+  "oom_killed": false,
+  "unexpected_restarts": 0,
+  "passed_local_limits": true
+}

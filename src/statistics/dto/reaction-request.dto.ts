@@ -58,6 +58,7 @@ export class ReactionRequestDto {
     @ApiProperty({
         description:
             "Source identifier: UUID for content, positive integer for game",
+        oneOf: [{ type: "string", format: "uuid" }, { type: "integer", minimum: 1 }],
         example: "123e4567-e89b-12d3-a456-426614174000",
     })
     @IsNotEmpty()

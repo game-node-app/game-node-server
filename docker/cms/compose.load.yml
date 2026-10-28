@@ -1,0 +1,63 @@
+name: gamenode-cms-load
+services:
+  media-init:
+    image: directus/directus:12.6.0
+    user: root
+    entrypoint: ['sh', '-c', 'chown 1000:1000 /media']
+    volumes:
+      - published-assets-load:/media
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: cms-local-load-root
+      MYSQL_DATABASE: cms_load_test
+      MYSQL_USER: cms_load_test
+      MYSQL_PASSWORD: cms-local-load-only
+    volumes:
+      - mysql-load:/var/lib/mysql
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent']
+      interval: 2s
+      timeout: 5s
+      retries: 60
+  cms:
+    image: directus/directus:12.6.0
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    env_file: .env
+    environment:
+      DB_CLIENT: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: cms_load_test
+      DB_USER: cms_load_test
+      DB_PASSWORD: cms-local-load-only
+      PUBLIC_URL: http://localhost:8056
+      STORAGE_LOCATIONS: private
+      STORAGE_PRIVATE_DRIVER: local
+      STORAGE_PRIVATE_ROOT: /directus/uploads
+      FILES_MAX_UPLOAD_SIZE: 10mb
+    depends_on:
+      mysql:
+        condition: service_healthy
+      media-init:
+        condition: service_completed_successfully
+    ports:
+      - '127.0.0.1:8056:8055'
+    cpus: 1
+    mem_limit: 1g
+    volumes:
+      - assets-load:/directus/uploads
+      - published-assets-load:/directus/public-media
+      - ./extensions:/directus/extensions:ro
+      - ../../src/blog/blog-post/blog-media.cjs:/directus/blog-media.cjs:ro
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8055/server/ping']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+volumes:
+  mysql-load:
+  assets-load:
+  published-assets-load:

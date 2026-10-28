@@ -1,0 +1,48 @@
+name: gamenode-cms-trial
+services:
+  media-init:
+    image: directus/directus:12.6.0
+    user: root
+    entrypoint: ['sh', '-c', 'chown 1000:1000 /media']
+    volumes:
+      - published-assets:/media
+  cms:
+    image: directus/directus:12.6.0
+    ports:
+      - '127.0.0.1:8055:8055'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    env_file: .env
+    environment:
+      DB_CLIENT: sqlite3
+      DB_FILENAME: /directus/database/cms.sqlite
+      PUBLIC_URL: http://localhost:8055
+      STORAGE_LOCATIONS: private
+      STORAGE_PRIVATE_DRIVER: local
+      STORAGE_PRIVATE_ROOT: /directus/uploads
+      FILES_MAX_UPLOAD_SIZE: 10mb
+      FILES_MAX_UPLOAD_CONCURRENCY: 1
+      FILES_MIME_TYPE_ALLOW_LIST: image/jpeg,image/png,image/webp
+      ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION: 4096
+      ASSETS_TRANSFORM_MAX_CONCURRENT: 1
+    volumes:
+      - database:/directus/database
+      - assets:/directus/uploads
+      - published-assets:/directus/public-media
+      - ./extensions:/directus/extensions:ro
+      - ../../src/blog/blog-post/blog-media.cjs:/directus/blog-media.cjs:ro
+    cpus: 1
+    mem_limit: 1g
+    depends_on:
+      media-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8055/server/ping']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+volumes:
+  database:
+  assets:
+  published-assets:

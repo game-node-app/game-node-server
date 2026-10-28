@@ -58,6 +58,7 @@ wrapper
 !/src/migrations/1792960197571-IndexGameStatisticsRankings.ts
 !/src/migrations/1792960197572-CreateImporterBatchEffects.ts
 !/src/migrations/1793208042000-ExpandGameUrlColumn.ts
+!/src/migrations/1793300000000-DropInternalBlog.ts
 /public/uploads/*
 !/public
 !/public/uploads
