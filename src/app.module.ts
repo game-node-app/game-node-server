@@ -5,7 +5,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { CacheModule } from "@nestjs/cache-manager";
 import { ScheduleModule } from "@nestjs/schedule";
 import { BullModule } from "@nestjs/bullmq";
-import { GlobalModule } from "./global/global.module";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
 import { seconds, ThrottlerModule } from "@nestjs/throttler";
@@ -58,7 +57,6 @@ import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.mo
         }),
         ScheduleModule.forRoot(),
         LoggerModule.forRoot(),
-        GlobalModule,
         AuthModule,
         HealthModule,
         TypeOrmModule.forRootAsync({

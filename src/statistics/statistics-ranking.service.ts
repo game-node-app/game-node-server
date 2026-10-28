@@ -186,7 +186,7 @@ export class StatisticsRankingService {
         );
         const total = safeCount(countRows[0]?.total ?? 0);
         const cached = await this.cache?.get<any>(cacheKey).catch(() => undefined);
-        if (cached && cached.total === total) {
+        if (cached && cached.total === total && (!rankingKey || cached.asOf === asOfInstant.iso)) {
             const ids = cached.items.map((item: any) => item.sourceId);
             const memberCount = ids.length
                 ? await this.countCachedMembers(manager, source, ids)
@@ -246,7 +246,7 @@ export class StatisticsRankingService {
             asOf: asOfInstant.iso,
             effectiveFrom: fromInstant?.iso ?? null,
             effectiveTo: toInstant.iso,
-        }, 15_000).catch(() => undefined);
+        }, 15 * 60_000).catch(() => undefined);
         const freshness = await this.freshness(manager);
         return this.response(items, total, limit, offset, mode, asOfInstant, fromInstant, toInstant, freshness);
     }
@@ -441,7 +441,7 @@ export class StatisticsRankingService {
             reviewId: dto.reviewId,
             limit: dto.limit,
             offset: dto.offset,
-            actorId: actorId ?? null,
+            actorId: dto.sourceType === StatisticsSourceType.REVIEW && dto.excludeOwn ? actorId ?? null : null,
         };
         const digest = createHash("sha256").update(JSON.stringify(filter)).digest("hex");
         return `statistics:rank:${definitionVersion}:${digest}`;

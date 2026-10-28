@@ -3,16 +3,12 @@ import supertokens, { User } from "supertokens-node";
 import Session from "supertokens-node/recipe/session";
 import Dashboard from "supertokens-node/recipe/dashboard";
 import ThirdParty from "supertokens-node/recipe/thirdparty";
-import Passwordless from "supertokens-node/recipe/passwordless";
 import UserRoles from "supertokens-node/recipe/userroles";
 import {
     SupertokensConfig,
     SupertokensConfigInjectionToken,
 } from "./config.interface";
 import { AUTH_ERRORS } from "./auth.constants";
-import { SMTPServiceConfig } from "supertokens-node/lib/build/ingredients/emaildelivery/services/smtp";
-import { EMAIL_CONFIG_TOKEN } from "../global/global.tokens";
-import { SMTPService } from "supertokens-node/recipe/passwordless/emaildelivery";
 import { UserInitService } from "../user/user-init/user-init.service";
 import { UserAccountService } from "../user/user-account/user-account.service";
 
@@ -28,8 +24,6 @@ export class AuthService {
     constructor(
         @Inject(SupertokensConfigInjectionToken)
         private config: SupertokensConfig,
-        @Inject(EMAIL_CONFIG_TOKEN)
-        private readonly emailConfig: SMTPServiceConfig,
         private userInitService: UserInitService,
         private userAccountService: UserAccountService,
     ) {
@@ -40,183 +34,6 @@ export class AuthService {
                 apiKey: this.config.apiKey,
             },
             recipeList: [
-                Passwordless.init({
-                    flowType: "USER_INPUT_CODE",
-                    contactMethod: "EMAIL",
-                    emailDelivery: this.getEmailDeliverySettings(
-                        this.emailConfig,
-                    ),
-                    /**
-                     * Custom logic implemented here:
-                     * - Implements user initialization logic
-                     * - Account linking logic based on verified email addresses to prevent duplicate accounts and unintentional account takeover
-                     */
-                    override: {
-                        apis: (originalImplementation) => ({
-                            ...originalImplementation,
-                            consumeCodePOST: async (input) => {
-                                try {
-                                    const result =
-                                        await originalImplementation.consumeCodePOST!(
-                                            input,
-                                        );
-                                    if (result.status !== "OK") {
-                                        return result;
-                                    }
-
-                                    const email = result.user.emails[0];
-                                    // Shouldn't happen in practice
-                                    if (!email) {
-                                        if (result.createdNewRecipeUser) {
-                                            await this.userInitService.init(
-                                                result.user.id,
-                                            );
-                                        }
-                                        return result;
-                                    }
-
-                                    const users =
-                                        await this.userAccountService.getUsersByEmail(
-                                            email,
-                                        );
-                                    const providerId = "passwordless";
-                                    const providerUserId = result.user.id;
-                                    const linkedProvider =
-                                        await this.userAccountService.getLinkedProvider(
-                                            providerId,
-                                            providerUserId,
-                                        );
-
-                                    if (linkedProvider) {
-                                        const emailUserIds = new Set(
-                                            users.map((user) => user.id),
-                                        );
-
-                                        if (
-                                            users.length > 0 &&
-                                            !emailUserIds.has(
-                                                linkedProvider.userId,
-                                            )
-                                        ) {
-                                            await this.userAccountService.unlinkAccount(
-                                                providerId,
-                                                providerUserId,
-                                            );
-                                            await result.session.revokeSession();
-                                            return {
-                                                status: "GENERAL_ERROR",
-                                                message:
-                                                    AUTH_ERRORS.PROVIDER_EMAIL_CHANGED,
-                                            };
-                                        }
-
-                                        const linkedUser =
-                                            await this.userAccountService.getUserById(
-                                                linkedProvider.userId,
-                                            );
-
-                                        if (!linkedUser) {
-                                            await result.session.revokeSession();
-                                            return {
-                                                status: "GENERAL_ERROR",
-                                                message:
-                                                    AUTH_ERRORS.PROVIDER_LINK_CONFLICT,
-                                            };
-                                        }
-
-                                        if (linkedUser.id !== result.user.id) {
-                                            await result.session.revokeSession();
-                                            const recipeUserId =
-                                                supertokens.convertToRecipeUserId(
-                                                    linkedUser.id,
-                                                );
-                                            const session =
-                                                await Session.createNewSession(
-                                                    input.options.req,
-                                                    input.options.res,
-                                                    input.tenantId,
-                                                    recipeUserId,
-                                                );
-                                            return {
-                                                status: "OK",
-                                                createdNewRecipeUser: false,
-                                                user: linkedUser,
-                                                session,
-                                            };
-                                        }
-
-                                        if (result.createdNewRecipeUser) {
-                                            await this.userInitService.init(
-                                                result.user.id,
-                                            );
-                                        }
-
-                                        return result;
-                                    }
-
-                                    if (users.length > 0) {
-                                        const targetUser =
-                                            this.selectPreferredUser(users);
-
-                                        await this.userAccountService.linkAccounts(
-                                            targetUser.id,
-                                            providerId,
-                                            providerUserId,
-                                        );
-
-                                        if (targetUser.id !== result.user.id) {
-                                            await result.session.revokeSession();
-                                            const recipeUserId =
-                                                supertokens.convertToRecipeUserId(
-                                                    targetUser.id,
-                                                );
-                                            const session =
-                                                await Session.createNewSession(
-                                                    input.options.req,
-                                                    input.options.res,
-                                                    input.tenantId,
-                                                    recipeUserId,
-                                                );
-                                            return {
-                                                status: "OK",
-                                                createdNewRecipeUser: false,
-                                                user: targetUser,
-                                                session,
-                                            };
-                                        }
-
-                                        if (result.createdNewRecipeUser) {
-                                            await this.userInitService.init(
-                                                result.user.id,
-                                            );
-                                        }
-
-                                        return result;
-                                    }
-
-                                    if (result.createdNewRecipeUser) {
-                                        await this.userInitService.init(
-                                            result.user.id,
-                                        );
-                                    }
-
-                                    return result;
-                                } catch (err) {
-                                    this.logger.error(err);
-                                    switch (err.message) {
-                                        case AUTH_ERRORS.USER_INIT_ERROR:
-                                            return {
-                                                status: "GENERAL_ERROR",
-                                                message:
-                                                    "Our internal user initialization process failed. Please go back and try again.",
-                                            };
-                                    }
-                                    throw err;
-                                }
-                            },
-                        }),
-                    },
-                }),
                 ThirdParty.init({
                     signInAndUpFeature: {
                         providers: config.providers,
@@ -413,29 +230,6 @@ export class AuthService {
         });
     }
 
-    private getEmailDeliverySettings(config: SMTPServiceConfig): any {
-        const requiredFields = [
-            config.host,
-            config.port,
-            config.authUsername,
-            config.password,
-        ];
-        const hasEmptyField = requiredFields.some(
-            (field) => field == undefined,
-        );
-        if (hasEmptyField) {
-            this.logger.warn(
-                `No email service configured - Supertokens default API service will be used to send emails.`,
-            );
-            return undefined;
-        }
-        return {
-            service: new SMTPService({
-                smtpSettings: config,
-            }),
-        };
-    }
-
     async getLinkedProviders(userId: string) {
         return this.userAccountService.getLinkedProviders(userId);
     }
@@ -443,7 +237,16 @@ export class AuthService {
     async unlinkProvider(userId: string, providerId: string) {
         const providers =
             await this.userAccountService.getLinkedProviders(userId);
-        if (providers.length <= 1) {
+        if (
+            providers.length <= 1 ||
+            (providerId !== "passwordless" &&
+                providers.some(
+                    (provider) => provider.providerId === providerId,
+                ) &&
+                providers.filter(
+                    (provider) => provider.providerId !== "passwordless",
+                ).length <= 1)
+        ) {
             throw new HttpException(
                 "Cannot unlink the last remaining provider.",
                 400,

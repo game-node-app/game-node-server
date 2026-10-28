@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { randomInt, randomUUID } from "node:crypto";
 import { BadRequestException } from "@nestjs/common";
 import { DataSource } from "typeorm";
+import { createCache } from "cache-manager";
 import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
 import { StatisticsRankingService } from "./statistics-ranking.service";
 import { StatisticsSourceType } from "./statistics.constants";
@@ -267,6 +268,85 @@ describe("statistics rankings", () => {
         await expect(service.findRankings(undefined, { ...request, period: "day", to: "2025-04-12T10:00:00Z" })).rejects.toThrow(BadRequestException);
     });
 
+    it.each([StatisticsSourceType.GAME, StatisticsSourceType.REVIEW])("shares public %s pages across actors for fifteen minutes", async (sourceType) => {
+        const gameId = 2_120_000_000 - randomInt(100_000);
+        let targetId = await createGame(gameId);
+        const owner = randomUUID();
+        let sourceId: string | number = gameId;
+        if (sourceType === StatisticsSourceType.REVIEW) {
+            sourceId = await createReview(gameId, owner, true, 8);
+            const [review] = await dataSource.query("SELECT statisticsTargetId FROM review WHERE id = ?", [sourceId]);
+            targetId = Number(review.statisticsTargetId);
+        }
+        await setMetric(targetId, "views", 8);
+        const cache = createCache();
+        const written = jest.spyOn(cache, "set");
+        const rankings = new StatisticsRankingService(dataSource, cache);
+        const request = { sourceType, mode: "popular", period: "all", limit: 20, offset: 0,
+            ...(sourceType === StatisticsSourceType.GAME ? { criteria: { ids: [gameId] } } : { gameId }) } as any;
+        const before = Date.now();
+        await rankings.findRankings(owner, request);
+        await setMetric(targetId, "views", 99);
+        for (const actor of [randomUUID(), undefined]) {
+            const page = await rankings.findRankings(actor, request);
+            expect(page.items).toEqual([expect.objectContaining({ sourceId, viewsCount: 8 })]);
+        }
+        expect(written).toHaveBeenCalledTimes(1);
+        const cached = await cache.stores[0].get(written.mock.calls[0][0], { raw: true });
+        expect(cached?.expires).toBeGreaterThanOrEqual(before + 15 * 60_000);
+        expect(cached?.expires).toBeLessThanOrEqual(Date.now() + 15 * 60_000);
+        await cache.disconnect();
+    });
+
+    it("refreshes a cached page immediately when new prepared scores are published", async () => {
+        const firstId = 2_130_000_000 - randomInt(100_000);
+        const firstTarget = await createGame(firstId);
+        const secondTarget = await createGame(firstId + 1);
+        const key = "game:popular:month";
+        await dataSource.query(
+            `INSERT INTO ranking_score (rankingKey, targetId, score, definitionVersion, computedAt)
+             VALUES (?, ?, 1, 'engagement-v1', '2025-04-12 10:00:00'), (?, ?, 2, 'engagement-v1', '2025-04-12 10:00:00')`,
+            [key, firstTarget, key, secondTarget],
+        );
+        await dataSource.query("UPDATE ranking_score SET computedAt = '2025-04-12 10:00:00' WHERE rankingKey = ?", [key]);
+        const cache = createCache();
+        const rankings = new StatisticsRankingService(dataSource, cache);
+        const request = { sourceType: StatisticsSourceType.GAME, mode: "popular", period: "month",
+            criteria: { ids: [firstId, firstId + 1] }, limit: 1, offset: 0 } as any;
+        const first = await rankings.findRankings(undefined, request);
+        expect(first.items[0].sourceId).toBe(firstId + 1);
+        await dataSource.query(
+            "UPDATE ranking_score SET computedAt = '2025-04-12 11:00:00', score = IF(targetId = ?, 10, score) WHERE rankingKey = ?",
+            [firstTarget, key],
+        );
+        const refreshed = await rankings.findRankings(undefined, request);
+        expect(refreshed.items[0].sourceId).toBe(firstId);
+        expect(refreshed.asOf).not.toBe(first.asOf);
+        await cache.disconnect();
+    });
+
+    it("rechecks cached review visibility even when the eligible total is unchanged", async () => {
+        const gameId = 2_140_000_000 - randomInt(100_000);
+        await createGame(gameId);
+        const firstReview = await createReview(gameId, randomUUID(), true, 4);
+        const secondReview = await createReview(gameId, randomUUID(), false, 5);
+        const cache = createCache();
+        const rankings = new StatisticsRankingService(dataSource, cache);
+        const request = { sourceType: StatisticsSourceType.REVIEW, mode: "popular", period: "all", gameId } as any;
+        const first = await rankings.findRankings(randomUUID(), request);
+        expect(first.items.map((item: any) => item.sourceId)).toEqual([firstReview]);
+        await dataSource.query(
+            `UPDATE collection c JOIN collection_entry_collections_collection m ON m.collectionId = c.id
+             JOIN review r ON r.collectionEntryId = m.collectionEntryId
+             SET c.isPublic = IF(r.id = ?, 0, 1) WHERE r.id IN (?, ?)`,
+            [firstReview, firstReview, secondReview],
+        );
+        const changed = await rankings.findRankings(undefined, request);
+        expect(changed.pagination.total).toBe(first.pagination.total);
+        expect(changed.items.map((item: any) => item.sourceId)).toEqual([secondReview]);
+        await cache.disconnect();
+    });
+
     it("keeps actor-specific cached filters separate and serves scores when cache is down", async () => {
         const gameId = 2_100_000_000 - randomInt(100_000);
         await createGame(gameId);
@@ -284,6 +364,7 @@ describe("statistics rankings", () => {
         const second = await rankings.findRankings(secondOwner, request);
         expect(first.items.map((item: any) => item.sourceId)).toEqual([secondReview]);
         expect(second.items.map((item: any) => item.sourceId)).toEqual([firstReview]);
+        expect(values.size).toBe(2);
         expect((await rankings.findRankings(firstOwner, { ...request, authorId: firstOwner, reviewId: firstReview })).items).toEqual([]);
         const unavailableCache = new StatisticsRankingService(dataSource, {
             get: async () => { throw new Error("cache down"); },

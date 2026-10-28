@@ -1,23 +1,28 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AuthService } from "./auth.service";
 import { SupertokensConfigInjectionToken } from "./config.interface";
-import { AUTH_ERRORS } from "./auth.constants";
 import { UserInitService } from "../user/user-init/user-init.service";
 import { UserAccountService } from "../user/user-account/user-account.service";
-import { EMAIL_CONFIG_TOKEN } from "../global/global.tokens";
 import supertokens from "supertokens-node";
 import Session from "supertokens-node/recipe/session";
+import ThirdParty from "supertokens-node/recipe/thirdparty";
+import Passwordless from "supertokens-node/recipe/passwordless";
 
 describe("AuthService", () => {
     let service: AuthService;
     let userAccountService: jest.Mocked<UserAccountService>;
     let userInitService: jest.Mocked<UserInitService>;
+    let thirdPartyInit: jest.SpyInstance;
+    let passwordlessInit: jest.SpyInstance;
 
     beforeEach(async () => {
         jest.spyOn(supertokens, "init").mockImplementation(() => undefined);
+        thirdPartyInit = jest.spyOn(ThirdParty, "init");
+        passwordlessInit = jest.spyOn(Passwordless, "init");
         userAccountService = {
             getUsersByEmail: jest.fn(),
             getLinkedProvider: jest.fn(),
+            getLinkedProviders: jest.fn(),
             linkAccounts: jest.fn(),
             unlinkAccount: jest.fn(),
         } as unknown as jest.Mocked<UserAccountService>;
@@ -48,10 +53,6 @@ describe("AuthService", () => {
                     provide: UserAccountService,
                     useValue: userAccountService,
                 },
-                {
-                    provide: EMAIL_CONFIG_TOKEN,
-                    useValue: {},
-                },
             ],
         }).compile();
 
@@ -62,7 +63,11 @@ describe("AuthService", () => {
         jest.restoreAllMocks();
     });
 
-    describe("handleThirdPartySignInUp", () => {
+    it("does not enable passwordless login", () => {
+        expect(passwordlessInit).not.toHaveBeenCalled();
+    });
+
+    describe("third-party sign-in", () => {
         const makeInput = (overrides?: Partial<any>) => ({
             provider: {
                 id: "google",
@@ -104,10 +109,10 @@ describe("AuthService", () => {
             ] as any);
             userAccountService.getLinkedProvider.mockResolvedValue(null);
 
-            const response = await (service as any).handleThirdPartySignInUp(
-                { signInUpPOST: jest.fn() },
-                makeInput(),
-            );
+            const apis = thirdPartyInit.mock.calls[0][0].override.apis({
+                signInUpPOST: jest.fn(),
+            });
+            const response = await apis.signInUpPOST(makeInput());
 
             expect(userAccountService.linkAccounts).toHaveBeenCalledWith(
                 "u1",
@@ -126,6 +131,17 @@ describe("AuthService", () => {
                     providerId: "google",
                     providerUserId: "tp-1",
                 },
+            ] as any);
+
+            await expect(
+                service.unlinkProvider("user-1", "google"),
+            ).rejects.toThrow("Cannot unlink the last remaining provider.");
+        });
+
+        it("does not count retired email login as a remaining provider", async () => {
+            userAccountService.getLinkedProviders.mockResolvedValue([
+                { providerId: "google", providerUserId: "tp-1" },
+                { providerId: "passwordless", providerUserId: "email-1" },
             ] as any);
 
             await expect(

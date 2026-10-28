@@ -1,10 +1,10 @@
-# Spec Delta
+# Popularity Rankings Specification
 
 ## Purpose
 
 Let users discover eligible games and reviews through explicit period and recency rankings without query-time full-history scans or a catalog-sized result cache.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Popularity and recency have separate versioned definitions
 Popular mode SHALL sum the versioned weights of accepted view impressions and first-known-like credits in the requested interval. Recent mode SHALL additionally decay contributions by interaction age, independently of source creation age. Responses SHALL identify the definition version and calculation time.
@@ -76,6 +76,17 @@ Ranking results and cached pages SHALL enforce current content existence, deleti
 #### Scenario: Two actors exclude their own reviews
 - **WHEN** two users request exclude-own rankings with otherwise identical inputs
 - **THEN** each result is evaluated for its authenticated actor
+
+### Requirement: Public ranking pages share a bounded cache
+Public pages with identical selectors SHALL share cache entries across authenticated and anonymous callers. Actor identity SHALL partition review exclude-own requests. Pages MAY remain cached for at most 15 minutes. Current eligibility and filtered totals SHALL be revalidated on every read. Publishing new prepared scores SHALL invalidate earlier cached pages.
+
+#### Scenario: Several actors request the same public page
+- **WHEN** different authenticated users and an anonymous caller request a public ranking with identical selectors
+- **THEN** they reuse the same eligible cached page for up to 15 minutes
+
+#### Scenario: Prepared scores refresh before the cached page expires
+- **WHEN** the scheduler publishes a new calculation for the requested prepared key
+- **THEN** the next read uses the new calculation instead of the earlier cached page
 
 ### Requirement: Ranking reads use prepared bounded data
 Common ranking requests SHALL read prepared scores and limited result pages. Explicit intervals SHALL use temporal aggregates with exact boundary handling. Requests SHALL NOT hydrate the complete catalog or complete raw history into application or cache memory. Cache loss SHALL affect speed without losing statistics.
