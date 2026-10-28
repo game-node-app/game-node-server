@@ -3,12 +3,10 @@ import UserRoles from "supertokens-node/recipe/userroles";
 import { Timeout } from "@nestjs/schedule";
 import retry from "async-retry";
 import { seconds } from "@nestjs/throttler";
-import { CollectionsService } from "../../collections/collections.service";
 import { LibrariesService } from "../../libraries/libraries.service";
 import { ProfileService } from "../../profile/profile.service";
 import { LevelService } from "../../level/level.service";
 import { EUserRoles } from "../../utils/constants";
-import { DEFAULT_COLLECTIONS } from "../../collections/collections.constants";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
@@ -19,7 +17,6 @@ export class UserInitService {
     private logger = new Logger(UserInitService.name);
 
     constructor(
-        private collectionsService: CollectionsService,
         private librariesService: LibrariesService,
         private profileService: ProfileService,
         private userLevelService: LevelService,
@@ -118,11 +115,5 @@ export class UserInitService {
 
         await this.librariesService.create(userId);
         this.logger.log(`Created library for user ${userId} at signup`);
-        for (const collectionSpec of DEFAULT_COLLECTIONS) {
-            await this.collectionsService.create(userId, collectionSpec);
-        }
-        this.logger.log(
-            `Created default collections for user ${userId} at signup`,
-        );
     }
 }

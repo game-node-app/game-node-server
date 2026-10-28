@@ -13,8 +13,10 @@ describe("UserInitService", () => {
     let service: UserInitService;
     let librariesService: Mocked<LibrariesService>;
     let profileService: Mocked<ProfileService>;
+    let moduleCollectionsCreate: jest.Mock;
 
     beforeEach(async () => {
+        moduleCollectionsCreate = jest.fn();
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 UserInitService,
@@ -22,7 +24,7 @@ describe("UserInitService", () => {
                     provide: CollectionsService,
                     useValue: {
                         findOneById: jest.fn(),
-                        create: jest.fn(async () => {}),
+                        create: moduleCollectionsCreate,
                     },
                 },
                 {
@@ -67,6 +69,12 @@ describe("UserInitService", () => {
         librariesService.findOneById.mockResolvedValueOnce(null);
         await service.init(mockUserId);
         expect(librariesService.create).toHaveBeenCalledWith(mockUserId);
+    });
+
+    it("should not create collections for a new user", async () => {
+        librariesService.findOneById.mockResolvedValueOnce(null);
+        await service.init(mockUserId);
+        expect(moduleCollectionsCreate).not.toHaveBeenCalled();
     });
 
     it("should create a user profile", async () => {
