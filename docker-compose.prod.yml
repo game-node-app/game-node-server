@@ -97,6 +97,7 @@ services:
     image: directus/directus:12.6.0
     user: root
     entrypoint: ['sh', '-c', 'chown 1000:1000 /media']
+    restart: "no"
     volumes:
       - blog-cms-public:/media
   cms:
@@ -153,7 +154,9 @@ services:
     depends_on:
       cms-media-init:
         condition: service_completed_successfully
-    image: lamarcke/game-node-server:1.9.0
+      server_migration:
+        condition: service_completed_successfully
+    image: lamarcke/game-node-server:1.9.1
     hostname: server
 
     # Only variables listed here reach the container; Coolify uses its env values for interpolation.
@@ -216,9 +219,10 @@ services:
       - game_node_app
       - gamenode
 
-  # This image is here to allow us to run migration separately, and doesn't feature health checks.
+  # Runs pending migrations once per deploy; the server only starts after it exits successfully.
+  # Its image tag may differ from the server's.
   server_migration:
-    image: lamarcke/game-node-server:1.9.0
+    image: lamarcke/game-node-server:1.9.1
     hostname: server-migration
     environment:
       DB_HOST: ${DB_HOST:?set DB_HOST}
@@ -227,15 +231,9 @@ services:
       DB_USER: ${DB_USER}
       DB_PORT: 3306
 
-    restart: always
-
-    # The server process is not meant to actually be started here.
-    # This could be done better, but we need to manually check every migration
-    # before running.
-    command: "sleep infinity"
-
-    deploy:
-      replicas: 1
+    # Coolify leaves restart "no" services out of the application status, so the exited container is not "degraded".
+    restart: "no"
+    command: "yarn migration:run"
 
     networks:
       - game_node_app

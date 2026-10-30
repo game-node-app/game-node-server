@@ -46,10 +46,10 @@ Create and review migrations in development against a disposable database, then
 commit them with the application changes. Do not generate migrations inside a
 running production container.
 
-At deployment, run the committed migrations once in a temporary container using
-the release image, database environment variables and private network. Serialize
-deployments so API replicas cannot run migrations concurrently. For the initial
-installation, start the API and workers only after migrations succeed.
+At deployment, the `server_migration` service in `docker-compose.prod.yml` runs
+the committed migrations once and exits; the API starts only after it succeeds,
+so replicas never run migrations concurrently. Its image tag is independent of
+the API's. Back up the database before deploying a new migration.
 
 The current Git checkout still needs a versioned initial schema: the historical
 baseline is ignored by Git. See the [fresh installation report](docs/relatorio-reimplantacao-infraestrutura.md#61-pendência-de-reprodução-esquema-inicial-versionado)

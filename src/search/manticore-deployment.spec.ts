@@ -181,6 +181,7 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                 },
             },
         );
+        const prodConfig = JSON.parse(prodConfigJson);
         expect(prodConfig.services.redis_bullmq.volumes[0].target).toBe(
             "/data",
         );
@@ -188,6 +189,10 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
             prodConfig.services.server.environment.SUPERTOKENS_CORE_URI,
         ).toBe("http://supertokens:3567");
         expect(prodConfig.services.server.deploy.replicas).toBe(1);
+        expect(
+            prodConfig.services.server.depends_on.server_migration.condition,
+        ).toBe("service_completed_successfully");
+        expect(prodConfig.services.server_migration.restart).toBe("no");
         const prodManticore = prodConfig.services.manticore;
         expect(prodManticore).toBeDefined();
         expect(prodManticore.image).toBe("manticoresearch/manticore:29.9.0");
