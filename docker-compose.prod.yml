@@ -156,7 +156,7 @@ services:
         condition: service_completed_successfully
       server_migration:
         condition: service_completed_successfully
-    image: lamarcke/game-node-server:1.9.1
+    image: lamarcke/game-node-server:1.9.2
     hostname: server
 
     # Only variables listed here reach the container; Coolify uses its env values for interpolation.
@@ -222,7 +222,7 @@ services:
   # Runs pending migrations once per deploy; the server only starts after it exits successfully.
   # Its image tag may differ from the server's.
   server_migration:
-    image: lamarcke/game-node-server:1.9.1
+    image: lamarcke/game-node-server:1.9.2
     hostname: server-migration
     environment:
       DB_HOST: ${DB_HOST:?set DB_HOST}
