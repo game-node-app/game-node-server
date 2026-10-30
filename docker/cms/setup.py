@@ -44,7 +44,7 @@ collections = {
 for name, fields in collections.items():
     status, _ = request('GET', '/collections/' + name, token=token)
     if status != 200:
-        request('POST', '/collections', {'collection': name, 'schema': {}, 'fields': fields}, token)
+        request('POST', '/collections', {'collection': name, 'meta': {'hidden': False, 'singleton': False}, 'schema': {}, 'fields': fields}, token)
         print('Created', name)
     else:
         print('Exists', name)
