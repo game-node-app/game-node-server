@@ -28,16 +28,18 @@ no application S3 credentials, MySQL databases or community uploads are shared.
 
 From the repository root:
 
-1. Copy `docker/cms/.env.example` to `docker/cms/.env`, set random SECRET and
-   ADMIN_PASSWORD, and restrict the file to mode 600. Never commit credentials.
-2. `docker compose -f docker/cms/compose.yml up -d --wait`
+1. Set `CMS_SECRET` and `CMS_ADMIN_PASSWORD` in the root `.env` and restrict that
+   file to mode 600. Never commit credentials.
+2. `yarn start:dev:docker` starts the API and all local dependencies, including
+   the CMS on http://localhost:8055, after their health checks pass.
 3. `python3 docker/cms/trial.py`
-4. Open http://localhost:8055 using credentials in the local `.env` file.
+4. Open http://localhost:8055 using `CMS_ADMIN_EMAIL` and `CMS_ADMIN_PASSWORD`
+   from the root `.env`.
 
-The working session generated that file without printing credentials.
-Only loopback is exposed. This is not production HTTPS deployment.
-`docker compose -f docker/cms/compose.yml down` preserves content; adding `-v`
-destroys trial volumes. Application services/volumes are untouched.
+Keep the credentials in the ignored root `.env` file. Only loopback is exposed;
+this is not a production HTTPS deployment.
+`docker compose down` stops the complete local stack and preserves named volumes.
+Adding `-v` removes all its data, including CMS content and application databases.
 
 The assert-based check creates disposable bilingual review-shaped records and a
 PNG, checks anonymous record/media denial, restarts the CMS and checks record and
@@ -70,16 +72,17 @@ The owner explicitly replaced the proposed whole-host capacity gate with a local
 CMS-only measurement. Other services, combined GameNode load and VPS capacity
 are excluded. No host RAM/headroom or application latency regression claims are made.
 
-Run from the repository root (the existing `docker/cms/.env` is reused):
+Run from the repository root; the same root `.env` supplies the CMS credentials:
 
 ```
-docker compose -f docker/cms/compose.load.yml up -d --wait
+docker compose --env-file .env -p gamenode-cms-load --profile cms-load up -d --wait cms-load
 python3 docker/cms/resources.py
 ```
 
-This creates a separate `gamenode-cms-load` project on port 8056, using MySQL 8.0,
-Directus 12.6.0, dedicated test database/credentials and asset volumes. The SQLite
-editorial trial on port 8055 is unchanged. Only generated resource fixtures are
+This creates a separate `gamenode-cms-load` project on port 8056 using the
+`cms-load` profile in the root Compose file, MySQL 8.0, Directus 12.6.0, a
+dedicated test database and asset volumes. The SQLite editorial trial on port
+8055 is unchanged. Only generated resource fixtures are
 publicly readable, bound to loopback; this is not the adopted publication model.
 The load runner executes outside the CMS container and measures only that container.
 
@@ -108,7 +111,7 @@ counts all errors without retries, and avoids unbounded error logs.
 Stop only benchmark services when finished:
 
 ```
-docker compose -f docker/cms/compose.load.yml down
+docker compose --env-file .env -p gamenode-cms-load --profile cms-load down
 ```
 
 Volumes survive; `down -v` destroys only the benchmark database/assets.
@@ -189,15 +192,24 @@ was supplied privately; the instance was discarded after the check. The Core
 trial observations above remain historical and do not describe this grant.
 
 `docker/cms/setup.py` creates the initial article, translation, tag and join
-collections and a collection-level Blog editor role. Set `CMS_URL`,
-`CMS_ADMIN_EMAIL` and `CMS_ADMIN_PASSWORD` in the process environment before
-running it. Apply `docker/cms/model-constraints.sql` to the dedicated MySQL
+collections and a collection-level Blog editor role. Source the root `.env` and
+set `CMS_URL` to `BLOG_CMS_URL` before running it:
+
+```sh
+set -a
+. .env
+set +a
+export CMS_URL="$BLOG_CMS_URL"
+python3 docker/cms/setup.py
+```
+
+Apply `docker/cms/model-constraints.sql` to the dedicated MySQL
 CMS database after setup, then run `docker/cms/check-publication.py` with the same
 environment to exercise locale uniqueness and anonymous denial. Both setup and
 the SQL constraint were rerun against the local MySQL benchmark database.
 
-The publication and media hooks and the GameNode game picker are mounted by
-the trial Compose files; set
+The development and production Compose files mount the publication and media
+hooks and the GameNode game picker; set
 `BLOG_REFERENCE_API_URL` to the GameNode API's container-reachable `/v1` URL.
 Editors can search the existing game catalog in the article's game field;
 publication fails closed if the reference API is unavailable. The disposable

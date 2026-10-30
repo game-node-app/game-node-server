@@ -136,6 +136,11 @@ describe("reaction write guards", () => {
             expect(document.paths[path]?.[method]?.responses?.[status]).toBeDefined();
         }
         const schemas = document.components?.schemas as Record<string, any>;
+        expect(schemas.ReactionRequestDto.properties.sourceId.oneOf).toEqual([
+            { type: "string", format: "uuid" }, { type: "integer", minimum: 1 },
+        ]);
+        expect(schemas.StatisticsRankingsRequestDto.properties.limit.type).toBe("number");
+        expect(schemas.StatisticsRankingsRequestDto.properties.offset.type).toBe("number");
         expect(schemas.StatisticsViewResponseDto.properties.viewId.format).toBe("uuid");
         expect(schemas.StatisticsSeriesDto.properties.completeSince.nullable).toBe(true);
         expect(schemas.StatisticsRankingResponseDto.properties.definitionVersion.type).toBe("string");

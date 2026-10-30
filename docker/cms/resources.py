@@ -73,8 +73,8 @@ def percentile(values, percent):
 
 assert percentile([1, 2, 3, 4, 5], .95) == 5
 assert percentile([], .95) is None
-settings = dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if '=' in line)
-token = request('POST', '/auth/login', {'email': settings['ADMIN_EMAIL'], 'password': settings['ADMIN_PASSWORD']})['data']['access_token']
+settings = dict(line.split('=', 1) for line in (ROOT.parent.parent / '.env').read_text().splitlines() if '=' in line)
+token = request('POST', '/auth/login', {'email': settings['CMS_ADMIN_EMAIL'], 'password': settings['CMS_ADMIN_PASSWORD']})['data']['access_token']
 try:
     request('GET', '/collections/' + COLLECTION, token=token)
 except urllib.error.HTTPError as error:

@@ -10,7 +10,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 BASE = 'http://127.0.0.1:8055'
-settings = dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if '=' in line)
+settings = dict(line.split('=', 1) for line in (ROOT.parent.parent / '.env').read_text().splitlines() if '=' in line)
 
 
 def request(method, path, data=None, token=None, content_type='application/json'):
@@ -29,7 +29,7 @@ def request(method, path, data=None, token=None, content_type='application/json'
 
 
 def login():
-    status, body = request('POST', '/auth/login', {'email': settings['ADMIN_EMAIL'], 'password': settings['ADMIN_PASSWORD']})
+    status, body = request('POST', '/auth/login', {'email': settings['CMS_ADMIN_EMAIL'], 'password': settings['CMS_ADMIN_PASSWORD']})
     assert status == 200, ('login failed', status)
     return body['data']['access_token']
 
@@ -78,7 +78,7 @@ assert status == 200 and body['data']['title'] == 'Resenha editada', 'article sa
 for path in ['/items/cms_trial_articles', '/items/cms_trial_articles/' + ids[1], '/assets/' + asset_id]:
     assert request('GET', path)[0] in (401, 403), ('anonymous access allowed', path)
 
-subprocess.run(['docker', 'compose', '-f', str(ROOT / 'compose.yml'), 'restart', 'cms'], check=True, capture_output=True)
+subprocess.run(['docker', 'compose', '-f', str(ROOT.parent.parent / 'docker-compose.yml'), 'restart', 'cms'], check=True, capture_output=True)
 for attempt in range(60):
     try:
         if request('GET', '/server/ping')[0] == 200:

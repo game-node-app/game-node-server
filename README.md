@@ -29,15 +29,15 @@ A NestJS API responsible for handling all GameNode requests.
 
 ## Docker
 
-You can use the `docker-compose.yml` file in the root folder to start a local instance of GameNode.  
-It will automatically set up a Supertokens instance, the NestJS server, a MySQL database, a Redis instance, 
-and a S3-compatible ObjectStorage service (MinIO).  
+The root `docker-compose.yml` starts the local dependencies: MySQL, SuperTokens,
+Redis, MinIO, Manticore, and the Directus blog CMS. The NestJS server runs on the
+host when you use the development command below.
 If you are looking to self-host GameNode (server), this is the easiest way to do it.
 
 #### Important:
 
-You still need to set up `.env` file. Most of the docker-compose parameters come from it.
-See [Installation](#installation) for more details.
+Set up the root `.env` before starting. See [Installation](#installation) and
+the [CMS trial guide](docs/blog-cms-trial.md) for details.
 
 #### Migrations and Docker
 
@@ -57,7 +57,7 @@ $ yarn migration:run
 If you are developing locally, you can use this command to spin up your containers and start the server:
 
 ```bash
-$ yarn start:dev:docker # docker compose up -d && yarn start:dev
+$ yarn start:dev:docker # docker compose up --build -d --wait && yarn start:dev
 ```
 
 You can also attach your editor to the Docker container if it supports remote development (like VS Code, IntelliJ IDEA,
@@ -78,8 +78,12 @@ Use the `.env.example` file as an example for your own `.env` file.
 All parameters are required.  
 Some parameters are omitted because they are not needed for local development.
 
-You will also need to install MySQL, Redis and have a Supertokens instance running.
-You can use a managed version of all of these services.
+Set `CMS_SECRET` and `CMS_ADMIN_PASSWORD` to random values in `.env` before
+starting the Docker stack.
+
+The development command starts MySQL, Redis, SuperTokens, MinIO, Manticore, and
+the CMS locally. Configure managed services only when developing outside that
+Docker stack.
 
 ### SuperTokens
 
@@ -140,6 +144,21 @@ S3_SECRET_ACCESS_KEY=eRyW1PuHRVRSsqS2RrytugItZNyczDEvTRvhjQJI
 GameNode's games metadata are powered by IGDB. To use it, you need to set
 up [game-node-sync-igdb](https://github.com/game-node-app/game-node-sync-igdb). See [CONTRIBUTING](CONTRIBUTING.md) for
 a guide.
+
+### PSN
+
+The system-wide PSN credential is derived from an NPSSO. `PSN_NPSSO_KEY` is only
+the initial value: once an admin sets an NPSSO, the encrypted one stored in the
+database (using `CONNECTION_CREDENTIAL_ENCRYPTION_KEY`) takes precedence, and editing
+the env variable has no effect anymore.
+
+To rotate it without a restart, send `PUT /v1/psn/admin/npsso` with `{ "npsso": "..." }`
+as an admin. The value is validated with Sony before being saved, and the response
+only contains `refreshTokenExpiresAt`.
+
+An hourly check keeps the credential alive. Authentication failures are logged as
+errors containing `PSN_SYSTEM_AUTH_FAILED`, and a warning is logged when the refresh
+token expires in less than 7 days. Alert on these logs to know when to rotate.
 
 ## Running the app
 

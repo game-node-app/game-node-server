@@ -103,9 +103,133 @@ services:
       - ./docker/manticore/entrypoint.sh:/etc/manticoresearch/entrypoint.sh:ro
       - ./docker/manticore/reindex.sh:/etc/manticoresearch/reindex.sh:ro
 
+  cms-media-init:
+    image: directus/directus:12.6.0
+    user: root
+    entrypoint: ['sh', '-c', 'chown 1000:1000 /media']
+    volumes:
+      - cms-published-media:/media
+
+  cms:
+    image: directus/directus:12.6.0
+    ports:
+      - '127.0.0.1:8055:8055'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      SECRET: ${CMS_SECRET:?set CMS_SECRET in .env}
+      ADMIN_EMAIL: ${CMS_ADMIN_EMAIL:?set CMS_ADMIN_EMAIL in .env}
+      ADMIN_PASSWORD: ${CMS_ADMIN_PASSWORD:?set CMS_ADMIN_PASSWORD in .env}
+      BLOG_CMS_PREVIEW_TOKEN: ${BLOG_CMS_PREVIEW_TOKEN:-}
+      DB_CLIENT: sqlite3
+      DB_FILENAME: /directus/database/cms.sqlite
+      PUBLIC_URL: ${BLOG_CMS_PUBLIC_URL:-http://localhost:8055}
+      BLOG_REFERENCE_API_URL: ${BLOG_REFERENCE_API_URL:-http://host.docker.internal:5000/v1}
+      STORAGE_LOCATIONS: private
+      STORAGE_PRIVATE_DRIVER: local
+      STORAGE_PRIVATE_ROOT: /directus/uploads
+      FILES_MAX_UPLOAD_SIZE: 10mb
+      FILES_MAX_UPLOAD_CONCURRENCY: 1
+      FILES_MIME_TYPE_ALLOW_LIST: image/jpeg,image/png,image/webp
+      ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION: 4096
+      ASSETS_TRANSFORM_MAX_CONCURRENT: 1
+    volumes:
+      - cms-database:/directus/database
+      - cms-assets:/directus/uploads
+      - cms-published-media:/directus/public-media
+      - ./docker/cms/extensions:/directus/extensions:ro
+      - ./src/blog/blog-post/blog-media.cjs:/directus/blog-media.cjs:ro
+    cpus: 1
+    mem_limit: 1g
+    depends_on:
+      cms-media-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8055/server/ping']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  cms-load-media-init:
+    profiles: [cms-load]
+    image: directus/directus:12.6.0
+    user: root
+    entrypoint: ['sh', '-c', 'chown 1000:1000 /media']
+    volumes:
+      - cms-load-published-assets:/media
+
+  cms-load-mysql:
+    profiles: [cms-load]
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: cms-local-load-root
+      MYSQL_DATABASE: cms_load_test
+      MYSQL_USER: cms_load_test
+      MYSQL_PASSWORD: cms-local-load-only
+    volumes:
+      - cms-load-mysql:/var/lib/mysql
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent']
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  cms-load:
+    profiles: [cms-load]
+    container_name: gamenode-cms-load-cms-1
+    image: directus/directus:12.6.0
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      SECRET: ${CMS_SECRET:?set CMS_SECRET in .env}
+      ADMIN_EMAIL: ${CMS_ADMIN_EMAIL:?set CMS_ADMIN_EMAIL in .env}
+      ADMIN_PASSWORD: ${CMS_ADMIN_PASSWORD:?set CMS_ADMIN_PASSWORD in .env}
+      BLOG_CMS_PREVIEW_TOKEN: ${BLOG_CMS_PREVIEW_TOKEN:-}
+      BLOG_REFERENCE_API_URL: ${BLOG_REFERENCE_API_URL:-http://host.docker.internal:5000/v1}
+      DB_CLIENT: mysql
+      DB_HOST: cms-load-mysql
+      DB_PORT: 3306
+      DB_DATABASE: cms_load_test
+      DB_USER: cms_load_test
+      DB_PASSWORD: cms-local-load-only
+      PUBLIC_URL: http://localhost:8056
+      STORAGE_LOCATIONS: private
+      STORAGE_PRIVATE_DRIVER: local
+      STORAGE_PRIVATE_ROOT: /directus/uploads
+      FILES_MAX_UPLOAD_SIZE: 10mb
+    depends_on:
+      cms-load-mysql:
+        condition: service_healthy
+      cms-load-media-init:
+        condition: service_completed_successfully
+    ports:
+      - '127.0.0.1:8056:8055'
+    cpus: 1
+    mem_limit: 1g
+    volumes:
+      - cms-load-assets:/directus/uploads
+      - cms-load-published-assets:/directus/public-media
+      - ./docker/cms/extensions:/directus/extensions:ro
+      - ./src/blog/blog-post/blog-media.cjs:/directus/blog-media.cjs:ro
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8055/server/ping']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
 
 volumes:
   redis:
   db:
   manticore:
   minio:
+  cms-database:
+    name: gamenode-cms-trial_database
+  cms-assets:
+    name: gamenode-cms-trial_assets
+  cms-published-media:
+    name: gamenode-cms-trial_published-assets
+  cms-load-mysql:
+  cms-load-assets:
+  cms-load-published-assets:

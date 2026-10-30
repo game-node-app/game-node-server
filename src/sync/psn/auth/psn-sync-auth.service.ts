@@ -1,7 +1,9 @@
 import { uncancellableProviderCall } from "../../player-sync-attempt";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 import {
     AuthTokensResponse,
     exchangeCodeForAccessToken,
@@ -9,31 +11,67 @@ import {
     exchangeRefreshTokenForAuthTokens,
 } from "psn-api";
 import { PSNTokenInfo } from "./psn-sync-auth.types";
+import { PsnSystemCredential } from "./psn-system-credential.entity";
+import { ConnectionCredentialCryptoService } from "../../../connection/connection-credential-crypto.service";
+
+/**
+ * Stable, searchable marker for log aggregators.
+ */
+export const PSN_SYSTEM_AUTH_FAILED = "PSN_SYSTEM_AUTH_FAILED";
+
+const SYSTEM_CREDENTIAL_ID = 1;
 
 @Injectable()
 export class PsnSyncAuthService {
     private readonly logger = new Logger(PsnSyncAuthService.name);
-    private readonly NPSSO_KEY: string | undefined;
+    private readonly ENV_NPSSO: string | undefined;
     private readonly ACCESS_TOKEN_STORE_KEY = "psn-auth-access-token";
 
     constructor(
         private readonly configService: ConfigService,
         @Inject(CACHE_MANAGER)
         private readonly cacheManager: Cache,
+        @InjectRepository(PsnSystemCredential)
+        private readonly credentialRepository: Repository<PsnSystemCredential>,
+        private readonly cryptoService: ConnectionCredentialCryptoService,
     ) {
-        this.NPSSO_KEY = this.configService.get("PSN_NPSSO_KEY");
-        if (!this.NPSSO_KEY) {
+        this.ENV_NPSSO = this.configService.get("PSN_NPSSO_KEY");
+        if (!this.ENV_NPSSO) {
             this.logger.warn(
-                "PSN NPSSO key not provied! Services related to PSN will not work.",
+                "PSN NPSSO key not provied! Services related to PSN will not work until one is set via the admin endpoint.",
             );
         }
     }
 
-    private getAccessTokenKey() {
-        return `${this.ACCESS_TOKEN_STORE_KEY}-${this.NPSSO_KEY}`;
+    /**
+     * Runtime NPSSO (database, encrypted) takes precedence over PSN_NPSSO_KEY.
+     */
+    private async resolveNpsso(): Promise<string | undefined> {
+        const row = await this.credentialRepository.findOneBy({
+            id: SYSTEM_CREDENTIAL_ID,
+        });
+        return row
+            ? this.cryptoService.decrypt(row.npssoEncrypted)
+            : this.ENV_NPSSO;
     }
 
-    private setToStore(authResponse: AuthTokensResponse) {
+    public async hasNpsso(): Promise<boolean> {
+        const count = await this.credentialRepository.countBy({
+            id: SYSTEM_CREDENTIAL_ID,
+        });
+        return count > 0 || !!this.ENV_NPSSO;
+    }
+
+    /**
+     * The Sony endpoint answers a rejected refresh with undefined fields instead of throwing.
+     */
+    private assertAccessToken(authResponse: AuthTokensResponse) {
+        if (!authResponse?.accessToken) {
+            throw new Error("PSN returned no access token");
+        }
+    }
+
+    private async setToStore(authResponse: AuthTokensResponse) {
         const tokenInfo: PSNTokenInfo = {
             accessToken: authResponse.accessToken,
             refreshToken: authResponse.refreshToken,
@@ -45,22 +83,14 @@ export class PsnSyncAuthService {
             ).toISOString(),
         };
 
-        const refreshTokenExpiresInMs =
-            authResponse.refreshTokenExpiresIn * 1000;
-
-        this.cacheManager
-            .set(this.getAccessTokenKey(), tokenInfo, refreshTokenExpiresInMs)
-            .then(() => {
-                const validUntil = new Date(
-                    Date.now() + authResponse.refreshTokenExpiresIn * 1000,
-                );
-                this.logger.log(
-                    `Stored new PSN access token at ${new Date().toISOString()} valid until ${validUntil.toISOString()}`,
-                );
-            })
-            .catch((err) => {
-                this.logger.error(err);
-            });
+        await this.cacheManager.set(
+            this.ACCESS_TOKEN_STORE_KEY,
+            tokenInfo,
+            authResponse.refreshTokenExpiresIn * 1000,
+        );
+        this.logger.log(
+            `Stored new PSN access token at ${new Date().toISOString()} valid until ${tokenInfo.refreshTokenExpiresAt}`,
+        );
 
         return tokenInfo;
     }
@@ -72,40 +102,79 @@ export class PsnSyncAuthService {
      */
     private async getFromStore(): Promise<PSNTokenInfo | null> {
         return await this.cacheManager.get<PSNTokenInfo>(
-            this.getAccessTokenKey(),
+            this.ACCESS_TOKEN_STORE_KEY,
         );
     }
 
-    /**
-     * Should only be called when the current accessToken + expiresIn
-     * combination is not valid anymore. <br>
-     * <strong>Also persists new token info in the cache store.</strong>
-     * @param refreshToken - if provided, will be used to refresh access token
-     * @private
-     */
-    private async refreshAccessToken(refreshToken?: string) {
-        if (refreshToken) {
-            const refreshAuthResponse = await uncancellableProviderCall(
-                "PSN",
-                () => exchangeRefreshTokenForAuthTokens(refreshToken),
-            );
-            return this.setToStore(refreshAuthResponse);
-        }
-
+    private async exchangeNpsso(npsso: string) {
         const accessCode = await uncancellableProviderCall("PSN", () =>
-            exchangeNpssoForCode(this.NPSSO_KEY!),
+            exchangeNpssoForCode(npsso),
         );
         const authResponse = await uncancellableProviderCall("PSN", () =>
             exchangeCodeForAccessToken(accessCode),
         );
+        this.assertAccessToken(authResponse);
+        return authResponse;
+    }
 
-        return this.setToStore(authResponse);
+    private async refreshWithRefreshToken(refreshToken: string) {
+        const authResponse = await uncancellableProviderCall("PSN", () =>
+            exchangeRefreshTokenForAuthTokens(refreshToken),
+        );
+        this.assertAccessToken(authResponse);
+        return await this.setToStore(authResponse);
+    }
+
+    /**
+     * Only place that reads the NPSSO. <strong>Also persists new token info in the cache store.</strong>
+     * @param refreshError - set when this runs as fallback for a rejected refresh
+     * @private
+     */
+    private async authenticateWithNpsso(refreshError?: unknown) {
+        try {
+            const npsso = await this.resolveNpsso();
+            if (!npsso) {
+                throw new Error("no NPSSO configured");
+            }
+            return await this.setToStore(await this.exchangeNpsso(npsso));
+        } catch (cause) {
+            const reason = (e: unknown) =>
+                e instanceof Error ? e.message : String(e);
+            throw new Error(
+                `${PSN_SYSTEM_AUTH_FAILED}: ${
+                    refreshError
+                        ? `refresh failed (${reason(refreshError)}); `
+                        : ""
+                }NPSSO exchange failed (${reason(cause)})`,
+                { cause },
+            );
+        }
+    }
+
+    /**
+     * Validates the NPSSO with Sony before storing it, so a bad value never replaces the current one.
+     * @returns the new refresh token expiration date (ISO)
+     */
+    public async rotateNpsso(npsso: string): Promise<string> {
+        let authResponse: AuthTokensResponse;
+        try {
+            authResponse = await this.exchangeNpsso(npsso);
+        } catch {
+            throw new BadRequestException("PSN rejected the provided NPSSO");
+        }
+
+        await this.credentialRepository.upsert(
+            {
+                id: SYSTEM_CREDENTIAL_ID,
+                npssoEncrypted: this.cryptoService.encrypt(npsso),
+            },
+            ["id"],
+        );
+        const tokenInfo = await this.setToStore(authResponse);
+        return tokenInfo.refreshTokenExpiresAt;
     }
 
     public async getValidAccessToken(): Promise<PSNTokenInfo> {
-        if (!this.NPSSO_KEY) {
-            throw new Error("PSN_NPSSO_KEY not provided!");
-        }
         /**
          * Nullable if first request OR refreshToken is expired.
          */
@@ -116,7 +185,7 @@ export class PsnSyncAuthService {
          * NPSSO code is being used, and since it's static we can't be sure it's still valid.
          */
         if (tokenInStore == undefined) {
-            return await this.refreshAccessToken();
+            return await this.authenticateWithNpsso();
         }
 
         const now = new Date();
@@ -128,7 +197,15 @@ export class PsnSyncAuthService {
         const isTokenExpired = tokenExpireDate.getTime() < now.getTime();
 
         if (isTokenExpired) {
-            return await this.refreshAccessToken(tokenInStore.refreshToken);
+            try {
+                return await this.refreshWithRefreshToken(
+                    tokenInStore.refreshToken,
+                );
+            } catch (refreshError) {
+                // A dead token must not stay cached until its TTL.
+                await this.cacheManager.del(this.ACCESS_TOKEN_STORE_KEY);
+                return await this.authenticateWithNpsso(refreshError);
+            }
         }
 
         return tokenInStore;
