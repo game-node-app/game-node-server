@@ -15,7 +15,7 @@ import { PlaytimeHistoryService } from "./playtime-history.service";
 import { PlaytimeService } from "./playtime.service";
 import { PlaytimeWatchProcessor } from "./watch/playtime-watch.processor";
 import { UserPlaytimeSource } from "./playtime.constants";
-import { IndexPlaytimeObservations1792886400003 } from "../migrations/1792886400003-IndexPlaytimeObservations";
+import { createBaselineTables } from "../../test/baseline-schema";
 import { setCacheManager } from "../utils/cacheable";
 
 const mysqlDescribe = process.env.PLAYER_IMPORT_TEST_MYSQL_PORT
@@ -53,23 +53,10 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
             entities: [resolve(__dirname, "..", "**/*.entity.ts")],
         }).initialize();
         addTransactionalDataSource(source);
-        for (const table of ["user_playtime", "user_playtime_history"]) {
-            await source.query(`CREATE TABLE \`${table}\` (
-                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                source VARCHAR(255) NOT NULL,
-                profileUserId VARCHAR(255) NOT NULL,
-                gameId BIGINT NOT NULL,
-                totalPlaytimeSeconds INT NOT NULL DEFAULT 0,
-                recentPlaytimeSeconds INT NOT NULL DEFAULT 0,
-                lastPlayedDate DATETIME NULL,
-                firstPlayedDate DATETIME NULL,
-                totalPlayCount INT NOT NULL DEFAULT 0,
-                platformId BIGINT NOT NULL,
-                checksum VARCHAR(255) NULL,
-                createdAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-                updatedAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
-            ) ENGINE=InnoDB`);
-        }
+        await createBaselineTables(source, [
+            "user_playtime",
+            "user_playtime_history",
+        ]);
     });
 
     afterAll(async () => {
@@ -483,39 +470,19 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
                     })),
                 );
             }
-            const beforePlan = await source.query(`EXPLAIN ${sql}`, parameters);
-            const migration = new IndexPlaytimeObservations1792886400003();
-            const runner = source.createQueryRunner();
-            let plan: any[];
-            try {
-                await migration.up(runner);
-                await source.query("ANALYZE TABLE user_playtime_history");
-                plan = await source.query(`EXPLAIN ${sql}`, parameters);
-                expect(plan.find((row) => row.table === "previous").key).toBe(
-                    "IDX_playtime_observation_previous",
-                );
-                expect(plan.find((row) => row.table === "ph").key).toBe(
-                    "IDX_playtime_observation_window",
-                );
-                await migration.down(runner);
-                expect(
-                    await source
-                        .getRepository(UserPlaytimeHistory)
-                        .countBy({ profileUserId: userId }),
-                ).toBe(6006);
-                await migration.up(runner);
-            } finally {
-                await runner.release();
-            }
+            await source.query("ANALYZE TABLE user_playtime_history");
+            const plan = await source.query(`EXPLAIN ${sql}`, parameters);
+            expect(plan.find((row: any) => row.table === "previous").key).toBe(
+                "IDX_playtime_observation_previous",
+            );
+            expect(plan.find((row: any) => row.table === "ph").key).toBe(
+                "IDX_playtime_observation_window",
+            );
             console.log("playtime fixture measurements", {
                 size: rows.length,
                 cold: counts(coldQueries),
                 warm: counts(warmQueries),
-                beforePlan: beforePlan.map((row: any) => ({
-                    table: row.table,
-                    key: row.key,
-                })),
-                plan: plan!.map((row: any) => ({
+                plan: plan.map((row: any) => ({
                     table: row.table,
                     type: row.type,
                     key: row.key,

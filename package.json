@@ -16,7 +16,7 @@
         "start:dev:docker": "docker compose up --build -d --wait && yarn start:dev",
         "typeorm": "typeorm-ts-node-commonjs",
         "migration:create": "yarn run typeorm migration:create",
-        "migration:generate": "yarn run typeorm migration:generate ./src/migrations/all -d ./data-source.ts",
+        "migration:generate": "yarn run typeorm migration:generate ./src/migrations/migration -d ./data-source.ts",
         "migration:run": "yarn run typeorm migration:run -d ./data-source.ts",
         "healthcheck": "node src/health/healthcheck.js",
         "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
@@ -38,7 +38,6 @@
         "test:search:integration": "jest --config test/search/jest-integration.json --runInBand",
         "igdb:catalog": "ts-node scripts/igdb-catalog.ts",
         "test:igdb:resources": "ts-node test/igdb/igdb-catalog.resources.ts",
-        "notifications:cutover": "ts-node scripts/notifications-cutover.ts",
         "seed:notifications": "ts-node scripts/seed-example-notifications.ts"
     },
     "dependencies": {

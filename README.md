@@ -41,18 +41,39 @@ the [CMS trial guide](docs/blog-cms-trial.md) for details.
 
 #### Migrations and Docker
 
-The default docker-compose files will **not** run migrations automatically.    
-Migrations are dangerous and should be run manually, after checking each generated migration file.
+The default docker-compose files do **not** run migrations automatically.
+Create and review migrations in development against a disposable database, then
+commit them with the application changes. Do not generate migrations inside a
+running production container.
 
-You can attach to any running gamenode container and run the migrations manually:
+At deployment, run the committed migrations once in a temporary container using
+the release image, database environment variables and private network. Serialize
+deployments so API replicas cannot run migrations concurrently. For the initial
+installation, start the API and workers only after migrations succeed.
 
-```bash
-$ docker exec -it gamenode_server_1 bash # Replace gamenode_server_1 with your container name
-$ yarn migration:generate
-# ...manually check the generated migration file (use vim/nano/cat or docker cp to host)
-$ yarn migration:run
-# No need to restart the container, changes are made directly to MySQL.
-```
+The current Git checkout still needs a versioned initial schema: the historical
+baseline is ignored by Git. See the [fresh installation report](docs/relatorio-reimplantacao-infraestrutura.md#61-pendência-de-reprodução-esquema-inicial-versionado)
+for the bootstrap prerequisite and migration workflow.
+
+Use `docker-compose.prod.yml` as the production definition of the application
+services, including Directus. Load that file from Git in Coolify. Production
+MySQL is not in that file: it is a Coolify-managed database resource, shared by
+GameNode, SuperTokens and Directus with separate databases and users, and backed
+up by Coolify to R2. Set the production credentials listed in `.env.example`.
+API and migration containers reference an immutable `lamarcke/game-node-server` release tag directly
+in the production Compose. The production base still needs the deployment
+corrections listed in the report.
+
+**Production requires a one-time manual step:** after creating the managed
+MySQL, run `docker/mysql/init-databases.sh` inside it to create the SuperTokens
+and Directus databases/users. See section 6.3 of the
+[fresh installation report](docs/relatorio-reimplantacao-infraestrutura.md).
+Changing environment variables later does not update existing users.
+
+Development and disposable test services use the same MySQL, Redis and Manticore
+versions as production. The updated images target fresh installations; existing
+local volumes need an engine-specific upgrade plan. MinIO is a pinned legacy
+image for local development; production uploads use external S3/R2 storage.
 
 If you are developing locally, you can use this command to spin up your containers and start the server:
 
@@ -99,12 +120,21 @@ SUPERTOKENS_CORE_URI=https://try.supertokens.io
 After setting up your database credentials in `.env`, run the migrations:
 
 ```bash
-$ yarn typeorm:migration:generate
-$ yarn typeorm:migration:run
+$ yarn migration:run
 ```
 
-We use TypeORM to handle everything related to database. You only need to run migrations when changing the models (
-.entity.ts) files, or when you first start the app.
+Apply committed migrations on first setup and whenever a release includes pending
+migrations. An empty database requires the versioned baseline described above.
+
+When developing a schema change, first bring a disposable database to the previous
+release's schema, edit the entities, then generate and review a new migration:
+
+```bash
+$ yarn typeorm migration:generate ./src/migrations/DescribeChange -d ./data-source.ts
+```
+
+Test and commit the migration before deployment. Keep applied migrations unchanged
+and keep `synchronize` set to `false`.
 
 #### Important
 

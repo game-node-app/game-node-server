@@ -41,24 +41,6 @@ lerna-debug.log*
 
 wrapper
 
-/src/migrations/*
-!/src/migrations/1792857600000-CreateIgdbCatalogState.ts
-!/src/migrations/1792886400000-CreatePlayerConnectionSync.ts
-!/src/migrations/1792886400001-CreatePlayerGameSync.ts
-!/src/migrations/1792886400002-AddPendingAchievementActivityDelivery.ts
-!/src/migrations/1792886400003-AddConnectionAuth.ts
-!/src/migrations/1792886400004-RecoverImporterNotifications.ts
-!/src/migrations/1792960197563-CreateNotificationOutboxAndInbox.ts
-!/src/migrations/1792960197564-NotificationTimestampPrecision.ts
-!/src/migrations/1792960197565-IndexNotificationCommentTriggers.ts
-!/src/migrations/1792960197566-CreateNotificationCutoverLedger.ts
-!/src/migrations/1792960197567-RetireLegacyNotificationStorage.ts
-!/src/migrations/1792960197568-PrepareStatisticsStorage.ts
-!/src/migrations/1792960197569-AddRecapStatisticsCoverage.ts
-!/src/migrations/1792960197571-IndexGameStatisticsRankings.ts
-!/src/migrations/1792960197572-CreateImporterBatchEffects.ts
-!/src/migrations/1793208042000-ExpandGameUrlColumn.ts
-!/src/migrations/1793300000000-DropInternalBlog.ts
 /public/uploads/*
 !/public
 !/public/uploads

@@ -68,7 +68,7 @@ npx jest --runInBand --testPathPattern='(importer-watch|game-achievement-sync|pl
 For lifecycle integration, use a disposable local Redis instance:
 
 ```sh
-docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:7-alpine
+docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
 PLAYER_IMPORT_TEST_REDIS_PORT=17379 npx jest --runInBand --runTestsByPath src/sync/player-data/player-data-queue.lifecycle.spec.ts
 docker stop player-import-test-redis
 ```
@@ -245,7 +245,7 @@ npx jest --runInBand --testPathPattern='(sync/(provider-sync.error|player-sync-a
 To test shared admission and actual queue retry counts, use disposable Redis:
 
 ```sh
-docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:7-alpine
+docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
 PLAYER_IMPORT_TEST_REDIS_PORT=17379 npx jest --runInBand --runTestsByPath src/sync/player-provider-budget.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts
 docker stop player-import-test-redis
 ```
@@ -267,9 +267,8 @@ readiness.
 
 ## Durable synchronization state and account identity
 
-The additive `1792886400000-CreatePlayerConnectionSync` and
-`1792886400001-CreatePlayerGameSync` migrations create only synchronization-state
-tables. They do not rewrite obtained achievements, playtime/history, collections,
+The `player_connection_sync` and `player_game_sync` tables, created by the
+`InitialSchema` baseline, hold only synchronization state. They do not rewrite obtained achievements, playtime/history, collections,
 or activities, and contain no publication or historical backfill operation.
 The migration files are explicitly included despite the repository's general
 migration ignore rule.
@@ -322,8 +321,8 @@ needs the conservative cutoff from task 8.5 before broad reconciliation is enabl
 Run the isolated MySQL/Redis state checks with:
 
 ```sh
-docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.0
-docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:7-alpine
+docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
+docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
 docker exec player-import-test-mysql mysqladmin ping --silent
 PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=17379 npx jest --runInBand --runTestsByPath src/sync/player-data/player-sync-state.integration.spec.ts src/sync/player-data/player-sync-state.service.spec.ts src/sync/player-data/player-sync-policy.spec.ts
 docker stop player-import-test-mysql player-import-test-redis
@@ -507,7 +506,7 @@ The disposable-MySQL integration fixture documents the expected outcomes:
 Run these fixtures with disposable MySQL:
 
 ```sh
-docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.0
+docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
 docker exec player-import-test-mysql mysqladmin ping --silent
 PLAYER_IMPORT_TEST_MYSQL_PORT=14306 npx jest --runInBand --runTestsByPath src/game/game-achievement/sync/game-achievement-sync.transaction.integration.spec.ts
 docker stop player-import-test-mysql
@@ -696,9 +695,7 @@ run: `NotificationsRelayService` claims pending outbox rows and enqueues them to
 the shared `notifications-queue`. Delivery retries, backoff, and diagnostics are
 governed by the central outbox lifecycle rather than legacy cron polling or
 fire-and-forget queues. Downstream materialization aggregates outcomes into the user's
-inbox idempotently by discovery result identity. Existing pending legacy records
-are transferred during maintenance cutover using `importer-result-<resultId>`.
-The same identity is used for new intents. Exact discovered-game totals and three
+inbox idempotently by discovery result identity (`importer-result-<resultId>`). Exact discovered-game totals and three
 bounded internal-game samples come from committed results; counts are not inferred
 from automatic-import totals, which may all be zero. The old importer delivery cron,
 queue publisher and `pendingDelivery` field are removed. See `docs/notifications.md`
@@ -812,10 +809,7 @@ success. These checks require no provider secrets or raw response bodies.
    Apply `yarn migration:run` using the deployment's database configuration.
    `SHOW TABLES LIKE 'player_%_sync'` and `SHOW INDEX FROM user_playtime_history`
    must show the additive sync tables and observation indexes. Check that the
-   importer entry retry state remains intact. Notification-only markers/storage
-   are retired through the separate guarded maintenance cutover in
-   `docs/notifications.md`; conversion and MySQL/Redis backup verification must
-   finish before its cleanup migration. Domain import history is retained.
+   importer entry retry state remains intact. Domain import history is retained.
 3. Start only the new binary with cadence still disabled. Bootstrap runs in
    bounded pages and persists a deterministic daily spread. Inspect
    `SELECT MIN(nextEligibleAt), MAX(nextEligibleAt), COUNT(*) FROM player_connection_sync`
@@ -865,9 +859,9 @@ names and queue prefixes and remove those resources on completion; they never
 truncate the application database or flush Redis.
 
 ```sh
-docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.0
+docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
 docker exec player-import-test-mysql mysqladmin ping --silent
-docker run --rm -d --name player-import-test-redis -p 127.0.0.1:14379:6379 redis:7-alpine
+docker run --rm -d --name player-import-test-redis -p 127.0.0.1:14379:6379 redis:8.10.3-alpine3.23
 PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=14379 yarn test --runInBand --testPathPattern='(playtime/|importer/|connection/|sync/(player|provider|steam/|psn/|xbox/)|game/(game-achievement/|external-game/)|activities/activities-(queue|repository)/|journal/|notifications/|collections/collections-entries/).*spec.ts$'
 yarn build
 openspec validate optimize-player-data-imports --strict

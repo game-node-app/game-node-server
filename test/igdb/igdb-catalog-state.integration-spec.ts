@@ -1,14 +1,14 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { IgdbCatalogState } from "../../src/sync/igdb/catalog/entities/igdb-catalog-state.entity";
-import { CreateIgdbCatalogState1792857600000 } from "../../src/migrations/1792857600000-CreateIgdbCatalogState";
+import { createBaselineTables } from "../baseline-schema";
 import { testEnvironment } from "./helpers/test-environment";
 import {
     IgdbCatalogStateService,
     CatalogOwner,
 } from "../../src/sync/igdb/catalog/igdb-catalog-state.service";
 
-describe("catalog state migration on isolated MySQL", () => {
+describe("catalog state on isolated MySQL", () => {
     let source: DataSource;
     beforeAll(async () => {
         const settings = testEnvironment(process.env);
@@ -16,50 +16,22 @@ describe("catalog state migration on isolated MySQL", () => {
             ...settings.mysql,
             timezone: "Z",
             entities: [IgdbCatalogState],
-            migrations: [CreateIgdbCatalogState1792857600000],
-            migrationsTableName: "igdb_test_migrations",
             connectTimeout: 5000,
         }).initialize();
         await source.query("DROP TABLE IF EXISTS igdb_catalog_state");
-        await source.query("DROP TABLE IF EXISTS igdb_test_migrations");
+        await createBaselineTables(source, ["igdb_catalog_state"]);
     });
     afterAll(async () => {
         if (source?.isInitialized) await source.destroy();
     });
 
-    it("runs up/down/up, enforces singleton, and preserves unrelated tables", async () => {
-        await source.undoLastMigration();
-        await source.query(
-            "CREATE TABLE IF NOT EXISTS igdb_test_game_sentinel (id INT PRIMARY KEY)",
-        );
-        await source.query(
-            "INSERT IGNORE INTO igdb_test_game_sentinel VALUES (42)",
-        );
-        try {
-            await source.runMigrations();
-            expect(await source.getRepository(IgdbCatalogState).find()).toEqual(
-                [
-                    expect.objectContaining({
-                        id: 1,
-                        status: "idle",
-                        runId: null,
-                    }),
-                ],
-            );
-            await expect(
-                source.query("INSERT INTO igdb_catalog_state (id) VALUES (2)"),
-            ).rejects.toThrow();
-            await source.undoLastMigration();
-            expect(
-                await source.query("SELECT id FROM igdb_test_game_sentinel"),
-            ).toEqual([{ id: 42 }]);
-            await source.runMigrations();
-            expect(await source.getRepository(IgdbCatalogState).count()).toBe(
-                1,
-            );
-        } finally {
-            await source.query("DROP TABLE igdb_test_game_sentinel");
-        }
+    it("seeds the singleton row and rejects a second one", async () => {
+        expect(await source.getRepository(IgdbCatalogState).find()).toEqual([
+            expect.objectContaining({ id: 1, status: "idle", runId: null }),
+        ]);
+        await expect(
+            source.query("INSERT INTO igdb_catalog_state (id) VALUES (2)"),
+        ).rejects.toThrow();
     });
 
     it("persists boundary, cursor and retry state across reconnection and resume", async () => {

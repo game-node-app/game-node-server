@@ -109,7 +109,7 @@ owner or deletion endpoint; catalog updates preserve their targets.
 
 ## Fresh installation
 
-Apply migrations `1792960197568`, `1792960197569` and `1792960197571` as part of the normal application setup. No statistics conversion or rebuild command is required: source creation initializes targets, the projector processes new facts automatically, and the ranking scheduler refreshes prepared scores. The optional `yarn statistics:projection diagnostics` and `rearm` commands are for inspecting or retrying failed runtime projection work; `--local` selects the disposable `igdb_sync_test` fixture.
+The statistics tables come with the `InitialSchema` baseline (`yarn migration:run`). No statistics conversion or rebuild command is required: source creation initializes targets, the projector processes new facts automatically, and the ranking scheduler refreshes prepared scores. The optional `yarn statistics:projection diagnostics` and `rearm` commands are for inspecting or retrying failed runtime projection work; `--local` selects the disposable `igdb_sync_test` fixture.
 
 ## Ranking performance correction (2026-10-26)
 

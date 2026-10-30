@@ -434,51 +434,6 @@ Acknowledges observed versions of inbox items.
 
 ---
 
-## Pre-Launch Maintenance Cutover and Rollback
-
-### Maintenance Cutover Procedure
-
-Because the pre-launch environment does not require backwards compatibility or runtime fallback adapters, cutover executes cleanly during a scheduled maintenance window:
-
-1. **Traffic Ingress Cessation**:
-   - Ingress and domain producers are paused so that no new mutations occur during cutover.
-   - Workers complete in-flight batches.
-
-2. **Coordinated Full Backup**:
-   - Take a consistent snapshot backup of the MySQL database (`mysqldump --single-transaction`) and BullMQ Redis data directory.
-   - This backup represents the authoritative rollback point.
-
-3. **Pending Importer Work Transfer**:
-   - Execute `NotificationsCutoverService.transferPendingImporterResults()`.
-   - Converts any committed discovery rows with `pendingDelivery: true` into durable `notification_outbox` records with `state = 'pending'`.
-   - No games are re-imported; existing library choices (`autoImportRetryable`, ignored/processed) remain intact.
-
-4. **Historical Conversion Execution**:
-   - Execute `NotificationsCutoverService.convertLegacyNotifications(batchSize = 100)`.
-   - Converts legacy rows into `notification_event` and materialized `notification_inbox`.
-   - **Exclusion Audit**:
-     - `unassignable_global`: Records where `targetProfileUserId IS NULL` are excluded from user inboxes.
-     - `forged_recipient`: Records where target recipient differs from actual domain entity ownership are excluded.
-     - `source_not_found`: Soft-deleted posts or missing reviews are excluded.
-     - `private_collection`: Content in private collections is excluded.
-   - **Read State Mapping**:
-     - Mixed read groups (some viewed, some unviewed) are initialized as unread (`readVersion = 0`).
-     - Groups where all legacy events were viewed are initialized as fully read (`readVersion = version`).
-   - **Restart Safety**:
-     - Causal identities (`legacy-notification-<id>`) and unique constraints ensure multiple executions do not duplicate contributions.
-
-5. **Legacy Cleanup & Ingress Resumption**:
-   - Verify converted counts and exclusion totals against pre-cutover inventory.
-   - Start the application with the sole `/notifications` API and resume ingress.
-
-### Rollback Strategy
-
-- Prior to reopening ingress, if conversion verification fails, rollback is performed by restoring the pre-cutover MySQL dump and Redis state and reverting the application image.
-- Once new production traffic resumes on the new system, rolling back destructively via database restoration would discard new writes. Any post-cutover issues must be resolved via forward fixes.
-- There are no v1/v2 compatibility adapters, double writes, or runtime legacy fallbacks.
-
----
-
 ## Runtime Configuration and Operational Acceptance
 
 ### Redis Configuration & Eviction Policies

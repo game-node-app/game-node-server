@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { catalogCommand } from "../../scripts/igdb-catalog";
 import { IgdbCatalogState } from "../../src/sync/igdb/catalog/entities/igdb-catalog-state.entity";
-import { CreateIgdbCatalogState1792857600000 } from "../../src/migrations/1792857600000-CreateIgdbCatalogState";
+import { createBaselineTables } from "../baseline-schema";
 import {
     IGDB_CATALOG_QUEUE_NAME,
     catalogJobId,
@@ -25,11 +25,9 @@ describe("local operator commands without application bootstrap", () => {
             ...settings.mysql,
             timezone: "Z",
             entities: [IgdbCatalogState],
-            migrations: [CreateIgdbCatalogState1792857600000],
-            migrationsTableName: "igdb_test_migrations",
         }).initialize();
-        await source.undoLastMigration();
-        await source.runMigrations();
+        await source.query("DROP TABLE IF EXISTS igdb_catalog_state");
+        await createBaselineTables(source, ["igdb_catalog_state"]);
         await source.getRepository(IgdbCatalogState).update(1, {
             status: "paused",
             runId,

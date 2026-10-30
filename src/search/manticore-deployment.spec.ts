@@ -10,7 +10,7 @@ const TEMPLATE_PATH = path.join(
 );
 const ENTRYPOINT_PATH = path.join(REPO_ROOT, "docker/manticore/entrypoint.sh");
 
-describe("Manticore 7.4.6 config, template rendering, and Compose definitions (3.1)", () => {
+describe("Manticore 29.9.0 config, template rendering, and Compose definitions (3.1)", () => {
     let tmpDir: string;
 
     beforeEach(() => {
@@ -110,13 +110,20 @@ describe("Manticore 7.4.6 config, template rendering, and Compose definitions (3
 
         const devConfigJson = execFileSync(
             "docker",
-            ["compose", "-f", "docker-compose.yml", "config", "--format", "json"],
+            [
+                "compose",
+                "-f",
+                "docker-compose.yml",
+                "config",
+                "--format",
+                "json",
+            ],
             { cwd: REPO_ROOT, encoding: "utf8" },
         );
         const devConfig = JSON.parse(devConfigJson);
         const devManticore = devConfig.services.manticore;
         expect(devManticore).toBeDefined();
-        expect(devManticore.image).toBe("manticoresearch/manticore:7.4.6");
+        expect(devManticore.image).toBe("manticoresearch/manticore:29.9.0");
         expect(devManticore.environment.CREATE_PLAIN_TABLES).toBe(
             "games:0 3 * * *;users:0 * * * *;games;users",
         );
@@ -160,24 +167,94 @@ describe("Manticore 7.4.6 config, template rendering, and Compose definitions (3
                     ...process.env,
                     DB_USER: "prod_db_user_from_env",
                     DB_PASS: "prod_db_pass_from_env",
+                    DB_HOST: "managed-mysql-uuid",
+                    CONNECTION_CREDENTIAL_ENCRYPTION_KEY: "test_connection_key",
                     SUPERTOKENS_DB_USER: "st_user",
                     SUPERTOKENS_DB_PASS: "st_pass",
+                    CMS_DB_PASSWORD: "cms_db_pass",
+                    CMS_SECRET: "cms_test_secret",
+                    CMS_LICENSE_KEY: "cms_test_license",
+                    CMS_ADMIN_EMAIL: "editor@example.com",
+                    CMS_ADMIN_PASSWORD: "cms_test_password",
+                    BLOG_CMS_PUBLIC_URL: "https://cms.example.com",
+                    BLOG_CMS_PREVIEW_TOKEN: "cms_test_preview_token",
                 },
             },
         );
-        const prodConfig = JSON.parse(prodConfigJson);
+        expect(prodConfig.services.redis_bullmq.volumes[0].target).toBe(
+            "/data",
+        );
+        expect(
+            prodConfig.services.server.environment.SUPERTOKENS_CORE_URI,
+        ).toBe("http://supertokens:3567");
+        expect(prodConfig.services.server.deploy.replicas).toBe(1);
         const prodManticore = prodConfig.services.manticore;
         expect(prodManticore).toBeDefined();
-        expect(prodManticore.image).toBe("manticoresearch/manticore:7.4.6");
+        expect(prodManticore.image).toBe("manticoresearch/manticore:29.9.0");
         expect(prodManticore.ports).toBeUndefined();
-        expect(prodManticore.environment.DB_HOST).toBe("server-db");
+        expect(prodManticore.environment.DB_HOST).toBe("managed-mysql-uuid");
         expect(prodManticore.environment.DB_USER).toBe("prod_db_user_from_env");
         expect(prodManticore.environment.DB_PASS).toBe("prod_db_pass_from_env");
         expect(prodManticore.deploy?.replicas).toBe(1);
-        expect(Object.keys(prodManticore.networks)).toEqual(["game_node_app"]);
+        expect(Object.keys(prodManticore.networks).sort()).toEqual([
+            "game_node_app",
+            "gamenode",
+        ]);
         expect(prodConfig.services.server.environment.MANTICORE_URL).toBe(
             "http://manticore:9308",
         );
         expect(prodConfig.volumes.manticore).toBeDefined();
+
+        // Production MySQL is the Coolify-managed resource, reached on the dedicated gamenode network.
+        expect(
+            Object.values(prodConfig.services).filter((service: any) =>
+                service.image.startsWith("mysql:"),
+            ),
+        ).toHaveLength(0);
+        expect(prodConfig.networks.gamenode.external).toBe(true);
+        // Only the Coolify proxy exposes services, through configured domains.
+        expect(
+            Object.values(prodConfig.services).filter(
+                (service: any) => service.ports,
+            ),
+        ).toHaveLength(0);
+        for (const name of [
+            "server",
+            "server_migration",
+            "supertokens",
+            "cms",
+            "manticore",
+        ]) {
+            const service = prodConfig.services[name];
+            expect(
+                service.environment.DB_HOST ?? service.environment.MYSQL_HOST,
+            ).toBe("managed-mysql-uuid");
+            expect(Object.keys(service.networks)).toContain("gamenode");
+        }
+        expect(prodConfig.services.cms.environment.DB_DATABASE).toBe(
+            "blog_cms",
+        );
+        expect(prodConfig.services.cms.environment.DB_USER).not.toBe(
+            prodConfig.services.server.environment.DB_USER,
+        );
+        expect(
+            prodConfig.services.server.depends_on["cms-media-init"].condition,
+        ).toBe("service_completed_successfully");
+        expect(prodConfig.volumes["blog-cms-public"].external).not.toBe(true);
+        const publicMedia = prodConfig.services.cms.volumes.find(
+            (volume: any) => volume.target === "/directus/public-media",
+        );
+        expect(publicMedia.source).toBe(
+            prodConfig.services.server.volumes.find(
+                (volume: any) =>
+                    volume.target === "/app/blog-public-media" &&
+                    volume.read_only,
+            ).source,
+        );
+        expect(
+            prodConfig.services.cms.volumes.find(
+                (volume: any) => volume.target === "/directus/uploads",
+            ).source,
+        ).not.toBe(publicMedia.source);
     });
 });

@@ -1,4 +1,4 @@
-import { AddConnectionAuth1792886400003 } from "../../migrations/1792886400003-AddConnectionAuth";
+import { createBaselineTables } from "../../../test/baseline-schema";
 import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import { EConnectionAuthMode } from "../../connection/connections.constants";
 import { UserPlaytime } from "../../playtime/entity/user-playtime.entity";
@@ -30,15 +30,13 @@ import {
     PlayerSyncOwnershipLost,
     PLAYER_OWNER_LEASE_MS,
 } from "./player-sync-state.service";
-import { CreatePlayerGameSync1792886400001 } from "../../migrations/1792886400001-CreatePlayerGameSync";
 import { PlayerGameSync } from "./entity/player-game-sync.entity";
 import { GameAchievementSyncQueueService } from "../../game/game-achievement/sync/game-achievement-sync-queue.service";
 import { PLAYER_RECONCILE_INTERVAL_MS } from "./player-sync-policy";
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
-import { DataSource, Table } from "typeorm";
+import { DataSource } from "typeorm";
 import { resolve } from "node:path";
-import { CreatePlayerConnectionSync1792886400000 } from "../../migrations/1792886400000-CreatePlayerConnectionSync";
 import { PlayerConnectionSync } from "./entity/player-connection-sync.entity";
 
 const mysqlDescribe = process.env.PLAYER_IMPORT_TEST_MYSQL_PORT
@@ -80,27 +78,20 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
             ...options,
             database,
             entities: [resolve(__dirname, "../..", "**/*.entity.ts")],
-            migrations: [CreatePlayerConnectionSync1792886400000],
         }).initialize();
         addTransactionalDataSource(source);
-        // Only the existing FK target is needed; never synchronize or truncate the application's schema.
+        await createBaselineTables(source, [
+            "user_connection",
+            "user_connection_credential",
+            "player_connection_sync",
+            "player_game_sync",
+            "user_playtime",
+            "user_playtime_history",
+        ]);
+        // Fixtures insert minimal connection rows; this suite does not exercise those constraints.
         await source.query(
-            "CREATE TABLE user_connection (id INT AUTO_INCREMENT PRIMARY KEY, sourceUserId VARCHAR(255) NOT NULL, profileUserId VARCHAR(255) NOT NULL DEFAULT 'fixture', type VARCHAR(16) NOT NULL DEFAULT 'steam', sourceUsername VARCHAR(255) NOT NULL DEFAULT '', isAutoImportEnabled TINYINT NOT NULL DEFAULT 0, autoImportCollectionId VARCHAR(36) NULL)",
+            "ALTER TABLE user_connection ALTER type SET DEFAULT 'steam', ALTER profileUserId SET DEFAULT 'fixture', ALTER sourceUsername SET DEFAULT '', DROP INDEX IDX_dcf89a993cff5c9c49d6dc070b",
         );
-    });
-    beforeAll(async () => {
-        const runner = source.createQueryRunner();
-        try {
-            await new AddConnectionAuth1792886400003().up(runner);
-            for (const entity of [UserPlaytime, UserPlaytimeHistory])
-                await runner.createTable(
-                    Table.create(source.getMetadata(entity), source.driver),
-                    true,
-                    false,
-                );
-        } finally {
-            await runner.release();
-        }
     });
     afterAll(async () => {
         deleteDataSourceByName("default");
@@ -111,11 +102,10 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
         }
     });
 
-    it("migrates up/down/up while preserving connection rows and unrelated data", async () => {
+    it("persists connection sync state", async () => {
         await source.query(
             "INSERT INTO user_connection (id, sourceUserId) VALUES (1, 'account')",
         );
-        await source.runMigrations();
         await source.getRepository(PlayerConnectionSync).save({
             connectionId: 1,
             sourceUserId: "account",
@@ -132,14 +122,7 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
             ownerToken: null,
             stages,
         });
-        await source.undoLastMigration();
-        expect(
-            await source.query("SELECT id, sourceUserId FROM user_connection"),
-        ).toEqual([{ id: 1, sourceUserId: "account" }]);
-        await source.runMigrations();
-        expect(await source.getRepository(PlayerConnectionSync).count()).toBe(
-            0,
-        );
+        await source.getRepository(PlayerConnectionSync).clear();
     });
 
     it("uses bounded indexed due queries without reading libraries", async () => {
@@ -189,10 +172,7 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
         await source.query(
             "INSERT INTO obtained_game_achievement VALUES (42, 2)",
         );
-        const runner = source.createQueryRunner();
-        const migration = new CreatePlayerGameSync1792886400001();
-        try {
-            await migration.up(runner);
+        {
             const repo = source.getRepository(PlayerGameSync);
             await repo.save({
                 connectionId: 1,
@@ -218,14 +198,10 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
                     "SELECT * FROM obtained_game_achievement WHERE externalGameId = 1",
                 ),
             ).toEqual([]);
-            await migration.down(runner);
             expect(
                 await source.query("SELECT * FROM obtained_game_achievement"),
             ).toEqual([{ id: 42, externalGameId: "2" }]);
-            await migration.up(runner);
-            expect(await repo.count()).toBe(0);
-        } finally {
-            await runner.release();
+            await repo.clear();
         }
     });
     it("does not enqueue unchanged recent games but reconciles inactive games when due", async () => {

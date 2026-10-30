@@ -11,39 +11,57 @@ before switching an application deployment to this CMS-backed API.
 
 ## Deploy on one host
 
-1. Create the existing `game_node_app` network used by the application. Copy
-   `docker/cms/.env.prod.example` to `docker/cms/.env.prod`, set unique random
-   secrets and the acquired grant key, and restrict the file to mode 600. The
+1. Use the root `docker-compose.prod.yml` as the sole production definition.
+   Prepare its external `game_node_app` network; the `gamenode` network is the
+   Coolify destination shared with the managed MySQL.
+   Configure the root `.env` from `.env.example`, or supply its variables through
+   Coolify. Set unique random secrets and the acquired grant key, and restrict
+   any local secret file to mode 600. The
    delivery and preview tokens must be different and at least 32 characters.
    Configure `BLOG_CMS_PUBLIC_URL` as the HTTPS staff origin, without a trailing
    slash. The key and tokens stay in the secret file, never in the repository.
 2. Start the CMS on the same host as the application:
 
    ```sh
-   docker compose --env-file docker/cms/.env.prod -f docker/cms/compose.prod.yml up -d --wait
+   docker compose -f docker-compose.prod.yml up -d --wait cms
    ```
 
-   The CMS binds to loopback on port 8055. Route the staff origin to that port
-   through the host's TLS reverse proxy and restrict access to editorial staff.
-   The CMS has a dedicated MySQL 8.0 database/user, private asset volume and
-   health checks. Its network can reach the existing server at
-   `http://server:5000/v1` for game and profile checks. The database is not on
-   the application network and CMS credentials do not access application or
-   community-upload storage.
+   The CMS publishes no host port. Expose it only through the Coolify domain
+   `https://cms.gamenode.app:8055` on the `cms` service and restrict access to
+   editorial staff.
+   The CMS uses the shared Coolify-managed MySQL 8.4.13 (`DB_HOST`), with its
+   own `blog_cms` database/user and `CMS_DB_PASSWORD`. GameNode and SuperTokens
+   have separate users scoped to `gamenode` and `supertokens`; the root password
+   stays in the managed resource. No database host port is published.
+   The `blog_cms` database/user must exist before the CMS starts: run
+   `docker/mysql/init-databases.sh` once in the managed MySQL, as described in
+   section 6.3 of the [infrastructure report](relatorio-reimplantacao-infraestrutura.md).
+   It does not migrate existing databases or rotate existing passwords.
+   The CMS keeps private assets separate from published media and reaches the
+   application at `http://server:5000/v1` for game and profile checks. CMS
+   credentials do not grant access to application data or community uploads.
 3. Provision the model and service accounts on the new CMS. Choose distinct
-   emails for the two service accounts. Run these commands from the project root:
+   emails for the two service accounts. The CMS has no host port, so the
+   scripts run in a temporary container on the private `game_node_app` network.
+   Run these commands on the VPS from a checkout of the repository, with
+   `CMS_ADMIN_EMAIL`, `CMS_ADMIN_PASSWORD`, `BLOG_CMS_DELIVERY_TOKEN` and
+   `BLOG_CMS_PREVIEW_TOKEN` exported with the values set in Coolify:
 
    ```sh
-   set -a
-   . docker/cms/.env.prod
-   set +a
-   export CMS_URL=http://localhost:8055
    export CMS_DELIVERY_EMAIL=blog-delivery@example.com
    export CMS_PREVIEW_EMAIL=blog-preview@example.com
-   python3 docker/cms/setup.py
-   docker compose --env-file docker/cms/.env.prod -f docker/cms/compose.prod.yml exec -T mysql \
+   cms_script() {
+     docker run --rm --network game_node_app -v "$PWD/docker/cms:/cms:ro" \
+       -e CMS_URL=http://blog-cms:8055 -e CMS_ADMIN_EMAIL -e CMS_ADMIN_PASSWORD \
+       -e CMS_DELIVERY_EMAIL -e CMS_PREVIEW_EMAIL \
+       -e BLOG_CMS_DELIVERY_TOKEN -e BLOG_CMS_PREVIEW_TOKEN \
+       python:3.13-alpine python "/cms/$1"
+   }
+   cms_script setup.py
+   # MYSQL_CONTAINER is the managed MySQL container (its Coolify UUID).
+   docker exec -i "$MYSQL_CONTAINER" \
      sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -u root blog_cms' < docker/cms/model-constraints.sql
-   python3 docker/cms/provision-readers.py
+   cms_script provision-readers.py
    ```
 
    Use individual Directus accounts with the `Blog editor` role for human
@@ -55,8 +73,10 @@ before switching an application deployment to this CMS-backed API.
    `BLOG_CMS_PREVIEW_TOKEN` to the application's deployment environment using
    the same values. The production Compose file connects the server to
    `http://blog-cms:8055` and mounts `gamenode-blog-public-media` read-only at
-   `/app/blog-public-media`. Start the CMS before the server so the named
-   volume exists. These local volumes are shared on one host; a multi-host
+   `/app/blog-public-media`. Compose creates the published-media volume and
+   the server waits for `cms-media-init` to set its ownership. Provision the
+   CMS model and reader accounts before enabling blog traffic. These local
+   volumes are shared on one host; a multi-host
    deployment needs shared storage with the same write/read-only separation.
 5. Run the database migration only after checking the target database. It drops
    the five internal blog tables and their contents. The local development
@@ -70,7 +90,8 @@ and WebP, bounds input/output image dimensions to 4096, limits transforms to
 five operations and one concurrent transform with a 15-second timeout, and
 retains revisions for 30 days. Prepared images are capped at 20 MiB. Private
 staging files not referenced by published content are removed after one day.
-Back up the dedicated database and both asset volumes together. Monitor disk
+Back up `blog_cms` and both asset volumes together; the MySQL instance backup
+must also include `gamenode` and `supertokens`. Monitor disk
 space: previously published media intentionally remains public and is not
 removed when an article is unpublished.
 

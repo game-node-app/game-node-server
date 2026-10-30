@@ -11,7 +11,6 @@ import {
     playerOwner,
     playerStateFixture,
 } from "../../../sync/player-data/player-sync.fixture";
-import { AddPendingAchievementActivityDelivery1792886400002 } from "../../../migrations/1792886400002-AddPendingAchievementActivityDelivery";
 
 const mysqlDescribe = process.env.PLAYER_IMPORT_TEST_MYSQL_PORT
     ? describe
@@ -67,79 +66,6 @@ mysqlDescribe("achievement commit transactions on disposable MySQL", () => {
         jest.restoreAllMocks();
         await source.query("DELETE FROM achievement_sync_write");
         await source.query("DELETE FROM achievement_sync_obtained");
-    });
-
-    it("keeps legacy activities outside pending recovery while admitting new rows", async () => {
-        await source.query(
-            "CREATE TABLE obtained_game_achievement_activity (id INT PRIMARY KEY) ENGINE=InnoDB",
-        );
-        const migration =
-            new AddPendingAchievementActivityDelivery1792886400002();
-        const runner = source.createQueryRunner();
-        try {
-            await runner.connect();
-            await source.query(
-                "INSERT INTO obtained_game_achievement_activity VALUES (1)",
-            );
-            await migration.up(runner);
-            expect(
-                await source.query(
-                    "SELECT pendingDelivery FROM obtained_game_achievement_activity",
-                ),
-            ).toEqual([{ pendingDelivery: 0 }]);
-
-            await source.query(
-                "INSERT INTO obtained_game_achievement_activity (id, pendingDelivery) VALUES (2, 1)",
-            );
-            const repository = {
-                find: jest.fn(async ({ take }) => {
-                    const rows = await source.query(
-                        "SELECT id FROM obtained_game_achievement_activity WHERE pendingDelivery = 1 ORDER BY id LIMIT ?",
-                        [take],
-                    );
-                    return rows.map((row: any) => ({
-                        ...row,
-                        profileUserId: "user",
-                    }));
-                }),
-                update: jest.fn(async (id, activity) =>
-                    source.query(
-                        "UPDATE obtained_game_achievement_activity SET pendingDelivery = ? WHERE id = ?",
-                        [activity.pendingDelivery ? 1 : 0, id],
-                    ),
-                ),
-            };
-            const register = jest.fn(async (_delivery: any) => undefined);
-            const activityService = new GameAchievementActivityService(
-                repository as any,
-                {} as any,
-                { register } as any,
-            );
-            await activityService.retryPendingDeliveries();
-            expect(
-                register.mock.calls.map(([delivery]) => delivery.sourceId),
-            ).toEqual([2]);
-            expect(
-                await source.query(
-                    "SELECT id, pendingDelivery FROM obtained_game_achievement_activity ORDER BY id",
-                ),
-            ).toEqual([
-                { id: 1, pendingDelivery: 0 },
-                { id: 2, pendingDelivery: 0 },
-            ]);
-
-            await migration.down(runner);
-            expect(
-                await source.query(
-                    "SHOW COLUMNS FROM obtained_game_achievement_activity LIKE 'pendingDelivery'",
-                ),
-            ).toEqual([]);
-        } finally {
-            await runner.release();
-            await source.query(
-                "DROP TABLE IF EXISTS obtained_game_achievement_activity",
-            );
-        }
     });
 
     it("commits all local writes and publishes activity after commit", async () => {

@@ -29,7 +29,7 @@ earlier search consolidation and are not repeated for this statistics change.
 >   - Development (`docker-compose.yml`), production (`docker-compose.prod.yml`), and disposable test (`test/search/docker-compose.yml`) service definitions
 >   - Automated unit, contract, deep-window pagination, failure/recovery, load self-check, and smoke-command verification against the disposable MySQL + Manticore 7.4.6 deployment
 > - **Production actions NOT executed during code implementation** (require operator execution in the target deployment environment):
->   - Provisioning the production `manticore` service against `server-db`
+>   - Provisioning the production `manticore` service against the Coolify-managed MySQL
 >   - Switching external DNS / reverse-proxy upstreams for the active production search hostname
 >   - Observing live production `03:00 UTC` (`games`) and hourly `:00 UTC` (`users`) scheduled refreshes
 >   - Stopping or decommissioning the running production Go `game-node-search` replicas and retaining/removing rollback volumes
@@ -43,7 +43,7 @@ Before retiring the separate Go search deployment, combined ordinary API/MySQL t
 ### Reproducible Local Self-Check Commands
 
 ```bash
-# 1. Start the disposable MySQL 8.0 + Manticore 7.4.6 harness
+# 1. Start the disposable MySQL 8.4.13 + Manticore 29.9.0 harness
 npm run test:search:services:up
 
 # 2. Run the integration suite (includes test 4.3 combined load + live rotation rebuild)
@@ -80,7 +80,7 @@ docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\
 
 1. **Configure environment variables** on the `game-node-server` host (`.env`):
    ```dotenv
-   DB_HOST=server-db
+   DB_HOST=<managed_mysql_internal_host>
    DB_PORT=3306
    DB_USER=<mysql_user>
    DB_PASS=<mysql_password>

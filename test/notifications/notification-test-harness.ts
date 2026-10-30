@@ -13,6 +13,7 @@ export async function createNotificationTestDataSource(): Promise<DataSource> {
     try {
         // shortcut: omit unused credential DDL with mismatched precision, remove when its decorator matches its migration
         source.getMetadata("UserConnectionCredential").synchronize = false;
+        source.getMetadata("PsnSystemCredential").synchronize = false;
         await source.synchronize();
         await source.query(
             "INSERT IGNORE INTO game (id, name, slug) VALUES (1, 'Notification fixture', 'notification-fixture')",

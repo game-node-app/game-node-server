@@ -1,38 +1,18 @@
-version: '3'
-
 services:
-  supertokens-db:
-    hostname: supertokens-db
-    image: mysql:8.3
-    environment:
-      MYSQL_ROOT_PASSWORD: ${SUPERTOKENS_DB_PASS}
-      MYSQL_USER: ${SUPERTOKENS_DB_USER}
-      MYSQL_PASSWORD: ${SUPERTOKENS_DB_PASS}
-      MYSQL_DATABASE: supertokens
-
-
-    networks:
-      - game_node_app
-
-    restart: always
-
-    volumes:
-      - supertokens-db:/var/lib/mysql
-
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      timeout: 20s
-      retries: 10
-
   supertokens:
     hostname: supertokens
-    image: registry.supertokens.io/supertokens/supertokens-mysql:10.1.3
+    image: registry.supertokens.io/supertokens/supertokens-mysql:10.1.4
 
     environment:
-      MYSQL_CONNECTION_URI: mysql://${SUPERTOKENS_DB_USER}:${SUPERTOKENS_DB_PASS}@supertokens-db:3306/supertokens
+      MYSQL_HOST: ${DB_HOST:?set DB_HOST}
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE_NAME: supertokens
+      MYSQL_USER: ${SUPERTOKENS_DB_USER:?set SUPERTOKENS_DB_USER}
+      MYSQL_PASSWORD: ${SUPERTOKENS_DB_PASS:?set SUPERTOKENS_DB_PASS}
 
     networks:
       - game_node_app
+      - gamenode
     restart: always
 
     deploy:
@@ -45,31 +25,11 @@ services:
       timeout: 5s
       retries: 5
 
-  db:
-    image: mysql:8.3
-    hostname: server-db
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASS}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASS}
-      MYSQL_DATABASE: gamenode
-      MYSQL_ROOT_HOST: '%'
-
-    networks:
-      - game_node_app
-    restart: always
-    volumes:
-      - db:/var/lib/mysql
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "--password=${DB_USER}"]
-      timeout: 20s
-      retries: 10
-
-  # Redis server for caching
+  # Redis server for caching; disposable, so no persistence.
   redis:
-    image: redis:latest
+    image: redis:8.10.3-alpine3.23
     hostname: server-redis
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "2048mb", "--maxmemory-policy", "allkeys-lru"]
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
 
@@ -81,34 +41,31 @@ services:
     deploy:
       replicas: 1
 
-    volumes:
-      - redis:/var/lib/redis
-
     networks:
       - game_node_app
 
   # Redis server exclusive to BullMQ
   redis_bullmq:
-    image: redis:latest
+    image: redis:8.10.3-alpine3.23
     hostname: server-redis-bullmq
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "20480mb", "--maxmemory-policy", "noeviction"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "1024mb", "--maxmemory-policy", "noeviction"]
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
     restart: always
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
     volumes:
-      - redis_bullmq:/var/lib/redis
+      - redis_bullmq:/data
 
     networks:
       - game_node_app
 
   manticore:
-    image: manticoresearch/manticore:7.4.6
+    image: manticoresearch/manticore:29.9.0
     hostname: manticore
     environment:
       TZ: UTC
-      DB_HOST: server-db
+      DB_HOST: ${DB_HOST:?set DB_HOST}
       DB_PORT: 3306
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
@@ -134,22 +91,82 @@ services:
       - ./docker/manticore/reindex.sh:/etc/manticoresearch/reindex.sh:ro
     networks:
       - game_node_app
+      - gamenode
+
+  cms-media-init:
+    image: directus/directus:12.6.0
+    user: root
+    entrypoint: ['sh', '-c', 'chown 1000:1000 /media']
+    volumes:
+      - blog-cms-public:/media
+  cms:
+    image: directus/directus:12.6.0
+    environment:
+      SECRET: ${CMS_SECRET:?set CMS_SECRET}
+      LICENSE_KEY: ${CMS_LICENSE_KEY:?set CMS_LICENSE_KEY}
+      ADMIN_EMAIL: ${CMS_ADMIN_EMAIL:?set CMS_ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${CMS_ADMIN_PASSWORD:?set CMS_ADMIN_PASSWORD}
+      DB_CLIENT: mysql
+      DB_HOST: ${DB_HOST:?set DB_HOST}
+      DB_PORT: 3306
+      DB_DATABASE: blog_cms
+      DB_USER: blog_cms
+      DB_PASSWORD: ${CMS_DB_PASSWORD:?set CMS_DB_PASSWORD}
+      PUBLIC_URL: ${BLOG_CMS_PUBLIC_URL:?set BLOG_CMS_PUBLIC_URL}
+      BLOG_REFERENCE_API_URL: http://server:5000/v1
+      BLOG_CMS_PREVIEW_TOKEN: ${BLOG_CMS_PREVIEW_TOKEN:?set BLOG_CMS_PREVIEW_TOKEN}
+      STORAGE_LOCATIONS: private
+      STORAGE_PRIVATE_DRIVER: local
+      STORAGE_PRIVATE_ROOT: /directus/uploads
+      FILES_MAX_UPLOAD_SIZE: 10mb
+      FILES_MAX_UPLOAD_CONCURRENCY: 1
+      FILES_MIME_TYPE_ALLOW_LIST: image/jpeg,image/png,image/webp
+      ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION: 4096
+      ASSETS_TRANSFORM_IMAGE_MAX_OUTPUT_DIMENSION: 4096
+      ASSETS_TRANSFORM_MAX_OPERATIONS: 5
+      ASSETS_TRANSFORM_MAX_CONCURRENT: 1
+      ASSETS_TRANSFORM_TIMEOUT: 15s
+      REVISIONS_RETENTION: 30d
+    volumes:
+      - blog-cms-private:/directus/uploads
+      - blog-cms-public:/directus/public-media
+      - ./docker/cms/extensions:/directus/extensions:ro
+      - ./src/blog/blog-post/blog-media.cjs:/directus/blog-media.cjs:ro
+    networks:
+      game_node_app:
+        aliases: [blog-cms]
+      gamenode: {}
+    depends_on:
+      cms-media-init:
+        condition: service_completed_successfully
+    cpus: 1
+    mem_limit: 1g
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8055/server/ping']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
 
   server:
-    image: lamarcke/game-node-server:latest
+    depends_on:
+      cms-media-init:
+        condition: service_completed_successfully
+    image: lamarcke/game-node-server:1.9.0
     hostname: server
 
-    # Most of the env vars are loaded directly from .env, we only need to override some to make sure
-    # the docker resources are accessible.
+    # Only variables listed here reach the container; Coolify uses its env values for interpolation.
     environment:
+      NODE_ENV: production
       REDIS_URL: redis://server-redis:6379
       BULLMQ_REDIS_URL: redis://server-redis-bullmq:6379
-      SUPERTOKENS_CORE_URI: http://@supertokens:3567
+      SUPERTOKENS_CORE_URI: http://supertokens:3567
       MANTICORE_URL: http://manticore:9308
       SERVER_PORT: 5000
       DOMAIN_API: https://server.gamenode.app
       DOMAIN_WEBSITE: https://gamenode.app
-      DB_HOST: server-db
+      DB_HOST: ${DB_HOST:?set DB_HOST}
       DB_DATABASE: gamenode
       DB_PASS: ${DB_PASS}
       DB_USER: ${DB_USER}
@@ -174,6 +191,9 @@ services:
       BLOG_CMS_DELIVERY_TOKEN: ${BLOG_CMS_DELIVERY_TOKEN}
       BLOG_CMS_PREVIEW_TOKEN: ${BLOG_CMS_PREVIEW_TOKEN}
       BLOG_PUBLIC_MEDIA_PATH: /app/blog-public-media
+      CONNECTION_CREDENTIAL_ENCRYPTION_KEY: ${CONNECTION_CREDENTIAL_ENCRYPTION_KEY:?set CONNECTION_CREDENTIAL_ENCRYPTION_KEY}
+      # Starts paused for the initial validation; set true in Coolify after the smoke tests.
+      PLAYER_DATA_SYNC_ENABLED: ${PLAYER_DATA_SYNC_ENABLED:-false}
 
 
     healthcheck:
@@ -185,24 +205,23 @@ services:
     restart: always
 
     deploy:
-      replicas: 2
+      replicas: 1
 
     command: "yarn start:prod"
 
     volumes:
-      - gamenode:/app/public/uploads
       - blog-cms-public:/app/blog-public-media:ro
 
     networks:
       - game_node_app
-      - game_node_app_public
+      - gamenode
 
   # This image is here to allow us to run migration separately, and doesn't feature health checks.
   server_migration:
-    image: lamarcke/game-node-server:latest
+    image: lamarcke/game-node-server:1.9.0
     hostname: server-migration
     environment:
-      DB_HOST: server-db
+      DB_HOST: ${DB_HOST:?set DB_HOST}
       DB_DATABASE: gamenode
       DB_PASS: ${DB_PASS}
       DB_USER: ${DB_USER}
@@ -220,22 +239,20 @@ services:
 
     networks:
       - game_node_app
+      - gamenode
 
 
 
 networks:
   game_node_app:
     external: true
-  game_node_app_public:
+  # Dedicated Coolify destination network, shared with the managed MySQL and isolated from Coolify's own containers.
+  gamenode:
     external: true
 
 volumes:
-  redis:
   redis_bullmq:
-  db:
-  gamenode:
-  supertokens-db:
   manticore:
+  blog-cms-private:
   blog-cms-public:
-    external: true
     name: gamenode-blog-public-media

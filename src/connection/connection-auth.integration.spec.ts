@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { DataSource, Table } from "typeorm";
+import { DataSource } from "typeorm";
 import { Queue, Worker } from "bullmq";
 import {
     addTransactionalDataSource,
@@ -9,8 +9,7 @@ import {
     initializeTransactionalContext,
     StorageDriver,
 } from "typeorm-transactional";
-import { AddConnectionAuth1792886400003 } from "../migrations/1792886400003-AddConnectionAuth";
-import { CreatePlayerConnectionSync1792886400000 } from "../migrations/1792886400000-CreatePlayerConnectionSync";
+import { createBaselineTables } from "../../test/baseline-schema";
 import { ConnectionAuthStateService } from "./connection-auth-state.service";
 import { ConnectionCredentialCryptoService } from "./connection-credential-crypto.service";
 import { ConnectionCredentialService } from "./connection-credential.service";
@@ -69,26 +68,12 @@ integrationDescribe("connection auth on disposable MySQL and Redis", () => {
             entities: [resolve(__dirname, "..", "**/*.entity.ts")],
         }).initialize();
         addTransactionalDataSource(source);
-        const runner = source.createQueryRunner();
-        try {
-            const connectionTable = Table.create(
-                source.getMetadata(UserConnection),
-                source.driver,
-            );
-            connectionTable.columns = connectionTable.columns.filter(
-                (column) => column.name !== "authStatus",
-            );
-            await runner.createTable(connectionTable, false, false);
-            await new AddConnectionAuth1792886400003().up(runner);
-            await new CreatePlayerConnectionSync1792886400000().up(runner);
-            await runner.createTable(
-                Table.create(source.getMetadata(PlayerGameSync), source.driver),
-                false,
-                false,
-            );
-        } finally {
-            await runner.release();
-        }
+        await createBaselineTables(source, [
+            "user_connection",
+            "user_connection_credential",
+            "player_connection_sync",
+            "player_game_sync",
+        ]);
         queue = new Queue(`connection-auth-test-${randomUUID()}`, {
             connection: redisConnection,
         });
@@ -124,20 +109,7 @@ integrationDescribe("connection auth on disposable MySQL and Redis", () => {
             sourceUsername: "fixture",
         });
 
-    it("runs migration rollback and cascades encrypted credentials on deletion", async () => {
-        const runner = source.createQueryRunner();
-        try {
-            await new AddConnectionAuth1792886400003().down(runner);
-            expect(
-                await runner.hasColumn("user_connection", "authStatus"),
-            ).toBe(false);
-            expect(await runner.hasTable("user_connection_credential")).toBe(
-                false,
-            );
-            await new AddConnectionAuth1792886400003().up(runner);
-        } finally {
-            await runner.release();
-        }
+    it("cascades encrypted credentials on deletion", async () => {
         const connection = await createConnection();
         await credentials.saveCredentials(connection.id, {
             accessToken: "access",
@@ -287,11 +259,9 @@ integrationDescribe("connection auth on disposable MySQL and Redis", () => {
             reconcileAt: new Date(),
             ownerToken: randomUUID(),
         });
-        await source
-            .getRepository(UserConnection)
-            .update(connection.id, {
-                authStatus: EConnectionAuthStatus.REAUTH_REQUIRED,
-            });
+        await source.getRepository(UserConnection).update(connection.id, {
+            authStatus: EConnectionAuthStatus.REAUTH_REQUIRED,
+        });
         const registry = new ConnectionProviderRegistry();
         registry.registerAuthStrategy(EConnectionType.XBOX, {
             completeRedirectAuth: async () => ({

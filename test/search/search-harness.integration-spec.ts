@@ -884,7 +884,7 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
         });
     });
 
-    it("4.2 returns exact filtered totals and deep pages above Manticore 7.4.6's default 1000-result window without lower-bound truncation", async () => {
+    it("4.2 returns exact filtered totals and deep pages above Manticore's default 1000-result window without lower-bound truncation", async () => {
         await seedSearchFixtures(dataSource, {
             genres: [{ id: 12, name: "Role-playing (RPG)" }],
             platforms: [

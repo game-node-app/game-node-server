@@ -31,7 +31,7 @@ export class NotificationsQueueProcessor extends WorkerHostProcessor {
             );
         } else
             throw new UnrecoverableError(
-                "Unsupported notification job; inspect the cutover inventory",
+                "Unsupported notification job",
             );
     }
 }

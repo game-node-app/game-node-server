@@ -116,7 +116,7 @@ def upload():
     assert len(image) > 0
 
 
-report = {'scope': 'Directus container only; local MySQL, no application co-load or VPS claims', 'image': 'directus/directus:12.6.0', 'database': 'mysql:8.0', 'limits': {'cpu': 1, 'memory_mib': 1024}, 'upload_bytes': len(png), 'phases': []}
+report = {'scope': 'Directus container only; local MySQL, no application co-load or VPS claims', 'image': 'directus/directus:12.6.0', 'database': 'mysql:8.4.13', 'limits': {'cpu': 1, 'memory_mib': 1024}, 'upload_bytes': len(png), 'phases': []}
 
 
 def phase(name, seconds, clients=0, action=None, pause=0):

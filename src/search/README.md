@@ -44,7 +44,7 @@ Despite the global `ValidationPipe` using `enableImplicitConversion: true`, the 
 The disposable integration test stack (`test/search/docker-compose.yml`) uses Compose project name `search-api-test` and dedicated named volumes (`mysql-search-test-data`, `manticore-search-test-data`) bound to loopback ports (`127.0.0.1:23306`, `127.0.0.1:29306`, `127.0.0.1:29308`). Starting or tearing down this stack does not affect development/production `game-node-server` volumes or the `igdb-sync-test` harness.
 
 ```bash
-# Start disposable MySQL + Manticore 7.4.6 fixture services
+# Start disposable MySQL + Manticore 29.9.0 fixture services
 npm run test:search:services:up
 
 # Run search unit tests
@@ -59,7 +59,7 @@ npm run test:search:services:down
 
 ## Manticore Indexing, Schedules, & Operational Commands
 
-- **Engine image**: `manticoresearch/manticore:7.4.6`
+- **Engine image**: `manticoresearch/manticore:29.9.0`
 - **Config template**: `docker/manticore/manticore.conf.template` rendered to `/etc/manticoresearch/manticore.conf` at container start by `docker/manticore/entrypoint.sh` using required `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, and `DB_DATABASE` environment variables.
 - **Display label session limit**: `SET SESSION group_concat_max_len = 65535` is executed before indexing `games_source` so high-fanout relation display labels are not truncated at MySQL's default 1024-byte `GROUP_CONCAT` limit, while relation IDs (`genre_ids`, `theme_ids`, `platform_ids`) are indexed directly via `sql_attr_multi` queries.
 - **Schedules (UTC)** (`CREATE_PLAIN_TABLES="games:0 3 * * *;users:0 * * * *;games;users"`):

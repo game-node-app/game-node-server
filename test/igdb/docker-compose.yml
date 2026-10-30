@@ -2,7 +2,7 @@ name: igdb-sync-test
 
 services:
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4.13
     environment:
       MYSQL_ROOT_PASSWORD: igdb-test-root
       MYSQL_DATABASE: igdb_sync_test
@@ -20,7 +20,7 @@ services:
       start_period: 20s
 
   redis:
-    image: redis:7-alpine
+    image: redis:8.10.3-alpine3.23
     command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     ports:
       - "127.0.0.1:${IGDB_TEST_REDIS_PORT:-16379}:6379"
