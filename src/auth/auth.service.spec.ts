@@ -124,6 +124,68 @@ describe("AuthService", () => {
         });
     });
 
+    describe("third-party sign-up", () => {
+        const makeSignUpInput = (isVerified: boolean) => ({
+            provider: {
+                id: "google",
+                config: {},
+                exchangeAuthCodeForOAuthTokens: jest
+                    .fn()
+                    .mockResolvedValue({ token: "t" }),
+                getUserInfo: jest.fn().mockResolvedValue({
+                    thirdPartyUserId: "tp-1",
+                    email: { id: "user@example.com", isVerified },
+                    rawUserInfoFromProvider: {},
+                }),
+            },
+            tenantId: "public",
+            options: { req: {}, res: {} },
+            userContext: {},
+            redirectURIInfo: {
+                redirectURIOnProviderDashboard: "http://localhost",
+                redirectURIQueryParams: {},
+            },
+        });
+
+        const signUp = async (input: any, existingUsers: any[]) => {
+            userAccountService.getUsersByEmail.mockResolvedValue(
+                existingUsers as any,
+            );
+            userAccountService.getLinkedProvider.mockResolvedValue(null);
+            const original = jest.fn().mockResolvedValue({
+                status: "OK",
+                user: { id: "new-user" },
+            });
+            const apis = thirdPartyInit.mock.calls[0][0].override.apis({
+                signInUpPOST: original,
+            });
+            await apis.signInUpPOST(input);
+            return original;
+        };
+
+        it("passes tokens without redirectURIInfo to avoid exchanging the code twice", async () => {
+            const input = makeSignUpInput(true);
+            const original = await signUp(input, []);
+
+            const forwarded = original.mock.calls[0][0];
+            expect(forwarded.redirectURIInfo).toBeUndefined();
+            expect(forwarded.oAuthTokens).toEqual({ token: "t" });
+            expect(
+                input.provider.exchangeAuthCodeForOAuthTokens,
+            ).toHaveBeenCalledTimes(1);
+            expect(userInitService.init).toHaveBeenCalledWith("new-user");
+        });
+
+        it("creates a separate account instead of linking when the email is unverified", async () => {
+            const original = await signUp(makeSignUpInput(false), [
+                { id: "u1", loginMethods: [] },
+            ]);
+
+            expect(userAccountService.linkAccounts).not.toHaveBeenCalled();
+            expect(original).toHaveBeenCalledTimes(1);
+        });
+    });
+
     describe("unlinkProvider", () => {
         it("rejects unlinking when only one provider remains", async () => {
             userAccountService.getLinkedProviders.mockResolvedValue([

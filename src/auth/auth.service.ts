@@ -155,7 +155,9 @@ export class AuthService {
                                         };
                                     }
 
-                                    if (users.length > 0) {
+                                    // Unverified emails are never linked to existing accounts (takeover risk);
+                                    // they fall through and create a separate account instead.
+                                    if (users.length > 0 && email.isVerified) {
                                         const targetUser =
                                             this.selectPreferredUser(users);
 
@@ -190,9 +192,13 @@ export class AuthService {
                                     }
 
                                     // If no user with the same email exists, continue with the normal flow and create a new user
+                                    // The auth code is single-use: drop redirectURIInfo so the SDK reuses our tokens
+                                    // instead of exchanging the code a second time (invalid_grant).
+                                    const { redirectURIInfo, ...rest } =
+                                        input as any;
                                     const nextInput =
-                                        "redirectURIInfo" in input
-                                            ? { ...input, oAuthTokens }
+                                        redirectURIInfo !== undefined
+                                            ? { ...rest, oAuthTokens }
                                             : input;
                                     const result =
                                         await originalImplementation.signInUpPOST!(
