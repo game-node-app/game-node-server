@@ -142,6 +142,7 @@ services:
       SERVER_PORT: 5000
       DOMAIN_API: https://server.gamenode.app
       DOMAIN_WEBSITE: https://gamenode.app
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
       DB_HOST: ${DB_HOST:?set DB_HOST}
       DB_DATABASE: gamenode
       DB_PASS: ${DB_PASS}

@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { ModuleRef } from "@nestjs/core";
 import type { IncomingMessage } from "http";
 import { betterAuth } from "better-auth";
+import { capacitor } from "better-auth-capacitor";
 import { fromNodeHeaders } from "better-auth/node";
 import { admin, bearer } from "better-auth/plugins";
 import { createAccessControl } from "better-auth/plugins/access";
@@ -66,6 +67,10 @@ export class AuthService implements OnModuleDestroy {
             secret: configService.getOrThrow<string>("BETTER_AUTH_SECRET"),
             trustedOrigins: [
                 configService.getOrThrow<string>("DOMAIN_WEBSITE"),
+                ...(configService.get<string>("TRUSTED_ORIGINS") ?? "")
+                    .split(",")
+                    .map((origin) => origin.trim())
+                    .filter(Boolean),
             ],
             database: this.pool,
             advanced: { database: { generateId: "uuid" } },
@@ -98,6 +103,7 @@ export class AuthService implements OnModuleDestroy {
             },
             plugins: [
                 bearer(),
+                capacitor(),
                 admin({
                     ac,
                     roles,

@@ -21,6 +21,7 @@ import {
 import { Logger } from "nestjs-pino";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { setCacheManager } from "./utils/cacheable";
+import { CORS_OPTIONS } from "./auth/cors-options";
 
 dayjs.extend(duration);
 
@@ -52,14 +53,7 @@ async function bootstrap() {
 
     app.useGlobalFilters(new SQLExceptionFilter(), new AxiosExceptionFilter());
 
-    app.enableCors({
-        credentials: true,
-        origin: true,
-        optionsSuccessStatus: 204,
-        allowedHeaders: ["content-type", "authorization"],
-        exposedHeaders: ["set-auth-token"],
-        methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
-    });
+    app.enableCors(CORS_OPTIONS);
 
     // Not app.use("/v1/auth"): Express strips mount prefixes, and Better Auth routes by full path.
     app.getHttpAdapter()

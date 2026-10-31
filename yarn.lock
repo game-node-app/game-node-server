@@ -5088,6 +5088,13 @@ base64-js@^1.3.1:
   resolved "https://registry.yarnpkg.com/base64-js/-/base64-js-1.5.1.tgz#1b1b440160a5bf7ad40b650f095963481903930a"
   integrity sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==
 
+better-auth-capacitor@0.4.0:
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/better-auth-capacitor/-/better-auth-capacitor-0.4.0.tgz#d7e07f842c1052cbf994b31831d1c8ace9c48f02"
+  integrity sha512-vcXDmYoafEYudeGcCHuNy+vzmSJMefMGnN+Dk6q2LOXfLHbKhC69jWJfA5kTcStKxlwMfwRd6LYz0NXqjQY6kQ==
+  dependencies:
+    zod "^4.4.3"
+
 better-auth@1.7.14:
   version "1.7.14"
   resolved "https://registry.yarnpkg.com/better-auth/-/better-auth-1.7.14.tgz#afd2f2821b57915e7a9e6ffa1cd11220f687d5b1"
@@ -10132,7 +10139,7 @@ yoctocolors-cjs@^2.1.2:
   resolved "https://registry.yarnpkg.com/yoctocolors-cjs/-/yoctocolors-cjs-2.1.2.tgz#f4b905a840a37506813a7acaa28febe97767a242"
   integrity sha512-cYVsTjKl8b+FrnidjibDWskAv7UKOfcwaVZdp/it9n1s9fU3IkgDbhdIRKCW4JDsAlECJY0ytoVPT3sK6kideA==
 
-zod@^4.5.4:
+zod@^4.4.3, zod@^4.5.4:
   version "4.6.7"
   resolved "https://registry.yarnpkg.com/zod/-/zod-4.6.7.tgz#e806cf64a7f4e37635ce9f2f52c04c3766f75e5b"
   integrity sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==

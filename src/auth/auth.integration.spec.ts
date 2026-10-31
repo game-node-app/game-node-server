@@ -17,6 +17,7 @@ import { toNodeHandler } from "better-auth/node";
 import { AuthModule } from "./auth.module";
 import { AuthService } from "./auth.service";
 import { AuthGuard } from "./auth.guard";
+import { CORS_OPTIONS } from "./cors-options";
 import { Public } from "./public.decorator";
 import { Roles } from "./roles.decorator";
 import { Session, SessionContainer } from "./session.decorator";
@@ -101,6 +102,7 @@ describe("Better Auth integration (dev MySQL)", () => {
         authService = app.get(AuthService);
         dataSource = app.get(DataSource);
         website = app.get(ConfigService).getOrThrow("DOMAIN_WEBSITE");
+        app.enableCors(CORS_OPTIONS);
         app.enableVersioning({ type: VersioningType.URI, defaultVersion: "1" });
         // Same mounting as main.ts.
         app.getHttpAdapter()
@@ -456,6 +458,100 @@ describe("Better Auth integration (dev MySQL)", () => {
                 emailVerified: false,
             });
             expect(error).toBe("account_not_linked");
+        });
+    });
+
+    describe("allowed client origins and native app scheme", () => {
+        const NATIVE = "app.gamenode://";
+        const startSignIn = (
+            callbackURL: string,
+            headers: Record<string, string> = { Origin: website },
+        ) =>
+            request(server())
+                .post("/v1/auth/sign-in/social")
+                .set(headers)
+                .send({ provider: "google", callbackURL });
+
+        // Better Auth turns URL validation off under NODE_ENV=test; these cases need the production behavior.
+        beforeAll(async () => {
+            (await ctx()).skipOriginCheck = false;
+        });
+        afterAll(async () => {
+            (await ctx()).skipOriginCheck = true;
+        });
+
+        it("accepts a callback URL on a TRUSTED_ORIGINS origin and rejects an unlisted one", async () => {
+            const trusted = await startSignIn("http://localhost:3002/home");
+            expect(trusted.status).toBe(200);
+            expect(trusted.body.url).toBeDefined();
+
+            const untrusted = await startSignIn("https://evil.example/");
+            expect(untrusted.status).toBeGreaterThanOrEqual(400);
+            expect(untrusted.body.url).toBeUndefined();
+        });
+
+        it("returns redirect:false to a native client", async () => {
+            const response = await startSignIn(`${NATIVE}home`, { "capacitor-origin": NATIVE }).expect(200);
+            expect(response.body.redirect).toBe(false);
+            expect(response.body.url).toBeDefined();
+        });
+
+        it("starts the provider flow through the authorization proxy with a state cookie", async () => {
+            const started = await startSignIn(`${NATIVE}home`, { "capacitor-origin": NATIVE }).expect(200);
+            const proxy = await request(server())
+                .get("/v1/auth/capacitor-authorization-proxy")
+                .query({ authorizationURL: started.body.url })
+                .expect(302);
+            expect(proxy.headers.location).toBe(started.body.url);
+            expect(String(proxy.headers["set-cookie"])).toContain(
+                "better-auth.state=",
+            );
+        });
+
+        it("hands a working session token back to the app scheme", async () => {
+            nextProfile.google = {
+                id: randomUUID(),
+                email: email(),
+                emailVerified: true,
+            };
+            const agent = request.agent(server());
+            const started = await agent
+                .post("/v1/auth/sign-in/social")
+                .set("capacitor-origin", NATIVE)
+                .send({ provider: "google", callbackURL: `${NATIVE}home` })
+                .expect(200);
+            const state = new URL(started.body.url).searchParams.get("state");
+            const callback = await agent
+                .get("/v1/auth/callback/google")
+                .query({ code: "stub-code", state })
+                .expect(302);
+
+            const location = new URL(callback.headers.location);
+            expect(`${location.protocol}//${location.host}`).toBe(
+                "app.gamenode://home",
+            );
+            const cookie = location.searchParams.get("cookie")!;
+            expect(cookie).toContain("better-auth.session_token=");
+            // The app sends this cookie value as a bearer token; Better Auth accepts the signed form.
+            const token = decodeURIComponent(
+                cookie.match(/better-auth\.session_token=([^;]+)/)![1],
+            );
+            await bearer("get", "/v1/auth-test/me", token).expect(200);
+        });
+
+        it("allows a preflight carrying capacitor-origin", async () => {
+            const response = await request(server())
+                .options("/v1/auth/sign-in/social")
+                .set({
+                    Origin: "https://localhost",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers":
+                        "content-type,capacitor-origin",
+                })
+                .expect(204);
+            expect(response.headers["access-control-allow-headers"]).toContain(
+                "capacitor-origin",
+            );
         });
     });
 

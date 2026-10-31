@@ -172,6 +172,28 @@ Every successful sign-in SHALL ensure the user has a GameNode profile, library a
 - **WHEN** a user whose profile was never created signs in again
 - **THEN** the system creates the missing data and the sign-in succeeds
 
+### Requirement: Allowed client origins
+The auth server SHALL accept sign-in, linking and callback redirects only to configured client origins. The configuration SHALL include the website, the admin client, the mobile web build, the Capacitor WebView origins and the native app scheme for each environment, through the `TRUSTED_ORIGINS` setting.
+
+#### Scenario: Mobile web sign-in in development
+- **WHEN** a person signs in from the mobile web build on `http://localhost:3002`
+- **THEN** the provider callback redirects back to `http://localhost:3002` signed in
+
+#### Scenario: Untrusted callback origin
+- **WHEN** a sign-in request names a callback URL on an origin that is not configured
+- **THEN** the server rejects it and starts no authorization flow
+
+### Requirement: Native app scheme
+The auth server SHALL support provider sign-in for the native app through its `app.gamenode://` scheme. A sign-in started by a request carrying `capacitor-origin` SHALL return the authorization URL without redirecting, SHALL start the provider flow through the authorization proxy, and SHALL return the session cookie to the app scheme on a successful callback. The CORS configuration SHALL allow the `capacitor-origin` and `x-skip-oauth-proxy` request headers.
+
+#### Scenario: Native session handoff
+- **WHEN** a native sign-in completes at the provider
+- **THEN** the callback redirects to `app.gamenode://` with a `cookie` parameter whose session token authenticates API requests as a bearer token
+
+#### Scenario: Native preflight
+- **WHEN** the app WebView sends a preflight request listing `capacitor-origin`
+- **THEN** the server allows it
+
 ### Requirement: UUID user identifiers
 User ids SHALL be UUID strings so they stay valid wherever the API validates user ids as UUIDs.
 
