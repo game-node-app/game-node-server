@@ -23,7 +23,6 @@ import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { ActivityType } from "../../activities/activities-queue/activities-queue.constants";
 import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
-import { AchievementCategory } from "../../achievements/achievements.constants";
 import { getIconNamesForPlatformAbbreviations } from "../../game/game-repository/game-repository.utils";
 import { LevelService } from "../../level/level.service";
 import { LevelIncreaseActivities } from "../../level/level.constants";
@@ -428,10 +427,9 @@ export class CollectionsEntriesService {
             });
         }
 
-        this.achievementsQueueService.addTrackingJob({
-            targetUserId: userId,
-            category: AchievementCategory.COLLECTIONS,
-        });
+        for (const metric of ["library_games", "games_finished"]) {
+            this.achievementsQueueService.addTrackingJob({ userId, metric });
+        }
     }
 
     @Transactional()

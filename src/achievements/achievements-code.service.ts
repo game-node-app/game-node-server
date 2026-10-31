@@ -1,6 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import * as crypto from "node:crypto";
-import { achievementsData } from "./data/achievements.data";
 import {
     CreateAchievementCodeRequestDto,
     CreateAchievementCodeResponseDto,
@@ -42,7 +41,9 @@ export class AchievementsCodeService {
     ): Promise<CreateAchievementCodeResponseDto> {
         const { achievementId, expiresAt, isSingleUse } = dto;
         const achievementExists =
-            this.achievementsService.getAchievementById(achievementId);
+            await this.achievementsService.findGrantableDefinition(
+                achievementId,
+            );
 
         if (!achievementExists) {
             throw new HttpException(

@@ -9,6 +9,7 @@ import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
 import { PeriodRange } from "../utils/period";
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
+import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
 
 @Injectable()
 export class FollowService {
@@ -21,6 +22,8 @@ export class FollowService {
         private readonly dataSource?: DataSource,
         @Optional()
         private readonly activitiesQueueService?: ActivitiesQueueService,
+        @Optional()
+        private readonly achievementsQueueService?: AchievementsQueueService,
     ) {}
 
     public async countFollowers(
@@ -124,11 +127,14 @@ export class FollowService {
         };
 
         try {
-            if (this.dataSource?.transaction) {
-                return await this.dataSource.transaction(runTransaction);
-            } else {
-                return await runTransaction(this.userFollowRepository.manager);
-            }
+            const follow = this.dataSource?.transaction
+                ? await this.dataSource.transaction(runTransaction)
+                : await runTransaction(this.userFollowRepository.manager);
+            this.achievementsQueueService?.addTrackingJob({
+                userId: followedUserId,
+                metric: "followers",
+            });
+            return follow;
         } catch (e: any) {
             if (e instanceof HttpException) {
                 throw e;
@@ -223,6 +229,11 @@ export class FollowService {
                 followed: {
                     userId: followedUserId,
                 },
+            });
+            // Keeps the shown progress current; obtained tiers are never revoked
+            this.achievementsQueueService?.addTrackingJob({
+                userId: followedUserId,
+                metric: "followers",
             });
         } catch (e) {
             console.error(e);

@@ -188,6 +188,13 @@ export function validateNotificationIntent(
                 (payload.reportId === undefined ||
                     positiveId(payload.reportId));
             break;
+        case "achievement.unlocked":
+            allowed = ["obtainedAchievementId", "achievementId", "tier"];
+            valid =
+                positiveId(payload.obtainedAchievementId) &&
+                identity(payload.achievementId) &&
+                positiveId(payload.tier);
+            break;
     }
     if (
         !valid ||

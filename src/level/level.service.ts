@@ -1,7 +1,7 @@
 import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserLevel } from "./entities/user-level.entity";
-import { Repository } from "typeorm";
+import { EntityManager, Repository } from "typeorm";
 import {
     BASE_LEVEL_UP_COST,
     LevelActivitiesToIncreaseAmountMap,
@@ -27,15 +27,22 @@ export class LevelService {
      * Important: do not expose this.
      * @param userId
      */
-    async findOneOrCreateByUserId(userId: string): Promise<UserLevel> {
-        const entity = await this.userLevelRepository.findOne({
+    async findOneOrCreateByUserId(
+        userId: string,
+        repository = this.userLevelRepository,
+    ): Promise<UserLevel> {
+        const entity = await repository.findOne({
             where: {
                 userId,
             },
+            // Serializes concurrent exp grants when called inside a transaction
+            lock: repository.queryRunner?.isTransactionActive
+                ? { mode: "pessimistic_write" }
+                : undefined,
         });
 
         if (entity == undefined) {
-            return this.create(userId);
+            return this.create(userId, repository);
         }
 
         return entity;
@@ -47,8 +54,8 @@ export class LevelService {
         return entity;
     }
 
-    async create(userId: string) {
-        return await this.userLevelRepository.save({
+    async create(userId: string, repository = this.userLevelRepository) {
+        return await repository.save({
             userId,
             profile: {
                 userId,
@@ -56,12 +63,19 @@ export class LevelService {
         });
     }
 
-    async increaseExp(userId: string, amount: number) {
-        const userLevelEntity = await this.findOneOrCreateByUserId(userId);
+    /**
+     * @param manager - when given, exp is persisted in its transaction
+     */
+    async increaseExp(userId: string, amount: number, manager?: EntityManager) {
+        const repository =
+            manager?.getRepository(UserLevel) ?? this.userLevelRepository;
+        const userLevelEntity = await this.findOneOrCreateByUserId(
+            userId,
+            repository,
+        );
         const multipliedExpAmount = amount * userLevelEntity.expMultiplier;
         let unprocessedExpAmount = structuredClone(multipliedExpAmount);
-        const updatedUserLevelEntity =
-            this.userLevelRepository.create(userLevelEntity);
+        const updatedUserLevelEntity = repository.create(userLevelEntity);
 
         while (unprocessedExpAmount > 0) {
             const totalCurrentLevelExp =
@@ -91,7 +105,7 @@ export class LevelService {
             unprocessedExpAmount -= currentLevelRequiredExp;
         }
 
-        await this.userLevelRepository.save(updatedUserLevelEntity);
+        await repository.save(updatedUserLevelEntity);
     }
 
     registerLevelExpIncreaseActivity(

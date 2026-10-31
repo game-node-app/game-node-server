@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger, Optional } from "@nestjs/common";
 import { ReviewComment } from "./entity/review-comment.entity";
 import { DataSource, IsNull, Repository } from "typeorm";
 import { CreateCommentDto } from "./dto/create-comment.dto";
@@ -26,6 +26,7 @@ import { Post } from "../posts/entity/post.entity";
 import { Activity } from "../activities/activities-repository/entities/activity.entity";
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
 
 @Injectable()
 export class CommentService {
@@ -34,6 +35,8 @@ export class CommentService {
     constructor(
         private readonly dataSource: DataSource,
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
+        @Optional()
+        private readonly achievementsQueueService?: AchievementsQueueService,
     ) {}
 
     private getTargetRepository(
@@ -293,6 +296,11 @@ export class CommentService {
                 return savedComment;
             },
         );
+
+        this.achievementsQueueService?.addTrackingJob({
+            userId,
+            metric: "comments_written",
+        });
 
         return insertedEntry;
     }

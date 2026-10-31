@@ -220,6 +220,10 @@ mysqlDescribe("batch import transactions", () => {
         ]);
         expect(f.levels.increaseExp).toHaveBeenCalledTimes(1);
         expect(f.activities.register).toHaveBeenCalledTimes(1);
+        expect(f.achievements.addTrackingJob.mock.calls).toEqual([
+            [{ userId: f.userId, metric: "library_games" }],
+            [{ userId: f.userId, metric: "games_finished" }],
+        ]);
     });
     it("rejects another user's collection without changes", async () => {
         const f = await fixture();

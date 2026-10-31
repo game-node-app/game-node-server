@@ -6,7 +6,6 @@ import { Collection } from "./entities/collection.entity";
 import { LibrariesModule } from "../libraries/libraries.module";
 import { ReviewsModule } from "../reviews/reviews.module";
 import { CollectionsEntriesModule } from "./collections-entries/collections-entries.module";
-import { AchievementsModule } from "../achievements/achievements.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
@@ -14,7 +13,6 @@ import { NotificationsModule } from "../notifications/notifications.module";
         TypeOrmModule.forFeature([Collection]),
         LibrariesModule,
         forwardRef(() => CollectionsEntriesModule),
-        AchievementsModule,
         NotificationsModule,
     ],
     controllers: [CollectionsController],

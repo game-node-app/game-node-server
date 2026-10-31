@@ -21,6 +21,7 @@ export class NotificationActivityContentDto {
             "collection",
             "follow",
             "achievement",
+            "platform_achievement",
         ],
     })
     type: string;
@@ -53,6 +54,12 @@ export class NotificationImporterTargetDto {
     @ApiProperty({ enum: ["importer"] }) type: "importer";
     @ApiProperty() id: string;
     @ApiProperty({ enum: ["steam", "psn", "xbox"] }) provider: string;
+}
+
+export class NotificationAchievementTargetDto {
+    @ApiProperty({ enum: ["achievement"] }) type: "achievement";
+    @ApiProperty({ description: "Achievement definition id" }) id: string;
+    @ApiProperty() tier: number;
 }
 
 export class NotificationTextPreviewDto {
@@ -101,6 +108,7 @@ export class NotificationActorDto {
     NotificationActivityTargetDto,
     NotificationProfileTargetDto,
     NotificationImporterTargetDto,
+    NotificationAchievementTargetDto,
     NotificationTextPreviewDto,
     NotificationImportPreviewDto,
 )
@@ -129,6 +137,7 @@ export class NotificationInboxItemDto {
             NotificationActivityTargetDto,
             NotificationProfileTargetDto,
             NotificationImporterTargetDto,
+            NotificationAchievementTargetDto,
         ].map((type) => ({ $ref: getSchemaPath(type) })),
     })
     target: NotificationTarget | null;

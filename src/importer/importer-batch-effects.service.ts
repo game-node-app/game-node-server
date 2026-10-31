@@ -13,7 +13,6 @@ import {
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
 import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
-import { AchievementCategory } from "../achievements/achievements.constants";
 
 @Injectable()
 export class ImporterBatchEffectsService {
@@ -95,13 +94,13 @@ export class ImporterBatchEffectsService {
                     `import-${effect.id}-${entryId}-${collectionId}`,
                 );
             }
-        await this.achievements.addTrackingJob(
-            {
-                targetUserId: effect.libraryUserId,
-                category: AchievementCategory.COLLECTIONS,
-            },
-            `import-${effect.id}-achievements`,
-        );
+        // Evaluated once from the final library state, not per imported game
+        for (const metric of ["library_games", "games_finished"]) {
+            await this.achievements.addTrackingJob({
+                userId: effect.libraryUserId,
+                metric,
+            });
+        }
         await this.effects.delete({ id });
     }
 }

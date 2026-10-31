@@ -68,7 +68,6 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
         collectionsService = new CollectionsService(
             dataSource.getRepository(Collection),
             {} as any,
-            {} as any,
             lifecycleService,
         );
     });

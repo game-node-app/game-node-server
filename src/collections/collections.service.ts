@@ -10,8 +10,6 @@ import { FindOptionsRelations, In, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
-import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
-import { AchievementCategory } from "../achievements/achievements.constants";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 
 @Injectable()
@@ -24,7 +22,6 @@ export class CollectionsService {
         @InjectRepository(Collection)
         private collectionsRepository: Repository<Collection>,
         private readonly librariesService: LibrariesService,
-        private readonly achievementsQueueService: AchievementsQueueService,
         @Optional()
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
@@ -138,11 +135,6 @@ export class CollectionsService {
         });
 
         await this.collectionsRepository.save(collectionEntity);
-
-        this.achievementsQueueService.addTrackingJob({
-            targetUserId: userId,
-            category: AchievementCategory.COLLECTIONS,
-        });
     }
 
     async update(

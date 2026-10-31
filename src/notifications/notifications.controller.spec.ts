@@ -36,7 +36,7 @@ describe("NotificationsController", () => {
             >;
             expect(
                 schemas.NotificationInboxItemDto.properties.target.oneOf,
-            ).toHaveLength(4);
+            ).toHaveLength(5);
             expect(
                 schemas.NotificationActivityTargetDto.properties,
             ).toMatchObject({
@@ -46,6 +46,9 @@ describe("NotificationsController", () => {
             });
             expect(schemas.NotificationImporterTargetDto.required).toContain(
                 "provider",
+            );
+            expect(schemas.NotificationAchievementTargetDto.required).toEqual(
+                expect.arrayContaining(["type", "id", "tier"]),
             );
             expect(
                 schemas.NotificationContentTargetDto.properties,

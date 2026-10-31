@@ -4,6 +4,11 @@ import { FollowService } from "./follow.service";
 import { UserFollow } from "./entity/user-follow.entity";
 import { NotificationOutbox } from "../notifications/entity/notification-outbox.entity";
 import { randomUUID } from "crypto";
+import { achievementFixtures } from "../../test/achievements/achievement-fixtures";
+import { AchievementsProgressService } from "../achievements/achievements-progress.service";
+import { LevelService } from "../level/level.service";
+import { UserLevel } from "../level/entities/user-level.entity";
+import { ObtainedAchievement } from "../achievements/entities/obtained-achievement.entity";
 
 
 describe("FollowService integration (Task 5.2)", () => {
@@ -110,5 +115,39 @@ describe("FollowService integration (Task 5.2)", () => {
             where: { actorUserId: user },
         });
         expect(outbox).toBeNull();
+    });
+
+    it("evaluates followers of the followed user, granting the 10 followers tier", async () => {
+        const f = achievementFixtures(dataSource);
+        const definition = await f.definition("followers", {}, [[10, 50]]);
+        const jobs: Array<{ userId: string; metric: string }> = [];
+        const tracked = new FollowService(
+            dataSource.getRepository(UserFollow),
+            dataSource,
+            undefined,
+            { addTrackingJob: (job: any) => jobs.push(job) } as any,
+        );
+        const progress = new AchievementsProgressService(
+            dataSource,
+            new LevelService(dataSource.getRepository(UserLevel)),
+            { register: jest.fn() } as any,
+        );
+        const followed = await f.user();
+        const followers: string[] = [];
+        for (let i = 0; i < 10; i++) followers.push(await f.user());
+
+        for (const follower of followers) await tracked.registerFollow(follower, followed);
+        await tracked.removeFollow(followers[0], followed);
+        await tracked.registerFollow(followers[0], followed);
+
+        expect(jobs).toHaveLength(12);
+        expect(jobs.every((job) => job.userId === followed && job.metric === "followers")).toBe(true);
+        await progress.evaluate(followed, "followers");
+        expect(
+            await dataSource.getRepository(ObtainedAchievement).findBy({
+                profileUserId: followed,
+                achievementId: definition.id,
+            }),
+        ).toEqual([expect.objectContaining({ tier: 1 })]);
     });
 });

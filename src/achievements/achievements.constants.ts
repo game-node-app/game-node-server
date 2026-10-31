@@ -1,7 +1,5 @@
 /**
- * Achievements categories
- * The names are related to the domain that triggers them.
- * e.g. a module related to collections may trigger a collection-related achievement.
+ * Achievements categories, used to group definitions in clients.
  */
 export enum AchievementCategory {
     COLLECTIONS,
@@ -12,12 +10,13 @@ export enum AchievementCategory {
     EVENTS,
 }
 
-export const ACHIEVEMENTS_GAME_IDS = {
-    JUST_DANCE_IDS: [],
-    TOMB_RAIDER_2013: 1164,
-    DEATH_STRANDING_IDS: [19564, 152063, 228530],
-} as const;
+export enum AchievementStatus {
+    DRAFT = "draft",
+    PUBLISHED = "published",
+    ARCHIVED = "archived",
+}
 
-export const ACHIEVEMENTS_GAME_THEMES_IDS = {
-    HORROR_ID: 19,
-} as const;
+export type AchievementIcon =
+    | { kind: "glyph"; name: string }
+    | { kind: "game_cover"; gameId: number }
+    | { kind: "image"; name: string };

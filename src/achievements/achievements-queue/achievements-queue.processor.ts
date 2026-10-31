@@ -5,22 +5,23 @@ import {
     AchievementsQueueJob,
 } from "./achievements-queue.constants";
 import { Job } from "bullmq";
-import { AchievementsService } from "../achievements.service";
 import { WorkerHostProcessor } from "../../utils/WorkerHostProcessor";
+import { AchievementsProgressService } from "../achievements-progress.service";
 
 @Processor(ACHIEVEMENTS_QUEUE_NAME)
 export class AchievementsQueueProcessor extends WorkerHostProcessor {
-    constructor(private readonly achievementsService: AchievementsService) {
+    constructor(
+        private readonly achievementsProgressService: AchievementsProgressService,
+    ) {
         super();
     }
 
     async process(job: Job<AchievementsQueueJob>): Promise<void> {
-        switch (job.name) {
-            case ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME:
-                return this.achievementsService.trackAchievementsProgress(
-                    job.data.targetUserId,
-                    job.data.category,
-                );
+        if (job.name === ACHIEVEMENTS_QUEUE_TRACKING_JOB_NAME) {
+            await this.achievementsProgressService.evaluate(
+                job.data.userId,
+                job.data.metric,
+            );
         }
     }
 }
