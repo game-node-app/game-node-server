@@ -1,0 +1,68 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One production deploy at a time; queued runs wait instead of cancelling a deploy mid-flight.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  IMAGE: lamarcke/game-node-server
+  COOLIFY_APP_UUID: lwi5aeyjnmuc0yzrqpq8c78n
+
+jobs:
+  build:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          # Layer cache in the GitHub Actions cache: unchanged yarn.lock skips the install layer.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Coolify
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Point the compose at the new image
+        run: |
+          curl -fsS -X PATCH "${{ secrets.COOLIFY_URL }}/api/v1/applications/$COOLIFY_APP_UUID/envs" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"SERVER_IMAGE_TAG\",\"value\":\"${{ github.sha }}\",\"is_literal\":true}"
+
+      - name: Deploy and wait for the result
+        run: |
+          auth="Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+          deployment=$(curl -fsS "${{ secrets.COOLIFY_URL }}/api/v1/deploy?uuid=$COOLIFY_APP_UUID" -H "$auth" \
+            | jq -r '.deployments[0].deployment_uuid')
+          echo "Coolify deployment: $deployment"
+          for _ in $(seq 120); do
+            status=$(curl -fsS "${{ secrets.COOLIFY_URL }}/api/v1/deployments/$deployment" -H "$auth" | jq -r .status)
+            echo "status: $status"
+            case "$status" in
+              finished) exit 0 ;;
+              failed|cancelled*) exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for the deployment" && exit 1

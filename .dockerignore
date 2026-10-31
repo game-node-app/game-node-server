@@ -1,4 +1,3 @@
-.env
 .env*
 .git
 coverage
@@ -6,3 +5,18 @@ dist
 node_modules
 build
 *.log
+
+# Not needed in the image; keeps docs/tooling changes from invalidating the build cache.
+.github
+.agents
+.claude
+.opencode
+.specify
+.tmp
+.vscode
+docs
+openspec
+specs
+test
+*.md
+docker-compose*.yml

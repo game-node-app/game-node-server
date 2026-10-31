@@ -1,10 +1,10 @@
 FROM node:22
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies; dropping the yarn cache keeps it out of the image layer.
 COPY package.json .
 COPY yarn.lock .
-RUN yarn install
+RUN yarn install --frozen-lockfile && yarn cache clean
 
 # Copy source code
 COPY . .
