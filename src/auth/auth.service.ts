@@ -188,6 +188,13 @@ export class AuthService implements OnModuleDestroy {
                     : null,
         });
         await ctx.internalAdapter.deleteUserSessions(userId);
+        // Stops MCP clients from refreshing: access tokens are short-lived JWTs, refresh tokens are not.
+        for (const model of ["oauthRefreshToken", "oauthConsent"]) {
+            await ctx.adapter.deleteMany({
+                model,
+                where: [{ field: "userId", value: userId }],
+            });
+        }
     }
 
     /**

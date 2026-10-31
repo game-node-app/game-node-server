@@ -8,10 +8,10 @@
 ## 2. Authorization server (mcp-authorization)
 
 - [x] 2.1 Register `jwt()`, `mcp({...})` and `cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" })` in `AuthService` per design D1 (resource, login and consent URLs derived from `DOMAIN_API` and `DOMAIN_WEBSITE`, GameNode scopes, unauthenticated DCR with `"infer"`); verify that the existing `auth.integration.spec.ts` passes unchanged.
-- [ ] 2.2 Mount `/.well-known/oauth-authorization-server/v1/auth`, `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource/v1/mcp` on the raw Express app in `main.ts` (design D3); verify with an integration test asserting `resource`, `authorization_servers`, `scopes_supported`, `S256` and `client_id_metadata_document_supported`.
-- [ ] 2.3 Extend `auth.integration.spec.ts` with the OAuth flow: DCR of a loopback public client, authorize without PKCE rejected, authorize while signed out redirects to `${DOMAIN_WEBSITE}/auth`, consent accept issues a code, token exchange returns a JWT with `aud` = MCP resource, `sub` = user id and only the approved scopes, and refresh rotation works; verify that the spec passes.
-- [ ] 2.4 Add a test that a CIMD `client_id` resolving to a private address is refused without a fetch, and that an MCP access token sent to an authenticated REST route returns 401; verify that the test passes.
-- [ ] 2.5 Make `AuthService.lockOut` delete the user's OAuth refresh tokens and consents alongside sessions (design D6); verify with an integration test that a banned user's refresh fails with `invalid_grant`.
+- [x] 2.2 Mount `/.well-known/oauth-authorization-server/v1/auth`, `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource/v1/mcp` on the raw Express app in `main.ts` (design D3); verify with an integration test asserting `resource`, `authorization_servers`, `scopes_supported`, `S256` and `client_id_metadata_document_supported`.
+- [x] 2.3 Extend `auth.integration.spec.ts` with the OAuth flow: DCR of a loopback public client, authorize without PKCE rejected, authorize while signed out redirects to `${DOMAIN_WEBSITE}/auth`, consent accept issues a code, token exchange returns a JWT with `aud` = MCP resource, `sub` = user id and only the approved scopes, and refresh rotation works; verify that the spec passes.
+- [x] 2.4 Add a test that a CIMD `client_id` resolving to a private address is refused without a fetch, and that an MCP access token sent to an authenticated REST route returns 401; verify that the test passes.
+- [x] 2.5 Make `AuthService.lockOut` delete the user's OAuth refresh tokens and consents alongside sessions (design D6); verify with an integration test that a banned user's refresh fails with `invalid_grant`.
 
 ## 3. Shared service fixes
 
