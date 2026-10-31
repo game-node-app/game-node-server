@@ -18,5 +18,12 @@ docs
 openspec
 specs
 test
+!test/
+test/*
+!test/igdb/
+test/igdb/*
+!test/igdb/helpers/
+test/igdb/helpers/*
+!test/igdb/helpers/test-environment.ts
 *.md
 docker-compose*.yml
