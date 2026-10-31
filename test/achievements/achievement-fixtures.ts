@@ -1,10 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { DataSource } from "typeorm";
 import { AchievementDefinition } from "../../src/achievements/entities/achievement-definition.entity";
 import { AchievementEvent } from "../../src/achievements/entities/achievement-event.entity";
 import { AchievementStatus } from "../../src/achievements/achievements.constants";
 
-let nextId = 900_000 + Math.floor(Math.random() * 1_000_000);
+let nextId = randomInt(900_000, 1_900_000);
 
 /** Minimal rows for achievement specs, on a database built by createNotificationTestDataSource. */
 export function achievementFixtures(ds: DataSource) {
