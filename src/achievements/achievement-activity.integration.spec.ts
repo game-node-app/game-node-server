@@ -29,7 +29,7 @@ describe("ACHIEVEMENT_UNLOCKED activities (integration)", () => {
             {} as any,
             {} as any,
             {} as any,
-            { checkIsSuspendedOrBanned: async () => false } as any,
+            { getLockoutStates: async () => new Map() } as any,
             {} as any,
             {} as any,
         );

@@ -1,8 +1,7 @@
 import { Controller, Get, Param, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "../../auth/auth.guard";
-import { Session } from "../../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../../auth/session.decorator";
 import { ImporterWatchService } from "./importer-watch.service";
 
 @Controller("importer/watch")

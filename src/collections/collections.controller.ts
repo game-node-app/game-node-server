@@ -13,8 +13,7 @@ import {
 import { CollectionsService } from "./collections.service";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { AuthGuard } from "../auth/auth.guard";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../auth/public.decorator";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";

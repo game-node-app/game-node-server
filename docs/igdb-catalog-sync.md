@@ -101,7 +101,7 @@ See [the fresh statistics installation](statistics.md#fresh-installation) for
 schema ordering. Focused verification:
 
 ```bash
-yarn jest --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts
+yarn test --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts
 ```
 
 That fixture uses and cleans its own `gi_` tables in the existing

@@ -142,14 +142,14 @@ below cover those changes; overlapping results are not added together.
 | `yarn test:statistics` | Passed: 12 suites / 46 tests, 32.26 seconds. | Historical run covering storage/targets, capture, projection rollback/replay/poison handling, source APIs, rankings, conversion, rebuild and required-FK content creation. |
 | `yarn test:notifications` | Passed: 23 suites / 162 tests, 35.54 seconds. | Notification cutover, delivery, inbox/read state, transport, lifecycle, reactions, comments, reports and importer producers on replacement storage. The prior cutover baseline failure did not recur. |
 | Focused consumers/contracts command below | Passed: 8 suites / 48 tests, 40.64 seconds. | Final reads/ranking snapshot/cache behavior, concurrent duplicate reactions, analytics rollback, strict/retired API contracts, recap half-open history, activity creation/idempotence, collection callers and game-create units. |
-| `yarn jest --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts` | Passed: 1 suite / 5 tests, 16.92 seconds. | Required-FK game/reference creation, reference races, transaction rollback, replay and counter preservation. |
+| `yarn test --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts` | Passed: 1 suite / 5 tests, 16.92 seconds. | Required-FK game/reference creation, reference races, transaction rollback, replay and counter preservation. |
 | Focused Manticore command below | Passed: 1 suite / 3 selected tests, 17.67 seconds. | Real Manticore indexing/popularity, sparse zero defaults, native IDs, HTTP contracts and timestamp preservation. Six unrelated campaign cases were intentionally not selected. |
 | `yarn build` | Passed. | Final Nest/TypeScript build. |
 | `git diff --check` | Passed. | Final whitespace/conflict check. |
 | `openspec validate rebuild-statistics-system --strict` | Passed. | Final planning/schema consistency. |
 
 ```bash
-yarn jest --runInBand --testTimeout=120000 --runTestsByPath \
+yarn test --runInBand --testTimeout=120000 --runTestsByPath \
   src/statistics/statistics-ranking.integration.spec.ts \
   src/statistics/statistics-source-api.integration.spec.ts \
   src/statistics/statistics-reaction.integration.spec.ts \
@@ -161,7 +161,7 @@ yarn jest --runInBand --testTimeout=120000 --runTestsByPath \
 ```
 
 ```bash
-yarn jest --config test/search/jest-integration.json --runInBand \
+yarn test --config test/search/jest-integration.json --runInBand \
   --runTestsByPath test/search/search-harness.integration-spec.ts \
   --testNamePattern='3\.2 |3\.3 |4\.1 '
 ```

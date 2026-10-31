@@ -19,13 +19,13 @@ import { FindLatestReportRequestDto } from "./dto/find-report-request.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { ReviewsService } from "../reviews/reviews.service";
 import { HandleReportRequestDto } from "./dto/handle-report-request.dto";
-import { SuspensionService } from "../suspension/suspension.service";
+import { AuthService } from "../auth/auth.service";
+import { EUserRoles } from "../utils/constants";
 import { CommentService } from "../comment/comment.service";
 import { CommentSourceType } from "../comment/comment.constants";
 import { PostsService } from "../posts/posts.service";
 import { match } from "ts-pattern";
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
-import { UserSuspension } from "../suspension/entity/user-suspension.entity";
 import { Review } from "../reviews/entities/review.entity";
 import { ReviewComment } from "../comment/entity/review-comment.entity";
 import { Post } from "../posts/entity/post.entity";
@@ -38,6 +38,8 @@ import {
     deactivateStatisticsSource,
 } from "../statistics/statistics-target.repository";
 
+export const SUSPENSION_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class ReportService {
     private logger = new Logger(ReportService.name);
@@ -47,7 +49,7 @@ export class ReportService {
         private readonly reportRepository: Repository<Report>,
         private readonly reviewsService: ReviewsService,
         private readonly commentService: CommentService,
-        private readonly suspensionService: SuspensionService,
+        private readonly authService: AuthService,
         private readonly postsService: PostsService,
         @Optional()
         private readonly dataSource?: DataSource,
@@ -192,8 +194,16 @@ export class ReportService {
             return;
         }
 
-        if (action === ReportHandleAction.BAN) {
-            await this.suspensionService.checkBanPermission(handlerUserId);
+        if (
+            action === ReportHandleAction.BAN &&
+            !(await this.authService.getUserRoles(handlerUserId)).includes(
+                EUserRoles.ADMIN,
+            )
+        ) {
+            throw new HttpException(
+                "Only users with an admin role can issue bans.",
+                HttpStatus.BAD_REQUEST,
+            );
         }
 
         const mappedAction: "alert" | "suspension" | "ban" = match(action)
@@ -202,25 +212,21 @@ export class ReportService {
             .with(ReportHandleAction.ALERT, () => "alert" as const)
             .exhaustive();
 
+        // Lockout goes first: if the transaction below fails the report stays open, and a retry re-applies it idempotently.
+        if (
+            action === ReportHandleAction.SUSPEND ||
+            action === ReportHandleAction.BAN
+        ) {
+            await this.authService.lockOut(report.targetProfileUserId, {
+                reason: `Report ${report.id}`,
+                expiresIn:
+                    action === ReportHandleAction.SUSPEND
+                        ? SUSPENSION_DURATION_MS
+                        : undefined,
+            });
+        }
+
         const runTransaction = async (manager: EntityManager) => {
-            if (
-                action === ReportHandleAction.SUSPEND ||
-                action === ReportHandleAction.BAN
-            ) {
-                const fourteenDaysFromNow = new Date();
-                fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
-
-                const suspensionRepo = manager.getRepository(UserSuspension);
-                const suspension = suspensionRepo.create({
-                    isSuspension: action === ReportHandleAction.SUSPEND,
-                    isBan: action === ReportHandleAction.BAN,
-                    endDate: fourteenDaysFromNow,
-                    issuerUserId: handlerUserId,
-                    userId: report.targetProfileUserId,
-                });
-                await suspensionRepo.save(suspension);
-            }
-
             if (deleteReportedContent) {
                 for (const [entity, id, kind] of [
                     [Review, report.targetReviewId, "review"],

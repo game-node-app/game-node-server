@@ -5,7 +5,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Report } from "./entity/report.entity";
 import { ReviewsModule } from "../reviews/reviews.module";
 import { NotificationsModule } from "../notifications/notifications.module";
-import { SuspensionModule } from "../suspension/suspension.module";
 import { CommentModule } from "../comment/comment.module";
 import { PostsModule } from "../posts/posts.module";
 
@@ -14,7 +13,6 @@ import { PostsModule } from "../posts/posts.module";
         TypeOrmModule.forFeature([Report]),
         ReviewsModule,
         NotificationsModule,
-        SuspensionModule,
         CommentModule,
         PostsModule,
     ],

@@ -14,8 +14,7 @@ import {
 import { AuthGuard } from "../auth/auth.guard";
 import { FollowService } from "./follow.service";
 import { FollowRegisterDto } from "./dto/follow-register.dto";
-import { SessionContainer } from "supertokens-node/recipe/session";
-import { Session } from "../auth/session.decorator";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { FollowStatusDto } from "./dto/follow-status.dto";
 import { FollowRemoveDto } from "./dto/follow-remove.dto";

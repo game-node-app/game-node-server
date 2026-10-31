@@ -5,9 +5,7 @@ import axios from "axios";
 import {
     Global,
     INestApplication,
-    MiddlewareConsumer,
     Module,
-    NestModule,
     ValidationPipe,
     VersioningType,
 } from "@nestjs/common";
@@ -15,8 +13,6 @@ import { ConfigModule } from "@nestjs/config";
 import { getDataSourceToken } from "@nestjs/typeorm";
 import { Test } from "@nestjs/testing";
 import { json } from "express";
-import supertokens from "supertokens-node";
-import Session from "supertokens-node/recipe/session";
 import {
     DataSource,
     EntitySchema,
@@ -24,8 +20,6 @@ import {
     EntitySchemaRelationOptions,
     getMetadataArgsStorage,
 } from "typeorm";
-import { AuthMiddleware } from "../../../src/auth/auth.middleware";
-import { SupertokensExceptionFilter } from "../../../src/auth/auth.filter";
 import { AxiosExceptionFilter } from "../../../src/filter/axios-exception.filter";
 import { SQLExceptionFilter } from "../../../src/filter/sql-exception.filter";
 import { Game } from "../../../src/game/game-repository/entities/game.entity";
@@ -71,32 +65,9 @@ export function getSearchTestEnv() {
     };
 }
 
-let supertokensInitialized = false;
-
-function ensureSupertokensInitialized() {
-    if (supertokensInitialized) {
-        return;
-    }
-    supertokens.init({
-        appInfo: {
-            appName: "GameNode",
-            apiDomain: "http://localhost:5000",
-            websiteDomain: "http://localhost:3000",
-            apiBasePath: "/v1/auth",
-            websiteBasePath: "/auth",
-        },
-        supertokens: {
-            connectionURI: "http://localhost:3567",
-        },
-        recipeList: [Session.init()],
-    });
-    supertokensInitialized = true;
-}
-
 export async function createSearchTestApp(
     dataSource: DataSource,
 ): Promise<INestApplication> {
-    ensureSupertokensInitialized();
     const { manticore } = getSearchTestEnv();
 
     @Global()
@@ -121,11 +92,7 @@ export async function createSearchTestApp(
         ],
         exports: [getDataSourceToken()],
     })
-    class SearchIntegrationAppModule implements NestModule {
-        configure(consumer: MiddlewareConsumer) {
-            consumer.apply(AuthMiddleware).forRoutes("*");
-        }
-    }
+    class SearchIntegrationAppModule {}
 
     const moduleRef = await Test.createTestingModule({
         imports: [SearchIntegrationAppModule],
@@ -149,7 +116,6 @@ export async function createSearchTestApp(
             },
         }),
     );
-    app.useGlobalFilters(new SupertokensExceptionFilter());
     app.useGlobalFilters(new SQLExceptionFilter());
     app.useGlobalFilters(new AxiosExceptionFilter());
 

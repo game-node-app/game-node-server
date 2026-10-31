@@ -4,7 +4,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Activity } from "./entities/activity.entity";
 import { ActivitiesRepositoryController } from "./activities-repository.controller";
 import { GameFilterModule } from "../../game/game-filter/game-filter.module";
-import { SuspensionModule } from "../../suspension/suspension.module";
 import { ReviewsModule } from "../../reviews/reviews.module";
 import { CollectionsEntriesModule } from "../../collections/collections-entries/collections-entries.module";
 import { PostsModule } from "../../posts/posts.module";
@@ -15,7 +14,6 @@ import { ActivitiesRepositoryV2Controller } from "./activities-repository-v2.con
     imports: [
         TypeOrmModule.forFeature([Activity]),
         GameFilterModule,
-        SuspensionModule,
         forwardRef(() => ReviewsModule),
         forwardRef(() => CollectionsEntriesModule),
         forwardRef(() => PostsModule),

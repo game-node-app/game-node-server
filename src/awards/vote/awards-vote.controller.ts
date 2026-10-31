@@ -1,8 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { AwardsVoteService } from "./awards-vote.service";
-import { Session } from "../../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../../auth/session.decorator";
 import { AuthGuard } from "../../auth/auth.guard";
 import { RegisterAwardsVoteDto } from "../dto/register-awards-vote.dto";
 import { Public } from "../../auth/public.decorator";

@@ -2,7 +2,6 @@ import { Module } from "@nestjs/common";
 import { StatisticsController } from "./statistics.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { StatisticsService } from "./statistics.service";
-import { SuspensionModule } from "../suspension/suspension.module";
 import { StatisticsTarget } from "./entity/statistics-target.entity";
 import { EngagementState } from "./entity/engagement-state.entity";
 import { StatisticsEvent } from "./entity/statistics-event.entity";
@@ -23,7 +22,6 @@ import { StatisticsRankingScheduler } from "./statistics-ranking.scheduler";
             MetricHour,
             RankingScore,
         ]),
-        SuspensionModule,
         StatisticsProjectionModule,
     ],
     providers: [

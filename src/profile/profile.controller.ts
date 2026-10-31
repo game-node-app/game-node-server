@@ -21,8 +21,7 @@ import {
     ApiResponse,
     ApiTags,
 } from "@nestjs/swagger";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { Profile } from "./entities/profile.entity";
 import { Public } from "../auth/public.decorator";

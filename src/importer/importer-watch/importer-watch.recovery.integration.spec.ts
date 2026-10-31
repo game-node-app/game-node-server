@@ -611,11 +611,7 @@ describe("import and notification recovery on disposable MySQL", () => {
                 {} as any,
                 {} as any,
                 { isMature: jest.fn().mockResolvedValue(false) } as any,
-                {
-                    checkIsSuspendedOrBanned: jest
-                        .fn()
-                        .mockResolvedValue(false),
-                } as any,
+                { getLockoutStates: jest.fn().mockResolvedValue(new Map()) } as any,
                 {} as any,
                 localActivity,
             );

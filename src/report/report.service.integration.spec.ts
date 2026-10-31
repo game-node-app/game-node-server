@@ -1,9 +1,8 @@
 import { DataSource } from "typeorm";
 import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
-import { ReportService } from "./report.service";
+import { ReportService, SUSPENSION_DURATION_MS } from "./report.service";
 import { Report } from "./entity/report.entity";
 import { NotificationOutbox } from "../notifications/entity/notification-outbox.entity";
-import { UserSuspension } from "../suspension/entity/user-suspension.entity";
 import { ReportHandleAction, ReportSourceType } from "./report.constants";
 import { randomUUID } from "crypto";
 import * as outboxModule from "../notifications/notifications-outbox.service";
@@ -14,7 +13,7 @@ import { NotificationInbox } from "../notifications/entity/notification-inbox.en
 describe("ReportService moderation integration (Task 5.4)", () => {
     let dataSource: DataSource;
     let service: ReportService;
-    let mockSuspensionService: any;
+    let mockAuthService: any;
     let mockReviewsService: any;
     let mockCommentService: any;
     let mockPostsService: any;
@@ -23,9 +22,9 @@ describe("ReportService moderation integration (Task 5.4)", () => {
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
 
-        mockSuspensionService = {
-            checkBanPermission: jest.fn().mockResolvedValue(undefined),
-            create: jest.fn(),
+        mockAuthService = {
+            getUserRoles: jest.fn().mockResolvedValue(["user", "mod"]),
+            lockOut: jest.fn().mockResolvedValue(undefined),
         };
         mockReviewsService = { delete: jest.fn() };
         mockCommentService = { delete: jest.fn() };
@@ -40,11 +39,16 @@ describe("ReportService moderation integration (Task 5.4)", () => {
             dataSource.getRepository(Report),
             mockReviewsService,
             mockCommentService,
-            mockSuspensionService,
+            mockAuthService,
             mockPostsService,
             dataSource,
             lifecycle,
         );
+    });
+
+    beforeEach(() => {
+        mockAuthService.getUserRoles.mockClear();
+        mockAuthService.lockOut.mockClear();
     });
 
     afterAll(async () => {
@@ -257,7 +261,7 @@ describe("ReportService moderation integration (Task 5.4)", () => {
         expect(outbox?.payload?.reporterUserId).toBeUndefined();
     });
 
-    it("creates suspension and moderation outbox intent atomically", async () => {
+    it("locks the user out for 14 days and records the moderation outbox intent", async () => {
         const reporter = randomUUID();
         const reported = randomUUID();
         const moderator = randomUUID();
@@ -273,13 +277,11 @@ describe("ReportService moderation integration (Task 5.4)", () => {
             deleteReportedContent: false,
         });
 
-        const suspensions = await dataSource
-            .getRepository(UserSuspension)
-            .find({
-                where: { userId: reported },
-            });
-        expect(suspensions).toHaveLength(1);
-        expect(suspensions[0].isSuspension).toBe(true);
+        expect(mockAuthService.lockOut).toHaveBeenCalledTimes(1);
+        expect(mockAuthService.lockOut).toHaveBeenCalledWith(reported, {
+            reason: expect.any(String),
+            expiresIn: SUSPENSION_DURATION_MS,
+        });
 
         const outbox = await dataSource
             .getRepository(NotificationOutbox)
@@ -293,6 +295,71 @@ describe("ReportService moderation integration (Task 5.4)", () => {
 
         expect(outbox?.payload?.action).toBe("suspension");
         expect(outbox?.actorUserId).toBeNull();
+    });
+
+    it("bans permanently when the handler is an admin", async () => {
+        const reporter = randomUUID();
+        const reported = randomUUID();
+        const admin = randomUUID();
+        for (const user of [reporter, reported, admin])
+            await createMockProfile(user);
+        const report = await createReport(reporter, reported);
+        mockAuthService.getUserRoles.mockResolvedValueOnce(["user", "admin"]);
+
+        await service.handle(admin, report.id, {
+            action: ReportHandleAction.BAN,
+            deleteReportedContent: false,
+        });
+
+        expect(mockAuthService.getUserRoles).toHaveBeenCalledWith(admin);
+        expect(mockAuthService.lockOut).toHaveBeenCalledWith(reported, {
+            reason: expect.any(String),
+            expiresIn: undefined,
+        });
+        expect(
+            await dataSource
+                .getRepository(Report)
+                .findOneByOrFail({ id: report.id }),
+        ).toMatchObject({ isClosed: true });
+    });
+
+    it("rejects a ban by a mod with 400, bans nobody and leaves the report open", async () => {
+        const reporter = randomUUID();
+        const reported = randomUUID();
+        const moderator = randomUUID();
+        for (const user of [reporter, reported, moderator])
+            await createMockProfile(user);
+        const report = await createReport(reporter, reported);
+
+        await expect(
+            service.handle(moderator, report.id, {
+                action: ReportHandleAction.BAN,
+                deleteReportedContent: false,
+            }),
+        ).rejects.toMatchObject({ status: 400 });
+
+        expect(mockAuthService.lockOut).not.toHaveBeenCalled();
+        expect(
+            await dataSource
+                .getRepository(Report)
+                .findOneByOrFail({ id: report.id }),
+        ).toMatchObject({ isClosed: false });
+    });
+
+    it("does not lock anyone out on ALERT", async () => {
+        const reporter = randomUUID();
+        const reported = randomUUID();
+        const moderator = randomUUID();
+        for (const user of [reporter, reported, moderator])
+            await createMockProfile(user);
+        const report = await createReport(reporter, reported);
+
+        await service.handle(moderator, report.id, {
+            action: ReportHandleAction.ALERT,
+            deleteReportedContent: false,
+        });
+
+        expect(mockAuthService.lockOut).not.toHaveBeenCalled();
     });
 
     it("emits nothing when action is DISCARD", async () => {
@@ -316,6 +383,7 @@ describe("ReportService moderation integration (Task 5.4)", () => {
             .findOneBy({ id: report.id });
         expect(updated?.isClosed).toBe(true);
         expect(updated?.closeHandleAction).toBe(ReportHandleAction.DISCARD);
+        expect(mockAuthService.lockOut).not.toHaveBeenCalled();
 
         const outbox = await dataSource
             .getRepository(NotificationOutbox)
@@ -328,7 +396,7 @@ describe("ReportService moderation integration (Task 5.4)", () => {
         expect(outbox).toBeNull();
     });
 
-    it("rolls back transaction and emits no alert if intent append fails", async () => {
+    it("keeps the report open and emits no alert if the transaction fails after the lockout", async () => {
         const reporter = randomUUID();
         const reported = randomUUID();
         const moderator = randomUUID();
@@ -357,15 +425,22 @@ describe("ReportService moderation integration (Task 5.4)", () => {
                 .findOneBy({ id: report.id });
             expect(checkReport?.isClosed).toBe(false);
 
-            // No suspension created!
-            const suspensions = await dataSource
-                .getRepository(UserSuspension)
-                .find({
-                    where: { userId: reported },
-                });
-            expect(suspensions).toHaveLength(0);
+            // The lockout was applied before the failed transaction.
+            expect(mockAuthService.lockOut).toHaveBeenCalledTimes(1);
         } finally {
             spy.mockRestore();
         }
+
+        // Retrying re-applies the same lockout and closes the report.
+        await service.handle(moderator, report.id, {
+            action: ReportHandleAction.SUSPEND,
+            deleteReportedContent: false,
+        });
+        expect(mockAuthService.lockOut).toHaveBeenCalledTimes(2);
+        expect(
+            await dataSource
+                .getRepository(Report)
+                .findOneByOrFail({ id: report.id }),
+        ).toMatchObject({ isClosed: true });
     });
 });

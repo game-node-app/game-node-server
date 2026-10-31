@@ -1,4 +1,4 @@
-FROM node:22
+FROM node:24
 WORKDIR /app
 
 # Install dependencies; dropping the yarn cache keeps it out of the image layer.

@@ -1,6 +1,7 @@
 import { ExecutionContext, Injectable } from "@nestjs/common";
 import { CacheInterceptor } from "@nestjs/cache-manager";
-import { SessionRequest } from "supertokens-node/framework/express";
+import { Request } from "express";
+import { SessionContainer } from "../../auth/session.decorator";
 
 /**
  * Custom implementation of CacheInterceptor's tracking that makes the cache user-specific. <br>
@@ -10,7 +11,9 @@ import { SessionRequest } from "supertokens-node/framework/express";
 @Injectable()
 export class SessionAwareCacheInterceptor extends CacheInterceptor {
     protected trackBy(context: ExecutionContext): string | undefined {
-        const request: SessionRequest = context.switchToHttp().getRequest();
+        const request: Request & { session?: SessionContainer } = context
+            .switchToHttp()
+            .getRequest();
         const defaultTrackBy = super.trackBy(context);
         if (request.session && defaultTrackBy) {
             const userId = request.session.getUserId();

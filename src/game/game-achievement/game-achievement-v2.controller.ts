@@ -10,8 +10,7 @@ import { GameAchievementService } from "./game-achievement.service";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "../../auth/auth.guard";
 import { Public } from "../../auth/public.decorator";
-import { Session } from "../../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../../auth/session.decorator";
 import { GameObtainedAchievementService } from "./game-obtained-achievement.service";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import {

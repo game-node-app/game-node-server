@@ -1,8 +1,6 @@
 import {
     INestApplication,
-    MiddlewareConsumer,
     Module,
-    NestModule,
     ValidationPipe,
     VersioningType,
 } from "@nestjs/common";
@@ -10,10 +8,6 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Test, TestingModule } from "@nestjs/testing";
 import { json } from "express";
 import request from "supertest";
-import supertokens from "supertokens-node";
-import Session from "supertokens-node/recipe/session";
-import { AuthMiddleware } from "../auth/auth.middleware";
-import { SupertokensExceptionFilter } from "../auth/auth.filter";
 import { AxiosExceptionFilter } from "../filter/axios-exception.filter";
 import { SQLExceptionFilter } from "../filter/sql-exception.filter";
 import { SearchController } from "./search.controller";
@@ -23,28 +17,6 @@ import {
     GameSearchResponseDto,
 } from "./dto/game-search-response.dto";
 import { UserSearchResponseDto } from "./dto/user-search-response.dto";
-
-let supertokensInitialized = false;
-
-function ensureSupertokensInitialized() {
-    if (supertokensInitialized) {
-        return;
-    }
-    supertokens.init({
-        appInfo: {
-            appName: "GameNode",
-            apiDomain: "http://localhost:5000",
-            websiteDomain: "http://localhost:3000",
-            apiBasePath: "/v1/auth",
-            websiteBasePath: "/auth",
-        },
-        supertokens: {
-            connectionURI: "http://localhost:3567",
-        },
-        recipeList: [Session.init()],
-    });
-    supertokensInitialized = true;
-}
 
 @Module({
     controllers: [SearchController],
@@ -76,18 +48,13 @@ function ensureSupertokensInitialized() {
         },
     ],
 })
-class TestSearchAppModule implements NestModule {
-    configure(consumer: MiddlewareConsumer) {
-        consumer.apply(AuthMiddleware).forRoutes("*");
-    }
-}
+class TestSearchAppModule {}
 
 describe("SearchController (routes, versioning, CORS, OpenAPI, and strict validation)", () => {
     let app: INestApplication;
     let searchService: jest.Mocked<SearchService>;
 
     beforeAll(async () => {
-        ensureSupertokensInitialized();
 
         const moduleFixture: TestingModule = await Test.createTestingModule({
             imports: [TestSearchAppModule],
@@ -104,14 +71,13 @@ describe("SearchController (routes, versioning, CORS, OpenAPI, and strict valida
         app.useGlobalFilters(
             new SQLExceptionFilter(),
             new AxiosExceptionFilter(),
-            new SupertokensExceptionFilter(),
         );
 
         app.enableCors({
             credentials: true,
             origin: true,
             optionsSuccessStatus: 204,
-            allowedHeaders: ["content-type", ...supertokens.getAllCORSHeaders()],
+            allowedHeaders: ["content-type", "authorization"],
             methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
         });
 
@@ -167,7 +133,7 @@ describe("SearchController (routes, versioning, CORS, OpenAPI, and strict valida
                     .set("Access-Control-Request-Method", "POST")
                     .set(
                         "Access-Control-Request-Headers",
-                        "content-type,st-auth-mode",
+                        "content-type,authorization",
                     )
                     .expect(204);
 

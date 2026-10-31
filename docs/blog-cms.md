@@ -30,8 +30,8 @@ before switching an application deployment to this CMS-backed API.
    `https://cms.gamenode.app:8055` on the `cms` service and restrict access to
    editorial staff.
    The CMS uses the shared Coolify-managed MySQL 8.4.13 (`DB_HOST`), with its
-   own `blog_cms` database/user and `CMS_DB_PASSWORD`. GameNode and SuperTokens
-   have separate users scoped to `gamenode` and `supertokens`; the root password
+   own `blog_cms` database/user and `CMS_DB_PASSWORD`. GameNode (including its
+   Better Auth tables) has a separate user scoped to `gamenode`; the root password
    stays in the managed resource. No database host port is published.
    The `blog_cms` database/user must exist before the CMS starts: run
    `docker/mysql/init-databases.sh` once in the managed MySQL, as described in
@@ -91,7 +91,7 @@ five operations and one concurrent transform with a 15-second timeout, and
 retains revisions for 30 days. Prepared images are capped at 20 MiB. Private
 staging files not referenced by published content are removed after one day.
 Back up `blog_cms` and both asset volumes together; the MySQL instance backup
-must also include `gamenode` and `supertokens`. Monitor disk
+must also include `gamenode`. Monitor disk
 space: previously published media intentionally remains public and is not
 removed when an article is unpublished.
 
@@ -128,7 +128,7 @@ The Compose startup, grant, model, credentials, bilingual fallback, author/game
 validation and cover/inline publication were exercised on an isolated MySQL 8.0
 instance with new test content. The test ran the server delivery controllers
 against the real CMS and used separate temporary storage and a fake reference
-API. Focused HTTP tests also exercise real SuperTokens roles, draft denial,
+API. Focused HTTP tests also exercise real Better Auth roles, draft denial,
 locale fallback, safe HTML and upstream errors. The seven focused blog suites
 passed (17 tests), as did the server build. An isolated full-server startup
 check also verifies that the CMS routes appear in the exported OpenAPI. The

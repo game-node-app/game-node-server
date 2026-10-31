@@ -2,8 +2,6 @@ import { INestApplication, Module, ValidationPipe, VersioningType } from '@nestj
 import { Test } from '@nestjs/testing';
 import { HttpModule } from '@nestjs/axios';
 import request from 'supertest';
-import supertokens from 'supertokens-node';
-import Session from 'supertokens-node/recipe/session';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,8 +11,9 @@ import { BlogMediaController } from '../../src/blog/blog-post/blog-media.control
 import { BlogCmsService } from '../../src/blog/blog-post/blog-cms.service';
 import { BlogDeliveryService } from '../../src/blog/blog-post/blog-delivery.service';
 import { BlogPresentationService } from '../../src/blog/blog-post/blog-presentation.service';
+import { AuthService } from '../../src/auth/auth.service';
 
-@Module({ imports: [HttpModule], controllers: [BlogPostController, BlogMediaController], providers: [BlogCmsService, BlogDeliveryService, BlogPresentationService] })
+@Module({ imports: [HttpModule], controllers: [BlogPostController, BlogMediaController], providers: [BlogCmsService, BlogDeliveryService, BlogPresentationService, { provide: AuthService, useValue: { getSession: async () => null } }] })
 class SmokeModule {}
 
 async function main() {
@@ -30,8 +29,6 @@ async function main() {
         process.env.BLOG_CMS_PUBLIC_URL = process.env.CMS_URL;
         process.env.BLOG_PUBLIC_MEDIA_PATH = dir;
         process.env.DOMAIN_API = 'http://localhost:5000';
-        supertokens.init({ appInfo: { appName: 'Blog smoke', apiDomain: 'http://localhost:5000', websiteDomain: 'http://localhost:3000', apiBasePath: '/v1/auth', websiteBasePath: '/auth' },
-            supertokens: { connectionURI: process.env.SUPERTOKENS_CORE_URI || 'http://localhost:3567' }, recipeList: [Session.init()] });
         const module = await Test.createTestingModule({ imports: [SmokeModule] }).compile();
         app = module.createNestApplication();
         app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

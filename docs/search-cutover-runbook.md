@@ -14,7 +14,7 @@ changed search template.
 The affected engine-backed checks are sufficient for this replacement:
 
 ```bash
-yarn jest --config test/search/jest-integration.json --runInBand --runTestsByPath test/search/search-harness.integration-spec.ts --testNamePattern='3\.2 |3\.3 |4\.1 '
+yarn test --config test/search/jest-integration.json --runInBand --runTestsByPath test/search/search-harness.integration-spec.ts --testNamePattern='3\.2 |3\.3 |4\.1 '
 ```
 
 They cover initial indexing, sparse games/popularity values, HTTP contracts and

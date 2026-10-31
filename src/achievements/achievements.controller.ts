@@ -16,8 +16,7 @@ import { GetObtainedAchievementRequestDto } from "./dto/obtained-achivement-requ
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PaginatedAchievementsResponseDto } from "./dto/paginated-achievements-response.dto";
 import { UpdateFeaturedObtainedAchievementDto } from "./dto/update-featured-obtained-achievement.dto";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
 import { AchievementGrantRequestDto } from "./dto/achievement-grant.dto";

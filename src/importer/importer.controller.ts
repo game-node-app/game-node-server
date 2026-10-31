@@ -19,8 +19,7 @@ import {
 import { AuthGuard } from "../auth/auth.guard";
 import { ImporterService } from "./importer.service";
 import { ImporterStatusUpdateRequestDto } from "./dto/importer-status-update-request.dto";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { EImporterSource } from "./importer.constants";
 import { ImporterUnprocessedRequestDto } from "./dto/importer-unprocessed-request.dto";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";

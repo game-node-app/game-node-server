@@ -15,7 +15,7 @@ Decisões recomendadas:
 - Uma VPS, Docker Compose e uma réplica inicial por aplicação. Builds no CI, sem Swarm.
 - Usar `gamenode.app`, `server.gamenode.app`, `search.gamenode.app`, `admin.gamenode.app` e `s3.gamenode.app`, conforme a configuração dos clientes.
 - API, processamento de filas, sincronização IGDB e busca HTTP no backend atual. Manticore continua como engine interna.
-- Uma instância MySQL **gerenciada pelo Coolify** (recurso de banco standalone, fora do Compose), com databases e usuários separados para GameNode (`gamenode`), SuperTokens (`supertokens`) e Directus (`blog_cms`). O motivo é o backup nativo do Coolify para o R2: ele só aparece para bancos standalone ou de Services, não para um MySQL dentro de uma aplicação Docker Compose. O provisionamento dos databases extras é um passo manual obrigatório (seção 6.3). Os Composes de desenvolvimento e de testes continuam com MySQL próprio.
+- Uma instância MySQL **gerenciada pelo Coolify** (recurso de banco standalone, fora do Compose), com databases e usuários separados para GameNode (`gamenode`, que também guarda as tabelas de autenticação do Better Auth) e Directus (`blog_cms`). O motivo é o backup nativo do Coolify para o R2: ele só aparece para bancos standalone ou de Services, não para um MySQL dentro de uma aplicação Docker Compose. O provisionamento do database extra é um passo manual obrigatório (seção 6.3). Os Composes de desenvolvimento e de testes continuam com MySQL próprio.
 - Dois Redis: cache descartável e filas persistentes com `noeviction`.
 - R2 separado em uploads públicos e backups privados. Os arquivos do Directus continuam nos volumes previstos pelo código.
 - Acessar o Coolify por `https://coolify.gamenode.app`, protegido pelo Cloudflare Access; manter o túnel SSH como acesso de emergência.
@@ -50,8 +50,7 @@ O código atual de login usa provedores sociais; não é preciso instalar um ser
 | Next.js web | `game-node-clients/apps/web`, porta interna 3000 | Público pelo proxy; sem volume de dados da aplicação |
 | Next.js admin | `game-node-clients/apps/admin`, porta interna 3000 | `admin.gamenode.app`; autenticação e permissões administrativas |
 | NestJS API e workers | `game-node-server`, porta interna 5000 | `server.gamenode.app`; também atende o hostname de busca |
-| MySQL compartilhado | Recurso MySQL gerenciado pelo Coolify, `mysql:8.4.13`; databases `gamenode`, `supertokens` e `blog_cms` | Volume do próprio recurso; usuários com acesso apenas ao próprio database; sem porta pública; backup nativo para o R2 (seção 6.3) |
-| SuperTokens Core | Imagem MySQL `10.1.4`, compatível com CDI `5.3` do SDK Node `22.0.1` | Porta interna 3567; sem domínio público próprio |
+| MySQL compartilhado | Recurso MySQL gerenciado pelo Coolify, `mysql:8.4.13`; databases `gamenode` e `blog_cms` | Volume do próprio recurso; usuários com acesso apenas ao próprio database; sem porta pública; backup nativo para o R2 (seção 6.3) |
 | Redis cache | Versão fixa, 512 MiB, `allkeys-lru` | Sem persistência nem volume; sem portas públicas; perda do cache não apaga filas |
 | Redis BullMQ | Instância distinta do cache | AOF, `noeviction`, volume em `/data`; backup consistente |
 | Manticore | `manticoresearch/manticore:29.9.0` | Volume `/var/lib/manticore`; 9306/9308 privadas; índices reconstruídos do MySQL |
@@ -94,7 +93,7 @@ Os registros `@` e `coolify` já foram criados; configurar os demais conforme os
 
 Não criar `s3 → 130.254.47.92` se os uploads forem servidos pelo R2. A associação desse hostname é feita em **R2 → bucket → Settings → Custom Domains**, conforme a seção seguinte; não inventar um CNAME para o endpoint S3.
 
-Não é necessário criar wildcard `*`, hostname de banco, Redis, Manticore ou SuperTokens.
+Não é necessário criar wildcard `*`, hostname de banco, Redis ou Manticore. A autenticação (Better Auth) roda dentro da API, em `server.gamenode.app/v1/auth`.
 
 Na implantação inicial, usar os registros A. Remover ou corrigir eventuais registros A/AAAA/CNAME conflitantes **somente dos hostnames configurados**. O IPv6 da VPS é `2607:adc0:5::27d`, mas só adicionar AAAA após validar os serviços HTTPS também nesse caminho; o teste de SSH não valida o HTTPS da aplicação.
 
@@ -213,10 +212,10 @@ O `docker-compose.prod.yml` define os serviços de aplicação de produção, in
 | Imagens de Redis e backend | **Aplicado:** Redis com versão fixa; API e executor de migrations usam a tag imutável `lamarcke/game-node-server:1.9.1`. A cada release, publicar uma tag nova e atualizá-la no Compose; nunca sobrescrever uma tag publicada |
 | Réplicas da API | **Aplicado:** uma réplica. Medir API, jobs e RAM antes de aumentar. Não aplicar o limite de heap da API como se fosse seu consumo total |
 | MySQL compartilhado | Recurso gerenciado do Coolify, provisionado conforme a seção 6.3. O Compose não espera o banco: ele sobe antes, com o healthcheck do próprio recurso, e os serviços dependentes usam `restart`. Sem portas de banco publicadas |
-| `SUPERTOKENS_CORE_URI` | **Aplicado:** `http://supertokens:3567`; testar autenticação no deploy |
+| `BETTER_AUTH_SECRET` | **Aplicado:** obrigatório no `server` (seção 7.4); testar autenticação no deploy |
 | Variáveis do `server` | **Aplicado:** só chega ao container o que está em `environment:`. Foram incluídos `NODE_ENV=production`, `CONNECTION_CREDENTIAL_ENCRYPTION_KEY` (obrigatória) e `PLAYER_DATA_SYNC_ENABLED` (padrão `false`). Xbox OAuth fica de fora até a funcionalidade ser implementada. A `.env.example` também não lista todos os provedores de login/Twitch |
 | Volume `/app/public/uploads` da API | **Removido:** nenhum código grava ali; uploads vão para o R2 |
-| Redes externas e bind mounts precisam existir | Adaptar ao checkout/redes do Coolify; API, migrations, SuperTokens, Directus e Manticore entram também na rede externa `gamenode` para alcançar o MySQL gerenciado; a antiga rede `game_node_app_public` foi removida, porque o proxy do Coolify alcança os serviços com domínio por conta própria; garantir configurações Manticore, extensões Directus e `blog-media.cjs` no caminho esperado |
+| Redes externas e bind mounts precisam existir | Adaptar ao checkout/redes do Coolify; API, migrations, Directus e Manticore entram também na rede externa `gamenode` para alcançar o MySQL gerenciado; a antiga rede `game_node_app_public` foi removida, porque o proxy do Coolify alcança os serviços com domínio por conta própria; garantir configurações Manticore, extensões Directus e `blog-media.cjs` no caminho esperado |
 | API depende do volume público do CMS | O Compose cria `gamenode-blog-public-media` e aguarda `cms-media-init`; Directus escreve e API lê somente |
 | `trust proxy` aceita apenas loopback, mas Traefik chega por bridge Docker; CORS reflete qualquer origem com credentials | Revisar proxies confiáveis, cabeçalhos/IP real, cookies e allowlist de origens. Testar web, admin e origens mobile antes da publicação |
 | Dockerfiles dos clientes usam Node 20 | Atualizar para uma base LTS suportada, por exemplo Node 22, e validar os builds Next.js atuais |
@@ -228,19 +227,18 @@ Imagens selecionadas em 30/10/2026, alinhadas entre produção, desenvolvimento 
 - MySQL da aplicação, autenticação e CMS: `mysql:8.4.13`, na linha LTS 8.4.
 - Redis cache e filas: `redis:8.10.3-alpine3.23`.
 - Manticore: `manticoresearch/manticore:29.9.0`.
-- SuperTokens MySQL: `registry.supertokens.io/supertokens/supertokens-mysql:10.1.4`, com CDI `5.3` compatível com o SDK atual; não trocar pela versão mais recente de outro backend de banco.
 - Directus: manter `directus/directus:12.6.0`, já correspondente à versão estável publicada.
 - Backend: `lamarcke/game-node-server:1.9.1`, definido diretamente no Compose para API e executor de migrations.
 
-Os três databases usam a mesma instância MySQL gerenciada. `gamenode` e o usuário `DB_USER` são criados pelo Coolify ao criar o recurso; `supertokens`, `blog_cms` e seus usuários são criados uma única vez por `docker/mysql/init-databases.sh`, executado manualmente (seção 6.3). Usar `DB_USER` não-root, distinto de `SUPERTOKENS_DB_USER` e de `blog_cms`, e preencher os secrets de produção do `.env.example`. Alterar secrets depois não troca senhas já gravadas no MySQL. O desenvolvimento e os ensaios descartáveis mantêm MySQL próprio no Compose.
+Os dois databases usam a mesma instância MySQL gerenciada. `gamenode` e o usuário `DB_USER` são criados pelo Coolify ao criar o recurso; `blog_cms` e seu usuário são criados uma única vez por `docker/mysql/init-databases.sh`, executado manualmente (seção 6.3). Usar `DB_USER` não-root e distinto de `blog_cms`, e preencher os secrets de produção do `.env.example`. Alterar secrets depois não troca senhas já gravadas no MySQL. O desenvolvimento e os ensaios descartáveis mantêm MySQL próprio no Compose.
 
-As tags foram conferidas nos registries dos fornecedores. Referências: [MySQL 8.4](https://dev.mysql.com/doc/relnotes/mysql/8.4/en/), [Redis](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/release-notes/redisce/), [Manticore](https://manual.manticoresearch.com/Changelog), [SuperTokens MySQL](https://hub.docker.com/r/supertokens/supertokens-mysql/tags) e [Directus](https://github.com/directus/directus/releases).
+As tags foram conferidas nos registries dos fornecedores. Referências: [MySQL 8.4](https://dev.mysql.com/doc/relnotes/mysql/8.4/en/), [Redis](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/release-notes/redisce/), [Manticore](https://manual.manticoresearch.com/Changelog) e [Directus](https://github.com/directus/directus/releases).
 
 Criar volumes novos para a instalação inicial. Essa seleção não autoriza substituir imagens sobre volumes locais existentes sem verificar a atualização de cada engine. O MinIO local passa a `bitnamilegacy/minio:2025.7.23-debian-12-r5`, limitado a desenvolvimento; não faz parte da infraestrutura de produção baseada em R2. Os resultados históricos de carga continuam documentando as versões em que foram medidos.
 
-Na atualização anterior das imagens, os cinco arquivos Compose então existentes renderizaram; passaram 116 testes unitários de busca, 9 integrações de busca e 28 integrações IGDB nas novas versões. Em recursos descartáveis, SuperTokens criou usuário/sessão e revogou a sessão pelo SDK atual, Directus inicializou seu banco e autenticou/criou/leu conteúdo em MySQL 8.4.13, e MinIO provisionou o bucket e passou escrita/leitura/remoção via S3. Isso não valida a baseline completa da aplicação nem constitui deploy na VPS.
+Na atualização anterior das imagens, os cinco arquivos Compose então existentes renderizaram; passaram 116 testes unitários de busca, 9 integrações de busca e 28 integrações IGDB nas novas versões. Em recursos descartáveis, o antigo serviço de autenticação criou usuário/sessão e revogou a sessão, Directus inicializou seu banco e autenticou/criou/leu conteúdo em MySQL 8.4.13, e MinIO provisionou o bucket e passou escrita/leitura/remoção via S3. Isso não valida a baseline completa da aplicação nem constitui deploy na VPS.
 
-Na consolidação atual, passaram 25 testes focados no Compose e no script de inicialização. Um ensaio com volume vazio subiu Directus e SuperTokens reais na mesma instância MySQL; verificou criação dos três databases, senhas com caracteres especiais, negação de acesso cruzado e de acesso root por TCP, autenticação/criação de conteúdo no CMS e criação de usuário no SuperTokens. A mídia foi escrita pelo CMS e lida em montagem somente de leitura por um cliente mínimo com os mounts da API; esse cliente também verificou os nomes de rede. Reiniciar o MySQL e repetir o deploy preservou dados e credenciais nos três databases. O ensaio não iniciou a API GameNode nem validou a licença na URL definitiva. Esse ensaio usou o MySQL dentro do Compose, layout substituído pelo recurso gerenciado; o SQL do script é o mesmo, mas a execução manual no recurso gerenciado e o bloqueio de root por TCP (`MYSQL_ROOT_HOST=localhost`, não configurável no recurso) não foram ensaiados.
+Na consolidação atual, passaram 25 testes focados no Compose e no script de inicialização. Um ensaio com volume vazio subiu Directus e o antigo serviço de autenticação, reais, na mesma instância MySQL; verificou criação dos databases da época, senhas com caracteres especiais, negação de acesso cruzado e de acesso root por TCP, autenticação/criação de conteúdo no CMS e criação de usuário no serviço de autenticação. A mídia foi escrita pelo CMS e lida em montagem somente de leitura por um cliente mínimo com os mounts da API; esse cliente também verificou os nomes de rede. Reiniciar o MySQL e repetir o deploy preservou dados e credenciais em todos os databases. O ensaio não iniciou a API GameNode nem validou a licença na URL definitiva. Esse ensaio usou o MySQL dentro do Compose, layout substituído pelo recurso gerenciado; o SQL do script é o mesmo, mas a execução manual no recurso gerenciado e o bloqueio de root por TCP (`MYSQL_ROOT_HOST=localhost`, não configurável no recurso) não foram ensaiados.
 
 Fontes locais: [Compose de produção](../docker-compose.prod.yml), [inicialização MySQL](../docker/mysql/init-databases.sh), [bootstrap HTTP](../src/main.ts), [configuração Redis](../src/utils/getRedisConfig.ts) e [workflow atual](../.github/workflows/docker-build-push.yml). Para a base Node, conferir o [ciclo oficial de versões](https://nodejs.org/en/about/previous-releases).
 
@@ -281,7 +279,7 @@ No MySQL, DDL como `CREATE`, `ALTER` e `DROP` provoca commits implícitos; uma f
 
 ### 6.3. MySQL gerenciado: provisionamento obrigatório em produção
 
-**Executar uma única vez, antes do primeiro deploy do Compose.** Sem este passo, SuperTokens e Directus não sobem: os databases `supertokens` e `blog_cms` e seus usuários não existem.
+**Executar uma única vez, antes do primeiro deploy do Compose.** Sem este passo, o Directus não sobe: o database `blog_cms` e seu usuário não existem.
 
 1. **Criar o destino dedicado.** Em **Coolify → Servers → localhost → Destinations**, adicionar o destino `gamenode` (rede Docker `gamenode`). Usar esse destino no MySQL e na aplicação Compose; trocar o destino depois exige recriar o recurso. Não usar o destino padrão `coolify`, que expõe os containers internos do Coolify aos serviços do GameNode.
 
@@ -297,7 +295,7 @@ No MySQL, DDL como `CREATE`, `ALTER` e `DROP` provoca commits implícitos; uma f
 
    Iniciar e aguardar o recurso ficar saudável pelo healthcheck do Coolify. O UUID do recurso é o nome do container e o hostname interno: usá-lo como `DB_HOST` na aplicação.
 
-3. **Executar o script de provisionamento** (`docker/mysql/init-databases.sh`). Ele lê `MYSQL_USER` e `MYSQL_ROOT_PASSWORD` do próprio container e cria `supertokens`, `blog_cms`, o usuário `SUPERTOKENS_DB_USER` e o usuário `blog_cms`, cada um com acesso só ao próprio database. As senhas são as mesmas cadastradas como secrets da aplicação Compose.
+3. **Executar o script de provisionamento** (`docker/mysql/init-databases.sh`). Ele lê `MYSQL_USER` e `MYSQL_ROOT_PASSWORD` do próprio container e cria o database `blog_cms` e o usuário `blog_cms`, com acesso só a esse database. A senha é a mesma cadastradas como secrets da aplicação Compose.
 
    ```bash
    # Na máquina local, a partir da raiz do repositório
@@ -306,15 +304,13 @@ No MySQL, DDL como `CREATE`, `ALTER` e `DROP` provoca commits implícitos; uma f
 
    # Na VPS
    MYSQL_CONTAINER=UUID_DO_RECURSO_MYSQL   # conferir com: docker ps --filter name=UUID_DO_RECURSO_MYSQL
-   export SUPERTOKENS_DB_USER=supertokens
-   read -rsp 'SUPERTOKENS_DB_PASS: ' SUPERTOKENS_DB_PASS; echo; export SUPERTOKENS_DB_PASS
    read -rsp 'CMS_DB_PASSWORD: ' CMS_DB_PASSWORD; echo; export CMS_DB_PASSWORD
-   docker exec -i -e SUPERTOKENS_DB_USER -e SUPERTOKENS_DB_PASS -e CMS_DB_PASSWORD \
+   docker exec -i -e CMS_DB_PASSWORD \
      "$MYSQL_CONTAINER" bash -s < /tmp/init-databases.sh
    rm /tmp/init-databases.sh
    ```
 
-   As senhas são lidas sem eco e passadas por nome em `-e`, sem aparecer no histórico nem na linha de comando. O script não é idempotente de propósito: numa segunda execução, `CREATE DATABASE` falha sem alterar usuários existentes. Nunca apagar o volume populado para executá-lo de novo.
+   A senha é lida sem eco e passada por nome em `-e`, sem aparecer no histórico nem na linha de comando. O script não é idempotente de propósito: numa segunda execução, `CREATE DATABASE` falha sem alterar usuários existentes. Nunca apagar o volume populado para executá-lo de novo.
 
 4. **Conferir.**
 
@@ -323,11 +319,11 @@ No MySQL, DDL como `CREATE`, `ALTER` e `DROP` provoca commits implícitos; uma f
      -e "SHOW DATABASES; SELECT user, host FROM mysql.user;"'
    ```
 
-   Devem aparecer `gamenode`, `supertokens`, `blog_cms` e os usuários `DB_USER`, `SUPERTOKENS_DB_USER` e `blog_cms`.
+   Devem aparecer `gamenode`, `blog_cms` e os usuários `DB_USER` e `blog_cms`.
 
-5. **Configurar o backup** em **recurso MySQL → Backups**: destino `R2 GameNode Backups` (seção 5.4), seleção **All databases** (um único dump com os três databases e os usuários), frequência `0 */6 * * *` e retenção de 14 dias. Executar **Backup now** antes de cada migração. Ativar a notificação de falha de backup do Coolify. Validar com uma restauração em recurso descartável (seção 8).
+5. **Configurar o backup** em **recurso MySQL → Backups**: destino `R2 GameNode Backups` (seção 5.4), seleção **All databases** (um único dump com os databases e os usuários), frequência `0 */6 * * *` e retenção de 14 dias. Executar **Backup now** antes de cada migração. Ativar a notificação de falha de backup do Coolify. Validar com uma restauração em recurso descartável (seção 8).
 
-6. **Configurar a aplicação Compose** no destino `gamenode`, com `DB_HOST` igual ao UUID do recurso. O `docker-compose.prod.yml` liga API, migrations, SuperTokens, Directus e Manticore à rede externa `gamenode`, onde o recurso está.
+6. **Configurar a aplicação Compose** no destino `gamenode`, com `DB_HOST` igual ao UUID do recurso. O `docker-compose.prod.yml` liga API, migrations, Directus e Manticore à rede externa `gamenode`, onde o recurso está.
 
 Limite conhecido: o recurso gerenciado não aplica `MYSQL_ROOT_HOST=localhost`. Root continua alcançável por TCP a partir dos containers do GameNode na rede `gamenode`; a proteção é a senha forte, a rede dedicada e a ausência de porta pública.
 
@@ -349,7 +345,6 @@ DB_USER=USUARIO_DA_APLICACAO
 DB_PASS=SEGREDO
 REDIS_URL=redis://server-redis:6379
 BULLMQ_REDIS_URL=redis://server-redis-bullmq:6379
-SUPERTOKENS_CORE_URI=http://supertokens:3567
 MANTICORE_URL=http://manticore:9308
 BLOG_CMS_URL=http://blog-cms:8055
 BLOG_CMS_PUBLIC_URL=https://cms.gamenode.app
@@ -357,7 +352,7 @@ BLOG_PUBLIC_MEDIA_PATH=/app/blog-public-media
 PLAYER_DATA_SYNC_ENABLED=false
 ```
 
-Acrescentar secrets de uploads, `CONNECTION_CREDENTIAL_ENCRYPTION_KEY`, `BLOG_CMS_DELIVERY_TOKEN`, `BLOG_CMS_PREVIEW_TOKEN`, os seis campos `PROVIDER_{GOOGLE,DISCORD,TWITTER}_CLIENT_{ID,SECRET}`, `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` e integrações utilizadas.
+Acrescentar secrets de uploads, `BETTER_AUTH_SECRET` (seção 7.4), `CONNECTION_CREDENTIAL_ENCRYPTION_KEY`, `BLOG_CMS_DELIVERY_TOKEN`, `BLOG_CMS_PREVIEW_TOKEN`, os seis campos `PROVIDER_{GOOGLE,DISCORD,TWITTER}_CLIENT_{ID,SECRET}`, `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` e integrações utilizadas.
 
 Os tokens de delivery e preview do blog devem ser distintos. Gerar a chave criptográfica nova antes de cadastrar conexões. Xbox OAuth ainda não está implementado e fica fora do Compose; quando estiver, acrescentar ao `server`: `XBOX_OAUTH_CLIENT_ID`, `XBOX_OAUTH_CLIENT_SECRET` e `XBOX_OAUTH_REDIRECT_URI=https://gamenode.app/connections/callback/xbox`; fornecer credenciais PSN/Xbox de serviço quando o código selecionado as usar.
 
@@ -385,11 +380,26 @@ No CI, construir backend, web e admin dos SHAs aprovados, executar as verificaç
 
 ### 7.3. OAuth
 
-Revisar callbacks nas contas Google/Discord/Twitter/X de acordo com o fluxo efetivo do SuperTokens e dos clientes. Não confundir o endpoint API `/v1/auth` com a página de retorno do navegador em `/auth/callback/...`.
+Cada provedor devolve o código OAuth para a API, não para o site. Registrar nas contas Google, Discord e Twitter/X as redirect URIs `${DOMAIN_API}/v1/auth/callback/{google,discord,twitter}`, ou seja, `https://server.gamenode.app/v1/auth/callback/google`, `.../discord` e `.../twitter`. Depois do callback, a API redireciona para o `callbackURL` pedido pelo cliente, que precisa estar em uma origem confiável (`DOMAIN_WEBSITE`).
 
 Registrar as origens e callbacks exatos exigidos pelos fluxos usados no web e no admin; conferir também retorno mobile. Para Xbox conectado, manter o callback `/connections/callback/xbox`. Para Steam, conferir a origem/realm e o retorno usados pelo frontend. Manter os mesmos domínios reduz mudanças, mas não dispensa o teste de cookies, HTTPS e sessão entre web e admin.
 
-Criar ou configurar os aplicativos OAuth para esta instalação; não há identidades antigas a preservar. No web, o `websiteBasePath` do SuperTokens varia com o locale, inclusive `/pt-BR/auth`; validar os callbacks efetivamente gerados nos idiomas suportados.
+Criar ou configurar os aplicativos OAuth para esta instalação; não há identidades antigas a preservar.
+
+### 7.4. Autenticação (Better Auth)
+
+A autenticação roda dentro da API (Better Auth), com usuários, sessões e contas de provedor nas tabelas `user`, `session`, `account` e `verification` do database `gamenode`, criadas pelas migrations versionadas (`yarn migration:run`, executado pelo `server_migration`). Não há serviço nem database de autenticação separado.
+
+- **`BETTER_AUTH_SECRET`:** obrigatório no `server`; o Compose não sobe sem ele. Gerar com `openssl rand -base64 32` e guardar como secret no Coolify. Trocar o valor invalida as sessões e os tokens OAuth cifrados.
+- **Primeiro admin:** a API administrativa (`/v1/auth/admin/*`) exige um admin existente. Depois do primeiro login da conta, promovê-la uma única vez por SQL no database `gamenode`:
+
+  ```sql
+  UPDATE `user` SET role = 'user,admin' WHERE email = 'EMAIL_DO_ADMIN';
+  ```
+
+  Os demais papéis (`admin`, `mod`, `editor`) são atribuídos por um admin em `POST /v1/auth/admin/set-role`. Nenhum papel pode personificar outro usuário.
+- **Suspensões e banimentos bloqueiam a conta inteira:** uma suspensão por denúncia dura 14 dias e um banimento é permanente (só admins banem). Os dois revogam todas as sessões na hora e impedem novos logins enquanto ativos, inclusive o acesso à biblioteca. A suspensão expirada volta a permitir login.
+- **Limpeza pós-rollout:** depois de validar o login em produção, remover manualmente o database e o usuário do serviço de autenticação anterior, se tiverem sido provisionados no recurso MySQL: `DROP DATABASE supertokens;` e `DROP USER 'USUARIO_SUPERTOKENS'@'%';`. Executar **Backup now** antes.
 
 ## 8. Backups recorrentes e recuperação
 
@@ -399,7 +409,7 @@ Política inicial proposta, em UTC, alinhada ao plano de continuidade:
 
 | Ativo | Frequência | Destino e retenção |
 | --- | --- | --- |
-| MySQL gerenciado: `gamenode`, `supertokens` e `blog_cms` | `0 */6 * * *` e antes de migrações | Backup nativo do Coolify, **All databases**; R2 privado, 14 dias; coordenar `blog_cms` com os assets |
+| MySQL gerenciado: `gamenode` e `blog_cms` | `0 */6 * * *` e antes de migrações | Backup nativo do Coolify, **All databases**; R2 privado, 14 dias; coordenar `blog_cms` com os assets |
 | Banco/configuração Coolify | Diário | Backup da instância + `.env`/`APP_KEY` e arquivos necessários fora da VPS |
 | Redis BullMQ | Diário e antes de migrações | Cópia consistente do estado AOF/RDB; sem copiar AOF ativo de forma ingênua |
 | Uploads R2 | Conforme perda aceitável; começar com cópia diária | Conjunto independente, privado, preservando objetos; não só o bucket público original |
@@ -423,7 +433,7 @@ Após o provisionamento, produzir um backup com dados de teste, baixá-lo do R2 
 1. **Confirmar a base.** DNS e acesso ao Coolify pelo domínio já estão regularizados. Verificar os demais recursos da VPS e os controles de origem do painel. Escolher a release conjunta de backend/clientes e as versões dos serviços. Não há origem a inventariar ou restaurar.
 2. **Preparar R2 e secrets.** Criar buckets vazios e credenciais, associar `s3.gamenode.app` e testar escrita S3 e leitura pública com um objeto de teste. Gerar a chave de conexões e os demais secrets. O upload pela API será testado quando ela estiver no ar.
 3. **Corrigir os artefatos de deploy.** Preparar a baseline atual versionada e seu teste em banco vazio conforme a seção 6.1. Ajustar Redis/volumes/recursos, redes, imagens e variáveis. Produzir builds imutáveis no CI. O executor único de migrations é o serviço `server_migration` do Compose (seção 6.2).
-4. **Criar recursos privados no Coolify.** Criar o MySQL gerenciado, executar o provisionamento e configurar o backup (seção 6.3). Depois, implantar pelo Compose Redis cache/filas vazios, SuperTokens, Directus, redes e volumes novos. Manter a API parada até a baseline estar pronta. Configurar limites, healthchecks e backups recorrentes. Somente serviços que recebem HTTP público entram no proxy; não publicar portas de banco.
+4. **Criar recursos privados no Coolify.** Criar o MySQL gerenciado, executar o provisionamento e configurar o backup (seção 6.3). Depois, implantar pelo Compose Redis cache/filas vazios, Directus, redes e volumes novos. Manter a API parada até a baseline estar pronta. Configurar limites, healthchecks e backups recorrentes. Somente serviços que recebem HTTP público entram no proxy; não publicar portas de banco.
 5. **Criar o esquema no primeiro deploy do Compose.** O `server_migration` aplica a baseline e a API só sobe depois que ele termina com sucesso (seção 6.2). Conferir nos logs dele o sucesso e a ausência de migrations pendentes. Não executar cutover de notificações, importar dumps ou fornecer referências fictícias de backup.
 6. **Provisionar o Directus.** Criar modelo/contas com `setup.py`, `model-constraints.sql` e `provision-readers.py`. Validar licença na URL definitiva, políticas editoriais e tokens distintos. O Compose gerencia o volume público compartilhado com a API. Ver [deploy CMS](blog-cms.md) e [licenciamento Directus](https://directus.io/docs/licensing/overview).
 7. **Subir Manticore, API e clientes em validação controlada.** Uma réplica inicial, refreshes de jogadores pausados quando aplicável. Conferir o início automático do IGDB interno com `yarn igdb:catalog status`. Após a carga inicial, executar e validar a indexação sem esperar pelo cron; conferir jogos às 03:00 UTC e usuários a cada hora. Busca vazia antes de importar o catálogo não indica perda de dados.
@@ -446,7 +456,7 @@ Após o provisionamento, produzir um backup com dados de teste, baixá-lo do R2 
 - [ ] CMS publica artigo e imagem; visitante não consegue acessar drafts, tokens ou assets privados.
 - [ ] Notificações/estatísticas/clientes correspondem à mesma versão de contrato.
 - [ ] Filas persistem após reinício sem duplicação indevida; cache não remove jobs; limites de memória são compatíveis com a VPS.
-- [ ] Nenhum MySQL, Redis, Manticore ou SuperTokens está exposto em porta pública; dashboards técnicos têm controle de acesso e proteção contra acesso direto à origem.
+- [ ] Nenhum MySQL, Redis ou Manticore está exposto em porta pública; dashboards técnicos têm controle de acesso e proteção contra acesso direto à origem.
 - [ ] Backups recorrentes configurados e chaves guardadas separadamente; ensaio de recuperação agendado como rotina operacional.
 - [ ] Alertas e responsável operacional definidos.
 

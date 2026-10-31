@@ -5,7 +5,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ReviewComment } from "./entity/review-comment.entity";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { ReviewsModule } from "../reviews/reviews.module";
-import { SuspensionModule } from "../suspension/suspension.module";
 import { ActivitiesRepositoryModule } from "../activities/activities-repository/activities-repository.module";
 import { ActivityComment } from "./entity/activity-comment.entity";
 import { PostComment } from "./entity/post-comment.entity";
@@ -22,7 +21,6 @@ import { AchievementsModule } from "../achievements/achievements.module";
         ReviewsModule,
         ActivitiesRepositoryModule,
         PostsModule,
-        SuspensionModule,
         AchievementsModule,
     ],
     providers: [CommentService],

@@ -19,8 +19,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { PostsService } from "./posts.service";
 import { UploadPostImageRequestDto } from "./dto/upload-post-image.dto";
 import { CreatePostDto } from "./dto/create-post.dto";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { HttpStatusCode } from "axios";
 import {
@@ -30,7 +29,6 @@ import {
 import { CursorPaginationInterceptor } from "../interceptor/cursor-pagination.interceptor";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import { Public } from "../auth/public.decorator";
-import { SuspensionGuard } from "../suspension/suspension.guard";
 
 @Controller("posts/repository")
 @ApiTags("posts")
@@ -55,7 +53,6 @@ export class PostsController {
     }
 
     @Post()
-    @UseGuards(SuspensionGuard)
     async create(
         @Session() session: SessionContainer,
         @Body() dto: CreatePostDto,
@@ -67,7 +64,6 @@ export class PostsController {
     @ApiConsumes("multipart/form-data")
     @UseInterceptors(FileInterceptor("file"))
     @UseGuards(ThrottlerGuard)
-    @UseGuards(SuspensionGuard)
     async uploadPostImage(
         @Session() session: SessionContainer,
         @Body() dto: UploadPostImageRequestDto,

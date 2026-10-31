@@ -13,7 +13,7 @@ export class Library {
      * @description The primary key of the library entity.
      * Also used to share the library with other users.
      *
-     * Same as SuperTokens' userId.
+     * Same as the Better Auth user id.
      */
     @PrimaryColumn({
         nullable: false,

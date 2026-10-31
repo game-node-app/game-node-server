@@ -10,11 +10,13 @@ import { ActivityType } from "../activities-queue/activities-queue.constants";
 import { StatisticsTarget } from "../../statistics/entity/statistics-target.entity";
 import { MetricTotal } from "../../statistics/entity/metric-total.entity";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
+import { lockoutAuthService } from "../../../test/mocks/lockout-auth-service.mock";
 
 describe("ActivitiesRepositoryService (behavioral integration)", () => {
     let dataSource: DataSource;
     let service: ActivitiesRepositoryService;
     let postsService: any;
+    let getLockoutStates: jest.Mock;
 
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
@@ -24,12 +26,13 @@ describe("ActivitiesRepositoryService (behavioral integration)", () => {
                 gameId: 1,
             })),
         };
+        getLockoutStates = jest.fn().mockResolvedValue(new Map());
         service = new ActivitiesRepositoryService(
             dataSource.getRepository(Activity),
             {} as any,
             {} as any,
             { isMature: jest.fn().mockResolvedValue(false) } as any,
-            { checkIsSuspendedOrBanned: jest.fn().mockResolvedValue(false) } as any,
+            { getLockoutStates } as any,
             postsService,
             {
                 findOneByIdOrFail: jest
@@ -118,5 +121,35 @@ describe("ActivitiesRepositoryService (behavioral integration)", () => {
             sourceType: StatisticsSourceType.ACTIVITY,
         });
         expect(targetCountAfter).toBe(targetCountBefore);
+    });
+
+    it.each([
+        { lockout: "an active suspension", banExpires: new Date(Date.now() + 60_000), rejected: true },
+        { lockout: "a permanent ban", banExpires: null, rejected: true },
+        { lockout: "an expired suspension", banExpires: new Date(Date.now() - 60_000), rejected: false },
+    ])("with $lockout, rejects creation: $rejected", async ({ banExpires, rejected }) => {
+        const userId = randomUUID();
+        const postId = randomUUID();
+        await ensurePost(postId, userId);
+        const auth = lockoutAuthService([
+            { id: userId, banned: true, banExpires },
+        ]);
+        getLockoutStates.mockImplementationOnce((ids: string[]) =>
+            auth.getLockoutStates(ids),
+        );
+
+        const creation = service.create({
+            type: ActivityType.POST,
+            sourceId: postId,
+            profileUserId: userId,
+        });
+
+        if (rejected) {
+            await expect(creation).rejects.toThrow(
+                new UnrecoverableError("User is suspended or banned."),
+            );
+        } else {
+            expect((await creation)!.id).toBeDefined();
+        }
     });
 });

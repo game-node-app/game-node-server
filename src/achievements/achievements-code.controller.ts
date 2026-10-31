@@ -5,8 +5,7 @@ import { AuthGuard } from "../auth/auth.guard";
 import { CreateAchievementCodeRequestDto } from "./dto/create-achievement-code.dto";
 import { Roles } from "../auth/roles.decorator";
 import { EUserRoles } from "../utils/constants";
-import { SessionContainer } from "supertokens-node/recipe/session";
-import { Session } from "../auth/session.decorator";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { ThrottlerGuard } from "@nestjs/throttler";
 
 @Controller("achievements/code")

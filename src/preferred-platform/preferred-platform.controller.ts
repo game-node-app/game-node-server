@@ -11,8 +11,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "../auth/auth.guard";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { PreferredPlatformService } from "./preferred-platform.service";
 import { CreatePreferredPlatformDto } from "./dto/create-preferred-platform.dto";
 import { UpdatePreferredPlatformOrderDto } from "./dto/update-preferred-platform-order.dto";

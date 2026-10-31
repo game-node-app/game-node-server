@@ -5,13 +5,11 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Profile } from "./entities/profile.entity";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
 import { ProfileBanner } from "./entities/profile-banner.entity";
-import { SuspensionModule } from "../suspension/suspension.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Profile, ProfileAvatar, ProfileBanner]),
-        SuspensionModule,
         NotificationsModule,
     ],
     controllers: [ProfileController],

@@ -1,4 +1,16 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
+import type { AuthService } from "./auth.service";
+
+type BetterAuthSession = NonNullable<
+    Awaited<ReturnType<AuthService["getSession"]>>
+>;
+
+/**
+ * What {@link AuthGuard} puts on req.session for a signed-in user.
+ */
+export type SessionContainer = BetterAuthSession & {
+    getUserId: () => string;
+};
 
 /**
  * Retrieves session info for the current logged in user. <br>

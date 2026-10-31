@@ -62,14 +62,14 @@ retention before the fix and now verify retention plus attempts/backoff.
 Run unit tests from the repository root:
 
 ```sh
-npx jest --runInBand --testPathPattern='(importer-watch|game-achievement-sync|playtime-watch|connections.service|player-data-queue.service).*spec.ts$'
+yarn test --runInBand --testPathPatterns='(importer-watch|game-achievement-sync|playtime-watch|connections.service|player-data-queue.service).*spec.ts$'
 ```
 
 For lifecycle integration, use a disposable local Redis instance:
 
 ```sh
 docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
-PLAYER_IMPORT_TEST_REDIS_PORT=17379 npx jest --runInBand --runTestsByPath src/sync/player-data/player-data-queue.lifecycle.spec.ts
+PLAYER_IMPORT_TEST_REDIS_PORT=17379 yarn test --runInBand --runTestsByPath src/sync/player-data/player-data-queue.lifecycle.spec.ts
 docker stop player-import-test-redis
 ```
 
@@ -164,7 +164,7 @@ methods; no additional provider maximum is asserted.
 Run the provider and propagation fixture suites with:
 
 ```sh
-npx jest --runInBand --runTestsByPath src/sync/xbox/xbox-sync.service.spec.ts src/sync/psn/psn-sync.service.spec.ts src/sync/steam/steam-sync.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts src/playtime/watch/playtime-watch.processor.spec.ts
+yarn test --runInBand --runTestsByPath src/sync/xbox/xbox-sync.service.spec.ts src/sync/psn/psn-sync.service.spec.ts src/sync/steam/steam-sync.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts src/playtime/watch/playtime-watch.processor.spec.ts
 ```
 
 These checks use provider fixtures, not live accounts. The installed PSN client
@@ -239,14 +239,14 @@ move that legacy HTTP compatibility to the controller boundary.
 Run the added failure/cache/deadline suites without provider credentials:
 
 ```sh
-npx jest --runInBand --testPathPattern='(sync/(provider-sync.error|player-sync-attempt|steam/|psn/|xbox/)|utils/cacheable|game-achievement.service|game-achievement-sync.processor|importer-watch.processor|playtime-watch.processor).*spec.ts$'
+yarn test --runInBand --testPathPatterns='(sync/(provider-sync.error|player-sync-attempt|steam/|psn/|xbox/)|utils/cacheable|game-achievement.service|game-achievement-sync.processor|importer-watch.processor|playtime-watch.processor).*spec.ts$'
 ```
 
 To test shared admission and actual queue retry counts, use disposable Redis:
 
 ```sh
 docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
-PLAYER_IMPORT_TEST_REDIS_PORT=17379 npx jest --runInBand --runTestsByPath src/sync/player-provider-budget.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts
+PLAYER_IMPORT_TEST_REDIS_PORT=17379 yarn test --runInBand --runTestsByPath src/sync/player-provider-budget.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts
 docker stop player-import-test-redis
 ```
 
@@ -324,7 +324,7 @@ Run the isolated MySQL/Redis state checks with:
 docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
 docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
 docker exec player-import-test-mysql mysqladmin ping --silent
-PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=17379 npx jest --runInBand --runTestsByPath src/sync/player-data/player-sync-state.integration.spec.ts src/sync/player-data/player-sync-state.service.spec.ts src/sync/player-data/player-sync-policy.spec.ts
+PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=17379 yarn test --runInBand --runTestsByPath src/sync/player-data/player-sync-state.integration.spec.ts src/sync/player-data/player-sync-state.service.spec.ts src/sync/player-data/player-sync-policy.spec.ts
 docker stop player-import-test-mysql player-import-test-redis
 ```
 
@@ -508,7 +508,7 @@ Run these fixtures with disposable MySQL:
 ```sh
 docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
 docker exec player-import-test-mysql mysqladmin ping --silent
-PLAYER_IMPORT_TEST_MYSQL_PORT=14306 npx jest --runInBand --runTestsByPath src/game/game-achievement/sync/game-achievement-sync.transaction.integration.spec.ts
+PLAYER_IMPORT_TEST_MYSQL_PORT=14306 yarn test --runInBand --runTestsByPath src/game/game-achievement/sync/game-achievement-sync.transaction.integration.spec.ts
 docker stop player-import-test-mysql
 ```
 
@@ -862,7 +862,7 @@ truncate the application database or flush Redis.
 docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
 docker exec player-import-test-mysql mysqladmin ping --silent
 docker run --rm -d --name player-import-test-redis -p 127.0.0.1:14379:6379 redis:8.10.3-alpine3.23
-PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=14379 yarn test --runInBand --testPathPattern='(playtime/|importer/|connection/|sync/(player|provider|steam/|psn/|xbox/)|game/(game-achievement/|external-game/)|activities/activities-(queue|repository)/|journal/|notifications/|collections/collections-entries/).*spec.ts$'
+PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=14379 yarn test --runInBand --testPathPatterns='(playtime/|importer/|connection/|sync/(player|provider|steam/|psn/|xbox/)|game/(game-achievement/|external-game/)|activities/activities-(queue|repository)/|journal/|notifications/|collections/collections-entries/).*spec.ts$'
 yarn build
 openspec validate optimize-player-data-imports --strict
 docker stop player-import-test-redis player-import-test-mysql

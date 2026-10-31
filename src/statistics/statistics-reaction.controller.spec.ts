@@ -12,12 +12,12 @@ import { StatisticsController } from "./statistics.controller";
 import { StatisticsService } from "./statistics.service";
 import { StatisticsRankingService } from "./statistics-ranking.service";
 import { AuthGuard } from "../auth/auth.guard";
-import { SuspensionGuard } from "../suspension/suspension.guard";
 
 describe("reaction write guards", () => {
     let app: INestApplication;
     let authenticated: boolean;
-    let suspended: boolean;
+    // A locked-out user has no session, so AuthGuard rejects them like an anonymous caller.
+    let lockedOut: boolean;
     const applyReaction = jest.fn();
     const statisticsService = {
         applyReaction,
@@ -34,7 +34,7 @@ describe("reaction write guards", () => {
 
     beforeEach(async () => {
         authenticated = true;
-        suspended = false;
+        lockedOut = false;
         applyReaction
             .mockReset()
             .mockResolvedValue({ isLiked: true, likesCount: 1 });
@@ -57,15 +57,14 @@ describe("reaction write guards", () => {
             .overrideGuard(AuthGuard)
             .useValue({
                 canActivate(context: ExecutionContext) {
-                    if (!authenticated) throw new UnauthorizedException();
+                    if (!authenticated || lockedOut)
+                        throw new UnauthorizedException();
                     context.switchToHttp().getRequest().session = {
                         getUserId: () => "session-actor",
                     };
                     return true;
                 },
             })
-            .overrideGuard(SuspensionGuard)
-            .useValue({ canActivate: () => !suspended })
             .compile();
         app = module.createNestApplication();
         await app.init();
@@ -99,23 +98,23 @@ describe("reaction write guards", () => {
         },
     );
 
-    it("rejects unauthenticated and suspended actors before persistence", async () => {
+    it("rejects unauthenticated and locked-out actors before persistence", async () => {
         authenticated = false;
         await request(app.getHttpServer())
             .put("/statistics/like")
             .send(body)
             .expect(401);
         authenticated = true;
-        suspended = true;
+        lockedOut = true;
         await request(app.getHttpServer())
             .put("/statistics/like")
             .send(body)
-            .expect(403);
+            .expect(401);
         expect(applyReaction).not.toHaveBeenCalled();
         await request(app.getHttpServer())
             .post("/statistics/view")
             .send({ ...body, viewId: body.sourceId })
-            .expect(403);
+            .expect(401);
         expect(statisticsService.recordView).not.toHaveBeenCalled();
     });
 
