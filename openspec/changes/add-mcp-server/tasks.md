@@ -15,7 +15,7 @@
 
 ## 3. Shared service fixes
 
-- [ ] 3.1 Reject collection ids not owned by the caller in `CollectionsEntriesService.createOrUpdate` (HTTP 403), and confirm the REST controller is the only caller; verify with a spec covering own collections (ok), a foreign collection (403, entry unchanged) and an empty list.
+- [x] 3.1 Reject collection ids not owned by the caller in `CollectionsEntriesService.createOrUpdate` (HTTP 403), and confirm the REST controller is the only caller; verify with a spec covering own collections (ok), a foreign collection (403, entry unchanged) and an empty list.
 
 ## 4. MCP endpoint (mcp-tools)
 
