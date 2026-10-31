@@ -129,7 +129,7 @@ function countMetric(
         async candidates(manager, criteria, window, afterUserId, limit) {
             const [sql, params] = conditions(query, criteria, window);
             const rows = await manager.query(
-                `SELECT DISTINCT ${query.user} AS userId FROM ${query.from} WHERE ${query.user} > ?${sql} ORDER BY userId LIMIT ?`,
+                `SELECT DISTINCT ${query.user} AS userId FROM ${query.from} WHERE ${query.user} > ? AND EXISTS (SELECT 1 FROM profile p WHERE p.userId = ${query.user})${sql} ORDER BY userId LIMIT ?`,
                 [afterUserId ?? "", ...params, limit],
             );
             return rows.map((row: { userId: string }) => row.userId);
