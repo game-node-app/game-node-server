@@ -20,7 +20,6 @@ import { SteamSyncModule } from "./sync/steam/steam-sync.module";
 import { CommentModule } from "./comment/comment.module";
 import { ImporterWatchModule } from "./importer/importer-watch/importer-watch.module";
 import { ReportModule } from "./report/report.module";
-import { SuspensionModule } from "./suspension/suspension.module";
 import { ProfileMetricsModule } from "./profile/profile-metrics/profile-metrics.module";
 import { RecommendationModule } from "./recommendation/recommendation.module";
 import { GameFilterModule } from "./game/game-filter/game-filter.module";
@@ -169,7 +168,6 @@ import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.mo
         ImporterWatchModule,
         CommentModule,
         ReportModule,
-        SuspensionModule,
         RecommendationModule,
         PlaytimeWatchModule,
         GameFilterModule,

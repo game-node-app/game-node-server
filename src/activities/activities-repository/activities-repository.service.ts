@@ -18,7 +18,7 @@ import { createStatisticsTarget, ensureStatisticsTarget } from "../../statistics
 import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { GameFilterService } from "../../game/game-filter/game-filter.service";
-import { SuspensionService } from "../../suspension/suspension.service";
+import { AuthService } from "../../auth/auth.service";
 import { ReviewsService } from "../../reviews/reviews.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { UnrecoverableError } from "bullmq";
@@ -35,7 +35,7 @@ export class ActivitiesRepositoryService {
         private readonly reviewsService: ReviewsService,
         private readonly collectionEntriesService: CollectionsEntriesService,
         private readonly gameFilterService: GameFilterService,
-        private readonly suspensionService: SuspensionService,
+        private readonly authService: AuthService,
         private readonly postsService: PostsService,
         private readonly obtainedGameAchievementActivityService: GameAchievementActivityService,
     ) {}
@@ -50,12 +50,11 @@ export class ActivitiesRepositoryService {
      * @private
      */
     private async validateCreate(dto: ActivityCreate) {
-        const isSuspendedOrBanned =
-            await this.suspensionService.checkIsSuspendedOrBanned(
-                dto.profileUserId,
-            );
+        const lockout = (
+            await this.authService.getLockoutStates([dto.profileUserId])
+        ).get(dto.profileUserId);
 
-        if (isSuspendedOrBanned) {
+        if (lockout?.isSuspended || lockout?.isBanned) {
             throw new UnrecoverableError("User is suspended or banned.");
         }
 

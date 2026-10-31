@@ -137,7 +137,7 @@ Materialized ready-to-render inbox items aggregated by recipient and group key.
    - Outbox records and delivered event records are preserved across the supported operational retry and migration horizon.
    - Purging transport jobs in BullMQ Redis does not affect database deduplication records, preventing re-delivery of delivered events.
 
-Schema verification: `yarn jest --runInBand --testTimeout=120000
+Schema verification: `yarn test --runInBand --testTimeout=120000
 src/notifications/notification-entities.integration.spec.ts` runs the checked-in
 notification migration on disposable MySQL, compares every column/index with the
 registered entities, checks all three unique identities, and exercises the importer
@@ -252,7 +252,7 @@ Reactions (likes/unlikes) are processed synchronously and server-controlled:
 - The actor identity is derived strictly from the authenticated session (`@Session() session.getUserId()`).
 - The recipient identity is derived strictly from the persisted domain ownership in the database (`Review.profileUserId`, `Post.profileUserId`, `Activity.profileUserId`, `Comment.profileUserId`).
 - No client-supplied actor or recipient parameters are accepted.
-- Both endpoints are guarded by `AuthGuard` and `SuspensionGuard`.
+- Both endpoints are guarded by `AuthGuard`; suspended or banned users have no session, so they get 401.
 
 ### Endpoints
 

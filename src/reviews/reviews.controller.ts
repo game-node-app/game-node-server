@@ -10,8 +10,7 @@ import {
     Delete,
 } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { ReviewsService } from "./reviews.service";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "../auth/auth.guard";
@@ -22,7 +21,6 @@ import { FindReviewDto } from "./dto/find-review.dto";
 import { Public } from "../auth/public.decorator";
 import { ReviewScoreRequestDto } from "./dto/review-score-request.dto";
 import { FindAllReviewsByIdDto } from "./dto/find-all-reviews-by-id.dto";
-import { SuspensionGuard } from "../suspension/suspension.guard";
 
 @Controller("reviews")
 @ApiTags("reviews")
@@ -31,7 +29,6 @@ export class ReviewsController {
     constructor(private readonly reviewsService: ReviewsService) {}
 
     @Post()
-    @UseGuards(SuspensionGuard)
     createOrUpdate(
         @Session() session: SessionContainer,
         @Body() createReviewDto: CreateReviewDto,

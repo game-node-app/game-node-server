@@ -2,8 +2,7 @@ import { Controller, Param, UseGuards, HttpCode, Get } from "@nestjs/common";
 import { LibrariesService } from "./libraries.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { ApiProduces, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { SessionContainer } from "supertokens-node/recipe/session";
-import { Session } from "../auth/session.decorator";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { Library } from "./entities/library.entity";
 import { Public } from "../auth/public.decorator";
 

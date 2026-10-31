@@ -3,6 +3,7 @@ import { CollectionsController } from "./collections.controller";
 import { CollectionsService } from "./collections.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { CACHE_MANAGER, CacheModule } from "@nestjs/cache-manager";
+import { AuthService } from "../auth/auth.service";
 
 describe("CollectionsController", () => {
     let controller: CollectionsController;
@@ -12,6 +13,7 @@ describe("CollectionsController", () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [CollectionsController],
             providers: [
+                { provide: AuthService, useValue: {} },
                 {
                     provide: CollectionsService,
                     useValue: {

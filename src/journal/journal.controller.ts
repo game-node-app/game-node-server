@@ -1,8 +1,7 @@
 import { Controller, Get, Param, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { JournalService } from "./journal.service";
 import { ApiTags } from "@nestjs/swagger";
 import { JournalPlayLogService } from "./journal-play-log.service";

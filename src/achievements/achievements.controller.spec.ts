@@ -3,6 +3,7 @@ import { AchievementsController } from "./achievements.controller";
 import { AchievementsService } from "./achievements.service";
 import { getMockRepositoryProvider } from "../../test/mocks/repositoryMocks";
 import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
+import { AuthService } from "../auth/auth.service";
 
 describe("AchievementsController", () => {
     let controller: AchievementsController;
@@ -11,6 +12,7 @@ describe("AchievementsController", () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [AchievementsController],
             providers: [
+                { provide: AuthService, useValue: {} },
                 getMockRepositoryProvider(ObtainedAchievement),
                 { provide: AchievementsService, useValue: {} },
             ],

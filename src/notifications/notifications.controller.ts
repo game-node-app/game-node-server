@@ -10,8 +10,7 @@ import {
 } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { NotificationsService } from "./notifications.service";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
 import { NotificationReadRequestDto } from "./dto/notification-read.dto";

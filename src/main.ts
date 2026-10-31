@@ -1,15 +1,15 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import { SupertokensExceptionFilter } from "./auth/auth.filter";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Cache } from "@nestjs/cache-manager";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import duration from "dayjs/plugin/duration";
 import dayjs from "dayjs";
-import supertokens from "supertokens-node";
 import { publicImagesDir } from "./utils/constants";
-import { json } from "express";
+import { json, urlencoded } from "express";
+import { toNodeHandler } from "better-auth/node";
+import { AuthService } from "./auth/auth.service";
 import * as fs from "fs";
 import * as process from "process";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
@@ -21,6 +21,7 @@ import {
 import { Logger } from "nestjs-pino";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { setCacheManager } from "./utils/cacheable";
+import { CORS_OPTIONS } from "./auth/cors-options";
 
 dayjs.extend(duration);
 
@@ -30,7 +31,10 @@ async function bootstrap() {
         storageDriver: StorageDriver.ASYNC_LOCAL_STORAGE,
     });
 
-    const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    // Better Auth reads the raw body, so Nest's parsers are replaced below, after the auth handler.
+    const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+        bodyParser: false,
+    });
     app.enableShutdownHooks();
 
     app.useLogger(app.get(Logger));
@@ -49,13 +53,15 @@ async function bootstrap() {
 
     app.useGlobalFilters(new SQLExceptionFilter(), new AxiosExceptionFilter());
 
-    app.enableCors({
-        credentials: true,
-        origin: true,
-        optionsSuccessStatus: 204,
-        allowedHeaders: ["content-type", ...supertokens.getAllCORSHeaders()],
-        methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
-    });
+    app.enableCors(CORS_OPTIONS);
+
+    // Not app.use("/v1/auth"): Express strips mount prefixes, and Better Auth routes by full path.
+    app.getHttpAdapter()
+        .getInstance()
+        .all("/v1/auth/*splat", toNodeHandler(app.get(AuthService).auth));
+
+    app.use(json({ limit: "15mb" }));
+    app.use(urlencoded({ extended: true }));
 
     app.useGlobalPipes(
         new ValidationPipe({
@@ -87,13 +93,9 @@ async function bootstrap() {
 
     SwaggerModule.setup("v1/docs", app, swaggerDocument);
 
-    app.useGlobalFilters(new SupertokensExceptionFilter());
-
     app.useStaticAssets(publicImagesDir, {
         prefix: "/v1/public",
     });
-
-    app.use(json({ limit: "15mb" }));
 
     await app.listen(process.env.SERVER_PORT || 5000);
 }

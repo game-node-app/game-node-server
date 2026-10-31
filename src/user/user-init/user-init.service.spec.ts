@@ -4,7 +4,6 @@ import { CollectionsService } from "../../collections/collections.service";
 import { LibrariesService } from "../../libraries/libraries.service";
 import { ProfileService } from "../../profile/profile.service";
 import { LevelService } from "../../level/level.service";
-import UserRoles from "supertokens-node/recipe/userroles";
 import Mocked = jest.Mocked;
 
 const mockUserId = "1234";
@@ -13,6 +12,7 @@ describe("UserInitService", () => {
     let service: UserInitService;
     let librariesService: Mocked<LibrariesService>;
     let profileService: Mocked<ProfileService>;
+    let levelService: Mocked<LevelService>;
     let moduleCollectionsCreate: jest.Mock;
 
     beforeEach(async () => {
@@ -44,9 +44,7 @@ describe("UserInitService", () => {
                 {
                     provide: LevelService,
                     useValue: {
-                        findOneByUserId: jest.fn(),
-                        findOneById: jest.fn(),
-                        create: jest.fn(),
+                        findOneOrCreateByUserId: jest.fn(),
                     },
                 },
             ],
@@ -55,10 +53,7 @@ describe("UserInitService", () => {
         service = module.get<UserInitService>(UserInitService);
         librariesService = module.get(LibrariesService);
         profileService = module.get(ProfileService);
-        jest.spyOn(UserRoles, "getRolesForUser").mockResolvedValue({
-            status: "OK",
-            roles: ["user"],
-        });
+        levelService = module.get(LevelService);
     });
 
     it("should be defined", () => {
@@ -81,5 +76,29 @@ describe("UserInitService", () => {
         profileService.findOneById.mockResolvedValueOnce(null);
         await service.init(mockUserId);
         expect(profileService.create).toHaveBeenCalledWith(mockUserId);
+    });
+
+    it("should ensure a user level after the profile", async () => {
+        profileService.findOneById.mockResolvedValueOnce(null);
+        await service.init(mockUserId);
+        expect(levelService.findOneOrCreateByUserId).toHaveBeenCalledWith(
+            mockUserId,
+        );
+        expect(profileService.create.mock.invocationCallOrder[0]).toBeLessThan(
+            levelService.findOneOrCreateByUserId.mock.invocationCallOrder[0],
+        );
+    });
+
+    it("should create nothing new on a second init", async () => {
+        profileService.findOneById
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce({ userId: mockUserId } as never);
+        librariesService.findOneById
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce({ userId: mockUserId } as never);
+        await service.init(mockUserId);
+        await service.init(mockUserId);
+        expect(profileService.create).toHaveBeenCalledTimes(1);
+        expect(librariesService.create).toHaveBeenCalledTimes(1);
     });
 });

@@ -55,7 +55,7 @@ describe("source creation after statistics retirement", () => {
             await reviews.createOrUpdate(owner, { gameId: 1, rating: 4 } as any);
             const review = await dataSource.getRepository(Review).findOneByOrFail({ profileUserId: owner });
             const activities = new ActivitiesRepositoryService(dataSource.getRepository(Activity), reviews, {} as any,
-                { isMature: async () => false } as any, { checkIsSuspendedOrBanned: async () => false } as any, posts, {} as any);
+                { isMature: async () => false } as any, { getLockoutStates: async () => new Map() } as any, posts, {} as any);
             const activity = await activities.create({ type: ActivityType.POST, sourceId: post.id, profileUserId: owner });
             const comments = new CommentService(dataSource, lifecycle);
             const targetIds = [post.statisticsTargetId, review.statisticsTargetId, activity!.statisticsTargetId];

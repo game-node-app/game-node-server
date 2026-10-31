@@ -16,5 +16,5 @@ The query count did not grow per game in this range; inserts are chunked at 500 
 Reproduce with:
 
 ```sh
-IGDB_TEST_MYSQL_PORT=13306 npx jest --runInBand --testTimeout=120000 importer/importer-batch-import.integration.spec.ts -t 'measures provider calls'
+IGDB_TEST_MYSQL_PORT=13306 yarn test --runInBand --testTimeout=120000 importer/importer-batch-import.integration.spec.ts -t 'measures provider calls'
 ```

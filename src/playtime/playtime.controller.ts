@@ -21,8 +21,7 @@ import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { FindAllPlaytimeFiltersDto } from "./dto/find-all-playtime-filters.dto";
 import { HttpStatusCode } from "axios";
 import { SubmitUserPlaytimeDto } from "./dto/create-user-playtime.dto";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
 

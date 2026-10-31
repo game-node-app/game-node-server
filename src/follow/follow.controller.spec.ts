@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { FollowController } from "./follow.controller";
 import { FollowService } from "./follow.service";
+import { AuthService } from "../auth/auth.service";
 
 describe("FollowController", () => {
     let controller: FollowController;
@@ -8,6 +9,7 @@ describe("FollowController", () => {
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
+                { provide: AuthService, useValue: {} },
                 {
                     provide: FollowService,
                     useValue: {},

@@ -9,13 +9,11 @@ import { CollectionEntry } from "../collections/collections-entries/entities/col
 import { CollectionsEntriesModule } from "../collections/collections-entries/collections-entries.module";
 import { AchievementsModule } from "../achievements/achievements.module";
 import { LevelModule } from "../level/level.module";
-import { SuspensionModule } from "../suspension/suspension.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Review, CollectionEntry]),
-        SuspensionModule,
         ProfileModule,
         forwardRef(() => ActivitiesQueueModule),
         AchievementsModule,

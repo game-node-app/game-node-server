@@ -15,8 +15,7 @@ import {
 } from "@nestjs/common";
 import { CollectionsEntriesService } from "./collections-entries.service";
 import { ApiBadRequestResponse, ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import { Session } from "../../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../../auth/session.decorator";
 import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
 import { AuthGuard } from "../../auth/auth.guard";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";

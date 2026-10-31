@@ -1,7 +1,6 @@
 import { Controller, Delete, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../../auth/auth.guard";
-import { SessionContainer } from "supertokens-node/recipe/session";
-import { Session } from "../../auth/session.decorator";
+import { Session, SessionContainer } from "../../auth/session.decorator";
 import { UserAccountService } from "./user-account.service";
 import { ApiTags } from "@nestjs/swagger";
 

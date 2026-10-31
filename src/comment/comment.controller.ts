@@ -21,8 +21,7 @@ import {
 } from "@nestjs/swagger";
 import { CommentService } from "./comment.service";
 import { CreateCommentDto } from "./dto/create-comment.dto";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { FindAllCommentsDto } from "./dto/find-all-comments.dto";
 import { Public } from "../auth/public.decorator";
@@ -31,7 +30,6 @@ import { UpdateCommentDto } from "./dto/update-comment.dto";
 import { CommentSourceType } from "./comment.constants";
 import { PaginationInterceptor } from "../interceptor/pagination.interceptor";
 import { DeleteCommentDto } from "./dto/delete-comment.dto";
-import { SuspensionGuard } from "../suspension/suspension.guard";
 import { BaseFindDto } from "../utils/base-find.dto";
 import { UserComment } from "./entity/user-comment.entity";
 import {
@@ -95,7 +93,6 @@ export class CommentController {
 
     @Post("create")
     @HttpCode(HttpStatus.CREATED)
-    @UseGuards(SuspensionGuard)
     async create(
         @Session() session: SessionContainer,
         @Body() dto: CreateCommentDto,
@@ -105,7 +102,6 @@ export class CommentController {
 
     @Patch(":id")
     @HttpCode(HttpStatus.NO_CONTENT)
-    @UseGuards(SuspensionGuard)
     async update(
         @Session() session: SessionContainer,
         @Param("id") commentId: string,

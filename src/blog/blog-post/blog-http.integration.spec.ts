@@ -1,4 +1,5 @@
-import { INestApplication, MiddlewareConsumer, Module, NestModule, ValidationPipe, VersioningType } from '@nestjs/common';
+import { INestApplication, Module, ValidationPipe, VersioningType } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { HttpModule } from '@nestjs/axios';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -9,12 +10,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
-import supertokens from 'supertokens-node';
-import EmailPassword from 'supertokens-node/recipe/emailpassword';
-import Session from 'supertokens-node/recipe/session';
-import UserRoles from 'supertokens-node/recipe/userroles';
-import { AuthMiddleware } from '../../auth/auth.middleware';
-import { SupertokensExceptionFilter } from '../../auth/auth.filter';
+import { AuthService } from '../../auth/auth.service';
+import { UserInitService } from '../../user/user-init/user-init.service';
 import { BlogCmsService } from './blog-cms.service';
 import { BlogDeliveryService } from './blog-delivery.service';
 import { BlogPresentationService } from './blog-presentation.service';
@@ -31,10 +28,8 @@ const fixture = (locale: string, status: string, article_id = 'article') => ({ i
     [mediaReference('/assets/' + cover + '?width=1', 'https://cms.example').name]: inlineName,
 } });
 
-@Module({ imports: [HttpModule], controllers: [BlogPostController, BlogPreviewController, BlogMediaController], providers: [BlogCmsService, BlogDeliveryService, BlogPresentationService] })
-class BlogTestModule implements NestModule {
-    configure(consumer: MiddlewareConsumer) { consumer.apply(AuthMiddleware).forRoutes('*'); }
-}
+@Module({ imports: [HttpModule, ConfigModule.forRoot()], controllers: [BlogPostController, BlogPreviewController, BlogMediaController], providers: [BlogCmsService, BlogDeliveryService, BlogPresentationService, AuthService, { provide: UserInitService, useValue: { init: async () => undefined } }] })
+class BlogTestModule {}
 
 describe('blog HTTP delivery and access', () => {
     let app: INestApplication;
@@ -43,22 +38,8 @@ describe('blog HTTP delivery and access', () => {
     const users: string[] = [];
     let editor: string;
     let reader: string;
-    let createdRole = false;
     let cmsMode: 'normal' | 'fail' | 'empty' = 'normal';
     beforeAll(async () => {
-        supertokens.init({ appInfo: { appName: 'Blog test', apiDomain: 'http://localhost:5000', websiteDomain: 'http://localhost:3000', apiBasePath: '/v1/auth', websiteBasePath: '/auth' },
-            supertokens: { connectionURI: process.env.SUPERTOKENS_CORE_URI || 'http://localhost:3567' }, recipeList: [EmailPassword.init(), Session.init(), UserRoles.init()] });
-        const role = await UserRoles.createNewRoleOrAddPermissions('editor', []);
-        createdRole = role.createdNewRole;
-        async function session(roleName?: string) {
-            const result = await EmailPassword.signUp('public', `${randomUUID()}@example.test`, 'TestPassword!123');
-            if (result.status !== 'OK') throw new Error('Could not create test user');
-            users.push(result.user.id);
-            if (roleName) await UserRoles.addRoleToUser('public', result.user.id, roleName);
-            return (await Session.createNewSessionWithoutRequestResponse('public', result.recipeUserId)).getAccessToken();
-        }
-        editor = await session('editor');
-        reader = await session();
         cms = createServer((req, res) => {
             const preview = req.headers.authorization === 'Bearer preview-token';
             if (!preview && req.headers.authorization !== 'Bearer delivery-token') { res.writeHead(403).end(); return; }
@@ -84,16 +65,25 @@ describe('blog HTTP delivery and access', () => {
         await writeFile(join(directory, inlineName), 'image');
         const module = await Test.createTestingModule({ imports: [BlogTestModule] }).compile();
         app = module.createNestApplication();
+        const auth = await module.get(AuthService).auth.$context;
+        async function session(role?: string) {
+            const user = await auth.internalAdapter.createUser({ email: `${randomUUID()}@example.test`, name: 'Blog test', emailVerified: true, ...(role && { role }) }, { method: 'test' });
+            users.push(user.id);
+            return (await auth.internalAdapter.createSession(user.id)).token;
+        }
+        editor = await session('user,editor');
+        reader = await session();
         app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
         app.useGlobalPipes(new ValidationPipe({ transform: true, transformOptions: { enableImplicitConversion: true } }));
-        app.useGlobalFilters(new SupertokensExceptionFilter());
         await app.init();
     });
     afterAll(async () => {
-        if (app) await app.close();
+        if (app) {
+            const auth = await app.get(AuthService).auth.$context;
+            for (const id of users) await auth.internalAdapter.deleteUser(id);
+            await app.close();
+        }
         if (cms) await new Promise<void>((resolve, reject) => cms.close((error) => error ? reject(error) : resolve()));
-        for (const id of users) await supertokens.deleteUser(id);
-        if (createdRole) await UserRoles.deleteRole('editor');
         if (directory) await rm(directory, { recursive: true, force: true });
         for (const key of ['BLOG_CMS_URL', 'BLOG_CMS_PUBLIC_URL', 'BLOG_CMS_DELIVERY_TOKEN', 'BLOG_CMS_PREVIEW_TOKEN', 'BLOG_PUBLIC_MEDIA_PATH', 'DOMAIN_API']) delete process.env[key];
     });

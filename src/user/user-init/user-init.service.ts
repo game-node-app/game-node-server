@@ -1,19 +1,15 @@
 import { Injectable, Logger } from "@nestjs/common";
-import UserRoles from "supertokens-node/recipe/userroles";
-import { Timeout } from "@nestjs/schedule";
 import retry from "async-retry";
 import { seconds } from "@nestjs/throttler";
 import { LibrariesService } from "../../libraries/libraries.service";
 import { ProfileService } from "../../profile/profile.service";
 import { LevelService } from "../../level/level.service";
-import { EUserRoles } from "../../utils/constants";
 
 /**
  * This service is responsible for initializing data/entities required for usage when a user performs a login. <br>
  */
 @Injectable()
 export class UserInitService {
-    private readonly defaultTenantId = "public";
     private logger = new Logger(UserInitService.name);
 
     constructor(
@@ -22,24 +18,10 @@ export class UserInitService {
         private userLevelService: LevelService,
     ) {}
 
-    @Timeout(5000)
-    private createUserRoles() {
-        this.logger.log("Starting user role creation routine.");
-        for (const role of Object.values(EUserRoles)) {
-            UserRoles.createNewRoleOrAddPermissions(role, [])
-                .then()
-                .catch((e) => {
-                    this.logger.error(e);
-                });
-        }
-    }
-
     /**
-     * Given a Supertokens userId, initialize said user in our system. <br>
-     * This function should be called on the PostSignup event for SuperTokens. <br>
+     * Given a userId, initialize said user in our system. <br>
+     * Called on every sign-in by AuthService, so every step must be idempotent. <br>
      * Throws errors when any of the init methods fails.
-     *
-     * Errors should be thrown with some of AUTH_ERROR's messages.
      * @param userId
      * @throws Error
      */
@@ -47,11 +29,6 @@ export class UserInitService {
         this.logger.log(
             `Started init routine for ${userId} at ${new Date().toISOString()}`,
         );
-        const initPromises: Promise<void>[] = [
-            this.initUserRole(userId),
-            this.initProfile(userId),
-            this.initLibrary(userId),
-        ];
         /*
          * For access denied errors:
          *   code: 'ER_ACCESS_DENIED_ERROR',
@@ -61,7 +38,13 @@ export class UserInitService {
          */
         await retry(
             async () => {
-                await Promise.all(initPromises);
+                await Promise.all([
+                    // Level references the profile, so it is created after it.
+                    this.initProfile(userId).then(() =>
+                        this.userLevelService.findOneOrCreateByUserId(userId),
+                    ),
+                    this.initLibrary(userId),
+                ]);
             },
             {
                 retries: 5,
@@ -76,23 +59,6 @@ export class UserInitService {
         );
         this.logger.log(
             `Finished init routine for ${userId} at ${new Date().toISOString()}`,
-        );
-    }
-
-    private async initUserRole(userId: string) {
-        const getRoles = await UserRoles.getRolesForUser(
-            this.defaultTenantId,
-            userId,
-        );
-        const roles = getRoles.roles;
-        // If user already has the user role defined
-        if (roles.includes(EUserRoles.USER)) {
-            return;
-        }
-        await UserRoles.addRoleToUser(
-            this.defaultTenantId,
-            userId,
-            EUserRoles.USER,
         );
     }
 

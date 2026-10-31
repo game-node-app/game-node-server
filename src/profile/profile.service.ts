@@ -1,6 +1,8 @@
 import {
+    forwardRef,
     HttpException,
     HttpStatus,
+    Inject,
     Injectable,
     Logger,
     Optional,
@@ -18,7 +20,7 @@ import {
 } from "./dto/update-profile-image.dto";
 import { ProfileBanner } from "./entities/profile-banner.entity";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
-import { SuspensionService } from "../suspension/suspension.service";
+import { AuthService } from "../auth/auth.service";
 import { UploadService } from "../upload/upload.service";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 import { cleanupStatisticsProfile } from "../statistics/statistics-target.repository";
@@ -33,7 +35,9 @@ export class ProfileService {
         private profileAvatarRepository: Repository<ProfileAvatar>,
         @InjectRepository(ProfileBanner)
         private profileBannerRepository: Repository<ProfileBanner>,
-        private readonly suspensionService: SuspensionService,
+        // auth.service imports user-init.service, which imports this file.
+        @Inject(forwardRef(() => AuthService))
+        private readonly authService: AuthService,
         private readonly uploadService: UploadService,
         @Optional()
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
@@ -163,23 +167,16 @@ export class ProfileService {
     }
 
     async findAll(): Promise<FindAllProfileResponseItemDto[]> {
-        const result: FindAllProfileResponseItemDto[] = [];
         const profiles = await this.profileRepository.find();
+        const lockouts = await this.authService.getLockoutStates(
+            profiles.map((profile) => profile.userId),
+        );
 
-        for (const profile of profiles) {
-            const [isSuspended, isBanned] = await Promise.all([
-                this.suspensionService.checkIsSuspended(profile.userId),
-                this.suspensionService.checkIsBanned(profile.userId),
-            ]);
-
-            result.push({
-                profile,
-                isSuspended,
-                isBanned,
-            });
-        }
-
-        return result;
+        return profiles.map((profile) => ({
+            profile,
+            isSuspended: lockouts.get(profile.userId)?.isSuspended ?? false,
+            isBanned: lockouts.get(profile.userId)?.isBanned ?? false,
+        }));
     }
 
     async findOneById(userId: string): Promise<Profile | null> {

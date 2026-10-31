@@ -10,8 +10,7 @@ import {
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/auth.guard";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import { Session } from "../../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../../auth/session.decorator";
 import { UpdateFeaturedObtainedAchievementV2Dto } from "../dto/update-featured-obtained-achievement.dto";
 import { AchievementsService } from "../achievements.service";
 import { Public } from "../../auth/public.decorator";

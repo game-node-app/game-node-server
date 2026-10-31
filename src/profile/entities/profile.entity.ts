@@ -13,14 +13,14 @@ import { ProfileBanner } from "./profile-banner.entity";
 /**
  * Profiles represent a user in the community scope. Unlike 'Library', they should be used by tables representing
  * interactions with the GameNode community (e.g. a user like). <br>
- * Library's, Profile's and Supertokens' userIds are interchangeable.
+ * Library's, Profile's and Better Auth's user ids are interchangeable.
  */
 @Entity()
 export class Profile {
     /**
      * Shareable string ID
      *
-     * Same as SuperTokens' userId.
+     * Same as the Better Auth user id.
      */
     @PrimaryColumn({
         nullable: false,

@@ -10,8 +10,7 @@ import {
 } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { ReportService } from "./report.service";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { CreateReportRequestDto } from "./dto/create-report-request.dto";
 import { Roles } from "../auth/roles.decorator";

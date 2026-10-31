@@ -169,8 +169,8 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                     DB_PASS: "prod_db_pass_from_env",
                     DB_HOST: "managed-mysql-uuid",
                     CONNECTION_CREDENTIAL_ENCRYPTION_KEY: "test_connection_key",
-                    SUPERTOKENS_DB_USER: "st_user",
-                    SUPERTOKENS_DB_PASS: "st_pass",
+                    BETTER_AUTH_SECRET: "test_better_auth_secret",
+                    SERVER_IMAGE_TAG: "test",
                     CMS_DB_PASSWORD: "cms_db_pass",
                     CMS_SECRET: "cms_test_secret",
                     CMS_LICENSE_KEY: "cms_test_license",
@@ -186,8 +186,8 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
             "/data",
         );
         expect(
-            prodConfig.services.server.environment.SUPERTOKENS_CORE_URI,
-        ).toBe("http://supertokens:3567");
+            prodConfig.services.server.environment.BETTER_AUTH_SECRET,
+        ).toBe("test_better_auth_secret");
         expect(prodConfig.services.server.deploy.replicas).toBe(1);
         expect(
             prodConfig.services.server.depends_on.server_migration.condition,
@@ -226,7 +226,6 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
         for (const name of [
             "server",
             "server_migration",
-            "supertokens",
             "cms",
             "manticore",
         ]) {

@@ -10,8 +10,7 @@ import {
     UseGuards,
 } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import { Session } from "../auth/session.decorator";
-import { SessionContainer } from "supertokens-node/recipe/session";
+import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { ConnectionCreateDto } from "./dto/connection-create.dto";
 import { ConnectionsService } from "./connections.service";
