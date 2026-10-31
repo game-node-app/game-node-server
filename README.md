@@ -229,6 +229,63 @@ $ yarn start:dev
 $ yarn start:prod
 ```
 
+## MCP server
+
+The stateless Streamable HTTP endpoint is `${DOMAIN_API}/v1/mcp` (locally,
+`http://localhost:5000/v1/mcp`). It requires an OAuth access token issued for that
+resource; website session tokens do not authenticate MCP requests.
+
+Discovery is public at these paths on `DOMAIN_API`:
+
+- `/.well-known/oauth-protected-resource/v1/mcp`
+- `/.well-known/oauth-authorization-server/v1/auth`
+- `/.well-known/oauth-authorization-server` (compatibility alias)
+
+| Scope | Tools |
+| --- | --- |
+| `games:read` | `search_games`, `get_game` |
+| `library:read` | `get_library_entry`, `list_collections` |
+| `library:write` | `add_game_to_library` |
+| `reviews:write` | `review_game` |
+| `posts:write` | `create_post` |
+
+OAuth also supports `openid`, `profile` and `offline_access`; the last enables
+rotating refresh tokens. Clients can use CIMD or register dynamically without a
+preconfigured client id or secret. Writes share a limit of 10 per user per minute
+and stop immediately when the user is suspended or banned. Reviews require
+`overwrite: true` to replace an existing review. Content is plain text, escaped
+into HTML paragraphs before storage.
+
+**Website prerequisite:** `game-node-clients` must provide
+`${DOMAIN_WEBSITE}/oauth/consent` and make `${DOMAIN_WEBSITE}/auth` resume the
+pending authorization after sign-in. The consent page must show the client name,
+URI, verified CIMD domain and requested scopes, and submit accept/deny through
+Better Auth's OAuth client. Discovery works before that companion change ships,
+but users cannot finish connecting. Local end-to-end checks need a stub consent
+page. Run `yarn migration:run` before starting the updated API.
+
+For a [Claude.ai custom connector](https://support.claude.com/en/articles/11176164-use-connectors-to-extend-claude-s-capabilities),
+open Customize → Connectors → **+** → **Add custom connector**, name it GameNode
+and enter your publicly reachable HTTPS `${DOMAIN_API}/v1/mcp` URL. Leave the
+OAuth client credentials empty, then connect, sign in and approve the scopes.
+Claude.ai connects from Anthropic's cloud, so it cannot reach localhost.
+
+For [Claude Code](https://code.claude.com/docs/en/mcp), register the local server:
+
+```bash
+claude mcp add --transport http gamenode http://localhost:5000/v1/mcp
+```
+
+Use the deployed HTTPS URL instead for a remote server. Open `/mcp` in Claude Code,
+select GameNode and authenticate to complete sign-in and consent.
+
+To inspect discovery locally:
+
+```bash
+curl http://localhost:5000/.well-known/oauth-protected-resource/v1/mcp
+curl http://localhost:5000/.well-known/oauth-authorization-server/v1/auth
+```
+
 ## Test
 
 ```bash

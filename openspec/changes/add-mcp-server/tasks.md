@@ -19,23 +19,23 @@
 
 ## 4. MCP endpoint (mcp-tools)
 
-- [ ] 4.1 Create `src/mcp/` (`McpModule`, `McpController` for `POST /v1/mcp` with `GET`/`DELETE` returning 405, stateless SDK transport over raw `req`/`res`), importing the service modules listed in design Context, and register it in `AppModule`; verify that the app boots and `initialize` with a valid token succeeds.
-- [ ] 4.2 Implement the MCP auth guard (design D5): JWT verification for issuer and audience, a 401 with the RFC 9728 `WWW-Authenticate` challenge, a `tools/call` → scope map with a 403 `insufficient_scope` response, and `sub` as the acting user; verify with controller tests for a missing token, a wrong audience, an expired token, a missing scope and a valid token.
-- [ ] 4.3 Implement the write guard `assertCanWrite(userId)` (lockout via `getLockoutStates`, 10 per 60 s per-user counter in the throttler Redis storage) and the plain-text → `<p>` HTML helper (design D6, D9); verify with unit tests covering suspended, banned and ok users, the 11th call refused, escaping of `<img onerror>`, and the paragraph/`<br>` cases from the spec.
+- [x] 4.1 Create `src/mcp/` (`McpModule`, `McpController` for `POST /v1/mcp` with `GET`/`DELETE` returning 405, stateless SDK transport over raw `req`/`res`), importing the service modules listed in design Context, and register it in `AppModule`; verify that the app boots and `initialize` with a valid token succeeds.
+- [x] 4.2 Implement the MCP auth guard (design D5): JWT verification for issuer and audience, a 401 with the RFC 9728 `WWW-Authenticate` challenge, a `tools/call` → scope map with a 403 `insufficient_scope` response, and `sub` as the acting user; verify with controller tests for a missing token, a wrong audience, an expired token, a missing scope and a valid token.
+- [x] 4.3 Implement the write guard `assertCanWrite(userId)` (lockout via `getLockoutStates`, 10 per 60 s per-user counter in the throttler Redis storage) and the plain-text → `<p>` HTML helper (design D6, D9); verify with unit tests covering suspended, banned and ok users, the 11th call refused, escaping of `<img onerror>`, and the paragraph/`<br>` cases from the spec.
 
 ## 5. Tools (mcp-tools)
 
-- [ ] 5.1 Implement `search_games` and `get_game` with compact output (design D10) and `readOnlyHint: true`; verify with tool tests: bounded `limit` and `query`, platform ids present in `get_game`, and a not-found error for an unknown id.
-- [ ] 5.2 Implement `get_library_entry` and `list_collections`; verify with tool tests covering an entry present, an entry absent, and that only the token user's collections are returned.
-- [ ] 5.3 Implement `add_game_to_library` (merge with the existing entry, platform ids checked against the game's platforms, collection union) per design D7; verify with tool tests: new entry, existing entry keeps its collections, invalid platform, foreign collection, and a locked-out user refused.
-- [ ] 5.4 Implement `review_game` with the `overwrite` guard inside the tool only (design D8: no change to `ReviewsService` or `ReviewsController`) and escaped content; verify with tool tests (first review created; game not in library → `add_game_to_library` error; existing review returned unchanged without `overwrite`; rating-only `overwrite: true` keeps the old content; rating 7 rejected), and verify with a controller test that a second `POST /v1/reviews` for the same game still updates in place.
-- [ ] 5.5 Implement `create_post` with escaped content and a game-exists check; verify with tool tests that the post is created and an activity is registered, an unknown game is rejected, and a missing `posts:write` scope returns 403.
-- [ ] 5.6 Verify that `tools/list` returns all seven tools with JSON Schemas and the `readOnlyHint` values from the spec (test).
+- [x] 5.1 Implement `search_games` and `get_game` with compact output (design D10) and `readOnlyHint: true`; verify with tool tests: bounded `limit` and `query`, platform ids present in `get_game`, and a not-found error for an unknown id.
+- [x] 5.2 Implement `get_library_entry` and `list_collections`; verify with tool tests covering an entry present, an entry absent, and that only the token user's collections are returned.
+- [x] 5.3 Implement `add_game_to_library` (merge with the existing entry, platform ids checked against the game's platforms, collection union) per design D7; verify with tool tests: new entry, existing entry keeps its collections, invalid platform, foreign collection, and a locked-out user refused.
+- [x] 5.4 Implement `review_game` with the `overwrite` guard inside the tool only (design D8: no change to `ReviewsService` or `ReviewsController`) and escaped content; verify with tool tests (first review created; game not in library → `add_game_to_library` error; existing review returned unchanged without `overwrite`; rating-only `overwrite: true` keeps the old content; rating 7 rejected), and verify with a controller test that a second `POST /v1/reviews` for the same game still updates in place.
+- [x] 5.5 Implement `create_post` with escaped content and a game-exists check; verify with tool tests that the post is created and an activity is registered, an unknown game is rejected, and a missing `posts:write` scope returns 403.
+- [x] 5.6 Verify that `tools/list` returns all seven tools with JSON Schemas and the `readOnlyHint` values from the spec (test).
 
 ## 6. Docs and integration
 
-- [ ] 6.1 Document the MCP server in README: endpoint URL, discovery URLs, scopes, how to add it as a Claude.ai custom connector and in Claude Code (`claude mcp add --transport http`), and the dependency on the website consent page; regenerate `server_swagger.json`; verify that the README commands are accurate against a local run.
-- [ ] 6.2 End-to-end check against a local or staging stack with a stub consent page: connect MCP Inspector via OAuth, run every tool, ban the user, and confirm that writes fail immediately and refresh fails; then run `yarn test` and `yarn build` with no failures.
+- [x] 6.1 Document the MCP server in README: endpoint URL, discovery URLs, scopes, how to add it as a Claude.ai custom connector and in Claude Code (`claude mcp add --transport http`), and the dependency on the website consent page; regenerate `server_swagger.json`; verify that the README commands are accurate against a local run.
+- [x] 6.2 End-to-end check against a local or staging stack with a stub consent page: connect MCP Inspector via OAuth, run every tool, ban the user, and confirm that writes fail immediately and refresh fails; then run `yarn test` and `yarn build` with no failures.
 
 ## Workflow follow-up
 

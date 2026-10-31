@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { toNodeHandler } from "better-auth/node";
-import { AuthService, MCP_PATH } from "./auth.service";
+import { AuthService } from "./auth.service";
+import { MCP_PATH } from "../mcp/mcp.constants";
 
 /**
  * Mounts Better Auth on the raw Express app, ahead of Nest's body parsers (it reads the raw body).

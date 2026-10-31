@@ -14,6 +14,7 @@ import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
 import { createPool } from "mysql2/promise";
 import { UserInitService } from "../user/user-init/user-init.service";
 import { EUserRoles } from "../utils/constants";
+import { MCP_PATH, MCP_SCOPES } from "../mcp/mcp.constants";
 
 const ac = createAccessControl(defaultStatements);
 
@@ -30,26 +31,6 @@ const roles = {
     [EUserRoles.EDITOR]: ac.newRole({ user: [], session: [] }),
     [EUserRoles.USER]: ac.newRole({ user: [], session: [] }),
 };
-
-export const MCP_PATH = "/v1/mcp";
-
-/** Scopes a token must hold to call each MCP tool. */
-export const MCP_TOOL_SCOPES = {
-    search_games: "games:read",
-    get_game: "games:read",
-    get_library_entry: "library:read",
-    list_collections: "library:read",
-    add_game_to_library: "library:write",
-    review_game: "reviews:write",
-    create_post: "posts:write",
-} as const;
-
-export const MCP_SCOPES = [
-    "openid",
-    "profile",
-    "offline_access",
-    ...new Set(Object.values(MCP_TOOL_SCOPES)),
-];
 
 export interface LockoutState {
     isSuspended: boolean;
