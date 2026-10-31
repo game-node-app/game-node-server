@@ -181,6 +181,14 @@ export class ActivitiesRepositoryService {
                 }
                 activity.obtainedGameAchievementActivityId = sourceId;
                 break;
+            case ActivityType.ACHIEVEMENT_UNLOCKED:
+                if (typeof sourceId !== "number") {
+                    throw new UnrecoverableError(
+                        "Achievement unlocked activities should have a number sourceId",
+                    );
+                }
+                activity.obtainedAchievementId = sourceId;
+                break;
             default:
                 throw new UnrecoverableError(
                     `Invalid activity type: ${JSON.stringify(dto)}`,
@@ -218,6 +226,7 @@ export class ActivitiesRepositoryService {
     async findLatestBy(by: FindManyOptions<Activity>) {
         return await this.activitiesRepository.findAndCount({
             ...by,
+            relations: { obtainedAchievement: true },
             order: {
                 createdAt: "DESC",
             },
@@ -233,7 +242,10 @@ export class ActivitiesRepositoryService {
     }
 
     async findOneByOrFail(by: FindOneOptions<Activity>) {
-        return await this.activitiesRepository.findOneOrFail(by);
+        return await this.activitiesRepository.findOneOrFail({
+            ...by,
+            relations: { obtainedAchievement: true },
+        });
     }
 
     async findLatestExcludingTypes(

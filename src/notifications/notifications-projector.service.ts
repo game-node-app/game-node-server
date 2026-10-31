@@ -65,6 +65,7 @@ export async function materializeNotificationTarget(
             ["collectionId", "collection"],
             ["userFollowId", "follow"],
             ["obtainedGameAchievementActivityId", "achievement"],
+            ["obtainedAchievementId", "platform_achievement"],
         ]) {
             if (root[field]) {
                 target.content = {
@@ -607,6 +608,36 @@ export class NotificationsProjectorService {
                         type: "profile",
                         id: recipientUserId,
                     },
+                };
+            }
+
+            case "achievement.unlocked": {
+                const { obtainedAchievementId, achievementId, tier } = payload;
+                const recipientUserId = outbox.recipientUserId;
+                const rows = await manager.query(
+                    `SELECT d.name FROM obtained_achievement o
+                    JOIN achievement_definition d ON d.id = o.achievementId
+                    WHERE o.id = ? AND o.profileUserId = ?`,
+                    [obtainedAchievementId, recipientUserId],
+                );
+                if (!recipientUserId || !rows[0]) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason: "achievement_not_found",
+                    } as ResolvedEventDetails;
+                }
+
+                return {
+                    recipientUserId,
+                    actorUserId: null, // system actor
+                    subjectType: "achievement",
+                    subjectId: achievementId,
+                    rootType: "achievement",
+                    rootId: achievementId,
+                    preview: {
+                        text: extractSafePlainText(rows[0].name, "Achievement"),
+                    },
+                    target: { type: "achievement", id: achievementId, tier },
                 };
             }
 

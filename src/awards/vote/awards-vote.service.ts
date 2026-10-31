@@ -10,7 +10,6 @@ import { toMap } from "../../utils/toMap";
 import { Cacheable } from "../../utils/cacheable";
 import { minutes } from "@nestjs/throttler";
 import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
-import { AchievementCategory } from "../../achievements/achievements.constants";
 
 @Injectable()
 export class AwardsVoteService {
@@ -77,8 +76,8 @@ export class AwardsVoteService {
         });
 
         this.achievementsQueueService.addTrackingJob({
-            category: AchievementCategory.EVENTS,
-            targetUserId: userId,
+            userId,
+            metric: "awards_participation",
         });
     }
 

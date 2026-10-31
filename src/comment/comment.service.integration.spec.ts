@@ -224,4 +224,28 @@ describe("CommentService integration (Task 5.1)", () => {
             spy.mockRestore();
         }
     });
+
+    it("evaluates the author's comments_written achievements after commenting", async () => {
+        const owner = randomUUID();
+        const commenter = randomUUID();
+        const postId = randomUUID();
+        await createMockProfile(owner);
+        await createMockProfile(commenter);
+        await dataSource.query(
+            `INSERT INTO post (id, profileUserId, gameId, content) VALUES (?, ?, 1, 'Post')`,
+            [postId, owner],
+        );
+        const achievements = { addTrackingJob: jest.fn() };
+
+        await new CommentService(dataSource, undefined, achievements as any).create(commenter, {
+            sourceType: CommentSourceType.POST,
+            sourceId: postId,
+            content: "Nice",
+        });
+
+        expect(achievements.addTrackingJob).toHaveBeenCalledWith({
+            userId: commenter,
+            metric: "comments_written",
+        });
+    });
 });

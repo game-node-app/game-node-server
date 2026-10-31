@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { ObtainedAchievement } from "../entities/obtained-achievement.entity";
 import { AchievementDto } from "./achievement.dto";
-import { PickType } from "@nestjs/swagger";
+import { OmitType, PickType } from "@nestjs/swagger";
 import { BaseFindDto } from "../../utils/base-find.dto";
 import { ToBoolean } from "../../utils/toBoolean";
 
@@ -17,6 +17,9 @@ export class GetObtainedAchievementRequestDto extends PickType(
     isFeatured?: boolean;
 }
 
-export class ObtainedAchievementDto extends ObtainedAchievement {
+export class ObtainedAchievementDto extends OmitType(ObtainedAchievement, [
+    "tier",
+    "definition",
+]) {
     achievement: AchievementDto;
 }

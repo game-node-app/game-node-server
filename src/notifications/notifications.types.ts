@@ -4,7 +4,8 @@ export type NotificationEventType =
     | "comment.replied"
     | "profile.followed"
     | "import.discovery-completed"
-    | "moderation.applied";
+    | "moderation.applied"
+    | "achievement.unlocked";
 
 export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "content.liked",
@@ -13,6 +14,7 @@ export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "profile.followed",
     "import.discovery-completed",
     "moderation.applied",
+    "achievement.unlocked",
 ] as const;
 
 export const SUPPORTED_EVENT_VERSION = 1;
@@ -72,6 +74,12 @@ export interface ModerationAppliedPayload {
     reportId?: number;
 }
 
+export interface AchievementUnlockedPayload {
+    obtainedAchievementId: number;
+    achievementId: string;
+    tier: number;
+}
+
 export type NotificationEventIntent =
     | BaseNotificationEventIntent<"content.liked", ContentLikedPayload>
     | BaseNotificationEventIntent<"comment.created", CommentCreatedPayload>
@@ -84,6 +92,10 @@ export type NotificationEventIntent =
     | BaseNotificationEventIntent<
           "moderation.applied",
           ModerationAppliedPayload
+      >
+    | BaseNotificationEventIntent<
+          "achievement.unlocked",
+          AchievementUnlockedPayload
       >;
 
 export interface NotificationGameContext {
@@ -99,7 +111,8 @@ export interface NotificationActivityContent {
         | "collection_entry"
         | "collection"
         | "follow"
-        | "achievement";
+        | "achievement"
+        | "platform_achievement";
     id: string;
 }
 
@@ -114,4 +127,5 @@ export type NotificationTarget =
           game?: NotificationGameContext;
       }
     | { type: "profile"; id: string }
-    | { type: "importer"; id: string; provider: string };
+    | { type: "importer"; id: string; provider: string }
+    | { type: "achievement"; id: string; tier: number };

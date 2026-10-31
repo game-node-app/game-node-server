@@ -10,6 +10,7 @@ import { ActivitiesRepositoryModule } from "../activities/activities-repository/
 import { ActivityComment } from "./entity/activity-comment.entity";
 import { PostComment } from "./entity/post-comment.entity";
 import { PostsModule } from "../posts/posts.module";
+import { AchievementsModule } from "../achievements/achievements.module";
 
 /**
  * Module responsible for handling user comments.
@@ -22,6 +23,7 @@ import { PostsModule } from "../posts/posts.module";
         ActivitiesRepositoryModule,
         PostsModule,
         SuspensionModule,
+        AchievementsModule,
     ],
     providers: [CommentService],
     controllers: [CommentController],

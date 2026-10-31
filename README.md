@@ -190,6 +190,32 @@ An hourly check keeps the credential alive. Authentication failures are logged a
 errors containing `PSN_SYSTEM_AUTH_FAILED`, and a warning is logged when the refresh
 token expires in less than 7 days. Alert on these logs to know when to rotate.
 
+### Platform achievements (Feats)
+
+Achievements are rows in `achievement_definition`, so designers create them without a deploy.
+Give the designer the `editor` role in SuperTokens; `admin` works too. Everything below lives
+under `/v1/achievements/admin`.
+
+- **Metrics**: `GET metrics` lists what can be counted (`reviews_written`, `library_games`,
+  `games_finished`, `followers`, `comments_written`, `awards_participation`, `manual`), the
+  filters each accepts (game, theme and genre ids, or the awards year) and whether it supports a
+  time window. A new metric needs code in `src/achievements/metrics/achievement-metrics.ts`;
+  a new achievement does not.
+- **Definitions**: `POST definitions` creates a draft with a slug (`id`), a metric, criteria,
+  1 to 10 tiers (strictly increasing thresholds, 0 to 5000 XP each) and an icon: a kebab-case
+  glyph, an existing game's cover or an existing icon in `public/icons`. `POST definitions/:id/simulate`
+  with `{ "userId" }` shows the metric value and reachable tiers without granting anything.
+- **Editorial cycle**: drafts can be edited (`PATCH`) and deleted. `POST .../publish` makes a
+  definition live; after that, the metric, criteria, window and existing tiers are frozen and only
+  new, higher tiers can be appended. `POST .../archive` stops evaluation and hides it from the
+  catalog, while users keep the tiers they obtained.
+- **Events**: `POST events` creates a time window (UTC) with the same cycle. Definitions linked to
+  an event (`eventId`) count only facts inside its window and are public only once both are
+  published. After publishing, the start is frozen and the end can only be extended.
+- **Backfill**: publishing a definition, appending a tier or publishing an event grants tiers to
+  users who already qualify, in batches of 500 on the `achievements-backfill-queue`. Retroactive
+  grants give XP but no notification or feed activity.
+
 ## Running the app
 
 ```bash

@@ -67,7 +67,7 @@ export async function lockNotificationRoot(
     if (type === "activity") {
         const candidates = await manager.query(
             `SELECT id, profileUserId, type, postId, reviewId, collectionId, collectionEntryId,
-            userFollowId, obtainedGameAchievementActivityId FROM activity WHERE id = ?`,
+            userFollowId, obtainedGameAchievementActivityId, obtainedAchievementId FROM activity WHERE id = ?`,
             [id],
         );
         const candidate = candidates[0];
@@ -110,7 +110,7 @@ export async function lockNotificationRoot(
             context ||= entries[0];
         }
         const rows = await manager.query(
-            "SELECT id, profileUserId, type, postId, reviewId, collectionId, collectionEntryId, userFollowId, obtainedGameAchievementActivityId FROM activity WHERE id = ? FOR UPDATE",
+            "SELECT id, profileUserId, type, postId, reviewId, collectionId, collectionEntryId, userFollowId, obtainedGameAchievementActivityId, obtainedAchievementId FROM activity WHERE id = ? FOR UPDATE",
             [id],
         );
         if (

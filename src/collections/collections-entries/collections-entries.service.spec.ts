@@ -10,6 +10,7 @@ import { Library } from "../../libraries/entities/library.entity";
 
 function fixture(existing?: any) {
     const lock = jest.fn().mockResolvedValue({ userId: "owner" });
+    const achievements = { addTrackingJob: jest.fn() };
     const repository = {
         findOne: jest.fn().mockResolvedValue(existing),
         save: jest.fn(async (row) => ({ ...row, id: "entry" })),
@@ -20,7 +21,7 @@ function fixture(existing?: any) {
         repository as any,
         {} as any,
         { register: jest.fn() } as any,
-        { addTrackingJob: jest.fn() } as any,
+        achievements as any,
         { registerLevelExpIncreaseActivity: jest.fn() } as any,
         { findAllByIds: jest.fn().mockResolvedValue([]) } as any,
         {} as any,
@@ -28,7 +29,7 @@ function fixture(existing?: any) {
     jest.spyOn(service as any, "updateAssociatedCollections").mockResolvedValue(
         undefined,
     );
-    return { service, repository, lock };
+    return { service, repository, lock, achievements };
 }
 
 test("changes favorite status on the authenticated user's entry", async () => {
@@ -80,4 +81,18 @@ test("import creation leaves an existing entry's user data untouched", async () 
         ),
     ).toBe(false);
     expect(repository.save).not.toHaveBeenCalled();
+});
+
+test("adding or updating an entry evaluates library and finished game achievements", async () => {
+    const { service, achievements } = fixture();
+    await service.createOrUpdate("owner", {
+        gameId: 7,
+        status: CollectionEntryStatus.FINISHED,
+        collectionIds: [],
+        platformIds: [6],
+    });
+    expect(achievements.addTrackingJob.mock.calls).toEqual([
+        [{ userId: "owner", metric: "library_games" }],
+        [{ userId: "owner", metric: "games_finished" }],
+    ]);
 });

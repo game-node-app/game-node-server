@@ -1,151 +1,146 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+    HttpException,
+    HttpStatus,
+    Inject,
+    Injectable,
+    Optional,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
+import { FindOptionsOrder, In, Not, Repository } from "typeorm";
 import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
-import { DataSource, In, Not, Repository } from "typeorm";
-import { achievementsData } from "./data/achievements.data";
-import { Achievement } from "./models/achievement.model";
+import { AchievementDefinition } from "./entities/achievement-definition.entity";
+import { AchievementEvent } from "./entities/achievement-event.entity";
+import { AchievementProgress } from "./entities/achievement-progress.entity";
+import { Profile } from "../profile/entities/profile.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
 import { listToPaginationData } from "../utils/pagination/listToPaginationData";
-import { AchievementCategory } from "./achievements.constants";
-import { Profile } from "../profile/entities/profile.entity";
-import { GetAchievementsRequestDto } from "./dto/get-achievements-request.dto";
+import {
+    GetAchievementsRequestDto,
+    GetAchievementsV2RequestDto,
+} from "./dto/get-achievements-request.dto";
 import {
     UpdateFeaturedObtainedAchievementDto,
     UpdateFeaturedObtainedAchievementV2Dto,
 } from "./dto/update-featured-obtained-achievement.dto";
-import { LevelService } from "../level/level.service";
 import {
     GetObtainedAchievementRequestDto,
     ObtainedAchievementDto,
 } from "./dto/obtained-achivement-request.dto";
+import { AchievementDto } from "./dto/achievement.dto";
+import {
+    AchievementEventsResponseDto,
+    AchievementProgressDto,
+    AchievementV2Dto,
+} from "./dto/achievement-v2.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
+import { AchievementStatus } from "./achievements.constants";
+import {
+    AchievementsProgressService,
+    effectiveWindow,
+} from "./achievements-progress.service";
 
-function validateAchievements() {
-    achievementsData.forEach((achievement, index, array) => {
-        const achievementWithInvalidId =
-            achievement.id == undefined || typeof achievement.id !== "string";
-        if (achievementWithInvalidId) {
-            throw new Error(
-                `Achievement with invalid ID found: ${achievement.id} - ${achievement.name}`,
-            );
-        }
-        if (achievement.checkEligibility == undefined) {
-            throw new Error(
-                `Achievement with id ${achievement.id} has no eligibility check`,
-            );
-        }
-        const achievementWithDuplicateId =
-            array.filter(
-                (checkedAchievement) =>
-                    checkedAchievement.id === achievement.id,
-            ).length > 1;
-        if (achievementWithDuplicateId) {
-            throw new Error(
-                `Achievement with duplicated ID found: ${achievement.id} - ${achievement.name}`,
-            );
-        }
-    });
-}
+const TOTAL_PROFILES_CACHE_KEY = "achievements:total-profiles";
+const TOTAL_PROFILES_CACHE_TTL_MS = 60 * 60 * 1000;
 
-function toObtainedAchievementDto(
-    obtainedAchievement: ObtainedAchievement,
-): ObtainedAchievementDto {
-    const relatedAchievement = achievementsData.find(
-        (achievement) => achievement.id === obtainedAchievement.achievementId,
-    )!;
-
+function toAchievementDto(definition: AchievementDefinition): AchievementDto {
     return {
-        ...obtainedAchievement,
-        achievement: relatedAchievement,
+        id: definition.id,
+        name: definition.name,
+        description: definition.description,
+        expGainAmount:
+            definition.tiers.find((tier) => tier.level === 1)?.expReward ?? 0,
+        category: definition.category,
     };
 }
 
+/**
+ * Public reads of platform achievements (v1 keeps the legacy shape) and manual grants.
+ */
 @Injectable()
 export class AchievementsService {
-    private readonly logger = new Logger(AchievementsService.name);
-
     constructor(
         @InjectRepository(ObtainedAchievement)
         private obtainedAchievementsRepository: Repository<ObtainedAchievement>,
-        private dataSource: DataSource,
-        private userLevelService: LevelService,
-    ) {
-        /**
-         * Validates registered achievements
-         */
-        validateAchievements();
-    }
+        @InjectRepository(AchievementEvent)
+        private eventRepository: Repository<AchievementEvent>,
+        @InjectRepository(AchievementProgress)
+        private progressRepository: Repository<AchievementProgress>,
+        private achievementsProgressService: AchievementsProgressService,
+        @Optional() @Inject(CACHE_MANAGER) private readonly cache?: Cache,
+    ) {}
 
-    public getAchievements(
+    /**
+     * shortcut: catalogs are paginated in memory, upgrade to SQL pagination if definitions reach the thousands
+     */
+    public async getAchievements(
         dto: GetAchievementsRequestDto,
-    ): TPaginationData<Achievement> {
-        return listToPaginationData(achievementsData, dto?.offset, dto?.limit);
-    }
-
-    public getAchievementById(achievementId: string) {
-        return achievementsData.find(
-            (achievement) => achievement.id === achievementId,
+    ): Promise<TPaginationData<AchievementDto>> {
+        const definitions =
+            await this.achievementsProgressService.findEvaluable();
+        return listToPaginationData(
+            definitions
+                .filter((definition) => !definition.isHidden)
+                .map(toAchievementDto),
+            dto?.offset,
+            dto?.limit,
         );
     }
 
-    private async checkAchievementsEligibility(
-        targetUserId: string,
-        achievement: Achievement,
-    ): Promise<void> {
-        const shouldSkipAchievement =
-            await this.obtainedAchievementsRepository.exists({
-                where: {
-                    achievementId: achievement.id,
-                    profile: {
-                        userId: targetUserId,
-                    },
-                },
+    /**
+     * Published definition that can be granted, or null.
+     */
+    public async findGrantableDefinition(achievementId: string) {
+        const [definition] =
+            await this.achievementsProgressService.findEvaluable({
+                id: achievementId,
             });
-
-        if (shouldSkipAchievement) return;
-
-        const isEligible = await achievement.checkEligibility(
-            this.dataSource,
-            targetUserId,
-        );
-
-        if (!isEligible) return;
-
-        await this.grantAchievement(targetUserId, achievement.id);
+        return definition ?? null;
     }
 
-    public trackAchievementsProgress(
-        targetUserId: string,
-        category: AchievementCategory,
-    ) {
-        const achievementsToProcess = achievementsData.filter(
-            (achievement) => achievement.category === category,
-        );
-
-        for (const achievement of achievementsToProcess) {
-            // Do not await this, as it will block the loop
-            this.checkAchievementsEligibility(targetUserId, achievement)
-                .then()
-                .catch((err) => {
-                    this.logger.error(err);
-                });
+    /**
+     * One item per definition, at the highest obtained tier and featured if any of its tiers is.
+     */
+    private async findObtained(
+        userId: string,
+        achievementId?: string,
+        order?: FindOptionsOrder<ObtainedAchievement>,
+    ): Promise<ObtainedAchievementDto[]> {
+        const rows = await this.obtainedAchievementsRepository.find({
+            where: { profileUserId: userId, achievementId },
+            relations: { definition: { tiers: true } },
+            order,
+        });
+        const grouped = new Map<string, ObtainedAchievement>();
+        for (const row of rows) {
+            const current = grouped.get(row.achievementId);
+            const isFeatured = row.isFeatured || !!current?.isFeatured;
+            if (!current || row.tier > current.tier) {
+                grouped.set(row.achievementId, { ...row, isFeatured });
+            } else {
+                current.isFeatured = isFeatured;
+            }
         }
+        // tier and definition are left out to keep the v1 response shape
+        return [...grouped.values()].map(
+            ({ definition, tier: _tier, ...row }) => ({
+                ...row,
+                achievement: toAchievementDto(definition!),
+            }),
+        ) as ObtainedAchievementDto[];
     }
 
     async getObtainedAchievementByAchievementId(
         targetUserId: string,
         achievementId: string,
     ) {
-        const achievement = await this.obtainedAchievementsRepository.findOneBy(
-            {
-                profile: {
-                    userId: targetUserId,
-                },
-                achievementId: achievementId,
-            },
+        const [achievement] = await this.findObtained(
+            targetUserId,
+            achievementId,
         );
 
-        if (achievement) return toObtainedAchievementDto(achievement);
+        if (achievement) return achievement;
 
         throw new HttpException("User has not obtained this achievement.", 404);
     }
@@ -153,38 +148,16 @@ export class AchievementsService {
     async getObtainedAchievementsByUserId(
         dto: GetObtainedAchievementRequestDto,
     ) {
-        const baseFindOptions = buildBaseFindOptions(dto);
-
-        const obtainedAchievements =
-            await this.obtainedAchievementsRepository.find({
-                ...baseFindOptions,
-                where: {
-                    profile: {
-                        userId: dto.targetUserId,
-                    },
-                    isFeatured: dto.isFeatured,
-                },
-            });
-
-        return obtainedAchievements.map(toObtainedAchievementDto);
-    }
-
-    /**
-     * @deprecated - old API when only one featured achievement was possible
-     * @param userId
-     */
-    async getFeaturedAchievement(userId: string) {
-        const featuredAchievement =
-            await this.obtainedAchievementsRepository.findOneBy({
-                profileUserId: userId,
-                isFeatured: true,
-            });
-
-        if (featuredAchievement) {
-            return toObtainedAchievementDto(featuredAchievement);
-        }
-
-        return null;
+        const obtained = await this.findObtained(
+            dto.targetUserId,
+            undefined,
+            buildBaseFindOptions(dto).order,
+        );
+        return dto.isFeatured == undefined
+            ? obtained
+            : obtained.filter(
+                  (achievement) => achievement.isFeatured === dto.isFeatured,
+              );
     }
 
     /**
@@ -198,13 +171,10 @@ export class AchievementsService {
         achievementId: string,
         dto: UpdateFeaturedObtainedAchievementDto,
     ) {
-        const entity = await this.getObtainedAchievementByAchievementId(
-            userId,
-            achievementId,
-        );
+        await this.getObtainedAchievementByAchievementId(userId, achievementId);
         await this.obtainedAchievementsRepository.update(
             {
-                achievementId: entity.achievementId,
+                achievementId,
                 profileUserId: userId,
             },
             {
@@ -218,7 +188,7 @@ export class AchievementsService {
         if (dto.isFeatured) {
             await this.obtainedAchievementsRepository.update(
                 {
-                    id: Not(entity.id),
+                    achievementId: Not(achievementId),
                     profileUserId: userId,
                     isFeatured: true,
                 },
@@ -260,47 +230,22 @@ export class AchievementsService {
         );
     }
 
+    /**
+     * Manually grants the first tier of a published definition.
+     */
     async grantAchievement(targetUserId: string, achievementId: string) {
-        const achievement = this.getAchievementById(achievementId);
-        if (!achievement) {
+        const definition = await this.findGrantableDefinition(achievementId);
+        if (!definition) {
             throw new HttpException(
                 "achievementId doesn't exist. Please check request parameters.",
                 HttpStatus.BAD_REQUEST,
             );
         }
-
-        let existingAchievement: ObtainedAchievement | undefined = undefined;
-        try {
-            existingAchievement =
-                await this.getObtainedAchievementByAchievementId(
-                    targetUserId,
-                    achievementId,
-                );
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error: unknown) {}
-
-        if (existingAchievement) {
-            throw new HttpException(
-                "User already has this achievement.",
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-
-        const obtainedAchievementEntity =
-            this.obtainedAchievementsRepository.create({
-                achievementId: achievement.id,
-                profile: {
-                    userId: targetUserId,
-                } as Profile,
-            });
-
-        await this.obtainedAchievementsRepository.save(
-            obtainedAchievementEntity,
-        );
-
-        await this.userLevelService.increaseExp(
+        await this.achievementsProgressService.grantTiers(
             targetUserId,
-            achievement.expGainAmount,
+            definition,
+            [1],
+            "manual",
         );
     }
 
@@ -311,5 +256,128 @@ export class AchievementsService {
         for (const targetUserId of targetUserIds) {
             await this.grantAchievement(targetUserId, achievementId);
         }
+    }
+
+    private async getTotalProfiles(): Promise<number> {
+        const cached = await this.cache
+            ?.get<number>(TOTAL_PROFILES_CACHE_KEY)
+            .catch(() => undefined);
+        if (cached != undefined) return cached;
+        const total =
+            await this.obtainedAchievementsRepository.manager.count(Profile);
+        await this.cache
+            ?.set(TOTAL_PROFILES_CACHE_KEY, total, TOTAL_PROFILES_CACHE_TTL_MS)
+            .catch(() => undefined);
+        return total;
+    }
+
+    private async findObtainedIds(userId: string | undefined) {
+        if (!userId) return new Set<string>();
+        const rows = await this.obtainedAchievementsRepository.find({
+            select: { achievementId: true },
+            where: { profileUserId: userId },
+        });
+        return new Set(rows.map((row) => row.achievementId));
+    }
+
+    async getAchievementsV2(
+        dto: GetAchievementsV2RequestDto,
+    ): Promise<TPaginationData<AchievementV2Dto>> {
+        const [definitions, obtainedIds, totalProfiles] = await Promise.all([
+            this.achievementsProgressService.findEvaluable(),
+            this.findObtainedIds(dto.targetUserId),
+            this.getTotalProfiles(),
+        ]);
+        const items = definitions.map((definition): AchievementV2Dto => {
+            const isMasked =
+                definition.isHidden && !obtainedIds.has(definition.id);
+            const window = effectiveWindow(definition);
+            const event = definition.event;
+            return {
+                id: definition.id,
+                isHidden: definition.isHidden,
+                name: isMasked ? null : definition.name,
+                description: isMasked ? null : definition.description,
+                category: definition.category,
+                metric: isMasked ? null : definition.metric,
+                criteria: isMasked ? null : definition.criteria,
+                icon: isMasked ? null : definition.icon,
+                event: event && {
+                    id: event.id,
+                    slug: event.slug,
+                    name: event.name,
+                    description: event.description,
+                    startsAt: event.startsAt,
+                    endsAt: event.endsAt,
+                },
+                startsAt: window?.startsAt ?? null,
+                endsAt: window?.endsAt ?? null,
+                tiers: definition.tiers.map((tier) => ({
+                    level: tier.level,
+                    threshold: tier.threshold,
+                    expReward: tier.expReward,
+                    obtainedCount: tier.obtainedCount,
+                    rarity:
+                        totalProfiles > 0
+                            ? Math.min(tier.obtainedCount / totalProfiles, 1)
+                            : 0,
+                })),
+            };
+        });
+        return listToPaginationData(items, dto?.offset, dto?.limit);
+    }
+
+    /**
+     * Progress of every visible definition for the user, in one request.
+     */
+    async getProgress(userId: string): Promise<AchievementProgressDto[]> {
+        const [definitions, progress, obtained] = await Promise.all([
+            this.achievementsProgressService.findEvaluable(),
+            this.progressRepository.find({ where: { profileUserId: userId } }),
+            this.obtainedAchievementsRepository.find({
+                select: { achievementId: true, tier: true },
+                where: { profileUserId: userId },
+            }),
+        ]);
+        return definitions
+            .filter(
+                (definition) =>
+                    !definition.isHidden ||
+                    obtained.some((row) => row.achievementId === definition.id),
+            )
+            .map((definition) => {
+                const tier = Math.max(
+                    0,
+                    ...obtained
+                        .filter((row) => row.achievementId === definition.id)
+                        .map((row) => row.tier),
+                );
+                return {
+                    achievementId: definition.id,
+                    value:
+                        progress.find(
+                            (row) => row.definitionId === definition.id,
+                        )?.value ?? 0,
+                    tier,
+                    nextThreshold:
+                        definition.tiers.find((next) => next.level > tier)
+                            ?.threshold ?? null,
+                };
+            });
+    }
+
+    async getEvents(): Promise<AchievementEventsResponseDto> {
+        const events = await this.eventRepository.find({
+            where: { status: AchievementStatus.PUBLISHED },
+            order: { startsAt: "ASC" },
+        });
+        const now = new Date();
+        return {
+            active: events.filter(
+                (event) => event.startsAt <= now && event.endsAt > now,
+            ),
+            upcoming: events.filter((event) => event.startsAt > now),
+            past: events.filter((event) => event.endsAt <= now),
+        };
     }
 }

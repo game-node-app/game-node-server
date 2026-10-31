@@ -19,6 +19,7 @@ import { Collection } from "../../../collections/entities/collection.entity";
 import { Post } from "../../../posts/entity/post.entity";
 import { ObtainedGameAchievementActivity } from "../../../game/game-achievement/entity/obtained-game-achievement-activity.entity";
 import { StatisticsTarget } from "../../../statistics/entity/statistics-target.entity";
+import { ObtainedAchievement } from "../../../achievements/entities/obtained-achievement.entity";
 
 @Entity()
 @Unique(["profile", "collectionEntry", "collection"])
@@ -26,6 +27,7 @@ import { StatisticsTarget } from "../../../statistics/entity/statistics-target.e
 @Unique(["profile", "review"])
 @Unique(["profile", "post"])
 @Unique(["profile", "obtainedGameAchievementActivity"])
+@Unique(["profile", "obtainedAchievement"])
 @Index(["createdAt", "id"])
 @Index("UQ_activity_statistics_target", ["statisticsTargetId"], { unique: true })
 export class Activity {
@@ -99,6 +101,15 @@ export class Activity {
         nullable: true,
     })
     obtainedGameAchievementActivityId: number | null;
+    @ManyToOne(() => ObtainedAchievement, {
+        nullable: true,
+        onDelete: "CASCADE",
+    })
+    obtainedAchievement: ObtainedAchievement | null;
+    @Column({
+        nullable: true,
+    })
+    obtainedAchievementId: number | null;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

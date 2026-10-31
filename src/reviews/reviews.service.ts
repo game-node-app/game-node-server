@@ -9,7 +9,6 @@ import { FindReviewDto } from "./dto/find-review.dto";
 import { buildBaseFindOptions } from "../utils/buildBaseFindOptions";
 import { CollectionsEntriesService } from "../collections/collections-entries/collections-entries.service";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
-import { AchievementCategory } from "../achievements/achievements.constants";
 import { StatisticsSourceType } from "../statistics/statistics.constants";
 import {
     ReviewScoreDistribution,
@@ -216,8 +215,8 @@ export class ReviewsService {
         });
 
         this.achievementsQueueService.addTrackingJob({
-            targetUserId: userId,
-            category: AchievementCategory.REVIEWS,
+            userId,
+            metric: "reviews_written",
         });
 
         this.levelService.registerLevelExpIncreaseActivity(

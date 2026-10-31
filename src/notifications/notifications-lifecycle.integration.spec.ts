@@ -64,7 +64,6 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
         collectionsService = new CollectionsService(
             dataSource.getRepository(Collection),
             {} as any,
-            {} as any,
             lifecycleService,
         );
     });
