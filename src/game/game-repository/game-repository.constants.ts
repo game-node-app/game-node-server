@@ -42,6 +42,8 @@ enum EGameExternalGameCategory {
     XboxGamePassUltimateCloud = 54,
     Gamejolt = 55,
     Igdb = 121,
+    // Values from 1000 up are GameNode-only; IGDB never sends them.
+    EpicGamesNamespace = 1001,
 }
 
 enum EGameExternalGameMedia {

@@ -19,6 +19,7 @@ import { ImporterEntry } from "./entity/importer-entry.entity";
 import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { ImporterResponseItemDto } from "./dto/importer-response-item.dto";
 import { ExternalGameService } from "../game/external-game/external-game.service";
+import { GameExternalGame } from "../game/external-game/entity/game-external-game.entity";
 import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
 import { toMap } from "../utils/toMap";
 import { ImporterSearchService } from "./importer-search/importer-search.service";
@@ -92,19 +93,56 @@ export class ImporterService {
         return processedEntries.concat(ignoredEntries);
     }
 
+    /**
+     * Shared matching path: drops processed/ignored entries, looks up mappings by category
+     * and attaches the provider's preferred platform. Providers only supply their source IDs.
+     * `onUnmapped` receives the source IDs that have no mapping at all.
+     */
+    private async matchUnprocessed(
+        userId: string,
+        includeMarked: boolean,
+        sourceIds: string[],
+        category: EGameExternalGameCategory,
+        platformFor: (externalGame: GameExternalGame) => number,
+        onUnmapped?: (uids: string[]) => Promise<void>,
+    ): Promise<ImporterResponseItemDto[]> {
+        const processedEntries = includeMarked
+            ? []
+            : await this.getProcessedEntries(userId);
+
+        const processedIds = new Set(
+            processedEntries.map((entry) => entry.gameExternalGameId),
+        );
+
+        const uniqueIds = [...new Set(sourceIds)];
+        const externalGames =
+            await this.externalGameService.getExternalGamesForSourceIds(
+                uniqueIds,
+                category,
+                includeMarked,
+            );
+
+        if (onUnmapped) {
+            const mapped = new Set(externalGames.map((game) => game.uid));
+            const unmapped = uniqueIds.filter((id) => !mapped.has(id));
+            if (unmapped.length) await onUnmapped(unmapped);
+        }
+
+        return externalGames
+            .filter((externalGame) => !processedIds.has(externalGame.id))
+            .map(
+                (item): ImporterResponseItemDto => ({
+                    ...item,
+                    preferredPlatformId: platformFor(item),
+                }),
+            );
+    }
+
     private async findUnprocessedSteamEntries(
         userId: string,
         includeMarked = false,
         sourceUserId?: string,
     ) {
-        const processedEntries = includeMarked
-            ? []
-            : await this.getProcessedEntries(userId);
-
-        const ignoredExternalGamesIds = new Set(
-            processedEntries.map((entry) => entry.gameExternalGameId),
-        );
-
         sourceUserId ??= (
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
                 userId,
@@ -114,29 +152,15 @@ export class ImporterService {
 
         const games = await this.steamSyncService.getLibraryGames(sourceUserId);
 
-        const gamesUids = Array.from(
-            new Set(games.map((item) => `${item.game.id}`)),
-        );
-
-        const externalGames =
-            await this.externalGameService.getExternalGamesForSourceIds(
-                gamesUids,
-                EGameExternalGameCategory.Steam,
-                includeMarked,
-            );
-
-        const filteredGames = externalGames.filter(
-            (externalGame) => !ignoredExternalGamesIds.has(externalGame.id),
-        );
-
-        return filteredGames.map(
-            (item): ImporterResponseItemDto => ({
-                ...item,
-                /* PC platform ID
-                 * @see GamePlatform#id
-                 */
-                preferredPlatformId: 6,
-            }),
+        return this.matchUnprocessed(
+            userId,
+            includeMarked,
+            games.map((item) => `${item.game.id}`),
+            EGameExternalGameCategory.Steam,
+            /* PC platform ID
+             * @see GamePlatform#id
+             */
+            () => 6,
         );
     }
 
@@ -145,14 +169,6 @@ export class ImporterService {
         includeMarked = false,
         sourceUserId?: string,
     ) {
-        const processedEntries = includeMarked
-            ? []
-            : await this.getProcessedEntries(userId);
-
-        const ignoredExternalGamesIds = new Set(
-            processedEntries.map((entry) => entry.gameExternalGameId),
-        );
-
         sourceUserId ??= (
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
                 userId,
@@ -164,23 +180,6 @@ export class ImporterService {
 
         if (games.length === 0) return [];
 
-        const gameUids = games.map((item) => {
-            return `${item.concept.id}`;
-        });
-
-        const uniqueGameUids = Array.from(new Set(gameUids));
-
-        const externalGames =
-            await this.externalGameService.getExternalGamesForSourceIds(
-                uniqueGameUids,
-                EGameExternalGameCategory.PlaystationStoreUs,
-                includeMarked,
-            );
-
-        const filteredGames = externalGames.filter(
-            (externalGame) => !ignoredExternalGamesIds.has(externalGame.id),
-        );
-
         const platformsMap =
             await this.gameRepositoryService.getGamePlatformsMap(
                 "abbreviation",
@@ -191,22 +190,18 @@ export class ImporterService {
                 ([id, games]) => [id, games[0]],
             ),
         );
-        return filteredGames.map((item): ImporterResponseItemDto => {
-            const relatedOriginalGame = gamesByConcept.get(item.uid)!;
-
-            const preferredPlatformAbbreviation = getPsnPlatformAbbreviation(
-                relatedOriginalGame.category,
-            );
-
-            const preferredPlatform = platformsMap.get(
-                preferredPlatformAbbreviation,
-            )!;
-
-            return {
-                ...item,
-                preferredPlatformId: preferredPlatform.id,
-            };
-        });
+        return this.matchUnprocessed(
+            userId,
+            includeMarked,
+            games.map((item) => `${item.concept.id}`),
+            EGameExternalGameCategory.PlaystationStoreUs,
+            (item) =>
+                platformsMap.get(
+                    getPsnPlatformAbbreviation(
+                        gamesByConcept.get(item.uid)!.category,
+                    ),
+                )!.id,
+        );
     }
 
     public async findUnprocessedXboxEntries(
@@ -214,14 +209,6 @@ export class ImporterService {
         includeMarked = false,
         sourceUserId?: string,
     ) {
-        const processedEntries = includeMarked
-            ? []
-            : await this.getProcessedEntries(userId);
-
-        const ignoredExternalGamesIds = new Set(
-            processedEntries.map((entry) => entry.gameExternalGameId),
-        );
-
         sourceUserId ??= (
             await this.connectionsService.findOneByUserIdAndTypeOrFail(
                 userId,
@@ -230,19 +217,6 @@ export class ImporterService {
         ).sourceUserId;
 
         const allGames = await this.xboxSyncService.getAllGames(sourceUserId);
-
-        const sourceUids = [...new Set(allGames.map((game) => game.productId))];
-
-        const externalGames =
-            await this.externalGameService.getExternalGamesForSourceIds(
-                sourceUids,
-                EGameExternalGameCategory.Microsoft,
-                includeMarked,
-            );
-
-        const filteredGames = externalGames.filter(
-            (externalGame) => !ignoredExternalGamesIds.has(externalGame.id),
-        );
 
         const platformsMap =
             await this.gameRepositoryService.getGamePlatformsMap(
@@ -254,22 +228,18 @@ export class ImporterService {
                 ([id, games]) => [id, games[0]],
             ),
         );
-        return filteredGames.map((externalGame): ImporterResponseItemDto => {
-            const relatedOriginalGame = gamesByProduct.get(externalGame.uid)!;
-            const deviceTitles = relatedOriginalGame.devices.flat(1);
-
-            const targetPlatformAbbreviation =
-                getPreferredXboxPlatformAbbreviation(deviceTitles);
-
-            const preferredPlatform = platformsMap.get(
-                targetPlatformAbbreviation,
-            )!;
-
-            return {
-                ...externalGame,
-                preferredPlatformId: preferredPlatform.id,
-            };
-        });
+        return this.matchUnprocessed(
+            userId,
+            includeMarked,
+            allGames.map((game) => game.productId),
+            EGameExternalGameCategory.Microsoft,
+            (externalGame) =>
+                platformsMap.get(
+                    getPreferredXboxPlatformAbbreviation(
+                        gamesByProduct.get(externalGame.uid)!.devices.flat(1),
+                    ),
+                )!.id,
+        );
     }
 
     public async findUnprocessedCandidates(

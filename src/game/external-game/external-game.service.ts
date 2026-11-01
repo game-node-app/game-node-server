@@ -2,7 +2,7 @@ import {
     PlayerLibrarySnapshot,
     PlayerSyncWrite,
 } from "../../sync/player-sync-attempt";
-import { Injectable } from "@nestjs/common";
+import { ConflictException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GameExternalGame } from "./entity/game-external-game.entity";
 import {
@@ -19,6 +19,8 @@ import { SubmitExternalGameDto } from "./dto/submit-external-game.dto";
 import { FindExternalGamesRequestDto } from "./dto/find-external-games.dto";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+
+const RESERVED_ID_START = 1_000_000_000_000;
 
 @Injectable()
 export class ExternalGameService {
@@ -150,21 +152,60 @@ export class ExternalGameService {
         }
     }
 
+    /**
+     * Inserts a GameNode-owned row with an ID from the reserved range (>= 1e12),
+     * which IGDB IDs (about 3.2M at most) can never reach.
+     * shortcut: no unique (uid, category) constraint for non-IGDB rows, so a race between
+     * submit and the bulk fill could create a duplicate mapping; add a generated-column
+     * unique index if duplicates show up.
+     */
+    public async insertReserved(
+        values: Omit<DeepPartial<GameExternalGame>, "id">,
+    ) {
+        for (let attempt = 1; ; attempt++) {
+            const { max } = (await this.gameExternalGameRepository
+                .createQueryBuilder("geg")
+                .select("MAX(geg.id)", "max")
+                .getRawOne())!;
+            const id = Math.max(RESERVED_ID_START, Number(max ?? 0) + 1);
+            try {
+                await this.gameExternalGameRepository.insert({ ...values, id });
+                return id;
+            } catch (error) {
+                if (
+                    attempt >= 5 ||
+                    !(error instanceof QueryFailedError) ||
+                    error.driverError?.code !== "ER_DUP_ENTRY"
+                )
+                    throw error;
+            }
+        }
+    }
+
     async submit(dto: SubmitExternalGameDto) {
-        const existingEntry = await this.gameExternalGameRepository.findOneBy({
-            category: dto.category,
-            gameId: dto.gameId,
-        });
-
-        const randomNumber = Math.floor(Math.random() * 1000000);
-
-        await this.gameExternalGameRepository.save({
-            id: existingEntry ? existingEntry.id : randomNumber,
+        const existing = await this.gameExternalGameRepository.findBy({
             uid: dto.sourceId,
-            url: dto.sourceUrl,
             category: dto.category,
-            gameId: dto.gameId,
         });
+        if (existing.some((row) => row.origin === "igdb")) {
+            throw new ConflictException(
+                "An IGDB mapping already exists for this source ID and category.",
+            );
+        }
+        if (existing.length > 0) {
+            await this.gameExternalGameRepository.update(
+                { id: existing[0].id },
+                { gameId: dto.gameId, url: dto.sourceUrl },
+            );
+        } else {
+            await this.insertReserved({
+                uid: dto.sourceId,
+                url: dto.sourceUrl,
+                category: dto.category,
+                gameId: dto.gameId,
+                origin: "curated",
+            });
+        }
 
         // Deactivates related unmapped entry
         const possibleUnmappedEntry =

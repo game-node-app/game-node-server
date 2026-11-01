@@ -248,3 +248,42 @@ test("listing filters the user's library before search and pagination and hydrat
     expect(findLibrary).toHaveBeenCalledTimes(3);
     expect(findGames).toHaveBeenCalledTimes(3);
 });
+
+test("shared matching returns processed entries only when marked entries are included", async () => {
+    const service = new ImporterService(
+        {
+            findBy: jest.fn().mockResolvedValue([{ gameExternalGameId: 2 }]),
+        } as any,
+        { findBy: jest.fn().mockResolvedValue([]) } as any,
+        {} as any,
+        {} as any,
+        {
+            getLibraryGames: jest
+                .fn()
+                .mockResolvedValue([{ game: { id: "a" } }, { game: { id: "b" } }]),
+        } as any,
+        {
+            getExternalGamesForSourceIds: jest.fn().mockResolvedValue([
+                { id: 1, gameId: 1, uid: "a" },
+                { id: 2, gameId: 2, uid: "b" },
+            ]),
+        } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        new ConnectionProviderRegistry(),
+        {} as any,
+        {} as any,
+    );
+    const ids = async (includeMarked: boolean) =>
+        (
+            await service.findProviderCandidates(
+                "user",
+                EImporterSource.STEAM,
+                includeMarked,
+                "steam-account",
+            )
+        ).map((item) => item.id);
+    expect(await ids(false)).toEqual([1]);
+    expect(await ids(true)).toEqual([1, 2]);
+});

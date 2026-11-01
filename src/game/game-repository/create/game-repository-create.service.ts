@@ -7,6 +7,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { DeepPartial, FindOptionsRelations, FindOptionsSelect } from "typeorm";
 import { Game } from "../entities/game.entity";
+import { GameExternalGame } from "../../external-game/entity/game-external-game.entity";
 import { GameCompany } from "../entities/game-company.entity";
 import { GameCompanyLogo } from "../entities/game-company-logo.entity";
 import { GameEngine } from "../entities/game-engine.entity";
@@ -245,7 +246,7 @@ export class GameRepositoryCreateService {
         }
         if (processExternalGames) {
             relations.externalGames = true;
-            select.externalGames = { id: true, checksum: true };
+            select.externalGames = { id: true, checksum: true, origin: true };
         }
         if (processInvolvedCompanies) {
             relations.involvedCompanies = {
@@ -481,7 +482,16 @@ export class GameRepositoryCreateService {
         const repository = context.manager.getRepository(target);
         const gameEntityMetadata = context.manager.connection.getMetadata(Game);
         const incomingData = incoming[propertyPath] as E[] | undefined;
-        const existingData = existing[propertyPath] as E[];
+        const existingRows = existing[propertyPath] as E[];
+        // GameNode-owned (bulk/curated) rows are not part of IGDB's list, so they must neither be diffed nor removed.
+        const existingData =
+            propertyPath === "externalGames" && existingRows
+                ? existingRows.filter(
+                      (row) =>
+                          (row as unknown as GameExternalGame).origin ===
+                          "igdb",
+                  )
+                : existingRows;
 
         if (incomingData == undefined) {
             return;

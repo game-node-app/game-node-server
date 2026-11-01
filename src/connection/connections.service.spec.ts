@@ -367,6 +367,71 @@ describe("ConnectionsService Auth Endpoints & Mode Enforcement", () => {
         });
     });
 
+    describe("delegated_code providers", () => {
+        it("completes init and callback through the shared endpoints", async () => {
+            const initRedirectAuth = jest.fn().mockResolvedValue({
+                authorizationUrl: "https://www.epicgames.com/id/login",
+            });
+            const completeRedirectAuth = jest.fn().mockResolvedValue({
+                sourceUserId: "epic-account",
+                sourceUsername: "EpicPlayer",
+                credentials: { accessToken: "token" },
+            });
+            providerRegistry.registerAuthStrategy(EConnectionType.EPIC_GAMES, {
+                initRedirectAuth,
+                completeRedirectAuth,
+            });
+
+            const init = await service.initRedirectAuth(
+                "user-1",
+                EConnectionType.EPIC_GAMES,
+                {},
+            );
+            expect(init.authorizationUrl).toBe(
+                "https://www.epicgames.com/id/login",
+            );
+            expect(authStateService.initState).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userId: "user-1",
+                    type: EConnectionType.EPIC_GAMES,
+                }),
+                init.state,
+            );
+
+            authStateService.consumeState.mockResolvedValueOnce({
+                userId: "user-1",
+                type: EConnectionType.EPIC_GAMES,
+                isAutoImportEnabled: false,
+                autoImportCollectionId: null,
+            });
+            const result = await service.completeRedirectAuth(
+                "user-1",
+                EConnectionType.EPIC_GAMES,
+                { state: init.state, callbackParams: { code: "abc" } },
+            );
+            expect(authStateService.consumeState).toHaveBeenCalledWith(
+                init.state,
+                "user-1",
+                EConnectionType.EPIC_GAMES,
+            );
+            expect(result.sourceUserId).toBe("epic-account");
+            expect(credentialService.saveCredentials).toHaveBeenCalledWith(1, {
+                accessToken: "token",
+            });
+            expect(syncState.initialize).toHaveBeenCalledTimes(1);
+        });
+
+        it("rejects manual onboarding with HTTP 400", async () => {
+            await expect(
+                service.createOrUpdate("user-1", {
+                    type: EConnectionType.EPIC_GAMES,
+                    userIdentifier: "someone",
+                } as any),
+            ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+            expect(userConnectionRepo.save).not.toHaveBeenCalled();
+        });
+    });
+
     describe("updateSettings (Task 2.3)", () => {
         it("updates isAutoImportEnabled and autoImportCollectionId while preserving credentials and sync eligibility", async () => {
             const existing = {

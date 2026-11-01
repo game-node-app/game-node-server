@@ -24,6 +24,7 @@
         "healthcheck": "node src/health/healthcheck.js",
         "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
         "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+        "test:typecheck": "tsc --noEmit --incremental false",
         "test:notifications": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --testTimeout=120000 --testPathPatterns=\"(notifications/|statistics/statistics-reaction|comment/comment.service.integration|follow/follow.service.integration|report/report.service.integration|importer/importer-watch/importer-watch.(processor|recovery.integration).spec)\"",
         "test:statistics": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --testTimeout=120000 --testPathPatterns=statistics/",
         "statistics:projection": "ts-node scripts/statistics-projection.ts",
@@ -149,9 +150,10 @@
             "ts"
         ],
         "rootDir": "src",
+        "maxWorkers": 2,
         "testRegex": ".*\\.spec\\.ts$",
         "transform": {
-            "^.+\\.(t|j)s$": ["ts-jest", { "diagnostics": { "ignoreCodes": [151002] } }]
+            "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": { "isolatedModules": true } }]
         },
         "collectCoverageFrom": [
             "**/*.(t|j)s"

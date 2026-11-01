@@ -1,9 +1,10 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
+  "maxWorkers": 2,
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": ["ts-jest", { "diagnostics": { "ignoreCodes": [151002] } }]
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": { "isolatedModules": true } }]
   }
 }
