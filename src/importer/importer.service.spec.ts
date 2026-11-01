@@ -1,6 +1,7 @@
 import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
 import { ImporterService } from "./importer.service";
 import { EImporterSource } from "./importer.constants";
+import { EGameExternalGameCategory } from "../game/game-repository/game-repository.constants";
 import { setCacheManager } from "../utils/cacheable";
 import { ImporterSearchService } from "./importer-search/importer-search.service";
 
@@ -298,8 +299,9 @@ test("shared matching returns processed entries only when marked entries are inc
 });
 
 describe("Epic Games discovery", () => {
-    const build = (mapped: any[]) => {
-        const registerUnmappedGame = jest.fn();
+    const build = (mapped: any[], named: string[] = []) => {
+        const getCatalogTitle = jest.fn().mockResolvedValue("Orphan Game");
+        const registerUnmappedGames = jest.fn();
         const getExternalGamesForSourceIds = jest
             .fn()
             .mockResolvedValue(mapped);
@@ -309,7 +311,13 @@ describe("Epic Games discovery", () => {
             {} as any,
             {} as any,
             {} as any,
-            { getExternalGamesForSourceIds, registerUnmappedGame } as any,
+            {
+                getExternalGamesForSourceIds,
+                registerUnmappedGames,
+                findNamedUnmappedUids: jest
+                    .fn()
+                    .mockResolvedValue(new Set(named)),
+            } as any,
             {} as any,
             {} as any,
             {} as any,
@@ -321,11 +329,17 @@ describe("Epic Games discovery", () => {
                     { namespace: "mapped", appName: "base" },
                     { namespace: "mapped", appName: "addon-1" },
                     { namespace: "mapped", appName: "addon-2" },
-                    { namespace: "orphan", appName: "x" },
+                    { namespace: "orphan", appName: "x", catalogItemId: "c1" },
                 ]),
+                getCatalogTitle,
             } as any,
         );
-        return { service, registerUnmappedGame, getExternalGamesForSourceIds };
+        return {
+            service,
+            registerUnmappedGames,
+            getExternalGamesForSourceIds,
+            getCatalogTitle,
+        };
     };
 
     it("lists a base game and its add-ons once, on the PC platform", async () => {
@@ -349,7 +363,7 @@ describe("Epic Games discovery", () => {
     });
 
     it("registers namespaces without a mapping as unmapped and does not list them", async () => {
-        const { service, registerUnmappedGame } = build([
+        const { service, registerUnmappedGames } = build([
             { id: 1, gameId: 1, uid: "mapped" },
         ]);
         const items = await service.findProviderCandidates(
@@ -359,7 +373,127 @@ describe("Epic Games discovery", () => {
             "epic-account",
         );
         expect(items.map((item) => item.id)).toEqual([1]);
-        expect(registerUnmappedGame).toHaveBeenCalledTimes(1);
-        expect(registerUnmappedGame).toHaveBeenCalledWith("orphan", 1001);
+        expect(registerUnmappedGames).toHaveBeenCalledTimes(1);
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            1001,
+            [{ sourceUid: "orphan", name: "Orphan Game" }],
+            "user",
+        );
+    });
+
+    it("registers an unmapped namespace without a catalog call when it already has a name", async () => {
+        const { service, registerUnmappedGames, getCatalogTitle } = build(
+            [{ id: 1, gameId: 1, uid: "mapped" }],
+            ["orphan"],
+        );
+        await service.findProviderCandidates(
+            "user",
+            EImporterSource.EPIC_GAMES,
+            false,
+            "epic-account",
+        );
+        expect(getCatalogTitle).not.toHaveBeenCalled();
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            1001,
+            [{ sourceUid: "orphan", name: undefined }],
+            "user",
+        );
+    });
+});
+
+describe("unmapped registration during discovery", () => {
+    const build = (providers: { steam?: any; psn?: any; xbox?: any }) => {
+        const registerUnmappedGames = jest.fn().mockResolvedValue(undefined);
+        const service = new ImporterService(
+            { findBy: jest.fn().mockResolvedValue([]) } as any,
+            { findBy: jest.fn().mockResolvedValue([]) } as any,
+            {} as any,
+            {} as any,
+            providers.steam ?? ({} as any),
+            {
+                getExternalGamesForSourceIds: jest.fn().mockResolvedValue([]),
+                registerUnmappedGames,
+            } as any,
+            providers.psn ?? ({} as any),
+            providers.xbox ?? ({} as any),
+            {
+                getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()),
+            } as any,
+            new ConnectionProviderRegistry(),
+            {} as any,
+            {} as any,
+            {} as any,
+        );
+        return { service, registerUnmappedGames };
+    };
+    const discover = (service: ImporterService, source: EImporterSource) =>
+        service.findProviderCandidates("user", source, false, "account");
+
+    it("registers Steam apps once with their names and the user", async () => {
+        const { service, registerUnmappedGames } = build({
+            steam: {
+                getLibraryGames: jest
+                    .fn()
+                    .mockResolvedValue([
+                        { game: { id: 1, name: "Hollow Knight" } },
+                        { game: { id: 2 } },
+                    ]),
+            },
+        });
+        await discover(service, EImporterSource.STEAM);
+        expect(registerUnmappedGames).toHaveBeenCalledTimes(1);
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            EGameExternalGameCategory.Steam,
+            [
+                { sourceUid: "1", name: "Hollow Knight" },
+                { sourceUid: "2", name: undefined },
+            ],
+            "user",
+        );
+    });
+
+    it("registers PSN concepts once with their names and the user", async () => {
+        const { service, registerUnmappedGames } = build({
+            psn: {
+                getAllGames: jest.fn().mockResolvedValue([
+                    {
+                        concept: { id: 7 },
+                        name: "Bloodborne",
+                        category: "ps4_game",
+                    },
+                    {
+                        concept: { id: 7 },
+                        name: "Bloodborne",
+                        category: "ps4_game",
+                    },
+                ]),
+            },
+        });
+        await discover(service, EImporterSource.PSN);
+        expect(registerUnmappedGames).toHaveBeenCalledTimes(1);
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            EGameExternalGameCategory.PlaystationStoreUs,
+            [{ sourceUid: "7", name: "Bloodborne" }],
+            "user",
+        );
+    });
+
+    it("registers Xbox products once with their names and the user", async () => {
+        const { service, registerUnmappedGames } = build({
+            xbox: {
+                getAllGames: jest
+                    .fn()
+                    .mockResolvedValue([
+                        { productId: "p1", name: "Halo", devices: [] },
+                    ]),
+            },
+        });
+        await discover(service, EImporterSource.XBOX);
+        expect(registerUnmappedGames).toHaveBeenCalledTimes(1);
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            EGameExternalGameCategory.Microsoft,
+            [{ sourceUid: "p1", name: "Halo" }],
+            "user",
+        );
     });
 });

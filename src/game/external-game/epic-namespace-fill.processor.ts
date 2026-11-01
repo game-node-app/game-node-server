@@ -159,9 +159,9 @@ export class EpicNamespaceFillProcessor extends WorkerHostProcessor {
                       : undefined;
 
             if (!chosen) {
-                await this.externalGameService.registerUnmappedGame(
-                    namespace,
+                await this.externalGameService.registerUnmappedGames(
                     EGameExternalGameCategory.EpicGamesNamespace,
+                    [{ sourceUid: namespace }],
                 );
                 summary.ambiguous++;
                 continue;

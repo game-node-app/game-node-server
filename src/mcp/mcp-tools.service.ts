@@ -12,6 +12,9 @@ import { CollectionEntry } from "../collections/collections-entries/entities/col
 import { CollectionEntryStatus } from "../collections/collections-entries/collections-entries.constants";
 import { ReviewsService } from "../reviews/reviews.service";
 import { PostsService } from "../posts/posts.service";
+import { ExternalGameService } from "../game/external-game/external-game.service";
+import { EGameExternalGameCategory } from "../game/game-repository/game-repository.constants";
+import { storeUrl } from "../game/external-game/external-game.utils";
 import { plainTextToHtml } from "./mcp-content";
 import { MCP_WRITE_LIMIT, MCP_WRITE_WINDOW_MS } from "./mcp.constants";
 
@@ -62,6 +65,7 @@ export class McpToolsService {
         private readonly collectionsEntriesService: CollectionsEntriesService,
         private readonly reviewsService: ReviewsService,
         private readonly postsService: PostsService,
+        private readonly externalGameService: ExternalGameService,
     ) {
         this.websiteUrl = configService.getOrThrow<string>("DOMAIN_WEBSITE");
     }
@@ -97,6 +101,7 @@ export class McpToolsService {
      */
     private async assertCanWrite(
         userId: string,
+        rateLimited = true,
     ): Promise<CallToolResult | undefined> {
         const state = (await this.authService.getLockoutStates([userId])).get(
             userId,
@@ -106,6 +111,7 @@ export class McpToolsService {
                 "Your GameNode account is restricted (suspended or banned), so this action is not allowed.",
             );
         }
+        if (!rateLimited) return;
         // The Redis store rejects a zero block duration, so block for the window.
         const record = await this.throttlerStorage.increment(
             `mcp:write:${userId}`,
@@ -353,5 +359,64 @@ export class McpToolsService {
             });
             return ok({ id: post.id, game_id: input.game_id });
         }, `No game found with id ${input.game_id}.`);
+    }
+
+    async listUnmappedGames(input: {
+        category?: keyof typeof EGameExternalGameCategory;
+        limit: number;
+        page?: number;
+    }): Promise<CallToolResult> {
+        const [entries, total] =
+            await this.externalGameService.getUnmappedGames({
+                category:
+                    input.category && EGameExternalGameCategory[input.category],
+                limit: input.limit,
+                offset: ((input.page ?? 1) - 1) * input.limit,
+            });
+        const page = input.page ?? 1;
+        return ok({
+            total,
+            has_next_page: page * input.limit < total,
+            entries: entries.map((entry) => ({
+                id: entry.id,
+                source_id: entry.sourceUid,
+                category: EGameExternalGameCategory[entry.category],
+                name: entry.name,
+                owner_count: entry.ownerCount,
+                store_url: storeUrl(entry.category, entry.sourceUid),
+            })),
+        });
+    }
+
+    async mapExternalGame(
+        userId: string,
+        input: { id: number; game_id: number },
+    ): Promise<CallToolResult> {
+        // Admin bulk curation: still refused for restricted users, but not rate limited.
+        const blocked = await this.assertCanWrite(userId, false);
+        if (blocked) return blocked;
+        return this.run(async () => {
+            const game = await this.externalGameService.mapUnmappedGame(
+                input.id,
+                input.game_id,
+            );
+            return ok({
+                entry_id: input.id,
+                game_id: game.id,
+                game_name: game.name,
+            });
+        });
+    }
+
+    async dismissUnmappedGame(
+        userId: string,
+        input: { id: number },
+    ): Promise<CallToolResult> {
+        const blocked = await this.assertCanWrite(userId);
+        if (blocked) return blocked;
+        return this.run(async () => {
+            await this.externalGameService.dismissUnmappedGame(input.id);
+            return ok({ entry_id: input.id, dismissed: true });
+        });
     }
 }

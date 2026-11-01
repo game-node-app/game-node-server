@@ -9,7 +9,11 @@ import { Game } from "../game/game-repository/entities/game.entity";
 import { ImporterIgnoredEntry } from "./entity/importer-ignored-entry.entity";
 import { ConnectionsService } from "../connection/connections.service";
 import { EConnectionType } from "../connection/connections.constants";
-import { SteamSyncService } from "../sync/steam/steam-sync.service";
+import {
+    SteamSyncService,
+    steamGameName,
+} from "../sync/steam/steam-sync.service";
+import { registerUnmappedEpicNamespaces } from "../sync/epic/register-unmapped-epic-namespaces";
 import { ImporterStatusUpdateRequestDto } from "./dto/importer-status-update-request.dto";
 import { EImporterSource } from "./importer.constants";
 import { EGameExternalGameCategory } from "../game/game-repository/game-repository.constants";
@@ -103,6 +107,22 @@ export class ImporterService {
         return processedEntries.concat(ignoredEntries);
     }
 
+    private registerUnmapped(
+        userId: string,
+        category: EGameExternalGameCategory,
+        names: Map<string, string | undefined>,
+    ) {
+        return (uids: string[]) =>
+            this.externalGameService.registerUnmappedGames(
+                category,
+                uids.map((sourceUid) => ({
+                    sourceUid,
+                    name: names.get(sourceUid),
+                })),
+                userId,
+            );
+    }
+
     /**
      * Shared matching path: drops processed/ignored entries, looks up mappings by category
      * and attaches the provider's preferred platform. Providers only supply their source IDs.
@@ -171,6 +191,16 @@ export class ImporterService {
              * @see GamePlatform#id
              */
             () => 6,
+            this.registerUnmapped(
+                userId,
+                EGameExternalGameCategory.Steam,
+                new Map(
+                    games.map((item) => [
+                        `${item.game.id}`,
+                        steamGameName(item),
+                    ]),
+                ),
+            ),
         );
     }
 
@@ -211,6 +241,13 @@ export class ImporterService {
                         gamesByConcept.get(item.uid)!.category,
                     ),
                 )!.id,
+            this.registerUnmapped(
+                userId,
+                EGameExternalGameCategory.PlaystationStoreUs,
+                new Map(
+                    [...gamesByConcept].map(([id, game]) => [id, game.name]),
+                ),
+            ),
         );
     }
 
@@ -249,6 +286,13 @@ export class ImporterService {
                         gamesByProduct.get(externalGame.uid)!.devices.flat(1),
                     ),
                 )!.id,
+            this.registerUnmapped(
+                userId,
+                EGameExternalGameCategory.Microsoft,
+                new Map(
+                    [...gamesByProduct].map(([id, game]) => [id, game.name]),
+                ),
+            ),
         );
     }
 
@@ -273,13 +317,15 @@ export class ImporterService {
             EGameExternalGameCategory.EpicGamesNamespace,
             // PC platform ID, @see GamePlatform#id
             () => 6,
-            async (namespaces) => {
-                for (const namespace of namespaces)
-                    await this.externalGameService.registerUnmappedGame(
-                        namespace,
-                        EGameExternalGameCategory.EpicGamesNamespace,
-                    );
-            },
+            (namespaces) =>
+                registerUnmappedEpicNamespaces(
+                    this.externalGameService,
+                    this.epicSyncService,
+                    userId,
+                    sourceUserId,
+                    items,
+                    namespaces,
+                ),
         );
     }
 

@@ -8,6 +8,8 @@ import type {
     Request as ExpressRequest,
     Response as ExpressResponse,
 } from "express";
+import { AuthService } from "../auth/auth.service";
+import { EUserRoles } from "../utils/constants";
 import { MCP_PATH, MCP_TOOL_SCOPES } from "./mcp.constants";
 import { createMcpServer } from "./mcp-tools";
 import { McpToolsService } from "./mcp-tools.service";
@@ -24,6 +26,7 @@ export class McpController {
     constructor(
         private readonly configService: ConfigService,
         private readonly tools: McpToolsService,
+        private readonly authService: AuthService,
     ) {
         this.resource = `${configService.getOrThrow<string>("DOMAIN_API")}${MCP_PATH}`;
     }
@@ -72,7 +75,11 @@ export class McpController {
             return;
         }
 
-        const server = createMcpServer(this.tools, userId);
+        // Read on every request, so revoking the role takes effect before the token expires.
+        const isAdmin = (await this.authService.getUserRoles(userId)).includes(
+            EUserRoles.ADMIN,
+        );
+        const server = createMcpServer(this.tools, userId, isAdmin);
         const transport = new NodeStreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
             enableJsonResponse: true,

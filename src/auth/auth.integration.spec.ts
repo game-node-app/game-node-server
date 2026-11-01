@@ -814,7 +814,11 @@ describe("Better Auth integration (dev MySQL)", () => {
             expect(body.resource).toBe(`${api}/v1/mcp`);
             expect(body.authorization_servers).toEqual([`${api}/v1/auth`]);
             expect(body.scopes_supported).toEqual(
-                expect.arrayContaining(["games:read", "posts:write"]),
+                expect.arrayContaining([
+                    "games:read",
+                    "posts:write",
+                    "mappings:write",
+                ]),
             );
         });
 

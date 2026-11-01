@@ -40,7 +40,7 @@ function setup(
                 .map((uid) => ({ uid })),
         ),
         insertReserved: jest.fn(),
-        registerUnmappedGame: jest.fn(),
+        registerUnmappedGames: jest.fn(),
     };
     get.mockImplementation(async (requestUrl: string) => {
         const slug = decodeURIComponent(requestUrl.split("/").pop()!);
@@ -102,9 +102,9 @@ describe("EpicNamespaceFillProcessor", () => {
         );
         const summary = await processor.process(job as any);
         expect(externalGameService.insertReserved).not.toHaveBeenCalled();
-        expect(externalGameService.registerUnmappedGame).toHaveBeenCalledWith(
-            "ns-a",
+        expect(externalGameService.registerUnmappedGames).toHaveBeenCalledWith(
             NS,
+            [{ sourceUid: "ns-a" }],
         );
         expect(summary).toMatchObject({ mapped: 0, ambiguous: 1 });
     });
@@ -132,7 +132,9 @@ describe("EpicNamespaceFillProcessor", () => {
         expect(externalGameService.insertReserved).toHaveBeenCalledWith(
             expect.objectContaining({ uid: "ns-a", gameId: 10 }),
         );
-        expect(externalGameService.registerUnmappedGame).not.toHaveBeenCalled();
+        expect(
+            externalGameService.registerUnmappedGames,
+        ).not.toHaveBeenCalled();
     });
 
     it("leaves an existing mapping for the namespace untouched", async () => {
@@ -193,9 +195,9 @@ describe("EpicNamespaceFillProcessor", () => {
         const summary = await processor.process(job as any);
         expect(find.mock.calls[0][0].where.id.value).toBe(1);
         expect(get).toHaveBeenCalledTimes(1);
-        expect(externalGameService.registerUnmappedGame).toHaveBeenCalledWith(
-            "ns-a",
+        expect(externalGameService.registerUnmappedGames).toHaveBeenCalledWith(
             NS,
+            [{ sourceUid: "ns-a" }],
         );
         expect(summary).toMatchObject({ slugs: 2, resolved: 2, ambiguous: 1 });
     });

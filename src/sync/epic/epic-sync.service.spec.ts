@@ -64,4 +64,30 @@ describe("EpicSyncService", () => {
         expect(get.mock.calls[0][0]).toContain("/playtime/account/acct-2/all");
         expect(budgetRun.mock.calls[0][0]).toBe("epicgames:user:acct-2");
     });
+
+    it("prefers the base game over an add-on when naming a namespace", async () => {
+        get.mockResolvedValueOnce({
+            data: {
+                dlc: {
+                    title: "Game - Soundtrack",
+                    mainGameItem: { id: "base" },
+                },
+                base: { title: "Game" },
+            },
+        });
+        await expect(
+            service.getCatalogTitle("acct-1", "ns", ["dlc", "base"]),
+        ).resolves.toBe("Game");
+        expect(get.mock.calls[0][0]).toContain("/ns/bulk/items");
+        expect(String(get.mock.calls[0][1]?.params)).toContain(
+            "id=dlc&id=base",
+        );
+    });
+
+    it("returns no title when the catalog lookup fails", async () => {
+        get.mockRejectedValueOnce(new Error("503"));
+        await expect(
+            service.getCatalogTitle("acct-1", "ns", ["a"]),
+        ).resolves.toBeUndefined();
+    });
 });

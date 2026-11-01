@@ -47,3 +47,31 @@ describe("ExternalGameController.fillEpicNamespaces", () => {
         );
     });
 });
+
+describe("ExternalGameController unmapped endpoints", () => {
+    it.each(["findUnmappedEntries", "dismissUnmappedEntry"] as const)(
+        "%s is restricted to moderators and admins",
+        (method) => {
+            expect(
+                Reflect.getMetadata(
+                    "roles",
+                    ExternalGameController.prototype[method],
+                ),
+            ).toEqual([EUserRoles.MOD.valueOf(), EUserRoles.ADMIN.valueOf()]);
+        },
+    );
+
+    it("passes the filter to the service and dismisses by id", async () => {
+        const getUnmappedGames = jest.fn().mockResolvedValue([[], 0]);
+        const dismissUnmappedGame = jest.fn().mockResolvedValue(undefined);
+        const controller = new ExternalGameController(
+            { getUnmappedGames, dismissUnmappedGame } as any,
+            {} as any,
+        );
+        const dto = { category: 1, limit: 5, offset: 10 };
+        await controller.findUnmappedEntries(dto);
+        await controller.dismissUnmappedEntry(7);
+        expect(getUnmappedGames).toHaveBeenCalledWith(dto);
+        expect(dismissUnmappedGame).toHaveBeenCalledWith(7);
+    });
+});
