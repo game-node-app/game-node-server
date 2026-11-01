@@ -14,6 +14,7 @@ import { AchievementDefinition } from "./entities/achievement-definition.entity"
 import { AchievementTier } from "./entities/achievement-tier.entity";
 import { ObtainedAchievement } from "./entities/obtained-achievement.entity";
 import { AchievementStatus } from "./achievements.constants";
+import { Profile } from "../profile/entities/profile.entity";
 import {
     ACHIEVEMENT_METRICS,
     AchievementWindow,
@@ -101,6 +102,11 @@ export class AchievementsProgressService {
             );
             return;
         }
+        // Queued work can outlive the profile that produced it.
+        if (
+            !(await this.dataSource.getRepository(Profile).existsBy({ userId }))
+        )
+            return;
         const definitions = await this.findEvaluable({ metric: metricKey });
         if (definitions.length === 0) return;
 

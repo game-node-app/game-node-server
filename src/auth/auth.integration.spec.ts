@@ -10,12 +10,12 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { json } from "express";
 import request from "supertest";
-import { toNodeHandler } from "better-auth/node";
 import { AuthModule } from "./auth.module";
 import { AuthService } from "./auth.service";
+import { mountAuth } from "./mount-auth";
 import { AuthGuard } from "./auth.guard";
 import { CORS_OPTIONS } from "./cors-options";
 import { Public } from "./public.decorator";
@@ -104,10 +104,7 @@ describe("Better Auth integration (dev MySQL)", () => {
         website = app.get(ConfigService).getOrThrow("DOMAIN_WEBSITE");
         app.enableCors(CORS_OPTIONS);
         app.enableVersioning({ type: VersioningType.URI, defaultVersion: "1" });
-        // Same mounting as main.ts.
-        app.getHttpAdapter()
-            .getInstance()
-            .all("/v1/auth/*splat", toNodeHandler(authService.auth));
+        mountAuth(app.getHttpAdapter().getInstance(), authService);
         app.use(json());
         await app.init();
 
@@ -491,13 +488,17 @@ describe("Better Auth integration (dev MySQL)", () => {
         });
 
         it("returns redirect:false to a native client", async () => {
-            const response = await startSignIn(`${NATIVE}home`, { "capacitor-origin": NATIVE }).expect(200);
+            const response = await startSignIn(`${NATIVE}home`, {
+                "capacitor-origin": NATIVE,
+            }).expect(200);
             expect(response.body.redirect).toBe(false);
             expect(response.body.url).toBeDefined();
         });
 
         it("starts the provider flow through the authorization proxy with a state cookie", async () => {
-            const started = await startSignIn(`${NATIVE}home`, { "capacitor-origin": NATIVE }).expect(200);
+            const started = await startSignIn(`${NATIVE}home`, {
+                "capacitor-origin": NATIVE,
+            }).expect(200);
             const proxy = await request(server())
                 .get("/v1/auth/capacitor-authorization-proxy")
                 .query({ authorizationURL: started.body.url })
@@ -797,6 +798,249 @@ describe("Better Auth integration (dev MySQL)", () => {
                 emailVerified: true,
             });
             expect(again.userId).toBe(userId);
+        });
+    });
+
+    describe("MCP discovery", () => {
+        let api: string;
+        beforeAll(() => {
+            api = app.get(ConfigService).getOrThrow("DOMAIN_API");
+        });
+
+        it("publishes protected-resource metadata for the MCP endpoint", async () => {
+            const { body } = await request(server())
+                .get("/.well-known/oauth-protected-resource/v1/mcp")
+                .expect(200);
+            expect(body.resource).toBe(`${api}/v1/mcp`);
+            expect(body.authorization_servers).toEqual([`${api}/v1/auth`]);
+            expect(body.scopes_supported).toEqual(
+                expect.arrayContaining(["games:read", "posts:write"]),
+            );
+        });
+
+        it.each([
+            "/.well-known/oauth-authorization-server/v1/auth",
+            "/.well-known/oauth-authorization-server",
+        ])("publishes authorization-server metadata at %s", async (path) => {
+            const { body } = await request(server()).get(path).expect(200);
+            expect(body.issuer).toBe(`${api}/v1/auth`);
+            expect(body.code_challenge_methods_supported).toEqual(["S256"]);
+            expect(body.client_id_metadata_document_supported).toBe(true);
+            for (const endpoint of [
+                "authorization_endpoint",
+                "token_endpoint",
+                "registration_endpoint",
+                "revocation_endpoint",
+                "jwks_uri",
+            ]) {
+                expect(body[endpoint]).toContain(`${api}/v1/auth/`);
+            }
+        });
+    });
+
+    describe("MCP OAuth flow", () => {
+        const REDIRECT = "http://127.0.0.1:53682/callback";
+        const SCOPES = ["games:read", "posts:write", "offline_access"];
+        let api: string;
+        beforeAll(() => {
+            api = app.get(ConfigService).getOrThrow("DOMAIN_API");
+        });
+
+        const claims = (jwt: string) =>
+            JSON.parse(Buffer.from(jwt.split(".")[1], "base64url").toString());
+
+        async function registerClient() {
+            const { body } = await request(server())
+                .post("/v1/auth/oauth2/register")
+                .send({
+                    client_name: "Test MCP client",
+                    redirect_uris: [REDIRECT],
+                    token_endpoint_auth_method: "none",
+                    grant_types: ["authorization_code", "refresh_token"],
+                })
+                .expect(201);
+            return body.client_id as string;
+        }
+
+        function authorize(
+            clientId: string,
+            token: string | undefined,
+            pkce: { challenge?: string } = {},
+            scope = SCOPES,
+        ) {
+            const req = request(server())
+                .get("/v1/auth/oauth2/authorize")
+                .query({
+                    response_type: "code",
+                    client_id: clientId,
+                    redirect_uri: REDIRECT,
+                    scope: scope.join(" "),
+                    state: "s",
+                    resource: `${api}/v1/mcp`,
+                    ...(pkce.challenge && {
+                        code_challenge: pkce.challenge,
+                        code_challenge_method: "S256",
+                    }),
+                });
+            return token ? req.set("Authorization", `Bearer ${token}`) : req;
+        }
+
+        /** Signs a user in, runs authorize + consent and returns the tokens of the first exchange. */
+        async function connect(scope = SCOPES) {
+            const user = await signIn("google", {
+                id: randomUUID(),
+                email: email(),
+                emailVerified: true,
+            });
+            const clientId = await registerClient();
+            const verifier = randomBytes(32).toString("base64url");
+            const challenge = createHash("sha256")
+                .update(verifier)
+                .digest("base64url");
+            const authorized = await authorize(
+                clientId,
+                user.token,
+                { challenge },
+                scope,
+            ).expect(302);
+            const consentUrl = new URL(authorized.headers.location);
+            const consent = await bearer(
+                "post",
+                "/v1/auth/oauth2/consent",
+                user.token,
+                {
+                    accept: true,
+                    scope: scope.join(" "),
+                    oauth_query: consentUrl.search.slice(1),
+                },
+            ).expect(200);
+            const redirect = new URL(consent.body.url);
+            const token = (params: Record<string, string>) =>
+                request(server())
+                    .post("/v1/auth/oauth2/token")
+                    .type("form")
+                    .send({ client_id: clientId, ...params });
+            const exchanged = await token({
+                grant_type: "authorization_code",
+                code: redirect.searchParams.get("code")!,
+                code_verifier: verifier,
+                redirect_uri: REDIRECT,
+                resource: `${api}/v1/mcp`,
+            });
+            return { user, clientId, consentUrl, redirect, exchanged, token };
+        }
+
+        it("rejects authorization without PKCE", async () => {
+            const clientId = await registerClient();
+            const user = await signIn("google", {
+                id: randomUUID(),
+                email: email(),
+                emailVerified: true,
+            });
+            const response = await authorize(clientId, user.token);
+            expect(response.headers.location).toContain(REDIRECT);
+            expect(
+                new URL(response.headers.location).searchParams.get("error"),
+            ).toBe("invalid_request");
+        });
+
+        it("sends a signed-out user to the website sign-in page", async () => {
+            const clientId = await registerClient();
+            const response = await authorize(clientId, undefined, {
+                challenge: "x".repeat(43),
+            }).expect(302);
+            expect(
+                response.headers.location.startsWith(`${website}/auth`),
+            ).toBe(true);
+        });
+
+        it("issues an audience-bound JWT limited to the approved scopes", async () => {
+            const { user, consentUrl, exchanged } = await connect();
+            expect(consentUrl.href.startsWith(`${website}/oauth/consent`)).toBe(
+                true,
+            );
+            expect(exchanged.status).toBe(200);
+            const payload = claims(exchanged.body.access_token);
+            expect(payload.aud).toBe(`${api}/v1/mcp`);
+            expect(payload.iss).toBe(`${api}/v1/auth`);
+            expect(payload.sub).toBe(user.userId);
+            expect(payload.scope.split(" ").sort()).toEqual([...SCOPES].sort());
+            expect(exchanged.body.refresh_token).toBeDefined();
+        });
+
+        it("rotates refresh tokens and rejects reuse after the grace window", async () => {
+            const { exchanged, token } = await connect();
+            const first = exchanged.body.refresh_token;
+            const rotated = await token({
+                grant_type: "refresh_token",
+                refresh_token: first,
+            }).expect(200);
+            expect(rotated.body.refresh_token).not.toBe(first);
+            // Age the rotation past the 30 s reuse window instead of sleeping.
+            await dataSource.query(
+                "UPDATE oauthRefreshToken SET rotationReplayExpiresAt = ? WHERE rotatedAt IS NOT NULL",
+                [new Date(Date.now() - 60_000)],
+            );
+            const replay = await token({
+                grant_type: "refresh_token",
+                refresh_token: first,
+            });
+            expect(replay.status).toBe(400);
+            expect(replay.body.error).toBe("invalid_grant");
+        });
+
+        it("refuses a CIMD client_id that resolves to a private address", async () => {
+            const user = await signIn("google", {
+                id: randomUUID(),
+                email: email(),
+                emailVerified: true,
+            });
+            const response = await request(server())
+                .get("/v1/auth/oauth2/authorize")
+                .set("Authorization", `Bearer ${user.token}`)
+                .query({
+                    response_type: "code",
+                    client_id: "https://127.0.0.1/client.json",
+                    redirect_uri: REDIRECT,
+                    scope: "games:read",
+                    code_challenge: "x".repeat(43),
+                    code_challenge_method: "S256",
+                });
+            expect(response.status).toBe(400);
+            expect(response.body.error).toBe("invalid_client");
+            expect(response.body.error_description).toContain("private");
+            expect(
+                await dataSource.query(
+                    "SELECT 1 FROM oauthClient WHERE clientId = ?",
+                    ["https://127.0.0.1/client.json"],
+                ),
+            ).toHaveLength(0);
+        });
+
+        it("does not accept an MCP access token as a REST session", async () => {
+            const { exchanged } = await connect();
+            await bearer(
+                "get",
+                "/v1/auth-test/me",
+                exchanged.body.access_token,
+            ).expect(401);
+        });
+
+        it("revokes refresh tokens and consents when the user is locked out", async () => {
+            const { user, exchanged, token } = await connect();
+            await authService.lockOut(user.userId, { reason: "test" });
+            expect(
+                await dataSource.query(
+                    "SELECT 1 FROM oauthConsent WHERE userId = ?",
+                    [user.userId],
+                ),
+            ).toHaveLength(0);
+            const refreshed = await token({
+                grant_type: "refresh_token",
+                refresh_token: exchanged.body.refresh_token,
+            });
+            expect(refreshed.status).toBe(400);
+            expect(refreshed.body.error).toBe("invalid_grant");
         });
     });
 });

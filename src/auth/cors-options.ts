@@ -6,11 +6,12 @@ export const CORS_OPTIONS: CorsOptions = {
     origin: true,
     optionsSuccessStatus: 204,
     allowedHeaders: [
+        "mcp-protocol-version",
         "content-type",
         "authorization",
         "capacitor-origin",
         "x-skip-oauth-proxy",
     ],
-    exposedHeaders: ["set-auth-token"],
+    exposedHeaders: ["set-auth-token", "www-authenticate"],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
 };

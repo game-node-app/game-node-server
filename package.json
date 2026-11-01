@@ -45,9 +45,14 @@
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.758.0",
+        "@better-auth/cimd": "1.7.14",
         "@better-auth/core": "1.7.14",
+        "@better-auth/mcp": "1.7.14",
+        "@better-auth/oauth-provider": "1.7.14",
         "@keyv/redis": "^4.4.0",
         "@liaoliaots/nestjs-redis-health": "^9.0.4",
+        "@modelcontextprotocol/node": "2.1.2",
+        "@modelcontextprotocol/server": "2.4.0",
         "@nestjs/axios": "^4.0.0",
         "@nestjs/bullmq": "^11.0.2",
         "@nestjs/cache-manager": "^3.0.1",
@@ -104,7 +109,8 @@
         "ts-pattern": "^5.6.2",
         "typeorm": "^0.3.27",
         "typeorm-transactional": "^0.5.0",
-        "unique-username-generator": "^1.4.0"
+        "unique-username-generator": "^1.4.0",
+        "zod": "4.6.7"
     },
     "devDependencies": {
         "@nestjs/cli": "^11.0.5",

@@ -5,12 +5,16 @@ import type { IncomingMessage } from "http";
 import { betterAuth } from "better-auth";
 import { capacitor } from "better-auth-capacitor";
 import { fromNodeHeaders } from "better-auth/node";
-import { admin, bearer } from "better-auth/plugins";
+import { admin, bearer, jwt } from "better-auth/plugins";
+import { mcp } from "@better-auth/mcp";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { createAccessControl } from "better-auth/plugins/access";
 import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
 import { createPool } from "mysql2/promise";
 import { UserInitService } from "../user/user-init/user-init.service";
 import { EUserRoles } from "../utils/constants";
+import { MCP_PATH, MCP_SCOPES } from "../mcp/mcp.constants";
 
 const ac = createAccessControl(defaultStatements);
 
@@ -60,9 +64,12 @@ export class AuthService implements OnModuleDestroy {
             timezone: "Z",
         });
 
+        const apiUrl = configService.getOrThrow<string>("DOMAIN_API");
+        const websiteUrl = configService.getOrThrow<string>("DOMAIN_WEBSITE");
+
         this.auth = betterAuth({
             appName: "GameNode",
-            baseURL: configService.getOrThrow<string>("DOMAIN_API"),
+            baseURL: apiUrl,
             basePath: "/v1/auth",
             secret: configService.getOrThrow<string>("BETTER_AUTH_SECRET"),
             trustedOrigins: [
@@ -110,6 +117,20 @@ export class AuthService implements OnModuleDestroy {
                     adminRoles: [EUserRoles.ADMIN],
                     defaultRole: EUserRoles.USER,
                 }),
+                jwt(),
+                mcp({
+                    resource: `${apiUrl}${MCP_PATH}`,
+                    loginPage: `${websiteUrl}/auth`,
+                    consentPage: `${websiteUrl}/oauth/consent`,
+                    scopes: MCP_SCOPES,
+                    allowDynamicClientRegistration: true,
+                    allowUnauthenticatedClientRegistration: true,
+                    clientRegistrationDefaultApplicationType: "infer",
+                }),
+                cimd({
+                    fetchClientMetadataResource,
+                    metadataProfile: "mcp-2026-07-28",
+                }),
             ],
         });
     }
@@ -148,6 +169,13 @@ export class AuthService implements OnModuleDestroy {
                     : null,
         });
         await ctx.internalAdapter.deleteUserSessions(userId);
+        // Stops MCP clients from refreshing: access tokens are short-lived JWTs, refresh tokens are not.
+        for (const model of ["oauthRefreshToken", "oauthConsent"]) {
+            await ctx.adapter.deleteMany({
+                model,
+                where: [{ field: "userId", value: userId }],
+            });
+        }
     }
 
     /**

@@ -66,6 +66,40 @@ describe("AchievementsProgressService (integration)", () => {
 
     afterAll(() => ds?.destroy());
 
+    it("skips tracking jobs for deleted profiles before computing metrics", async () => {
+        const user = await f.user();
+        await f.definition("library_games", {}, [[1, 25]]);
+        await ds.query("DELETE FROM profile WHERE userId = ?", [user]);
+        const compute = jest.spyOn(
+            ACHIEVEMENT_METRICS.get("library_games")!,
+            "compute",
+        );
+
+        await expect(
+            service.evaluate(user, "library_games"),
+        ).resolves.toBeUndefined();
+
+        expect(compute).not.toHaveBeenCalled();
+        expect(activities.register).not.toHaveBeenCalled();
+    });
+
+    it("skips backfill candidates whose libraries outlive their profiles", async () => {
+        const user = await f.user();
+        const game = await f.game();
+        await f.entry(user, game);
+        const definition = await f.definition(
+            "library_games",
+            { gameIds: [game] },
+            [[1, 25]],
+        );
+        await ds.query("DELETE FROM profile WHERE userId = ?", [user]);
+
+        await expect(service.backfill(definition.id, null)).resolves.toBeNull();
+
+        expect(await progressOf(user, definition.id)).toBeUndefined();
+        expect(await countOf(definition.id, 1)).toBe(0);
+    });
+
     it("grants every reached tier at once with summed exp, one notification and one activity", async () => {
         const user = await f.user();
         const game = await f.game();

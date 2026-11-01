@@ -41,6 +41,7 @@ import { PreferredPlatformModule } from "./preferred-platform/preferred-platform
 import { LoggerModule } from "nestjs-pino";
 import { RecapModule } from "./recap/recap.module";
 import { SearchModule } from "./search/search.module";
+import { McpModule } from "./mcp/mcp.module";
 import { getRedisConfig } from "./utils/getRedisConfig";
 import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.module";
 
@@ -185,6 +186,7 @@ import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.mo
         RecapModule,
         SearchModule,
         PlayerDataWorkerModule,
+        McpModule,
     ],
 })
 export class AppModule implements NestModule {

@@ -42,6 +42,8 @@ describe("AchievementsQueueService and processors", () => {
             { userId: "u1", metric: "followers" },
             {
                 delay: ACHIEVEMENTS_TRACKING_DELAY_MS,
+                backoff: { type: "exponential", delay: 1000 },
+                stackTraceLimit: 1,
                 deduplication: {
                     id: "ach-u1-followers",
                     ttl: ACHIEVEMENTS_TRACKING_DELAY_MS,
@@ -65,6 +67,15 @@ describe("AchievementsQueueService and processors", () => {
         expect(
             backfillQueue.add.mock.calls.map((call: any[]) => call[2].jobId),
         ).toEqual(["ach-backfill-boo-2-start", "ach-backfill-boo-2-u9"]);
+        expect(backfillQueue.add).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.any(Object),
+            {
+                jobId: "ach-backfill-boo-2-start",
+                backoff: { type: "exponential", delay: 1000 },
+                stackTraceLimit: 1,
+            },
+        );
     });
 
     it("the tracking processor awaits the evaluation so failures are retried", async () => {
@@ -106,7 +117,11 @@ describe("AchievementsQueueService and processors", () => {
         expect(backfillQueue.add).toHaveBeenCalledWith(
             expect.any(String),
             { definitionId: "boo", afterUserId: "u500", generation: 1 },
-            { jobId: "ach-backfill-boo-1-u500" },
+            {
+                jobId: "ach-backfill-boo-1-u500",
+                backoff: { type: "exponential", delay: 1000 },
+                stackTraceLimit: 1,
+            },
         );
     });
 });

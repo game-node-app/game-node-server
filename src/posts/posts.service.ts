@@ -69,6 +69,8 @@ export class PostsService {
             profileUserId: userId,
             sourceId: createdPost.id,
         });
+
+        return createdPost;
     }
 
     public async uploadPostImage(

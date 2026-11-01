@@ -8,8 +8,8 @@ import duration from "dayjs/plugin/duration";
 import dayjs from "dayjs";
 import { publicImagesDir } from "./utils/constants";
 import { json, urlencoded } from "express";
-import { toNodeHandler } from "better-auth/node";
 import { AuthService } from "./auth/auth.service";
+import { mountAuth } from "./auth/mount-auth";
 import * as fs from "fs";
 import * as process from "process";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
@@ -55,10 +55,7 @@ async function bootstrap() {
 
     app.enableCors(CORS_OPTIONS);
 
-    // Not app.use("/v1/auth"): Express strips mount prefixes, and Better Auth routes by full path.
-    app.getHttpAdapter()
-        .getInstance()
-        .all("/v1/auth/*splat", toNodeHandler(app.get(AuthService).auth));
+    mountAuth(app.getHttpAdapter().getInstance(), app.get(AuthService));
 
     app.use(json({ limit: "15mb" }));
     app.use(urlencoded({ extended: true }));

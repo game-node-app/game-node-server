@@ -29,6 +29,8 @@ export class AchievementsQueueService {
             job,
             {
                 delay: ACHIEVEMENTS_TRACKING_DELAY_MS,
+                backoff: { type: "exponential", delay: 1000 },
+                stackTraceLimit: 1,
                 // Dedup only while delayed, so facts committed during processing get a new job
                 deduplication: {
                     id: `ach-${job.userId}-${job.metric}`,
@@ -43,6 +45,8 @@ export class AchievementsQueueService {
     addBackfillJob(job: AchievementsBackfillJob) {
         return this.backfillQueue.add(ACHIEVEMENTS_BACKFILL_JOB_NAME, job, {
             jobId: `ach-backfill-${job.definitionId}-${job.generation}-${job.afterUserId ?? "start"}`,
+            backoff: { type: "exponential", delay: 1000 },
+            stackTraceLimit: 1,
         });
     }
 }

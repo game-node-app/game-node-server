@@ -362,6 +362,7 @@ export class CollectionsEntriesService {
             throw new HttpException("Library not found", HttpStatus.NOT_FOUND);
 
         const inferredStatusAndDates = await this.inferStatusAndAssociatedDates(
+            userId,
             uniqueCollectionIds,
             status,
             finishedAt,
@@ -481,6 +482,7 @@ export class CollectionsEntriesService {
         );
         if (!missing.length) return [];
         const dates = await this.inferStatusAndAssociatedDates(
+            userId,
             [],
             status,
             null,
@@ -596,9 +598,11 @@ export class CollectionsEntriesService {
     /**
      * Infer a collection entry's status from it's parent collection and automatically returns the associated status date
      * (e.g. startedAt, finishedAt) if relevant.
+     * Also rejects collection ids (unique) that don't exist or belong to another user.
      * @private
      */
     private async inferStatusAndAssociatedDates(
+        userId: string,
         collectionIds: string[],
         status: CollectionEntryStatus,
         finishedAt: Date | null | undefined,
@@ -616,6 +620,18 @@ export class CollectionsEntriesService {
     > {
         const associatedCollections =
             await this.collectionsService.findAllByIds(collectionIds);
+
+        if (
+            associatedCollections.length !== collectionIds.length ||
+            associatedCollections.some(
+                (collection) => collection.libraryUserId !== userId,
+            )
+        ) {
+            throw new HttpException(
+                "Collection does not belong to this user.",
+                HttpStatus.FORBIDDEN,
+            );
+        }
 
         const firstCollectionWithDefaultStatus = associatedCollections.find(
             (collection) => collection.defaultEntryStatus != undefined,
