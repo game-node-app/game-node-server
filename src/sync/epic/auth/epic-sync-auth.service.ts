@@ -16,6 +16,7 @@ import {
 import { PLAYER_PROVIDER_BUDGET_QUEUE } from "../../player-provider-budget.service";
 import { UserConnection } from "../../../connection/entity/user-connection.entity";
 import { ConnectionCredentialService } from "../../../connection/connection-credential.service";
+import { markReauthRequired } from "../../../connection/mark-reauth-required";
 import {
     EConnectionAuthStatus,
     EConnectionType,
@@ -105,8 +106,9 @@ export class EpicSyncAuthService {
         };
         const requireReauth = async (message: string): Promise<never> => {
             await assertLock();
-            connection.authStatus = EConnectionAuthStatus.REAUTH_REQUIRED;
-            await this.connectionRepository.save(connection);
+            await this.connectionRepository.manager.transaction((manager) =>
+                markReauthRequired(manager, connection),
+            );
             throw new ProviderSyncError("reauth_required", message);
         };
 

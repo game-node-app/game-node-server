@@ -1,8 +1,10 @@
 import { setPlayerProviderBudget } from "../../player-provider-budget.service";
 jest.mock("axios");
+jest.mock("../../../connection/mark-reauth-required");
 import axios from "axios";
 import { EpicSyncAuthService } from "./epic-sync-auth.service";
 import { EConnectionAuthStatus } from "../../../connection/connections.constants";
+import { markReauthRequired } from "../../../connection/mark-reauth-required";
 
 const post = jest.mocked(axios.post);
 
@@ -27,7 +29,9 @@ const queue = { client: Promise.resolve(redis) } as any;
 const inMinutes = (m: number) => new Date(Date.now() + m * 60_000);
 let stored: any;
 let connection: any;
-const connectionRepo = { findOne: jest.fn(), save: jest.fn() };
+const manager = {};
+const transaction = jest.fn(async (work) => work(manager));
+const connectionRepo = { findOne: jest.fn(), manager: { transaction } };
 const credentialService = {
     getCredentials: jest.fn(async () => stored),
     saveCredentials: jest.fn(async (_id: number, creds: any) => {
@@ -107,10 +111,8 @@ describe("EpicSyncAuthService.getAccessToken", () => {
         await expect(service().getAccessToken("acct")).rejects.toMatchObject({
             outcome: "reauth_required",
         });
-        expect(connection.authStatus).toBe(
-            EConnectionAuthStatus.REAUTH_REQUIRED,
-        );
-        expect(connectionRepo.save).toHaveBeenCalledWith(connection);
+        expect(transaction).toHaveBeenCalledTimes(1);
+        expect(markReauthRequired).toHaveBeenCalledWith(manager, connection);
     });
 
     it("sets reauth_required when no refresh token is stored", async () => {
@@ -119,9 +121,8 @@ describe("EpicSyncAuthService.getAccessToken", () => {
             outcome: "reauth_required",
         });
         expect(post).not.toHaveBeenCalled();
-        expect(connection.authStatus).toBe(
-            EConnectionAuthStatus.REAUTH_REQUIRED,
-        );
+        expect(transaction).toHaveBeenCalledTimes(1);
+        expect(markReauthRequired).toHaveBeenCalledWith(manager, connection);
     });
 
     it("fails fast for a connection that already needs reauth", async () => {
@@ -129,5 +130,6 @@ describe("EpicSyncAuthService.getAccessToken", () => {
         await expect(service().getAccessToken("acct")).rejects.toMatchObject({
             outcome: "reauth_required",
         });
+        expect(transaction).not.toHaveBeenCalled();
     });
 });

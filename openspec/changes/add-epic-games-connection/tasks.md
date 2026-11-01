@@ -42,10 +42,10 @@
 
 ## 8. Re-auth notification and notification DTO fixes
 
-- [ ] 8.1 Add `connection.reauth-required` with payload `{ connectionId, provider }` to `notifications.types.ts`, outbox payload validation and the projector, plus a `NotificationConnectionTargetDto`, as in design D10. Verify with outbox and projector specs: a valid payload passes, an extra key fails, the projected item has the `connection` target and provider preview text, and a deleted connection is suppressed.
-- [ ] 8.2 Add `markReauthRequired(manager, connection)` in `src/connection/` and use it from Epic's `requireReauth` and Xbox's three `reauth_required` changes, inside a transaction. Verify with tests: the first change creates one intent, a repeat or concurrent call creates none, and `epic-sync-auth.service.spec.ts` and `xbox-sync-auth.service.spec.ts` still pass.
-- [ ] 8.3 Add `epicgames` to the provider enums of `NotificationImporterTargetDto` and the import preview DTO (design D11), and regenerate `server_swagger.json`. Confirm that the diff shows the `epicgames` enums, the `connection` target, and nothing unrelated.
-- [ ] 8.4 Generate the client hand-off at `openspec/changes/add-epic-games-connection/handoff-clients.md` for `game-node-clients` (branch `feat/add-epic-connection`). It must be self-contained and list:
+- [x] 8.1 Add `connection.reauth-required` with payload `{ connectionId, provider }` to `notifications.types.ts`, outbox payload validation and the projector, plus a `NotificationConnectionTargetDto`, as in design D10. Verify with outbox and projector specs: a valid payload passes, an extra key fails, the projected item has the `connection` target and provider preview text, and a deleted connection is suppressed.
+- [x] 8.2 Add `markReauthRequired(manager, connection)` in `src/connection/` and use it from Epic's `requireReauth` and Xbox's three `reauth_required` changes, inside a transaction. Verify with tests: the first change creates one intent, a repeat or concurrent call creates none, and `epic-sync-auth.service.spec.ts` and `xbox-sync-auth.service.spec.ts` still pass.
+- [x] 8.3 Add `epicgames` to the provider enums of `NotificationImporterTargetDto` and the import preview DTO (design D11), and regenerate `server_swagger.json`. Confirm that the diff shows the `epicgames` enums, the `connection` target, and nothing unrelated.
+- [x] 8.4 Generate the client hand-off at `openspec/changes/add-epic-games-connection/handoff-clients.md` for `game-node-clients` (branch `feat/add-epic-connection`). It must be self-contained and list:
   - a `connection.reauth-required` branch in `packages/ui/src/components/notifications/AggregatedNotification.tsx` with the provider icon (`getServerStoredIcon(provider)`) and translated text in `@repo/locales`;
   - `handleItemClick` routing a `connection` target to `/preferences/connections`;
   - an "Epic Games" display name for `epicgames` in import notifications instead of the capitalized "Epicgames";

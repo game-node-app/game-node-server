@@ -19,6 +19,7 @@ import { authenticate, Email } from "@xboxreplay/xboxlive-auth";
 import axios from "axios";
 import { UserConnection } from "../../../connection/entity/user-connection.entity";
 import { ConnectionCredentialService } from "../../../connection/connection-credential.service";
+import { markReauthRequired } from "../../../connection/mark-reauth-required";
 import {
     EConnectionAuthStatus,
     EConnectionType,
@@ -150,8 +151,9 @@ export class XboxSyncAuthService {
                 rechecked?.refreshToken || credentials.refreshToken;
             if (!refreshToken) {
                 await assertLock();
-                connection.authStatus = EConnectionAuthStatus.REAUTH_REQUIRED;
-                await this.connectionRepository.save(connection);
+                await this.connectionRepository.manager.transaction((manager) =>
+                    markReauthRequired(manager, connection),
+                );
                 throw new ProviderSyncError(
                     "reauth_required",
                     "No refresh token available for Xbox connection",
@@ -220,8 +222,9 @@ export class XboxSyncAuthService {
                 status === 401
             ) {
                 await assertLock();
-                connection.authStatus = EConnectionAuthStatus.REAUTH_REQUIRED;
-                await this.connectionRepository!.save(connection);
+                await this.connectionRepository.manager.transaction((manager) =>
+                    markReauthRequired(manager, connection),
+                );
                 throw new ProviderSyncError(
                     "reauth_required",
                     `Xbox OAuth refresh token revoked or expired: ${
@@ -292,8 +295,9 @@ export class XboxSyncAuthService {
             const xerr = response?.data?.XErr;
             if (typeof xerr === "number") {
                 await assertLock();
-                connection.authStatus = EConnectionAuthStatus.REAUTH_REQUIRED;
-                await this.connectionRepository!.save(connection);
+                await this.connectionRepository.manager.transaction((manager) =>
+                    markReauthRequired(manager, connection),
+                );
                 throw new ProviderSyncError(
                     "reauth_required",
                     `Xbox XSTS authorization failed with XErr: ${xerr}`,

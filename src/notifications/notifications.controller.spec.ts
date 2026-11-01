@@ -36,7 +36,22 @@ describe("NotificationsController", () => {
             >;
             expect(
                 schemas.NotificationInboxItemDto.properties.target.oneOf,
-            ).toHaveLength(5);
+            ).toHaveLength(6);
+            expect(schemas.NotificationConnectionTargetDto.required).toEqual(
+                expect.arrayContaining(["type", "id", "provider"]),
+            );
+            for (const dto of [
+                "NotificationImporterTargetDto",
+                "NotificationImportPreviewDto",
+                "NotificationConnectionTargetDto",
+            ]) {
+                expect(schemas[dto].properties.provider.enum).toEqual([
+                    "steam",
+                    "psn",
+                    "xbox",
+                    "epicgames",
+                ]);
+            }
             expect(
                 schemas.NotificationActivityTargetDto.properties,
             ).toMatchObject({

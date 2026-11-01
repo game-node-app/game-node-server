@@ -4,6 +4,7 @@ export type NotificationEventType =
     | "comment.replied"
     | "profile.followed"
     | "import.discovery-completed"
+    | "connection.reauth-required"
     | "moderation.applied"
     | "achievement.unlocked";
 
@@ -13,6 +14,7 @@ export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "comment.replied",
     "profile.followed",
     "import.discovery-completed",
+    "connection.reauth-required",
     "moderation.applied",
     "achievement.unlocked",
 ] as const;
@@ -74,6 +76,11 @@ export interface ModerationAppliedPayload {
     reportId?: number;
 }
 
+export interface ConnectionReauthRequiredPayload {
+    connectionId: number;
+    provider: string;
+}
+
 export interface AchievementUnlockedPayload {
     obtainedAchievementId: number;
     achievementId: string;
@@ -88,6 +95,10 @@ export type NotificationEventIntent =
     | BaseNotificationEventIntent<
           "import.discovery-completed",
           ImportDiscoveryCompletedPayload
+      >
+    | BaseNotificationEventIntent<
+          "connection.reauth-required",
+          ConnectionReauthRequiredPayload
       >
     | BaseNotificationEventIntent<
           "moderation.applied",
@@ -128,4 +139,5 @@ export type NotificationTarget =
       }
     | { type: "profile"; id: string }
     | { type: "importer"; id: string; provider: string }
+    | { type: "connection"; id: string; provider: string }
     | { type: "achievement"; id: string; tier: number };
