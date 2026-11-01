@@ -248,6 +248,13 @@ Discovery is public at these paths on `DOMAIN_API`:
 | `library:write` | `add_game_to_library` |
 | `reviews:write` | `review_game` |
 | `posts:write` | `create_post` |
+| `mappings:write` | `list_unmapped_games`, `map_external_game`, `dismiss_unmapped_game` |
+
+The `mappings:write` tools work through the queue of platform games GameNode could
+not map. They are only listed and callable for users with the `ADMIN` role, checked on
+every request, so holding the scope is not enough. Mappings they write have origin
+`agent`, never overwrite an existing mapping, and can be reviewed or reverted with
+`origin = 'agent'` in `game_external_game`. Their writes count toward the same limit.
 
 OAuth also supports `openid`, `profile` and `offline_access`; the last enables
 rotating refresh tokens. Clients can use CIMD or register dynamically without a

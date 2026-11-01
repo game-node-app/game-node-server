@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import {
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ThrottlerStorageService } from "@nestjs/throttler";
 import { EntityNotFoundError } from "typeorm";
@@ -10,6 +14,8 @@ import { CollectionsEntriesService } from "../collections/collections-entries/co
 import { CollectionEntryStatus as Status } from "../collections/collections-entries/collections-entries.constants";
 import { ReviewsService } from "../reviews/reviews.service";
 import { PostsService } from "../posts/posts.service";
+import { ExternalGameService } from "../game/external-game/external-game.service";
+import { EGameExternalGameCategory } from "../game/game-repository/game-repository.constants";
 import { McpToolsService } from "./mcp-tools.service";
 
 describe("McpToolsService", () => {
@@ -28,6 +34,11 @@ describe("McpToolsService", () => {
         createOrUpdate: jest.fn(),
     };
     const posts = { create: jest.fn() };
+    const externalGames = {
+        getUnmappedGames: jest.fn(),
+        mapUnmappedGame: jest.fn(),
+        dismissUnmappedGame: jest.fn(),
+    };
     const entry = {
         status: Status.PLAYING,
         ownedPlatforms: [{ id: 6, name: "PC" }],
@@ -55,6 +66,7 @@ describe("McpToolsService", () => {
             entries as unknown as CollectionsEntriesService,
             reviews as unknown as ReviewsService,
             posts as unknown as PostsService,
+            externalGames as unknown as ExternalGameService,
         );
         auth.getLockoutStates.mockResolvedValue(new Map());
         games.findOneByIdOrFail.mockResolvedValue({
@@ -412,5 +424,134 @@ describe("McpToolsService", () => {
             content: "<p>Hello &lt;img onerror=x&gt;</p><p>World</p>",
         });
         expect(result.structuredContent).toEqual({ id: "post", game_id: 1 });
+    });
+
+    describe("mapping tools", () => {
+        it("lists entries in the service's order with a store URL when one exists", async () => {
+            externalGames.getUnmappedGames.mockResolvedValue([
+                [
+                    {
+                        id: 5,
+                        sourceUid: "412020",
+                        category: EGameExternalGameCategory.Steam,
+                        name: "Metro Exodus",
+                        ownerCount: 3,
+                    },
+                    {
+                        id: 6,
+                        sourceUid: "ns",
+                        category: EGameExternalGameCategory.EpicGamesNamespace,
+                        name: null,
+                        ownerCount: 0,
+                    },
+                ],
+                45,
+            ]);
+            const result = await service.listUnmappedGames({
+                category: "Steam",
+                limit: 20,
+                page: 2,
+            });
+            expect(externalGames.getUnmappedGames).toHaveBeenCalledWith({
+                category: EGameExternalGameCategory.Steam,
+                limit: 20,
+                offset: 20,
+            });
+            expect(result.structuredContent).toEqual({
+                total: 45,
+                has_next_page: true,
+                entries: [
+                    {
+                        id: 5,
+                        source_id: "412020",
+                        category: "Steam",
+                        name: "Metro Exodus",
+                        owner_count: 3,
+                        store_url: "https://store.steampowered.com/app/412020",
+                    },
+                    {
+                        id: 6,
+                        source_id: "ns",
+                        category: "EpicGamesNamespace",
+                        name: null,
+                        owner_count: 0,
+                        store_url: null,
+                    },
+                ],
+            });
+            expect(auth.getLockoutStates).not.toHaveBeenCalled();
+        });
+
+        it("maps an entry and names the game", async () => {
+            externalGames.mapUnmappedGame.mockResolvedValue({
+                id: 7,
+                name: "Metro Exodus",
+            });
+            const result = await service.mapExternalGame("user", {
+                id: 5,
+                game_id: 7,
+            });
+            expect(externalGames.mapUnmappedGame).toHaveBeenCalledWith(5, 7);
+            expect(result.structuredContent).toEqual({
+                entry_id: 5,
+                game_id: 7,
+                game_name: "Metro Exodus",
+            });
+        });
+
+        it("turns a refusal into a tool error", async () => {
+            externalGames.mapUnmappedGame.mockRejectedValue(
+                new ConflictException("A mapping already exists."),
+            );
+            const result = await service.mapExternalGame("user", {
+                id: 5,
+                game_id: 7,
+            });
+            expect(result.isError).toBe(true);
+            expect(result.content[0]).toMatchObject({
+                text: "A mapping already exists.",
+            });
+        });
+
+        it("dismisses an entry, and reports one that is gone", async () => {
+            externalGames.dismissUnmappedGame.mockResolvedValueOnce(undefined);
+            expect(
+                (await service.dismissUnmappedGame("user", { id: 5 }))
+                    .structuredContent,
+            ).toEqual({ entry_id: 5, dismissed: true });
+            externalGames.dismissUnmappedGame.mockRejectedValueOnce(
+                new NotFoundException("no longer active"),
+            );
+            const result = await service.dismissUnmappedGame("user", { id: 5 });
+            expect(result.isError).toBe(true);
+        });
+
+        it("refuses restricted users and the eleventh write in a minute", async () => {
+            auth.getLockoutStates.mockResolvedValueOnce(
+                new Map([["user", { isBanned: true }]]),
+            );
+            expect(
+                (await service.dismissUnmappedGame("user", { id: 5 })).isError,
+            ).toBe(true);
+            expect(externalGames.dismissUnmappedGame).not.toHaveBeenCalled();
+
+            externalGames.mapUnmappedGame.mockResolvedValue({
+                id: 7,
+                name: "G",
+            });
+            for (let i = 0; i < 10; i++)
+                await service.mapExternalGame("other", {
+                    id: i + 1,
+                    game_id: 7,
+                });
+            const blocked = await service.mapExternalGame("other", {
+                id: 11,
+                game_id: 7,
+            });
+            expect(blocked.content[0]).toMatchObject({
+                text: expect.stringContaining("Write limit reached"),
+            });
+            expect(externalGames.mapUnmappedGame).toHaveBeenCalledTimes(10);
+        });
     });
 });

@@ -10,6 +10,13 @@ import axios from "axios";
 import { cancellableProviderCall } from "../player-sync-attempt";
 import { GameStatsResponse } from "./steam-sync.types";
 
+/** Owned-games entries carry `game.name` only when the request asked for app info. */
+export function steamGameName({ game }: { game: object }) {
+    return "name" in game && typeof game.name === "string"
+        ? game.name
+        : undefined;
+}
+
 @Injectable()
 export class SteamSyncService {
     private logger = new Logger(SteamSyncService.name);
@@ -102,7 +109,7 @@ export class SteamSyncService {
     public async getAllGames(steamUserId: string) {
         const games = await providerCall("Steam", () =>
             this.client.getUserOwnedGames(steamUserId, {
-                includeAppInfo: false,
+                includeAppInfo: true,
                 includeFreeGames: true,
                 language: "english",
             }),

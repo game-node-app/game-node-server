@@ -1,4 +1,4 @@
-import { ConflictException } from "@nestjs/common";
+import { ConflictException, NotFoundException } from "@nestjs/common";
 import { QueryFailedError } from "typeorm";
 import { ExternalGameService } from "./external-game.service";
 import { ExternalGameMappingsService } from "./external-game-mappings.service";
@@ -47,28 +47,6 @@ test("provider snapshots retain all mappings while normal discovery stays compat
         EGameExternalGameCategory.Steam,
     );
     expect(legacy.map((item) => item.id)).toEqual([2]);
-});
-
-test("concurrent unmapped registration tolerates only duplicate identities", async () => {
-    const duplicate = new QueryFailedError(
-        "INSERT",
-        [],
-        Object.assign(new Error("duplicate"), { code: "ER_DUP_ENTRY" }),
-    );
-    const insert = jest
-        .fn()
-        .mockResolvedValueOnce({})
-        .mockRejectedValueOnce(duplicate);
-    const service = new ExternalGameService({} as any, { insert } as any);
-    await Promise.all([
-        service.registerUnmappedGame("42", EGameExternalGameCategory.Steam),
-        service.registerUnmappedGame("42", EGameExternalGameCategory.Steam),
-    ]);
-    const failure = new Error("database unavailable");
-    insert.mockRejectedValueOnce(failure);
-    await expect(
-        service.registerUnmappedGame("42", EGameExternalGameCategory.Steam),
-    ).rejects.toBe(failure);
 });
 
 test("PSN mapping upsert awaits the atomic unique-identity write", async () => {
@@ -158,9 +136,9 @@ test("reserved ID insert retries duplicate keys at most five times", async () =>
 
     const exhausted = submitFixture([]);
     exhausted.insert.mockRejectedValue(duplicateKey());
-    await expect(exhausted.service.insertReserved({ uid: "a" })).rejects.toBeInstanceOf(
-        QueryFailedError,
-    );
+    await expect(
+        exhausted.service.insertReserved({ uid: "a" }),
+    ).rejects.toBeInstanceOf(QueryFailedError);
     expect(exhausted.insert).toHaveBeenCalledTimes(5);
 });
 
@@ -176,7 +154,10 @@ test("submit adds a curated row next to the game's other mappings and resolves t
         }),
     );
     expect(update).not.toHaveBeenCalled();
-    expect(unmapped.update).toHaveBeenCalledWith({ id: 9 }, { isActive: false });
+    expect(unmapped.update).toHaveBeenCalledWith(
+        { id: 9 },
+        { isActive: false },
+    );
 });
 
 test("submit corrects an existing non-IGDB mapping in place", async () => {
@@ -187,7 +168,7 @@ test("submit corrects an existing non-IGDB mapping in place", async () => {
     expect(insert).not.toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith(
         { id: 1e12 + 5 },
-        { gameId: 7, url: dto.sourceUrl },
+        { gameId: 7, url: dto.sourceUrl, origin: "curated" },
     );
 });
 
@@ -199,4 +180,86 @@ test("submit refuses to shadow an IGDB mapping", async () => {
     expect(insert).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
     expect(unmapped.update).not.toHaveBeenCalled();
+});
+
+test("submit turns a corrected agent mapping into a curated one with the same id", async () => {
+    const { service, insert, update } = submitFixture([
+        { id: 1e12 + 6, origin: "agent", gameId: 1 },
+    ]);
+    await service.submit(dto);
+    expect(insert).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith(
+        { id: 1e12 + 6 },
+        expect.objectContaining({ gameId: 7, origin: "curated" }),
+    );
+});
+
+describe("mapUnmappedGame", () => {
+    const entry = {
+        id: 9,
+        sourceUid: "412020",
+        category: EGameExternalGameCategory.Steam,
+        isActive: true,
+    };
+    const build = ({
+        active = entry as any,
+        game = { id: 7, name: "Metro Exodus" } as any,
+        mapped = false,
+    } = {}) => {
+        const insert = jest.fn().mockResolvedValue({});
+        const repo = {
+            insert,
+            existsBy: jest.fn().mockResolvedValue(mapped),
+            manager: { findOne: jest.fn().mockResolvedValue(game) },
+            createQueryBuilder: () => ({
+                select: () => ({
+                    getRawOne: jest.fn().mockResolvedValue({ max: null }),
+                }),
+            }),
+        };
+        const unmapped = {
+            findOneBy: jest.fn().mockResolvedValue(active),
+            update: jest.fn(),
+        };
+        return {
+            service: new ExternalGameService(repo as any, unmapped as any),
+            insert,
+            unmapped,
+            repo,
+        };
+    };
+
+    it("writes an agent mapping with the store URL and deactivates the entry", async () => {
+        const { service, insert, unmapped } = build();
+        await expect(service.mapUnmappedGame(9, 7)).resolves.toEqual({
+            id: 7,
+            name: "Metro Exodus",
+        });
+        expect(insert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                uid: "412020",
+                category: EGameExternalGameCategory.Steam,
+                gameId: 7,
+                origin: "agent",
+                url: "https://store.steampowered.com/app/412020",
+            }),
+        );
+        expect(unmapped.update).toHaveBeenCalledWith(
+            { id: 9 },
+            { isActive: false },
+        );
+    });
+
+    it.each([
+        ["an inactive or unknown entry", { active: null }, NotFoundException],
+        ["an unknown game", { game: null }, NotFoundException],
+        ["an existing mapping", { mapped: true }, ConflictException],
+    ])("refuses %s and changes nothing", async (_name, options, error) => {
+        const { service, insert, unmapped } = build(options as any);
+        await expect(service.mapUnmappedGame(9, 7)).rejects.toBeInstanceOf(
+            error,
+        );
+        expect(insert).not.toHaveBeenCalled();
+        expect(unmapped.update).not.toHaveBeenCalled();
+    });
 });

@@ -25,4 +25,7 @@ export class UnmappedExternalGame {
         default: true,
     })
     isActive: boolean;
+    // The game's name as the provider reports it. Null when the provider reports none.
+    @Column("varchar", { length: 255, nullable: true })
+    name: string | null;
 }

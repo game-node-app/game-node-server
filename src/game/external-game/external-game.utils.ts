@@ -83,3 +83,21 @@ export function getStoreAbbreviatedNameForExternalGameCategory(
         )
         .otherwise(() => null);
 }
+
+/** Public store page for a source ID, or null when the category has no known URL scheme. */
+export function storeUrl(category: EGameExternalGameCategory, uid: string) {
+    return match(category)
+        .with(
+            EGameExternalGameCategory.Steam,
+            () => `https://store.steampowered.com/app/${uid}`,
+        )
+        .with(
+            EGameExternalGameCategory.PlaystationStoreUs,
+            () => `https://store.playstation.com/en-us/concept/${uid}`,
+        )
+        .with(
+            EGameExternalGameCategory.Microsoft,
+            () => `https://www.xbox.com/en-US/games/store/_/${uid}`,
+        )
+        .otherwise(() => null);
+}

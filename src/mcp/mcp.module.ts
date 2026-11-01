@@ -5,6 +5,7 @@ import { CollectionsModule } from "../collections/collections.module";
 import { CollectionsEntriesModule } from "../collections/collections-entries/collections-entries.module";
 import { ReviewsModule } from "../reviews/reviews.module";
 import { PostsModule } from "../posts/posts.module";
+import { ExternalGameModule } from "../game/external-game/external-game.module";
 import { McpController } from "./mcp.controller";
 import { McpToolsService } from "./mcp-tools.service";
 
@@ -16,6 +17,7 @@ import { McpToolsService } from "./mcp-tools.service";
         CollectionsEntriesModule,
         ReviewsModule,
         PostsModule,
+        ExternalGameModule,
     ],
     controllers: [McpController],
     providers: [McpToolsService],

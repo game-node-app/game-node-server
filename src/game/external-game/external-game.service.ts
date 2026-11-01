@@ -2,19 +2,29 @@ import {
     PlayerLibrarySnapshot,
     PlayerSyncWrite,
 } from "../../sync/player-sync-attempt";
-import { ConflictException, Injectable } from "@nestjs/common";
+import {
+    ConflictException,
+    Injectable,
+    NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { GameExternalGame } from "./entity/game-external-game.entity";
 import {
     DeepPartial,
     FindOptionsRelations,
     In,
+    IsNull,
+    Not,
     QueryFailedError,
     Repository,
 } from "typeorm";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 import { toMap } from "../../utils/toMap";
+import { Game } from "../game-repository/entities/game.entity";
+import { storeUrl } from "./external-game.utils";
 import { UnmappedExternalGame } from "./entity/unmapped-external-game.entity";
+import { UnmappedExternalGameOwner } from "./entity/unmapped-external-game-owner.entity";
+import { UnmappedExternalGameDto } from "./dto/find-unmapped-external-games.dto";
 import { SubmitExternalGameDto } from "./dto/submit-external-game.dto";
 import { FindExternalGamesRequestDto } from "./dto/find-external-games.dto";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
@@ -124,31 +134,116 @@ export class ExternalGameService {
         });
     }
 
-    public async getUnmappedGames() {
-        return this.unmappedExternalGameRepository.find({
-            where: {
+    /** Active entries, the most-owned first. Owner identities are never returned. */
+    public async getUnmappedGames({
+        category,
+        limit = 20,
+        offset = 0,
+    }: {
+        category?: EGameExternalGameCategory;
+        limit?: number;
+        offset?: number;
+    }): Promise<TPaginationData<UnmappedExternalGameDto>> {
+        const query = this.unmappedExternalGameRepository
+            .createQueryBuilder("entry")
+            .leftJoin(
+                UnmappedExternalGameOwner,
+                "owner",
+                "owner.unmappedExternalGameId = entry.id",
+            )
+            .select("entry.id", "id")
+            .addSelect("entry.sourceUid", "sourceUid")
+            .addSelect("entry.category", "category")
+            .addSelect("entry.name", "name")
+            .addSelect("COUNT(owner.userId)", "ownerCount")
+            .where("entry.isActive = true")
+            .groupBy("entry.id")
+            .orderBy("ownerCount", "DESC")
+            .addOrderBy("entry.id", "ASC")
+            .offset(offset)
+            .limit(limit);
+        if (category !== undefined)
+            query.andWhere("entry.category = :category", { category });
+
+        const [rows, total] = await Promise.all([
+            query.getRawMany<UnmappedExternalGameDto>(),
+            this.unmappedExternalGameRepository.countBy({
                 isActive: true,
-            },
-        });
+                ...(category !== undefined && { category }),
+            }),
+        ]);
+        return [
+            rows.map((row) => ({ ...row, ownerCount: Number(row.ownerCount) })),
+            total,
+        ];
     }
 
-    @PlayerSyncWrite()
-    public async registerUnmappedGame(
-        sourceUid: string,
+    /** Marks an active entry inactive without a mapping; registration never reactivates it. */
+    public async dismissUnmappedGame(id: number) {
+        const { affected } = await this.unmappedExternalGameRepository.update(
+            { id, isActive: true },
+            { isActive: false },
+        );
+        if (!affected)
+            throw new NotFoundException(
+                "This unmapped entry does not exist or is no longer active.",
+            );
+    }
+
+    /** Source IDs among `sourceUids` whose unmapped entry already has a name. */
+    public async findNamedUnmappedUids(
         category: EGameExternalGameCategory,
+        sourceUids: string[],
     ) {
-        try {
-            await this.unmappedExternalGameRepository.insert({
-                sourceUid,
-                category,
-                isActive: true,
+        const named = new Set<string>();
+        for (let offset = 0; offset < sourceUids.length; offset += 500) {
+            const rows = await this.unmappedExternalGameRepository.find({
+                select: { sourceUid: true },
+                where: {
+                    category,
+                    sourceUid: In(sourceUids.slice(offset, offset + 500)),
+                    name: Not(IsNull()),
+                },
             });
-        } catch (error) {
-            if (
-                !(error instanceof QueryFailedError) ||
-                error.driverError?.code !== "ER_DUP_ENTRY"
-            )
-                throw error;
+            for (const row of rows) named.add(row.sourceUid);
+        }
+        return named;
+    }
+
+    /**
+     * Registers every unmapped source ID of one sync or import. A new name replaces the stored one,
+     * a missing name keeps it, and `isActive` is never touched so resolved entries stay resolved.
+     * `userId` is recorded as an owner once per entry; omit it for registrations not made for a user.
+     */
+    @PlayerSyncWrite()
+    public async registerUnmappedGames(
+        category: EGameExternalGameCategory,
+        entries: { sourceUid: string; name?: string | null }[],
+        userId?: string,
+    ) {
+        // Later entries win, so a name found for a duplicated source ID is not lost.
+        const byUid = new Map<string, string | null>();
+        for (const { sourceUid, name } of entries) {
+            byUid.set(
+                sourceUid,
+                name?.trim().slice(0, 255) || byUid.get(sourceUid) || null,
+            );
+        }
+        const rows = [...byUid];
+        for (let offset = 0; offset < rows.length; offset += 500) {
+            const chunk = rows.slice(offset, offset + 500);
+            await this.unmappedExternalGameRepository.query(
+                "INSERT INTO `unmapped_external_game` (`sourceUid`, `category`, `name`) VALUES ? " +
+                    "ON DUPLICATE KEY UPDATE `name` = COALESCE(VALUES(`name`), `name`)",
+                [chunk.map(([uid, name]) => [uid, category, name])],
+            );
+            if (userId) {
+                await this.unmappedExternalGameRepository.query(
+                    "INSERT IGNORE INTO `unmapped_external_game_owner` (`unmappedExternalGameId`, `userId`) " +
+                        "SELECT `id`, ? FROM `unmapped_external_game` WHERE `category` = ? AND `sourceUid` IN (?)",
+                    [userId, category, chunk.map(([uid]) => uid)],
+                );
+            }
         }
     }
 
@@ -182,6 +277,48 @@ export class ExternalGameService {
         }
     }
 
+    /**
+     * Maps an active unmapped entry to a game on behalf of an admin's agent.
+     * Never overwrites: any existing mapping for the source ID and category refuses the call.
+     */
+    async mapUnmappedGame(id: number, gameId: number) {
+        const entry = await this.unmappedExternalGameRepository.findOneBy({
+            id,
+            isActive: true,
+        });
+        if (!entry)
+            throw new NotFoundException(
+                "This unmapped entry does not exist or is no longer active.",
+            );
+        const game = await this.gameExternalGameRepository.manager.findOne(
+            Game,
+            { where: { id: gameId }, select: { id: true, name: true } },
+        );
+        if (!game) throw new NotFoundException("Game not found.");
+        if (
+            await this.gameExternalGameRepository.existsBy({
+                uid: entry.sourceUid,
+                category: entry.category,
+            })
+        )
+            throw new ConflictException(
+                "A mapping already exists for this source ID and category.",
+            );
+
+        await this.insertReserved({
+            uid: entry.sourceUid,
+            category: entry.category,
+            gameId,
+            url: storeUrl(entry.category, entry.sourceUid) ?? undefined,
+            origin: "agent",
+        });
+        await this.unmappedExternalGameRepository.update(
+            { id },
+            { isActive: false },
+        );
+        return game;
+    }
+
     async submit(dto: SubmitExternalGameDto) {
         const existing = await this.gameExternalGameRepository.findBy({
             uid: dto.sourceId,
@@ -195,7 +332,7 @@ export class ExternalGameService {
         if (existing.length > 0) {
             await this.gameExternalGameRepository.update(
                 { id: existing[0].id },
-                { gameId: dto.gameId, url: dto.sourceUrl },
+                { gameId: dto.gameId, url: dto.sourceUrl, origin: "curated" },
             );
         } else {
             await this.insertReserved({

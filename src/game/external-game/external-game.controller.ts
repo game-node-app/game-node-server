@@ -4,6 +4,8 @@ import {
     Body,
     Controller,
     Get,
+    Param,
+    ParseIntPipe,
     Post,
     Query,
     UseGuards,
@@ -18,6 +20,10 @@ import {
     FindExternalGamesRequestDto,
     FindExternalGamesResponseDto,
 } from "./dto/find-external-games.dto";
+import {
+    FindUnmappedExternalGamesRequestDto,
+    FindUnmappedExternalGamesResponseDto,
+} from "./dto/find-unmapped-external-games.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import { ApiOkResponse } from "@nestjs/swagger";
 import {
@@ -48,8 +54,22 @@ export class ExternalGameController {
 
     @Get("unmapped")
     @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
-    public async findUnmappedEntries() {
-        return this.externalGameService.getUnmappedGames();
+    @UseInterceptors(PaginationInterceptor)
+    @ApiOkResponse({
+        type: FindUnmappedExternalGamesResponseDto,
+    })
+    public async findUnmappedEntries(
+        @Query() dto: FindUnmappedExternalGamesRequestDto,
+    ) {
+        return (await this.externalGameService.getUnmappedGames(
+            dto,
+        )) as unknown as FindUnmappedExternalGamesResponseDto;
+    }
+
+    @Post("unmapped/:id/dismiss")
+    @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
+    public async dismissUnmappedEntry(@Param("id", ParseIntPipe) id: number) {
+        return this.externalGameService.dismissUnmappedGame(id);
     }
 
     @Post()

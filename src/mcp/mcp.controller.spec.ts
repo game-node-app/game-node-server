@@ -58,6 +58,9 @@ describe("McpController (dev MySQL)", () => {
         addGameToLibrary: jest.fn(),
         reviewGame: jest.fn(),
         createPost: jest.fn(),
+        listUnmappedGames: jest.fn(),
+        mapExternalGame: jest.fn(),
+        dismissUnmappedGame: jest.fn(),
     };
 
     beforeAll(async () => {
@@ -130,6 +133,23 @@ describe("McpController (dev MySQL)", () => {
             bearer ? req.set("Authorization", `Bearer ${bearer}`) : req
         ).send(body);
     };
+
+    const MAPPING_TOOLS = [
+        "list_unmapped_games",
+        "map_external_game",
+        "dismiss_unmapped_game",
+    ];
+    const asRoles = (roles: string[]) =>
+        jest.spyOn(authService, "getUserRoles").mockResolvedValue(roles);
+    const listTools = async (bearer: string) =>
+        (
+            await post(
+                { jsonrpc: "2.0", id: 3, method: "tools/list" },
+                bearer,
+            ).expect(200)
+        ).body.result.tools.map((tool: { name: string }) => tool.name);
+
+    afterEach(() => jest.restoreAllMocks());
 
     beforeEach(() => {
         for (const tool of Object.values(tools)) {
@@ -215,12 +235,15 @@ describe("McpController (dev MySQL)", () => {
                 add_game_to_library: "library:write",
                 review_game: "reviews:write",
                 create_post: "posts:write",
+                list_unmapped_games: "mappings:write",
+                map_external_game: "mappings:write",
+                dismiss_unmapped_game: "mappings:write",
             });
         });
     });
 
     describe("tools/list", () => {
-        it("lists the seven tools with JSON Schemas and read-only hints", async () => {
+        it("lists the seven regular tools with JSON Schemas and read-only hints", async () => {
             const response = await post(
                 { jsonrpc: "2.0", id: 3, method: "tools/list" },
                 await token(),
@@ -231,7 +254,9 @@ describe("McpController (dev MySQL)", () => {
                 annotations: { readOnlyHint: boolean };
             }[] = response.body.result.tools;
             expect(listed.map((tool) => tool.name).sort()).toEqual(
-                Object.keys(MCP_TOOL_SCOPES).sort(),
+                Object.keys(MCP_TOOL_SCOPES)
+                    .filter((name) => !MAPPING_TOOLS.includes(name))
+                    .sort(),
             );
             for (const tool of listed) {
                 expect(tool.inputSchema.type).toBe("object");
@@ -244,6 +269,69 @@ describe("McpController (dev MySQL)", () => {
                     ].includes(tool.name),
                 );
             }
+        });
+    });
+
+    describe("mapping tools", () => {
+        const scope = "mappings:write";
+
+        it("lists them for an admin alongside the regular tools", async () => {
+            asRoles(["admin"]);
+            const names = await listTools(await token({}, scope));
+            expect(names.sort()).toEqual(Object.keys(MCP_TOOL_SCOPES).sort());
+        });
+
+        it("omits them for a user without the admin role, even with the scope", async () => {
+            asRoles(["user", "mod"]);
+            expect(await listTools(await token({}, scope))).not.toEqual(
+                expect.arrayContaining(MAPPING_TOOLS),
+            );
+        });
+
+        it("fails a non-admin call as an unknown tool and writes nothing", async () => {
+            asRoles(["user"]);
+            const response = await post(
+                call("map_external_game", { id: 1, game_id: 2 }),
+                await token({}, scope),
+            ).expect(200);
+            expect(
+                response.body.error ?? response.body.result.isError,
+            ).toBeTruthy();
+            expect(tools.mapExternalGame).not.toHaveBeenCalled();
+        });
+
+        it("runs an admin call as the token's user", async () => {
+            asRoles(["admin"]);
+            await post(
+                call("dismiss_unmapped_game", { id: 4 }),
+                await token({}, scope),
+            ).expect(200);
+            expect(tools.dismissUnmappedGame).toHaveBeenCalledWith(userId, {
+                id: 4,
+            });
+        });
+
+        it("asks an admin whose token lacks the scope for mappings:write", async () => {
+            asRoles(["admin"]);
+            const response = await post(
+                call("list_unmapped_games"),
+                await token(),
+            ).expect(403);
+            expect(response.headers["www-authenticate"]).toContain(
+                'scope="mappings:write"',
+            );
+        });
+
+        it("stops listing them as soon as the role is revoked", async () => {
+            const bearer = await token({}, scope);
+            asRoles(["admin"]);
+            expect(await listTools(bearer)).toEqual(
+                expect.arrayContaining(MAPPING_TOOLS),
+            );
+            asRoles(["user"]);
+            expect(await listTools(bearer)).not.toEqual(
+                expect.arrayContaining(MAPPING_TOOLS),
+            );
         });
     });
 

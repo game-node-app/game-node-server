@@ -136,7 +136,7 @@ test("a late PSN library cannot reach playtime writes or achievement admission",
         } as any,
         {
             getExternalGamesForSourceIds: jest.fn().mockResolvedValue([]),
-            registerUnmappedGame: jest.fn(),
+            registerUnmappedGames: jest.fn().mockResolvedValue(undefined),
         } as any,
         {} as any,
         {} as any,
@@ -320,7 +320,7 @@ test("Steam selection uses recent-list data for timestamp-free and Family Sharin
             getExternalGamesForSourceIds: jest
                 .fn()
                 .mockResolvedValue(mappedGames),
-            registerUnmappedGame: jest.fn(),
+            registerUnmappedGames: jest.fn().mockResolvedValue(undefined),
         } as any,
         {} as any,
         steam,
@@ -431,7 +431,7 @@ test("PSN title progress fingerprints keep same-service communication IDs distin
                     psnExtraMappings: mappings,
                 },
             ]),
-            registerUnmappedGame: jest.fn(),
+            registerUnmappedGames: jest.fn().mockResolvedValue(undefined),
         } as any,
         { upsertPsnMappings } as any,
         {} as any,
@@ -539,7 +539,7 @@ test("Xbox achievement selection follows title progress when playtime stats are 
                 .mockResolvedValue([
                     { id: 601, uid: "product", gameId: 701, name: "Xbox game" },
                 ]),
-            registerUnmappedGame: jest.fn(),
+            registerUnmappedGames: jest.fn().mockResolvedValue(undefined),
         } as any,
         {} as any,
         {} as any,
@@ -665,7 +665,7 @@ test("PSN maps persist before one enqueue per concept and same-name titles stay 
     const enqueue = jest.fn(async () => {
         events.push("enqueue");
     });
-    const registerUnmappedGame = jest.fn().mockResolvedValue(undefined);
+    const registerUnmappedGames = jest.fn().mockResolvedValue(undefined);
     const save = jest.fn();
     const processor = new PlaytimeWatchProcessor(
         batchPlaytimeFixture({
@@ -681,7 +681,7 @@ test("PSN maps persist before one enqueue per concept and same-name titles stay 
             getExternalGamesForSourceIds: jest
                 .fn()
                 .mockResolvedValue([externalGame]),
-            registerUnmappedGame,
+            registerUnmappedGames,
         } as any,
         { upsertPsnMappings } as any,
         {} as any,
@@ -708,7 +708,11 @@ test("PSN maps persist before one enqueue per concept and same-name titles stay 
         updateProgress: jest.fn(),
     } as any);
 
-    expect(registerUnmappedGame).toHaveBeenCalledWith("2", category);
+    expect(registerUnmappedGames).toHaveBeenCalledWith(
+        category,
+        [{ sourceUid: "2", name: "Same display name" }],
+        "user",
+    );
     expect(upsertPsnMappings).toHaveBeenCalledWith(mappings[0]);
     expect(events).toEqual(["mapping-started", "mapping-persisted", "enqueue"]);
     expect(enqueue).toHaveBeenCalledTimes(1);
@@ -777,7 +781,9 @@ it.each(["steam", "xbox"])(
                         .mockResolvedValue([
                             { id: 1, gameId: 1, uid: "42", name: "fixture" },
                         ]),
-                    registerUnmappedGame: jest.fn(),
+                    registerUnmappedGames: jest
+                        .fn()
+                        .mockResolvedValue(undefined),
                 } as any,
                 {} as any,
                 {
@@ -849,7 +855,7 @@ test("Steam editions sharing one game contribute once to its cumulative observat
                 { id: 1, gameId: 7, uid: "42" },
                 { id: 2, gameId: 7, uid: "43" },
             ]),
-            registerUnmappedGame: jest.fn(),
+            registerUnmappedGames: jest.fn().mockResolvedValue(undefined),
         } as any,
         {} as any,
         {
@@ -880,9 +886,15 @@ test("Steam editions sharing one game contribute once to its cumulative observat
 });
 
 describe("Epic playtime", () => {
-    const run = async (existingRow?: any, entries?: any[]) => {
+    const run = async (
+        existingRow?: any,
+        entries?: any[],
+        named = new Set<string>(),
+    ) => {
         const saveImported = jest.fn();
-        const registerUnmappedGame = jest.fn();
+        const registerUnmappedGames = jest.fn();
+        const findNamedUnmappedUids = jest.fn().mockResolvedValue(named);
+        const getCatalogTitle = jest.fn().mockResolvedValue("Other Game");
         const processor = new PlaytimeWatchProcessor(
             {
                 findForImport: jest
@@ -901,7 +913,8 @@ describe("Epic playtime", () => {
                 getExternalGamesForSourceIds: jest
                     .fn()
                     .mockResolvedValue([{ uid: "ns", gameId: 10 }]),
-                registerUnmappedGame,
+                findNamedUnmappedUids,
+                registerUnmappedGames,
             } as any,
             {} as any,
             {} as any,
@@ -914,8 +927,13 @@ describe("Epic playtime", () => {
                 getLibraryItems: jest.fn().mockResolvedValue([
                     { namespace: "ns", appName: "base" },
                     { namespace: "ns", appName: "addon" },
-                    { namespace: "other", appName: "unmapped" },
+                    {
+                        namespace: "other",
+                        appName: "unmapped",
+                        catalogItemId: "item-1",
+                    },
                 ]),
+                getCatalogTitle,
                 getPlaytime: jest.fn().mockResolvedValue(
                     entries ?? [
                         { artifactId: "base", totalTime: 7200 },
@@ -930,11 +948,15 @@ describe("Epic playtime", () => {
             data: { userId: "user" },
             updateProgress: jest.fn(),
         } as any);
-        return { saved: saveImported.mock.calls[0][0], registerUnmappedGame };
+        return {
+            saved: saveImported.mock.calls[0][0],
+            registerUnmappedGames,
+            getCatalogTitle,
+        };
     };
 
     it("stores the first import's total without a last played date, summing apps of a game and skipping unknown apps", async () => {
-        const { saved, registerUnmappedGame } = await run();
+        const { saved, registerUnmappedGames } = await run();
         expect(saved).toHaveLength(1);
         expect(saved[0]).toMatchObject({
             gameId: 10,
@@ -943,9 +965,24 @@ describe("Epic playtime", () => {
             totalPlaytimeSeconds: 7800,
         });
         expect(saved[0].lastPlayedDate).toBeUndefined();
-        expect(registerUnmappedGame).toHaveBeenCalledWith(
-            "other",
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
             EGameExternalGameCategory.EpicGamesNamespace,
+            [{ sourceUid: "other", name: "Other Game" }],
+            "user",
+        );
+    });
+
+    it("skips the catalog lookup for a namespace whose entry already has a name", async () => {
+        const { registerUnmappedGames, getCatalogTitle } = await run(
+            undefined,
+            undefined,
+            new Set(["other"]),
+        );
+        expect(getCatalogTitle).not.toHaveBeenCalled();
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            EGameExternalGameCategory.EpicGamesNamespace,
+            [{ sourceUid: "other", name: undefined }],
+            "user",
         );
     });
 
@@ -964,5 +1001,97 @@ describe("Epic playtime", () => {
             lastPlayedDate: old,
         });
         expect(same.saved[0].lastPlayedDate).toBe(old);
+    });
+});
+
+describe("unmapped game registration", () => {
+    const build = (externalGames: any[], providers: any) => {
+        const registerUnmappedGames = jest.fn().mockResolvedValue(undefined);
+        const processor = new PlaytimeWatchProcessor(
+            batchPlaytimeFixture({
+                findOne: jest.fn(),
+                save: jest.fn(),
+            }) as any,
+            {
+                findOneByUserIdAndTypeOrFail: jest
+                    .fn()
+                    .mockResolvedValue({ sourceUserId: "account" }),
+            } as any,
+            {
+                getExternalGamesForSourceIds: jest
+                    .fn()
+                    .mockResolvedValue(externalGames),
+                registerUnmappedGames,
+            } as any,
+            {} as any,
+            providers.steam ?? ({} as any),
+            {} as any,
+            providers.xbox ?? ({} as any),
+            {
+                getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()),
+            } as any,
+            { addUserSyncJob: jest.fn() } as any,
+            new ConnectionProviderRegistry(),
+            {} as any,
+        );
+        return { processor, registerUnmappedGames };
+    };
+    const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
+
+    it("registers unmapped Steam apps once, with the name Steam reports", async () => {
+        const { processor, registerUnmappedGames } = build(
+            [{ id: 1, uid: "42", gameId: 1 }],
+            {
+                steam: {
+                    getLibraryGames: jest.fn().mockResolvedValue([
+                        { game: { id: 42, name: "Mapped" }, minutes: 1 },
+                        { game: { id: 43, name: "Hollow Knight" }, minutes: 1 },
+                        { game: { id: 44 }, minutes: 1 },
+                    ]),
+                },
+            },
+        );
+        await processor.updateSteamPlaytimeInfo(job);
+        expect(registerUnmappedGames).toHaveBeenCalledTimes(1);
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            EGameExternalGameCategory.Steam,
+            [
+                { sourceUid: "43", name: "Hollow Knight" },
+                { sourceUid: "44", name: undefined },
+            ],
+            "user",
+        );
+    });
+
+    it("registers an unmatched Xbox title but not a matched one", async () => {
+        const title = (productId: string, name: string) => ({
+            productId,
+            titleId: `title-${productId}`,
+            name,
+            achievement: null,
+            titleHistory: null,
+            devices: [],
+        });
+        const { processor, registerUnmappedGames } = build(
+            [{ id: 601, uid: "matched", gameId: 701 }],
+            {
+                xbox: {
+                    getAllGames: jest
+                        .fn()
+                        .mockResolvedValue([
+                            title("matched", "Known"),
+                            title("orphan", "Halo Soundtrack"),
+                        ]),
+                    getBatchMinutesPlayed: jest.fn().mockResolvedValue([]),
+                },
+            },
+        );
+        await processor.updateXboxPlaytimeInfo(job);
+        expect(registerUnmappedGames).toHaveBeenCalledTimes(1);
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            EGameExternalGameCategory.Microsoft,
+            [{ sourceUid: "orphan", name: "Halo Soundtrack" }],
+            "user",
+        );
     });
 });

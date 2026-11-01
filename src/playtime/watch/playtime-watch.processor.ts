@@ -16,7 +16,10 @@ import { Job, UnrecoverableError } from "bullmq";
 import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import { ConnectionsService } from "../../connection/connections.service";
 import { EConnectionType } from "../../connection/connections.constants";
-import { SteamSyncService } from "../../sync/steam/steam-sync.service";
+import {
+    SteamSyncService,
+    steamGameName,
+} from "../../sync/steam/steam-sync.service";
 import { PsnSyncService } from "../../sync/psn/psn-sync.service";
 import { ExternalGameService } from "../../game/external-game/external-game.service";
 import { EGameExternalGameCategory } from "../../game/game-repository/game-repository.constants";
@@ -26,6 +29,7 @@ import dayjs from "dayjs";
 import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 import { EpicSyncService } from "../../sync/epic/epic-sync.service";
+import { registerUnmappedEpicNamespaces } from "../../sync/epic/register-unmapped-epic-namespaces";
 import { ExternalGameMappingsService } from "../../game/external-game/external-game-mappings.service";
 import * as process from "process";
 import { seconds } from "@nestjs/throttler";
@@ -178,14 +182,20 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             );
 
         const mappedUids = new Set(externalGames.map((game) => game.uid));
-        for (const uid of gamesUids) {
-            if (mappedUids.has(uid)) continue;
-            assertPlayerSyncActive();
-            await this.externalGameService.registerUnmappedGame(
-                uid,
-                EGameExternalGameCategory.Steam,
-            );
-        }
+        const steamNames = new Map(
+            userGames.map((item) => [`${item.game.id}`, steamGameName(item)]),
+        );
+        assertPlayerSyncActive();
+        await this.externalGameService.registerUnmappedGames(
+            EGameExternalGameCategory.Steam,
+            gamesUids
+                .filter((uid) => !mappedUids.has(uid))
+                .map((sourceUid) => ({
+                    sourceUid,
+                    name: steamNames.get(sourceUid),
+                })),
+            userId,
+        );
         const userGamesByApp = Map.groupBy(userGames, (game) =>
             String(game.game.id),
         );
@@ -346,16 +356,22 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             );
 
         const mappedUids = new Set(externalGames.map((game) => game.uid));
-        for (const uid of gamesUids) {
-            if (mappedUids.has(uid)) continue;
-            assertPlayerSyncActive();
-            await this.externalGameService
-                .registerUnmappedGame(
-                    uid,
-                    EGameExternalGameCategory.PlaystationStoreUs,
-                )
-                .catch((err) => this.logger.error(err));
-        }
+        const psnNames = new Map(
+            userGames.map((item) => [`${item.concept.id}`, item.name]),
+        );
+        assertPlayerSyncActive();
+        await this.externalGameService
+            .registerUnmappedGames(
+                EGameExternalGameCategory.PlaystationStoreUs,
+                gamesUids
+                    .filter((uid) => !mappedUids.has(uid))
+                    .map((sourceUid) => ({
+                        sourceUid,
+                        name: psnNames.get(sourceUid),
+                    })),
+                userId,
+            )
+            .catch((err) => this.logger.error(err));
 
         const groupedByConcept = Map.groupBy(userGames, (item) =>
             String(item.concept.id),
@@ -489,6 +505,20 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         const externalByProduct = new Map(
             externalGames.map((game) => [game.uid, game]),
         );
+        const xboxNames = new Map(
+            allGames.map((game) => [game.productId, game.name]),
+        );
+        assertPlayerSyncActive();
+        await this.externalGameService.registerUnmappedGames(
+            EGameExternalGameCategory.Microsoft,
+            sourceUids
+                .filter((uid) => !externalByProduct.has(uid))
+                .map((sourceUid) => ({
+                    sourceUid,
+                    name: xboxNames.get(sourceUid),
+                })),
+            userId,
+        );
         const relevantTitles = allGames.filter((game) =>
             externalByProduct.has(game.productId),
         );
@@ -603,14 +633,15 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         const gameIdByNamespace = new Map(
             externalGames.map((game) => [game.uid, game.gameId]),
         );
-        for (const namespace of namespaces) {
-            if (gameIdByNamespace.has(namespace)) continue;
-            assertPlayerSyncActive();
-            await this.externalGameService.registerUnmappedGame(
-                namespace,
-                EGameExternalGameCategory.EpicGamesNamespace,
-            );
-        }
+        assertPlayerSyncActive();
+        await registerUnmappedEpicNamespaces(
+            this.externalGameService,
+            this.epicSyncService,
+            userId,
+            connection.sourceUserId,
+            libraryItems,
+            namespaces.filter((namespace) => !gameIdByNamespace.has(namespace)),
+        );
 
         // Playtime is reported per app; apps and add-ons of one namespace belong to the same game.
         const namespaceByApp = new Map(
