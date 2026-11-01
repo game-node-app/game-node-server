@@ -101,6 +101,7 @@ export class McpToolsService {
      */
     private async assertCanWrite(
         userId: string,
+        rateLimited = true,
     ): Promise<CallToolResult | undefined> {
         const state = (await this.authService.getLockoutStates([userId])).get(
             userId,
@@ -110,6 +111,7 @@ export class McpToolsService {
                 "Your GameNode account is restricted (suspended or banned), so this action is not allowed.",
             );
         }
+        if (!rateLimited) return;
         // The Redis store rejects a zero block duration, so block for the window.
         const record = await this.throttlerStorage.increment(
             `mcp:write:${userId}`,
@@ -390,7 +392,8 @@ export class McpToolsService {
         userId: string,
         input: { id: number; game_id: number },
     ): Promise<CallToolResult> {
-        const blocked = await this.assertCanWrite(userId);
+        // Admin bulk curation: still refused for restricted users, but not rate limited.
+        const blocked = await this.assertCanWrite(userId, false);
         if (blocked) return blocked;
         return this.run(async () => {
             const game = await this.externalGameService.mapUnmappedGame(

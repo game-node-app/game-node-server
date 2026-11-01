@@ -11,7 +11,7 @@
 - [x] 2.2 Switch Steam owned games to `includeAppInfo: true` and pass `game.name`; register Steam unmapped apps once per sync in `PlaytimeWatchProcessor` and in the Steam importer path via `onUnmapped`; verify `playtime-watch.processor.spec.ts` and `importer.service.spec.ts` assert one batched call with names and the user id
 - [x] 2.3 Do the same for PSN (concept id + played-game `name`) in playtime watch and the PSN importer path; verify the PSN cases in the same spec files
 - [x] 2.4 Register Xbox unmapped product IDs with `XboxGameTitle.name` in playtime watch and the Xbox importer path; verify new spec cases that an unmatched Xbox title is registered and a matched one is not
-- [ ] 2.5 Add `EpicSyncService.getCatalogTitles` (catalog bulk items with the user's token, prefers the item without `mainGameItem`, errors logged and returned as no title); confirm the endpoint and `title` field against a real Epic account; verify `epic-sync.service.spec.ts` covers base-game preference and failure
+- [x] 2.5 Add `EpicSyncService.getCatalogTitle` (catalog bulk items with the user's token, prefers the item without `mainGameItem`, errors logged and returned as no title); confirmed the endpoint and `title` field against a real Epic account; `epic-sync.service.spec.ts` covers base-game preference and failure
 - [x] 2.6 Use it in Epic playtime watch and the Epic importer only for unmapped namespaces whose entry has no name, then register with names; verify spec cases that named entries trigger no catalog call and a lookup failure still registers the namespace
 - [x] 2.7 Move `EpicNamespaceFillProcessor` to `registerUnmappedGames` with no user and no name; verify `epic-namespace-fill.processor.spec.ts` still passes with the ambiguous case asserting the new call
 

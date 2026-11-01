@@ -526,7 +526,7 @@ describe("McpToolsService", () => {
             expect(result.isError).toBe(true);
         });
 
-        it("refuses restricted users and the eleventh write in a minute", async () => {
+        it("refuses restricted users and rate limits dismissals but not mappings", async () => {
             auth.getLockoutStates.mockResolvedValueOnce(
                 new Map([["user", { isBanned: true }]]),
             );
@@ -539,19 +539,16 @@ describe("McpToolsService", () => {
                 id: 7,
                 name: "G",
             });
-            for (let i = 0; i < 10; i++)
-                await service.mapExternalGame("other", {
-                    id: i + 1,
-                    game_id: 7,
-                });
-            const blocked = await service.mapExternalGame("other", {
-                id: 11,
-                game_id: 7,
-            });
-            expect(blocked.content[0]).toMatchObject({
-                text: expect.stringContaining("Write limit reached"),
-            });
-            expect(externalGames.mapUnmappedGame).toHaveBeenCalledTimes(10);
+            for (let i = 0; i < 12; i++)
+                expect(
+                    (
+                        await service.mapExternalGame("other", {
+                            id: i + 1,
+                            game_id: 7,
+                        })
+                    ).isError,
+                ).toBeFalsy();
+            expect(externalGames.mapUnmappedGame).toHaveBeenCalledTimes(12);
         });
     });
 });

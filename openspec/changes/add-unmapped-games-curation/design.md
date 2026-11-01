@@ -38,7 +38,7 @@ Names are truncated to 255 characters. The method keeps `@PlayerSyncWrite()`, an
 - **Steam:** set `includeAppInfo: true` and read `item.game.name`. The recently played endpoint already returns names.
 - **PSN:** the played-games item's `name`.
 - **Xbox:** `XboxGameTitle.name`.
-- **Epic:** a new `EpicSyncService.getCatalogTitles(accountId, namespace, catalogItemIds)` calls Epic's catalog bulk items endpoint (`/catalog/api/shared/namespace/{ns}/bulk/items`) with the user's token through `cancellableProviderCall`. It prefers the item without `mainGameItem` (the base game). It runs only for unmapped namespaces whose entry has no name yet, so steady-state syncs make no extra calls. A failure is logged and the name left empty.
+- **Epic:** a new `EpicSyncService.getCatalogTitle(accountId, namespace, catalogItemIds)` calls Epic's catalog bulk items endpoint (`/catalog/api/shared/namespace/{ns}/bulk/items`) with the user's token through `cancellableProviderCall`. It prefers the item without `mainGameItem` (the base game). It runs only for unmapped namespaces whose entry has no name yet, so steady-state syncs make no extra calls. A failure is logged and the name left empty.
 
 ### Paginated list ordered by owner count
 `getUnmappedGames({ category?, limit, offset })` uses a query builder: a left join on owners, `COUNT(owner.userId) AS ownerCount`, grouped by entry, ordered by `ownerCount DESC, id ASC`, with `getCount` for the total. The controller DTO picks `limit` and `offset` from `BaseFindDto` and adds an optional `category`. The response is `PaginationResponseDto`.

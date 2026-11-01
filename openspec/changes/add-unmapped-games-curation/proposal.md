@@ -12,7 +12,7 @@ When a sync or import sees a game GameNode cannot map, it records the source ID 
 - `GET /v1/game/external/unmapped` becomes paginated and filterable by category, and returns name and owner count. **BREAKING** for its admin-site consumer: the response changes from a bare array to the standard paginated shape.
 - Moderators can dismiss an unmapped entry that is not a game (soundtracks, tools, launchers, demos). Dismissed entries never become active again.
 - New mapping origin `agent` for mappings written through MCP.
-- New admin-only MCP tools: `list_unmapped_games`, `map_external_game` and `dismiss_unmapped_game`. Only users with the `ADMIN` role can see or call them. They need a new `mappings:write` scope. They never overwrite an existing mapping, and they share the existing MCP write rate limit.
+- New admin-only MCP tools: `list_unmapped_games`, `map_external_game` and `dismiss_unmapped_game`. Only users with the `ADMIN` role can see or call them. They need a new `mappings:write` scope. They never overwrite an existing mapping, and they are refused for restricted users; only `dismiss_unmapped_game` shares the existing MCP write rate limit.
 
 ## Capabilities
 

@@ -73,8 +73,8 @@ Each mapping tool SHALL require the `mappings:write` scope. A call whose token l
 - **THEN** the entry is inactive and no mapping is created
 
 ### Requirement: Mapping tools write limits
-`map_external_game` and `dismiss_unmapped_game` SHALL be write tools: they are refused for suspended or banned users and count toward the shared MCP write limit of 10 calls per user per 60 seconds. `list_unmapped_games` SHALL be read-only.
+`map_external_game` and `dismiss_unmapped_game` SHALL be write tools: they are refused for suspended or banned users. `dismiss_unmapped_game` counts toward the shared MCP write limit of 10 calls per user per 60 seconds; `map_external_game` is not rate limited so an admin can map a batch in one go. `list_unmapped_games` SHALL be read-only.
 
-#### Scenario: Agent maps in a loop
-- **WHEN** an admin's agent calls `map_external_game` an 11th time within 60 seconds
-- **THEN** the call returns a rate-limit tool error and no mapping is written
+#### Scenario: Agent maps many entries
+- **WHEN** an admin's agent calls `map_external_game` more than 10 times within 60 seconds
+- **THEN** every call is processed and none returns a rate-limit error
