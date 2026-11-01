@@ -134,11 +134,25 @@ The module mirrors `src/sync/xbox/`:
   3. Sum per game and upsert on platform 6 with source `EPICGAMES`, following the Xbox handler's structure.
 - **Last played.** Epic exposes no last-played date. `lastPlayedDate = now` when the new total is greater than the stored one, and it stays unset on the first import. This is a `shortcut:` comment in code: last played is only accurate to the sync interval; replace it if Epic exposes per-session data.
 
+### D10. Re-auth inbox notification through one helper
+
+The connections screen sits under settings, so users don't see `reauth_required` until something else fails. The Epic refresh token also expires about 23 days after the last refresh. The status change therefore notifies the owner, for every provider that can reach it.
+
+- **`markReauthRequired(manager, connection)`** in `src/connection/`. It runs a conditional `UPDATE user_connection SET authStatus = 'reauth_required' WHERE id = ? AND authStatus <> 'reauth_required'`. Only when it changes a row does it call `appendNotificationIntent` with id `connection-reauth-<connectionId>-<epochMs>`. Concurrent callers produce one notification, and a later reconnect and loss produces a new one.
+- **Callers.** Epic's `requireReauth` and Xbox's three status changes call it inside `dataSource.transaction`, then throw `ProviderSyncError("reauth_required")` as before. `appendNotificationIntent` requires an active transaction.
+- **Event `connection.reauth-required`.** Payload `{ connectionId, provider }`, validated with no extra keys. The projector resolves it to `subjectType: "connection"`, target `{ type: "connection", id, provider }` and `preview: { text: "Your <Provider> connection needs to be reconnected." }`. It is suppressed when the connection no longer exists. It is not grouped.
+- **Client compatibility.** The shared client renderer (`packages/ui/.../AggregatedNotification.tsx` in `game-node-clients`) falls back to `preview.text` for unknown types, so a plain-text preview reads correctly before the client ships a dedicated branch. Tapping does nothing until the client routes `connection` targets to `/preferences/connections`.
+- *Alternative: hook `PlayerSyncStateService.finish`.* Rejected. Epic's playtime and importer watches call the auth service outside player sync.
+
+### D11. Notification DTO provider enums include `epicgames`
+
+`NotificationImporterTargetDto.provider` and the import preview `provider` in `src/notifications/dto/notifications-response.dto.ts` declare the Swagger enum `["steam", "psn", "xbox"]`, but Epic import notifications already send `epicgames`. Add `epicgames` to both, and use the same enum on the new connection target DTO.
+
 ## Risks / Trade-offs
 
 - **The unofficial Epic endpoints or the launcher client may change or be blocked.** → Failures surface as `ProviderSyncError`, so the connection degrades to sync failures, not data loss. Endpoints and client values are isolated in `src/sync/epic/` and in env.
 - **Using Epic's launcher client is a terms-of-service gray area.** → Accepted by the product owner. Credentials stay configurable.
-- **The Epic refresh token expires about 23 days after the last refresh, according to Legendary.** Users without a sync in that window become `reauth_required`. → Background playtime refresh runs well within that window for active connections. Inactive ones reconnect through the normal `reauth_required` UI.
+- **The Epic refresh token expires about 23 days after the last refresh, according to Legendary.** Users without a sync in that window become `reauth_required`. → Background playtime refresh runs well within that window for active connections. Inactive ones become `reauth_required`, and the owner gets a `connection.reauth-required` inbox notification (D10).
 - **ID allocation by `MAX + 1` can race between `submit` and the bulk job.** → Retry on duplicate key. `(uid, category)` is not unique for GameNode rows, so a race could create a duplicate mapping. This is a `shortcut:` comment: no unique `(uid, category)` constraint for non-IGDB rows; add a generated-column unique index if duplicates show up.
 - **A namespace can hold several unrelated main games**, as with some publisher sandboxes. → They are classed as ambiguous and go to moderators, never guessed.
 - **The content API may 404 for products that only have a newer store page.** → Counted in `failed` and reported in the run summary. Those namespaces still reach moderators as unmapped through user imports.
@@ -154,3 +168,13 @@ The module mirrors `src/sync/xbox/`:
 ## Open Questions
 
 - Whether the Epic library has other noisy namespaces besides `ue`, such as free-weekend or private sandbox items. Answer this from real data after launch. The filter is a single list.
+
+## Local verification (2026-11-01)
+
+- With a temporary local Better Auth account and a real Epic authorization code, init and callback returned HTTP 201. The linked account had `authStatus: "connected"`, an account ID and display name; access and refresh tokens were stored encrypted with expiry information.
+- The configured application client could exchange the code, but Epic rejected library and playtime requests with HTTP 403 and `errors.com.epicgames.common.missing_permission`. The missing permissions were `library:public:items READ` and `library:public:<accountId>:playtime:all READ`. The endpoints match D8; the configured client lacks the required library access. Successful login alone does not verify that access.
+- With that application client, `GET /v1/importer/epicgames` surfaced the upstream failure as HTTP 500, and the initial background playtime refresh failed. The bulk fill was not triggered in that run.
+- The generated Swagger document includes `epicgames` and the new `/v1/game/external/fill/epic` endpoint, completing task 7.2.
+- A subsequent run used the launcher client published by Legendary and a fresh real authorization code. Init and callback returned HTTP 201. The D8 library and playtime endpoints both returned HTTP 200, with 41 library records (no next cursor) and 14 playtime records. No endpoint URL changes were needed.
+- The background refresh finished with overall outcome `complete`, playtime `complete` and discovery `empty`. There were no category 1001 namespace mappings yet, so the importer returned HTTP 404 (`No unprocessed entries found`); matched imports and stored per-game playtime were not verified in this run.
+- `POST /v1/game/external/fill/epic` returned HTTP 201 with job ID `epic-namespace-fill` and state `active`, over 10,574 source Epic mappings. The public content API also returned a namespace for the Hades sample. The full bulk run remains in progress; task 7.3 requires triggering it, which was verified. The temporary local account, credentials and its player-sync job were removed after testing.

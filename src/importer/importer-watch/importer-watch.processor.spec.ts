@@ -225,6 +225,7 @@ test("1,001 candidates use one full-list scan and bounded pages while new user c
         new ConnectionProviderRegistry(),
         {} as any,
         {} as any,
+        {} as any,
     );
     importer.isProcessedOrIgnored = fixture.importer.isProcessedOrIgnored;
     importer.markProcessed = fixture.importer.markProcessed;

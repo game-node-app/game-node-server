@@ -15,6 +15,8 @@ Epic Games Store is the most relevant PC platform we don't support, but its libr
   - Epic account login through the Epic launcher OAuth client, with encrypted tokens and rotating refresh under a lock. A revoked or expired grant moves the connection to `reauth_required`.
   - Library import and auto-import through namespace mappings, on the PC platform.
   - Playtime import from Epic's per-account playtime endpoint.
+- **Re-auth inbox notification.** Any connection that moves to `reauth_required` (Epic and Xbox) sends its owner a `connection.reauth-required` inbox notification, so users learn about it without opening the connections settings.
+- **Notification DTO fix.** The import notification provider enums gain `epicgames`.
 - Out of scope: Epic achievements, GOG and other providers, a scheduled re-run of the bulk fill, moderator overrides of IGDB-owned mappings, and client UI work in `game-node-clients`.
 
 ## Capabilities
@@ -26,7 +28,7 @@ Epic Games Store is the most relevant PC platform we don't support, but its libr
 
 ### Modified Capabilities
 
-- `connection-auth`: mode-enforced onboarding and the state lifecycle now cover `delegated_code` providers on the init and callback endpoints.
+- `connection-auth`: mode-enforced onboarding and the state lifecycle now cover `delegated_code` providers on the init and callback endpoints. A connection that moves to `reauth_required` notifies its owner.
 - `connection-provider-registry`: provider discovery lists `epicgames` with `authMode: "delegated_code"`, and library discovery resolves through one shared matching path.
 
 ## Impact
@@ -41,8 +43,9 @@ Epic Games Store is the most relevant PC platform we don't support, but its libr
   - `src/playtime/watch/playtime-watch.processor.ts`: Epic playtime.
   - `src/connection/`: constants, registry, `connections.service.ts` mode checks, `connections.module.ts`.
   - New `src/sync/epic/`.
-  - Xbox's token-refresh lock helpers move to a shared module.
+  - Xbox's token-refresh lock helpers move to a shared module, and its `reauth_required` changes go through the shared notification helper.
+  - `src/notifications/`: the new event type, payload validation, projector case, a `connection` target DTO, and `epicgames` in the provider enums.
 - **Configuration:** new `EPIC_OAUTH_CLIENT_ID` and `EPIC_OAUTH_CLIENT_SECRET`, set to the Epic launcher client.
 - **External dependencies:** unofficial Epic endpoints (account OAuth, library service, store content API). No new npm dependency.
 - **API:** `GET /v1/connections` gains `epicgames`. `auth/init` and `auth/callback` accept `epicgames`. A new admin endpoint triggers the Epic bulk fill. Regenerate the OpenAPI file.
-- **Clients:** web and mobile need a paste-code UI for `delegated_code` providers. That is tracked separately.
+- **Clients:** web and mobile need a paste-code UI for `delegated_code` providers. They also need a renderer and a tap target for `connection.reauth-required`, plus an Epic Games display name in import notifications. A hand-off for `game-node-clients` is generated as a task.

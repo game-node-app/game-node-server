@@ -77,6 +77,7 @@ mysqlDescribe("batch status transactions", () => {
             registry,
             {} as any,
             {} as any,
+            {} as any,
         );
         registry.register({
             ...registry.get("steam"),
@@ -182,14 +183,12 @@ mysqlDescribe("batch status transactions", () => {
         const createForImport = jest.fn();
         const processor = new ImporterWatchProcessor(
             {
-                findBy: jest
-                    .fn()
-                    .mockResolvedValue([
-                        {
-                            gameExternalGameId: 98765001,
-                            autoImportRetryable: true,
-                        },
-                    ]),
+                findBy: jest.fn().mockResolvedValue([
+                    {
+                        gameExternalGameId: 98765001,
+                        autoImportRetryable: true,
+                    },
+                ]),
                 upsert: jest.fn(),
             } as any,
             {} as any,

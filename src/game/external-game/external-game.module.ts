@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { BullModule } from "@nestjs/bullmq";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { GameExternalGame } from "./entity/game-external-game.entity";
 import { ExternalGameService } from "./external-game.service";
@@ -6,6 +7,8 @@ import { UnmappedExternalGame } from "./entity/unmapped-external-game.entity";
 import { ExternalGameController } from "./external-game.controller";
 import { ExternalGameMappingsService } from "./external-game-mappings.service";
 import { PsnExtraMappings } from "./entity/psn-extra-mappings.entity";
+import { EpicNamespaceFillProcessor } from "./epic-namespace-fill.processor";
+import { EXTERNAL_GAME_MAPPING_QUEUE } from "./external-game-mapping.constants";
 
 @Module({
     imports: [
@@ -14,9 +17,14 @@ import { PsnExtraMappings } from "./entity/psn-extra-mappings.entity";
             UnmappedExternalGame,
             PsnExtraMappings,
         ]),
+        BullModule.registerQueue({ name: EXTERNAL_GAME_MAPPING_QUEUE }),
     ],
     controllers: [ExternalGameController],
-    providers: [ExternalGameService, ExternalGameMappingsService],
+    providers: [
+        ExternalGameService,
+        ExternalGameMappingsService,
+        EpicNamespaceFillProcessor,
+    ],
     exports: [ExternalGameService, ExternalGameMappingsService],
 })
 export class ExternalGameModule {}

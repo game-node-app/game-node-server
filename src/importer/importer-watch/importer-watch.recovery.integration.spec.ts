@@ -153,6 +153,7 @@ describe("import and notification recovery on disposable MySQL", () => {
             new ConnectionProviderRegistry(),
             {} as any,
             {} as any,
+            {} as any,
         );
         const notifications = source.getRepository(ImporterWatchNotification);
         const worker = new ImporterWatchProcessor(
@@ -557,6 +558,7 @@ describe("import and notification recovery on disposable MySQL", () => {
                 {} as any,
                 gameAdmission,
                 new ConnectionProviderRegistry(),
+                {} as any,
             );
             const fullWorker = new PlayerDataProcessor(
                 a,
@@ -611,7 +613,9 @@ describe("import and notification recovery on disposable MySQL", () => {
                 {} as any,
                 {} as any,
                 { isMature: jest.fn().mockResolvedValue(false) } as any,
-                { getLockoutStates: jest.fn().mockResolvedValue(new Map()) } as any,
+                {
+                    getLockoutStates: jest.fn().mockResolvedValue(new Map()),
+                } as any,
                 {} as any,
                 localActivity,
             );

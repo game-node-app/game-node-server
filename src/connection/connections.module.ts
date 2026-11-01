@@ -12,6 +12,8 @@ import { PlaytimeModule } from "../playtime/playtime.module";
 import { PlaytimeWatchModule } from "../playtime/watch/playtime-watch.module";
 import { XboxSyncModule } from "../sync/xbox/xbox-sync.module";
 import { XboxConnectionAuthProvider } from "../sync/xbox/xbox-connection-auth.provider";
+import { EpicSyncModule } from "../sync/epic/epic-sync.module";
+import { EpicConnectionAuthProvider } from "../sync/epic/epic-connection-auth.provider";
 import { CollectionsModule } from "../collections/collections.module";
 import { ConnectionCredentialCryptoService } from "./connection-credential-crypto.service";
 import { ConnectionCredentialService } from "./connection-credential.service";
@@ -40,6 +42,7 @@ import { PlayerConnectionSync } from "../sync/player-data/entity/player-connecti
         PsnSyncModule,
         PlaytimeModule,
         XboxSyncModule,
+        EpicSyncModule,
         forwardRef(() => PlaytimeWatchModule),
         forwardRef(() => CollectionsModule),
     ],
@@ -64,6 +67,7 @@ export class ConnectionsModule implements OnModuleInit {
         private readonly registry: ConnectionProviderRegistry,
         private readonly steamAuth: SteamConnectionAuthProvider,
         private readonly xboxAuth: XboxConnectionAuthProvider,
+        private readonly epicAuth: EpicConnectionAuthProvider,
         private readonly psnSync: PsnSyncService,
     ) {}
 
@@ -82,5 +86,9 @@ export class ConnectionsModule implements OnModuleInit {
             this.steamAuth,
         );
         this.registry.registerAuthStrategy(EConnectionType.XBOX, this.xboxAuth);
+        this.registry.registerAuthStrategy(
+            EConnectionType.EPIC_GAMES,
+            this.epicAuth,
+        );
     }
 }

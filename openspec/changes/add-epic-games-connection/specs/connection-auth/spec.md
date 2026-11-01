@@ -43,3 +43,24 @@ The system SHALL store a cryptographically random, single-use `state` token in R
 #### Scenario: Session mismatch on callback
 - **WHEN** `POST /v1/connections/:type/auth/callback` is called with a valid `state` that was created by a different GameNode `userId` or for a different provider `type`
 - **THEN** the server invalidates the state and rejects the request with HTTP 403
+
+## ADDED Requirements
+
+### Requirement: Re-authentication notification
+When a connection moves from `connected` to `reauth_required`, the system SHALL append a `connection.reauth-required` notification intent for the connection owner in the same transaction, at most once per transition. The inbox item SHALL be ungrouped, target the connection and its provider, and carry plain preview text naming the provider.
+
+#### Scenario: Grant revoked during a background sync
+- **WHEN** an Epic or Xbox token refresh fails because the grant is revoked, expired or missing
+- **THEN** the connection becomes `reauth_required` and the owner gets one `connection.reauth-required` notification whose target is `{ type: "connection", id, provider }` and whose preview text names the provider
+
+#### Scenario: Already reauth_required
+- **WHEN** a sync or a concurrent refresh runs against a connection that is already `reauth_required`
+- **THEN** no new notification is created
+
+#### Scenario: Reconnect, then lose auth again
+- **WHEN** the user reconnects and the provider grant is later revoked again
+- **THEN** a new `connection.reauth-required` notification is created
+
+#### Scenario: Connection deleted before projection
+- **WHEN** the connection no longer exists when the notification is projected
+- **THEN** the notification is suppressed

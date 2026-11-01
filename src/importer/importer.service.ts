@@ -21,6 +21,7 @@ import { ImporterResponseItemDto } from "./dto/importer-response-item.dto";
 import { ExternalGameService } from "../game/external-game/external-game.service";
 import { GameExternalGame } from "../game/external-game/entity/game-external-game.entity";
 import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
+import { EpicSyncService } from "../sync/epic/epic-sync.service";
 import { toMap } from "../utils/toMap";
 import { ImporterSearchService } from "./importer-search/importer-search.service";
 import { PreferredPlatformService } from "../preferred-platform/preferred-platform.service";
@@ -53,6 +54,7 @@ export class ImporterService {
         private readonly collectionEntryRepository: Repository<CollectionEntry>,
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
+        private readonly epicSyncService: EpicSyncService,
     ) {
         providerRegistry.registerSyncHandlers(EConnectionType.STEAM, {
             fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
@@ -73,6 +75,14 @@ export class ImporterService {
         providerRegistry.registerSyncHandlers(EConnectionType.XBOX, {
             fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
                 this.findUnprocessedXboxEntries(
+                    userId,
+                    includeMarked,
+                    sourceUserId,
+                ),
+        });
+        providerRegistry.registerSyncHandlers(EConnectionType.EPIC_GAMES, {
+            fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
+                this.findUnprocessedEpicEntries(
                     userId,
                     includeMarked,
                     sourceUserId,
@@ -239,6 +249,37 @@ export class ImporterService {
                         gamesByProduct.get(externalGame.uid)!.devices.flat(1),
                     ),
                 )!.id,
+        );
+    }
+
+    private async findUnprocessedEpicEntries(
+        userId: string,
+        includeMarked = false,
+        sourceUserId?: string,
+    ) {
+        sourceUserId ??= (
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.EPIC_GAMES,
+            )
+        ).sourceUserId;
+
+        const items = await this.epicSyncService.getLibraryItems(sourceUserId);
+
+        return this.matchUnprocessed(
+            userId,
+            includeMarked,
+            items.map((item) => item.namespace),
+            EGameExternalGameCategory.EpicGamesNamespace,
+            // PC platform ID, @see GamePlatform#id
+            () => 6,
+            async (namespaces) => {
+                for (const namespace of namespaces)
+                    await this.externalGameService.registerUnmappedGame(
+                        namespace,
+                        EGameExternalGameCategory.EpicGamesNamespace,
+                    );
+            },
         );
     }
 

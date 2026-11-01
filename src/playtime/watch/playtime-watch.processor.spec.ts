@@ -61,6 +61,7 @@ test("playtime executes the registered handler and rejects missing capabilities"
         {} as any,
         {} as any,
         registry,
+        {} as any,
     );
     const handler = jest.fn().mockResolvedValue({ outcome: "empty" });
     registry.register({
@@ -108,6 +109,7 @@ test("a capped TitleHub response leaves previous playtime and queued achievement
         {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     await expect(
         processor.updateXboxPlaytimeInfo({ data: { userId: "user" } } as any),
@@ -151,6 +153,7 @@ test("a late PSN library cannot reach playtime writes or achievement admission",
         {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     try {
         const pending = runPlayerSyncAttempt(() =>
@@ -194,6 +197,7 @@ it.each(["steam", "psn", "xbox"])(
             {} as any,
             { addUserSyncJob: enqueue } as any,
             new ConnectionProviderRegistry(),
+            {} as any,
         );
         const updateProgress = jest.fn().mockResolvedValue(undefined);
         const job = {
@@ -234,6 +238,7 @@ test("legacy jobs never reach provider work", async () => {
         {} as any,
         {} as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     const fetch = jest.spyOn(processor, "updateSteamPlaytimeInfo");
     await expect(
@@ -324,6 +329,7 @@ test("Steam selection uses recent-list data for timestamp-free and Family Sharin
         {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
 
@@ -446,6 +452,7 @@ test("PSN title progress fingerprints keep same-service communication IDs distin
         } as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
 
@@ -547,6 +554,7 @@ test("Xbox achievement selection follows title progress when playtime stats are 
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
 
@@ -692,6 +700,7 @@ test("PSN maps persist before one enqueue per concept and same-name titles stay 
         } as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
 
     await processor.updatePsnPlaytimeInfo({
@@ -804,6 +813,7 @@ it.each(["steam", "xbox"])(
                 } as any,
                 { addUserSyncJob: jest.fn() } as any,
                 new ConnectionProviderRegistry(),
+                {} as any,
             );
             const job = {
                 data: { userId: "user" },
@@ -853,6 +863,7 @@ test("Steam editions sharing one game contribute once to its cumulative observat
         {} as any,
         { addUserSyncJob: jest.fn() } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     await processor.updateSteamPlaytimeInfo({
         data: { userId: "owner" },
@@ -866,4 +877,92 @@ test("Steam editions sharing one game contribute once to its cumulative observat
             recentPlaytimeSeconds: 900,
         }),
     );
+});
+
+describe("Epic playtime", () => {
+    const run = async (existingRow?: any, entries?: any[]) => {
+        const saveImported = jest.fn();
+        const registerUnmappedGame = jest.fn();
+        const processor = new PlaytimeWatchProcessor(
+            {
+                findForImport: jest
+                    .fn()
+                    .mockResolvedValue(
+                        new Map(existingRow ? [["10:6", existingRow]] : []),
+                    ),
+                saveImported,
+            } as any,
+            {
+                findOneByUserIdAndTypeOrFail: jest
+                    .fn()
+                    .mockResolvedValue({ sourceUserId: "epic-account" }),
+            } as any,
+            {
+                getExternalGamesForSourceIds: jest
+                    .fn()
+                    .mockResolvedValue([{ uid: "ns", gameId: 10 }]),
+                registerUnmappedGame,
+            } as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            new ConnectionProviderRegistry(),
+            {
+                getLibraryItems: jest.fn().mockResolvedValue([
+                    { namespace: "ns", appName: "base" },
+                    { namespace: "ns", appName: "addon" },
+                    { namespace: "other", appName: "unmapped" },
+                ]),
+                getPlaytime: jest.fn().mockResolvedValue(
+                    entries ?? [
+                        { artifactId: "base", totalTime: 7200 },
+                        { artifactId: "addon", totalTime: 600 },
+                        { artifactId: "not-in-library", totalTime: 999 },
+                        { artifactId: "unmapped", totalTime: 5 },
+                    ],
+                ),
+            } as any,
+        );
+        await processor.updateEpicPlaytimeInfo({
+            data: { userId: "user" },
+            updateProgress: jest.fn(),
+        } as any);
+        return { saved: saveImported.mock.calls[0][0], registerUnmappedGame };
+    };
+
+    it("stores the first import's total without a last played date, summing apps of a game and skipping unknown apps", async () => {
+        const { saved, registerUnmappedGame } = await run();
+        expect(saved).toHaveLength(1);
+        expect(saved[0]).toMatchObject({
+            gameId: 10,
+            platformId: 6,
+            source: "epicgames",
+            totalPlaytimeSeconds: 7800,
+        });
+        expect(saved[0].lastPlayedDate).toBeUndefined();
+        expect(registerUnmappedGame).toHaveBeenCalledWith(
+            "other",
+            EGameExternalGameCategory.EpicGamesNamespace,
+        );
+    });
+
+    it("sets last played to the sync time only when the total increased", async () => {
+        const old = new Date("2020-01-01");
+        const grown = await run({
+            totalPlaytimeSeconds: 100,
+            lastPlayedDate: old,
+        });
+        expect(grown.saved[0].lastPlayedDate.getTime()).toBeGreaterThan(
+            Date.now() - 60_000,
+        );
+
+        const same = await run({
+            totalPlaytimeSeconds: 7800,
+            lastPlayedDate: old,
+        });
+        expect(same.saved[0].lastPlayedDate).toBe(old);
+    });
 });

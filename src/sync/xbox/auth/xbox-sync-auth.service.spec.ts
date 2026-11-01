@@ -9,6 +9,11 @@ import {
     EConnectionType,
 } from "../../../connection/connections.constants";
 import { ProviderSyncError } from "../../provider-sync.error";
+import {
+    acquireTokenLock,
+    releaseTokenLock,
+    renewTokenLock,
+} from "../../connection-token-lock";
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -111,19 +116,12 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
     it("bounds lock waiting and never releases or renews a successor's lock", async () => {
         jest.useFakeTimers();
         try {
-            const service = new XboxSyncAuthService(
-                mockConfigService,
-                mockCache,
-                mockConnectionRepo,
-                mockCredentialService,
-                queue,
-            );
             lockValues.set("lock", "successor");
-            const waiting = (service as any).acquireLock("lock", "old", 50);
+            const waiting = acquireTokenLock(queue, "lock", "old", 50);
             await jest.advanceTimersByTimeAsync(50);
             expect(await waiting).toBe(false);
-            expect(await (service as any).renewLock("lock", "old")).toBe(0);
-            await (service as any).releaseLock("lock", "old");
+            expect(await renewTokenLock(queue, "lock", "old")).toBe(0);
+            await releaseTokenLock(queue, "lock", "old");
             expect(lockValues.get("lock")).toBe("successor");
         } finally {
             jest.useRealTimers();
