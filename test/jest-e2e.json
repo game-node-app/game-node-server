@@ -2,6 +2,7 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "maxWorkers": 2,
+  "workerIdleMemoryLimit": "512MB",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {

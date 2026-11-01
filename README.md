@@ -302,8 +302,10 @@ $ yarn test:e2e
 $ yarn test:cov
 ```
 
-Jest compiles TypeScript files individually and uses at most two workers to keep
-memory usage down. Run `yarn test:typecheck` for full type checking; CI runs it
+Jest compiles TypeScript files individually, uses at most two workers, and recycles
+workers whose heap exceeds 512 MB after a suite. This is not a hard process memory
+limit, and recycling does not apply to `--runInBand`.
+Run `yarn test:typecheck` for full type checking; CI runs it
 before Jest. Use `yarn test --maxWorkers=N` to override the worker limit.
 
 Keep in mind that it's not possible to test Supertokens' routes (nor should we have to).

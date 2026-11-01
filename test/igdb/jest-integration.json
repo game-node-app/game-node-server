@@ -1,6 +1,7 @@
 {
     "rootDir": "../..",
     "maxWorkers": 2,
+    "workerIdleMemoryLimit": "512MB",
     "moduleFileExtensions": ["js", "json", "ts"],
     "testMatch": ["<rootDir>/test/igdb/**/*.integration-spec.ts"],
     "transform": { "^.+\\.ts$": ["ts-jest", { "tsconfig": { "isolatedModules": true } }] },
