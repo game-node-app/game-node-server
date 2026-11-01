@@ -14,6 +14,8 @@ export function connectionToPlaytimeImportSource(
             return UserPlaytimeSource.STEAM;
         case EConnectionType.XBOX:
             return UserPlaytimeSource.XBOX;
+        case EConnectionType.EPIC_GAMES:
+            return UserPlaytimeSource.EPICGAMES;
     }
 }
 
@@ -24,6 +26,7 @@ export function playtimeSourceToConnectionType(
         .with(UserPlaytimeSource.PSN, () => EConnectionType.PSN)
         .with(UserPlaytimeSource.STEAM, () => EConnectionType.STEAM)
         .with(UserPlaytimeSource.XBOX, () => EConnectionType.XBOX)
+        .with(UserPlaytimeSource.EPICGAMES, () => EConnectionType.EPIC_GAMES)
         .otherwise(() => undefined);
 }
 

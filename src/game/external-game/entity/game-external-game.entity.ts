@@ -57,6 +57,10 @@ export class GameExternalGame {
     })
     year?: number;
 
+    /** Who owns this row: the IGDB catalog sync, a bulk fill job or a moderator. */
+    @Column("varchar", { length: 16, default: "igdb" })
+    origin: "igdb" | "bulk" | "curated";
+
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

@@ -83,29 +83,25 @@ test("summaries omit data for a replaced account and return zero for an empty pr
         syncHandlers: { fetchLibraryGames: jest.fn().mockResolvedValue([]) },
     });
     const current = {
-        findOneByUserIdAndType: jest
-            .fn()
-            .mockResolvedValue({
-                ...connection(1, EConnectionType.STEAM),
-                sourceUserId: "replacement",
-            }),
+        findOneByUserIdAndType: jest.fn().mockResolvedValue({
+            ...connection(1, EConnectionType.STEAM),
+            sourceUserId: "replacement",
+        }),
     };
     const service = new ConnectionsSummaryService(
         { find: jest.fn().mockResolvedValue([]) } as any,
         {
-            findBy: jest
-                .fn()
-                .mockResolvedValue([
-                    {
-                        connectionId: 1,
-                        sourceUserId: "account-1",
-                        stages: {
-                            discovery: {
-                                lastSucceededAt: "2026-01-01T00:00:00Z",
-                            },
+            findBy: jest.fn().mockResolvedValue([
+                {
+                    connectionId: 1,
+                    sourceUserId: "account-1",
+                    stages: {
+                        discovery: {
+                            lastSucceededAt: "2026-01-01T00:00:00Z",
                         },
                     },
-                ]),
+                },
+            ]),
         } as any,
         registry,
         current as any,
@@ -155,6 +151,7 @@ test("owner count equals the filtered importer total", async () => {
         registry,
         { find: jest.fn().mockResolvedValue(rows) } as any,
         { find: jest.fn().mockResolvedValue([{ id: 2, cover: null }]) } as any,
+        {} as any,
     );
     registry.register({
         ...registry.get("steam"),

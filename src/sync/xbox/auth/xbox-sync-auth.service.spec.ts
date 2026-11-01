@@ -1,6 +1,7 @@
 import { setPlayerProviderBudget } from "../../player-provider-budget.service";
 jest.mock("@xboxreplay/xboxlive-auth", () => ({ authenticate: jest.fn() }));
 jest.mock("axios");
+jest.mock("../../../connection/mark-reauth-required");
 import { authenticate } from "@xboxreplay/xboxlive-auth";
 import axios from "axios";
 import { XboxSyncAuthService } from "./xbox-sync-auth.service";
@@ -8,7 +9,12 @@ import {
     EConnectionAuthStatus,
     EConnectionType,
 } from "../../../connection/connections.constants";
-import { ProviderSyncError } from "../../provider-sync.error";
+import { markReauthRequired } from "../../../connection/mark-reauth-required";
+import {
+    acquireTokenLock,
+    releaseTokenLock,
+    renewTokenLock,
+} from "../../connection-token-lock";
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
@@ -65,6 +71,8 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
     let mockConnectionRepo: any;
     let mockCredentialService: any;
     let mockConfigService: any;
+    const manager = {};
+    const transaction = jest.fn(async (work) => work(manager));
 
     beforeEach(() => {
         inMemoryCache = new Map();
@@ -86,6 +94,7 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
         mockConnectionRepo = {
             findOne: jest.fn(),
             save: jest.fn(),
+            manager: { transaction },
         };
         mockCredentialService = {
             getCredentials: jest.fn(),
@@ -111,19 +120,12 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
     it("bounds lock waiting and never releases or renews a successor's lock", async () => {
         jest.useFakeTimers();
         try {
-            const service = new XboxSyncAuthService(
-                mockConfigService,
-                mockCache,
-                mockConnectionRepo,
-                mockCredentialService,
-                queue,
-            );
             lockValues.set("lock", "successor");
-            const waiting = (service as any).acquireLock("lock", "old", 50);
+            const waiting = acquireTokenLock(queue, "lock", "old", 50);
             await jest.advanceTimersByTimeAsync(50);
             expect(await waiting).toBe(false);
-            expect(await (service as any).renewLock("lock", "old")).toBe(0);
-            await (service as any).releaseLock("lock", "old");
+            expect(await renewTokenLock(queue, "lock", "old")).toBe(0);
+            await releaseTokenLock(queue, "lock", "old");
             expect(lockValues.get("lock")).toBe("successor");
         } finally {
             jest.useRealTimers();
@@ -324,55 +326,76 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
         );
     });
 
-    it("transitions connection to reauth_required and throws ProviderSyncError when refresh returns invalid_grant", async () => {
-        const connection = {
-            id: 10,
-            type: EConnectionType.XBOX,
-            sourceUserId: "xuid-123",
-            authStatus: EConnectionAuthStatus.CONNECTED,
-        };
-        mockConnectionRepo.findOne.mockResolvedValue(connection);
+    it.each(["invalid_grant", "missing_refresh", "xsts_rejection"])(
+        "transitions connection transactionally to reauth_required on %s",
+        async (failure) => {
+            const connection = {
+                id: 10,
+                type: EConnectionType.XBOX,
+                sourceUserId: "xuid-123",
+                authStatus: EConnectionAuthStatus.CONNECTED,
+            };
+            mockConnectionRepo.findOne.mockResolvedValue(connection);
 
-        const pastDate = new Date(Date.now() - 1000).toISOString();
-        mockCredentialService.getCredentials.mockResolvedValue({
-            accessToken: "old-access-token",
-            refreshToken: "revoked-refresh-token",
-            providerMetadata: {
-                xstsToken: "old-xsts-token",
-                userHash: "old-user-hash",
-                xstsExpiresAt: pastDate,
-            },
-        });
-
-        mockedAxios.post.mockRejectedValueOnce({
-            response: {
-                status: 400,
-                data: {
-                    error: "invalid_grant",
-                    error_description: "The provided grant has been revoked",
+            const pastDate = new Date(Date.now() - 1000).toISOString();
+            mockCredentialService.getCredentials.mockResolvedValue({
+                accessToken: "old-access-token",
+                refreshToken:
+                    failure === "missing_refresh"
+                        ? null
+                        : "revoked-refresh-token",
+                providerMetadata: {
+                    xstsToken: "old-xsts-token",
+                    userHash: "old-user-hash",
+                    xstsExpiresAt: pastDate,
                 },
-            },
-        });
+            });
 
-        const service = new XboxSyncAuthService(
-            mockConfigService,
-            mockCache,
-            mockConnectionRepo,
-            mockCredentialService,
-            queue,
-        );
+            if (failure === "xsts_rejection") {
+                mockedAxios.post
+                    .mockResolvedValueOnce({
+                        data: { access_token: "ms-token" },
+                    })
+                    .mockResolvedValueOnce({ data: { Token: "xbl-token" } })
+                    .mockRejectedValueOnce({
+                        response: { status: 401, data: { XErr: 2148916233 } },
+                    });
+            } else if (failure === "invalid_grant")
+                mockedAxios.post.mockRejectedValueOnce({
+                    response: {
+                        status: 400,
+                        data: {
+                            error: "invalid_grant",
+                            error_description:
+                                "The provided grant has been revoked",
+                        },
+                    },
+                });
 
-        await expect(
-            service.getUserAuthCredentials("xuid-123"),
-        ).rejects.toThrow(
-            expect.objectContaining({ outcome: "reauth_required" }),
-        );
+            const service = new XboxSyncAuthService(
+                mockConfigService,
+                mockCache,
+                mockConnectionRepo,
+                mockCredentialService,
+                queue,
+            );
 
-        expect(connection.authStatus).toBe(
-            EConnectionAuthStatus.REAUTH_REQUIRED,
-        );
-        expect(mockConnectionRepo.save).toHaveBeenCalledWith(connection);
-    });
+            await expect(
+                service.getUserAuthCredentials("xuid-123"),
+            ).rejects.toThrow(
+                expect.objectContaining({ outcome: "reauth_required" }),
+            );
+
+            expect(transaction).toHaveBeenCalledTimes(1);
+            expect(markReauthRequired).toHaveBeenCalledWith(
+                manager,
+                connection,
+            );
+            expect(
+                mockCredentialService.saveCredentials,
+            ).not.toHaveBeenCalled();
+        },
+    );
 
     it("serializes concurrent refreshes with a lock so second caller reuses token refreshed by the first", async () => {
         const connection = {

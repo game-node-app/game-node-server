@@ -18,6 +18,7 @@ import { CollectionsEntriesModule } from "../collections/collections-entries/col
 import { ImporterBatchImportService } from "./importer-batch-import.service";
 import { ImporterBatchEffectsService } from "./importer-batch-effects.service";
 import { ImporterBatchEffect } from "./entity/importer-batch-effect.entity";
+import { EpicSyncModule } from "../sync/epic/epic-sync.module";
 import { ActivitiesQueueModule } from "../activities/activities-queue/activities-queue.module";
 import { AchievementsModule } from "../achievements/achievements.module";
 import { LevelModule } from "../level/level.module";
@@ -35,6 +36,7 @@ import { LevelModule } from "../level/level.module";
         SteamSyncModule,
         PsnSyncModule,
         XboxSyncModule,
+        EpicSyncModule,
         ExternalGameModule,
         GameRepositoryModule,
         CollectionsEntriesModule,

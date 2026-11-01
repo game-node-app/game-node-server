@@ -59,6 +59,12 @@ export const toDto = (userConnection: UserConnection): UserConnectionDto => ({
     ),
 });
 
+// Delegated-code providers reuse init/callback; only the client UX differs (paste box instead of redirect).
+const REDIRECT_LIKE_MODES = [
+    EConnectionAuthMode.REDIRECT,
+    EConnectionAuthMode.DELEGATED_CODE,
+];
+
 @Injectable()
 export class ConnectionsService {
     private readonly logger = new Logger(ConnectionsService.name);
@@ -214,7 +220,7 @@ export class ConnectionsService {
         dto: ConnectionAuthInitDto,
     ): Promise<ConnectionAuthInitResponseDto> {
         const provider = this.providerRegistry.get(type);
-        if (provider.authMode !== EConnectionAuthMode.REDIRECT) {
+        if (!REDIRECT_LIKE_MODES.includes(provider.authMode)) {
             throw new HttpException(
                 `Provider ${type} does not support redirect authentication`,
                 HttpStatus.BAD_REQUEST,
@@ -274,7 +280,7 @@ export class ConnectionsService {
         dto: ConnectionAuthCallbackDto,
     ): Promise<UserConnectionDto> {
         const provider = this.providerRegistry.get(type);
-        if (provider.authMode !== EConnectionAuthMode.REDIRECT) {
+        if (!REDIRECT_LIKE_MODES.includes(provider.authMode)) {
             throw new HttpException(
                 `Provider ${type} does not support redirect authentication`,
                 HttpStatus.BAD_REQUEST,

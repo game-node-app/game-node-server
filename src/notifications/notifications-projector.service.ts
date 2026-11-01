@@ -10,6 +10,7 @@ import {
     NotificationRootType,
 } from "./notifications-lifecycle.service";
 import { NotificationEventIntent } from "./notifications.types";
+import { UserConnection } from "../connection/entity/user-connection.entity";
 import {
     NotificationIntentValidationError,
     validateNotificationIntent,
@@ -572,6 +573,47 @@ export class NotificationsProjectorService {
                         type: "importer",
                         id: String(discoveryResultId),
                         provider: String(provider),
+                    },
+                };
+            }
+
+            case "connection.reauth-required": {
+                const { connectionId, provider } = payload;
+                const connection = outbox.recipientUserId
+                    ? await manager.findOne(UserConnection, {
+                          where: {
+                              id: connectionId,
+                              profileUserId: outbox.recipientUserId,
+                              type: provider,
+                          },
+                      })
+                    : null;
+                if (!connection) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason: "connection_not_found",
+                    } as ResolvedEventDetails;
+                }
+                const providerName = {
+                    steam: "Steam",
+                    psn: "PlayStation Network",
+                    xbox: "Xbox",
+                    epicgames: "Epic Games",
+                }[connection.type];
+                return {
+                    recipientUserId: connection.profileUserId,
+                    actorUserId: null,
+                    subjectType: "connection",
+                    subjectId: String(connectionId),
+                    rootType: "connection",
+                    rootId: String(connectionId),
+                    preview: {
+                        text: `Your ${providerName} connection needs to be reconnected.`,
+                    },
+                    target: {
+                        type: "connection",
+                        id: String(connectionId),
+                        provider,
                     },
                 };
             }

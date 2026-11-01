@@ -8,8 +8,6 @@ import {
     validateNotificationIntent,
 } from "./notifications-outbox.service";
 import { NotificationOutbox } from "./entity/notification-outbox.entity";
-import { NotificationEvent } from "./entity/notification-event.entity";
-import { NotificationInbox } from "./entity/notification-inbox.entity";
 
 describe("NotificationsOutboxService appendNotificationIntent", () => {
     let dataSource: DataSource;
@@ -75,6 +73,15 @@ describe("NotificationsOutboxService appendNotificationIntent", () => {
             },
         },
         { eventType: "profile.followed", payload: [] },
+        ...[
+            { connectionId: 0, provider: "epicgames" },
+            { connectionId: "1", provider: "epicgames" },
+            { connectionId: 1, provider: "unknown" },
+            { connectionId: 1, provider: "epicgames", secret: "hidden" },
+        ].map((payload) => ({
+            eventType: "connection.reauth-required",
+            payload,
+        })),
     ])(
         "rejects invalid event-specific payloads before persistence: %j",
         async (event) => {
@@ -91,6 +98,18 @@ describe("NotificationsOutboxService appendNotificationIntent", () => {
             ).rejects.toThrow(NotificationIntentValidationError);
         },
     );
+
+    it.each(["epicgames", "xbox"])("accepts a %s reauth intent", (provider) => {
+        expect(() =>
+            validateNotificationIntent({
+                eventType: "connection.reauth-required",
+                eventVersion: 1,
+                recipientUserId: "owner",
+                actorUserId: null,
+                payload: { connectionId: 1, provider },
+            }),
+        ).not.toThrow();
+    });
 
     it("rejects invalid occurrence dates", () => {
         expect(() =>

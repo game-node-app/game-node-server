@@ -1,3 +1,4 @@
+import { ConflictException } from "@nestjs/common";
 import { QueryFailedError } from "typeorm";
 import { ExternalGameService } from "./external-game.service";
 import { ExternalGameMappingsService } from "./external-game-mappings.service";
@@ -97,4 +98,105 @@ test("PSN mapping upsert awaits the atomic unique-identity write", async () => {
         "npCommunicationId",
         "npServiceName",
     ]);
+});
+
+const duplicateKey = () =>
+    new QueryFailedError(
+        "INSERT",
+        [],
+        Object.assign(new Error("duplicate"), { code: "ER_DUP_ENTRY" }),
+    );
+
+function submitFixture(existing: any[], max: string | null = "3200000") {
+    const insert = jest.fn().mockResolvedValue({});
+    const update = jest.fn();
+    const getRawOne = jest.fn().mockResolvedValue({ max });
+    const repo = {
+        findBy: jest.fn().mockResolvedValue(existing),
+        insert,
+        update,
+        createQueryBuilder: () => ({
+            select: () => ({ getRawOne }),
+        }),
+    };
+    const unmapped = {
+        findOneBy: jest.fn().mockResolvedValue({ id: 9 }),
+        update: jest.fn(),
+    };
+    return {
+        service: new ExternalGameService(repo as any, unmapped as any),
+        insert,
+        update,
+        getRawOne,
+        unmapped,
+    };
+}
+
+const dto = {
+    sourceId: "ns",
+    sourceUrl: "https://store.epicgames.com/p/x",
+    gameId: 7,
+    category: EGameExternalGameCategory.EpicGamesNamespace,
+};
+
+test("reserved IDs start at 1e12 and continue past the highest reserved ID", async () => {
+    const first = submitFixture([]);
+    await expect(first.service.insertReserved({ uid: "a" })).resolves.toBe(
+        1e12,
+    );
+    const next = submitFixture([], String(1e12 + 41));
+    await expect(next.service.insertReserved({ uid: "a" })).resolves.toBe(
+        1e12 + 42,
+    );
+});
+
+test("reserved ID insert retries duplicate keys at most five times", async () => {
+    const retried = submitFixture([]);
+    retried.insert.mockRejectedValueOnce(duplicateKey());
+    await retried.service.insertReserved({ uid: "a" });
+    expect(retried.insert).toHaveBeenCalledTimes(2);
+
+    const exhausted = submitFixture([]);
+    exhausted.insert.mockRejectedValue(duplicateKey());
+    await expect(exhausted.service.insertReserved({ uid: "a" })).rejects.toBeInstanceOf(
+        QueryFailedError,
+    );
+    expect(exhausted.insert).toHaveBeenCalledTimes(5);
+});
+
+test("submit adds a curated row next to the game's other mappings and resolves the unmapped entry", async () => {
+    const { service, insert, update, unmapped } = submitFixture([]);
+    await service.submit(dto);
+    expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+            id: 1e12,
+            uid: "ns",
+            gameId: 7,
+            origin: "curated",
+        }),
+    );
+    expect(update).not.toHaveBeenCalled();
+    expect(unmapped.update).toHaveBeenCalledWith({ id: 9 }, { isActive: false });
+});
+
+test("submit corrects an existing non-IGDB mapping in place", async () => {
+    const { service, insert, update } = submitFixture([
+        { id: 1e12 + 5, origin: "curated", gameId: 1 },
+    ]);
+    await service.submit(dto);
+    expect(insert).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith(
+        { id: 1e12 + 5 },
+        { gameId: 7, url: dto.sourceUrl },
+    );
+});
+
+test("submit refuses to shadow an IGDB mapping", async () => {
+    const { service, insert, update, unmapped } = submitFixture([
+        { id: 5, origin: "igdb" },
+    ]);
+    await expect(service.submit(dto)).rejects.toBeInstanceOf(ConflictException);
+    expect(insert).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(unmapped.update).not.toHaveBeenCalled();
 });

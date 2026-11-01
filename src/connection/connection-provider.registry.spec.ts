@@ -9,9 +9,9 @@ describe("ConnectionProviderRegistry", () => {
         registry = new ConnectionProviderRegistry();
     });
 
-    it("should discover registered providers (steam, psn, xbox) and return their capabilities", () => {
+    it("should discover registered providers (steam, psn, xbox, epicgames) and return their capabilities", () => {
         const available = registry.getAvailableProviders();
-        expect(available.length).toBe(3);
+        expect(available.length).toBe(4);
 
         const steam = available.find((p) => p.type === EConnectionType.STEAM);
         expect(steam).toBeDefined();
@@ -27,6 +27,20 @@ describe("ConnectionProviderRegistry", () => {
         const xbox = available.find((p) => p.type === EConnectionType.XBOX);
         expect(xbox).toBeDefined();
         expect(xbox?.authMode).toBe(EConnectionAuthMode.REDIRECT);
+
+        const epic = available.find(
+            (p) => p.type === EConnectionType.EPIC_GAMES,
+        );
+        expect(epic).toEqual({
+            type: "epicgames",
+            name: "epicgames",
+            iconName: "epicgames",
+            authMode: EConnectionAuthMode.DELEGATED_CODE,
+            isImporterViable: true,
+            isImporterWatchViable: true,
+            isPlaytimeImportViable: true,
+            isAchievementImportViable: false,
+        });
     });
 
     it("should reject unknown providers with HTTP 400", () => {

@@ -8,6 +8,7 @@ import {
     SUPPORTED_EVENT_VERSION,
 } from "./notifications.types";
 import { NotificationOutbox } from "./entity/notification-outbox.entity";
+import { EConnectionType } from "../connection/connections.constants";
 
 export class NotificationIntentValidationError extends Error {
     constructor(message: string) {
@@ -178,6 +179,12 @@ export function validateNotificationIntent(
                                 ),
                         )));
             break;
+        case "connection.reauth-required":
+            allowed = ["connectionId", "provider"];
+            valid =
+                positiveId(payload.connectionId) &&
+                Object.values(EConnectionType).includes(payload.provider);
+            break;
         case "moderation.applied":
             allowed = ["action", "safeReason", "reportId"];
             valid =
@@ -211,7 +218,9 @@ export async function appendNotificationIntent(
 ): Promise<NotificationOutbox> {
     validateNotificationIntent(intent);
     if (!manager.queryRunner?.isTransactionActive) {
-        throw new NotificationIntentValidationError("Notification intent requires the active action transaction");
+        throw new NotificationIntentValidationError(
+            "Notification intent requires the active action transaction",
+        );
     }
 
     const outboxRepo = manager.getRepository(NotificationOutbox);

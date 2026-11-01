@@ -580,6 +580,7 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
                         { getGamePlatformsMap: async () => new Map() } as any,
                         { addUserSyncJob: async () => undefined } as any,
                         new ConnectionProviderRegistry(),
+                        {} as any,
                     );
                     for (let attempt = 0; attempt < 2; attempt++) {
                         await processor.updateXboxPlaytimeInfo({

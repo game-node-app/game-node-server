@@ -25,6 +25,7 @@ import { UserPlaytimeSource } from "../playtime.constants";
 import dayjs from "dayjs";
 import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
+import { EpicSyncService } from "../../sync/epic/epic-sync.service";
 import { ExternalGameMappingsService } from "../../game/external-game/external-game-mappings.service";
 import * as process from "process";
 import { seconds } from "@nestjs/throttler";
@@ -57,6 +58,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly gameAchievementSyncQueueService: GameAchievementSyncQueueService,
         private readonly registry: ConnectionProviderRegistry,
+        private readonly epicSyncService: EpicSyncService,
     ) {
         super();
         registry.registerSyncHandlers(EConnectionType.STEAM, {
@@ -67,6 +69,9 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         });
         registry.registerSyncHandlers(EConnectionType.XBOX, {
             fetchPlaytime: (job) => this.updateXboxPlaytimeInfo(job),
+        });
+        registry.registerSyncHandlers(EConnectionType.EPIC_GAMES, {
+            fetchPlaytime: (job) => this.updateEpicPlaytimeInfo(job),
         });
     }
 
@@ -565,5 +570,103 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
             playtimes.push(playtime);
         }
         await this.playtimeService.saveImported(playtimes, existing);
+    }
+
+    async updateEpicPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
+        const userId = job.data.userId;
+
+        const connection =
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.EPIC_GAMES,
+            );
+
+        const [libraryItems, playtimeEntries] = await Promise.all([
+            this.epicSyncService.getLibraryItems(connection.sourceUserId),
+            this.epicSyncService.getPlaytime(connection.sourceUserId),
+        ]);
+
+        const namespaces = [
+            ...new Set(libraryItems.map((item) => item.namespace)),
+        ];
+        recordPlayerSyncStats({ gamesSeen: namespaces.length });
+        if (namespaces.length === 0) {
+            job.updateProgress({ totalUpdatedGames: 0 });
+            return { outcome: "empty" as const };
+        }
+
+        const externalGames =
+            await this.externalGameService.getExternalGamesForSourceIds(
+                namespaces,
+                EGameExternalGameCategory.EpicGamesNamespace,
+            );
+        const gameIdByNamespace = new Map(
+            externalGames.map((game) => [game.uid, game.gameId]),
+        );
+        for (const namespace of namespaces) {
+            if (gameIdByNamespace.has(namespace)) continue;
+            assertPlayerSyncActive();
+            await this.externalGameService.registerUnmappedGame(
+                namespace,
+                EGameExternalGameCategory.EpicGamesNamespace,
+            );
+        }
+
+        // Playtime is reported per app; apps and add-ons of one namespace belong to the same game.
+        const namespaceByApp = new Map(
+            libraryItems.map((item) => [item.appName, item.namespace]),
+        );
+        const secondsByGame = new Map<number, number>();
+        for (const entry of playtimeEntries) {
+            const namespace = namespaceByApp.get(entry.artifactId);
+            const gameId =
+                namespace == undefined
+                    ? undefined
+                    : gameIdByNamespace.get(namespace);
+            if (gameId == undefined) continue;
+            secondsByGame.set(
+                gameId,
+                (secondsByGame.get(gameId) ?? 0) + entry.totalTime,
+            );
+        }
+
+        const PC_PLATFORM_ID = 6;
+        const existing = await this.playtimeService.findForImport(
+            userId,
+            UserPlaytimeSource.EPICGAMES,
+            [...secondsByGame.keys()],
+        );
+        const playtimes: CreateUserPlaytimeDto[] = [];
+        for (const [gameId, totalPlaytimeSeconds] of secondsByGame) {
+            const existingPlaytimeInfo = existing.get(
+                `${gameId}:${PC_PLATFORM_ID}`,
+            );
+            const playtime: CreateUserPlaytimeDto = {
+                totalPlayCount: 0,
+                ...existingPlaytimeInfo,
+                gameId,
+                profileUserId: userId,
+                lastPlayedDate: existingPlaytimeInfo?.lastPlayedDate,
+                totalPlaytimeSeconds,
+                recentPlaytimeSeconds: undefined,
+                firstPlayedDate: undefined,
+                source: UserPlaytimeSource.EPICGAMES,
+                platformId: PC_PLATFORM_ID,
+            };
+            // shortcut: Epic exposes no last played date, so it is only accurate to the sync interval; replace it if Epic exposes per-session data.
+            if (
+                existingPlaytimeInfo &&
+                totalPlaytimeSeconds > existingPlaytimeInfo.totalPlaytimeSeconds
+            ) {
+                playtime.lastPlayedDate = new Date();
+            }
+            assertPlayerSyncActive();
+            playtimes.push(playtime);
+        }
+        await this.playtimeService.saveImported(playtimes, existing);
+
+        job.updateProgress({
+            totalUpdatedGames: secondsByGame.size,
+        } satisfies PlaytimeWatchJobProgress);
     }
 }

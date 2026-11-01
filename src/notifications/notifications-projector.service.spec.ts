@@ -10,6 +10,8 @@ import { NotificationsRelayService } from "./notifications-relay.service";
 import { NotificationOutbox } from "./entity/notification-outbox.entity";
 import { NotificationEvent } from "./entity/notification-event.entity";
 import { NotificationInbox } from "./entity/notification-inbox.entity";
+import { UserConnection } from "../connection/entity/user-connection.entity";
+import { EConnectionType } from "../connection/connections.constants";
 
 describe("NotificationsProjectorService", () => {
     let dataSource: DataSource;
@@ -324,6 +326,84 @@ describe("NotificationsProjectorService", () => {
     });
 
     describe("event handlers & projection", () => {
+        it.each([
+            [EConnectionType.EPIC_GAMES, "Epic Games"],
+            [EConnectionType.XBOX, "Xbox"],
+        ])(
+            "projects ungrouped %s reauth notifications and suppresses deleted connections",
+            async (provider, name) => {
+                const owner = randomUUID();
+                await createMockProfile(owner);
+                const connections = dataSource.getRepository(UserConnection);
+                const connection = await connections.save({
+                    type: provider,
+                    profileUserId: owner,
+                    sourceUserId: owner,
+                    sourceUsername: "Fixture",
+                });
+                const outbox = dataSource.getRepository(NotificationOutbox);
+                const inbox = dataSource.getRepository(NotificationInbox);
+                try {
+                    for (let i = 0; i < 3; i++) {
+                        if (i === 2) await connections.delete(connection.id);
+                        const id = randomUUID();
+                        await outbox.save({
+                            id,
+                            eventType: "connection.reauth-required",
+                            eventVersion: 1,
+                            occurredAt: new Date(),
+                            recipientUserId: owner,
+                            actorUserId: null,
+                            payload: { connectionId: connection.id, provider },
+                            state: "processing",
+                            ownerToken: id,
+                            ownerExpiresAt: new Date(Date.now() + 30000),
+                            attempts: 1,
+                            nextAttemptAt: new Date(),
+                        });
+                        expect(await projector.projectEvent(id, id)).toBe(true);
+                        expect(
+                            await outbox.findOneByOrFail({ id }),
+                        ).toMatchObject({
+                            state: i === 2 ? "suppressed" : "completed",
+                            lastError: i === 2 ? "connection_not_found" : null,
+                        });
+                    }
+                    const items = await inbox.findBy({
+                        recipientUserId: owner,
+                    });
+                    expect(items).toHaveLength(2);
+                    for (const item of items) {
+                        expect(item).toMatchObject({
+                            type: "connection.reauth-required",
+                            subjectType: "connection",
+                            eventCount: 1,
+                            actorCount: 0,
+                            actorIds: [],
+                            target: {
+                                type: "connection",
+                                id: String(connection.id),
+                                provider,
+                            },
+                            preview: {
+                                text: `Your ${name} connection needs to be reconnected.`,
+                            },
+                        });
+                    }
+                } finally {
+                    await outbox.delete({ recipientUserId: owner });
+                    await dataSource
+                        .getRepository(NotificationEvent)
+                        .delete({ recipientUserId: owner });
+                    await inbox.delete({ recipientUserId: owner });
+                    await dataSource.query(
+                        "DELETE FROM profile WHERE userId = ?",
+                        [owner],
+                    );
+                }
+            },
+        );
+
         it("handles content.liked on a post and verifies trusted recipient", async () => {
             const outboxRepo = dataSource.getRepository(NotificationOutbox);
             const eventRepo = dataSource.getRepository(NotificationEvent);

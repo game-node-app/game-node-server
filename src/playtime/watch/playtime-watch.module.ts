@@ -13,6 +13,7 @@ import { PsnSyncModule } from "../../sync/psn/psn-sync.module";
 import { SteamSyncModule } from "../../sync/steam/steam-sync.module";
 import { ExternalGameModule } from "../../game/external-game/external-game.module";
 import { XboxSyncModule } from "../../sync/xbox/xbox-sync.module";
+import { EpicSyncModule } from "../../sync/epic/epic-sync.module";
 import { seconds } from "@nestjs/throttler";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 import { GameAchievementModule } from "../../game/game-achievement/game-achievement.module";
@@ -38,6 +39,7 @@ import { GameAchievementSyncModule } from "../../game/game-achievement/sync/game
         PsnSyncModule,
         SteamSyncModule,
         XboxSyncModule,
+        EpicSyncModule,
         GameRepositoryModule,
         GameAchievementSyncModule,
     ],

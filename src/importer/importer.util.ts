@@ -9,6 +9,8 @@ export const connectionToImporterSource = (connectionType: EConnectionType) => {
             return EImporterSource.PSN;
         case EConnectionType.XBOX:
             return EImporterSource.XBOX;
+        case EConnectionType.EPIC_GAMES:
+            return EImporterSource.EPIC_GAMES;
     }
 };
 
@@ -22,5 +24,7 @@ export const importerToConnectionSource = (
             return EConnectionType.PSN;
         case EImporterSource.XBOX:
             return EConnectionType.XBOX;
+        case EImporterSource.EPIC_GAMES:
+            return EConnectionType.EPIC_GAMES;
     }
 };

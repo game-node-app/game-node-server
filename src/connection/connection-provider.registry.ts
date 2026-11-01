@@ -52,7 +52,6 @@ export interface ConnectionProviderAuthStrategy {
     resolvePublicIdentifier?(
         userIdentifier: string,
     ): Promise<PublicIdentifierResolveResult>;
-    exchangeDelegatedCode?(code: string): Promise<RedirectAuthCallbackResult>;
 }
 
 export interface ConnectionProviderSyncHandlers {
@@ -156,6 +155,26 @@ export class ConnectionProviderRegistry {
             isAchievementImportViable:
                 ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS.includes(
                     EConnectionType.XBOX,
+                ),
+        });
+
+        this.register({
+            type: EConnectionType.EPIC_GAMES,
+            name: EConnectionType.EPIC_GAMES.valueOf(),
+            iconName: EConnectionType.EPIC_GAMES.valueOf(),
+            authMode: EConnectionAuthMode.DELEGATED_CODE,
+            isImporterViable: IMPORTER_VIABLE_CONNECTIONS.includes(
+                EConnectionType.EPIC_GAMES,
+            ),
+            isImporterWatchViable: IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(
+                EConnectionType.EPIC_GAMES,
+            ),
+            isPlaytimeImportViable: PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(
+                EConnectionType.EPIC_GAMES,
+            ),
+            isAchievementImportViable:
+                ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS.includes(
+                    EConnectionType.EPIC_GAMES,
                 ),
         });
     }

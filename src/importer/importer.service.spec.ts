@@ -46,6 +46,7 @@ test("PSN discovery keeps first-source platform order and filters processed iden
         new ConnectionProviderRegistry(),
         { find: jest.fn().mockResolvedValue([]) } as any,
         { find: jest.fn().mockResolvedValue([{ id: 1, cover: null }]) } as any,
+        {} as any,
     );
     const [games, count] = await service.findUnprocessedEntries(
         "user",
@@ -81,6 +82,7 @@ test("discovery executes a registered handler without provider branches", async 
         registry,
         {} as any,
         {} as any,
+        {} as any,
     );
     const handler = jest.fn().mockResolvedValue([{ id: 1, gameId: 10 }]);
     registry.register({
@@ -111,6 +113,7 @@ test("candidate validation is restricted to the user's selected provider snapsho
         {} as any,
         {} as any,
         registry,
+        {} as any,
         {} as any,
         {} as any,
     );
@@ -169,6 +172,7 @@ test("snapshot binds discovery to the selected connection account", async () => 
         registry,
         {} as any,
         {} as any,
+        {} as any,
     );
     registry.register({
         ...registry.get("steam"),
@@ -209,6 +213,7 @@ test("listing filters the user's library before search and pagination and hydrat
         registry,
         { find: findLibrary } as any,
         { find: findGames } as any,
+        {} as any,
     );
     registry.register({
         ...registry.get("steam"),
@@ -247,4 +252,114 @@ test("listing filters the user's library before search and pagination and hydrat
     expect(otherTotal).toBe(4);
     expect(findLibrary).toHaveBeenCalledTimes(3);
     expect(findGames).toHaveBeenCalledTimes(3);
+});
+
+test("shared matching returns processed entries only when marked entries are included", async () => {
+    const service = new ImporterService(
+        {
+            findBy: jest.fn().mockResolvedValue([{ gameExternalGameId: 2 }]),
+        } as any,
+        { findBy: jest.fn().mockResolvedValue([]) } as any,
+        {} as any,
+        {} as any,
+        {
+            getLibraryGames: jest
+                .fn()
+                .mockResolvedValue([
+                    { game: { id: "a" } },
+                    { game: { id: "b" } },
+                ]),
+        } as any,
+        {
+            getExternalGamesForSourceIds: jest.fn().mockResolvedValue([
+                { id: 1, gameId: 1, uid: "a" },
+                { id: 2, gameId: 2, uid: "b" },
+            ]),
+        } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        new ConnectionProviderRegistry(),
+        {} as any,
+        {} as any,
+        {} as any,
+    );
+    const ids = async (includeMarked: boolean) =>
+        (
+            await service.findProviderCandidates(
+                "user",
+                EImporterSource.STEAM,
+                includeMarked,
+                "steam-account",
+            )
+        ).map((item) => item.id);
+    expect(await ids(false)).toEqual([1]);
+    expect(await ids(true)).toEqual([1, 2]);
+});
+
+describe("Epic Games discovery", () => {
+    const build = (mapped: any[]) => {
+        const registerUnmappedGame = jest.fn();
+        const getExternalGamesForSourceIds = jest
+            .fn()
+            .mockResolvedValue(mapped);
+        const service = new ImporterService(
+            { findBy: jest.fn().mockResolvedValue([]) } as any,
+            { findBy: jest.fn().mockResolvedValue([]) } as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            { getExternalGamesForSourceIds, registerUnmappedGame } as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            new ConnectionProviderRegistry(),
+            {} as any,
+            {} as any,
+            {
+                getLibraryItems: jest.fn().mockResolvedValue([
+                    { namespace: "mapped", appName: "base" },
+                    { namespace: "mapped", appName: "addon-1" },
+                    { namespace: "mapped", appName: "addon-2" },
+                    { namespace: "orphan", appName: "x" },
+                ]),
+            } as any,
+        );
+        return { service, registerUnmappedGame, getExternalGamesForSourceIds };
+    };
+
+    it("lists a base game and its add-ons once, on the PC platform", async () => {
+        const { service, getExternalGamesForSourceIds } = build([
+            { id: 1, gameId: 1, uid: "mapped" },
+        ]);
+        const items = await service.findProviderCandidates(
+            "user",
+            EImporterSource.EPIC_GAMES,
+            false,
+            "epic-account",
+        );
+        expect(items).toEqual([
+            expect.objectContaining({ id: 1, preferredPlatformId: 6 }),
+        ]);
+        expect(getExternalGamesForSourceIds).toHaveBeenCalledWith(
+            ["mapped", "orphan"],
+            1001,
+            false,
+        );
+    });
+
+    it("registers namespaces without a mapping as unmapped and does not list them", async () => {
+        const { service, registerUnmappedGame } = build([
+            { id: 1, gameId: 1, uid: "mapped" },
+        ]);
+        const items = await service.findProviderCandidates(
+            "user",
+            EImporterSource.EPIC_GAMES,
+            false,
+            "epic-account",
+        );
+        expect(items.map((item) => item.id)).toEqual([1]);
+        expect(registerUnmappedGame).toHaveBeenCalledTimes(1);
+        expect(registerUnmappedGame).toHaveBeenCalledWith("orphan", 1001);
+    });
 });

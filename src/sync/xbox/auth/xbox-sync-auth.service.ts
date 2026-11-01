@@ -8,11 +8,18 @@ import { Repository } from "typeorm";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { randomUUID } from "node:crypto";
+import {
+    acquireTokenLock,
+    releaseTokenLock,
+    renewTokenLock,
+    TOKEN_LOCK_MS,
+} from "../../connection-token-lock";
 import { PLAYER_PROVIDER_BUDGET_QUEUE } from "../../player-provider-budget.service";
 import { authenticate, Email } from "@xboxreplay/xboxlive-auth";
 import axios from "axios";
 import { UserConnection } from "../../../connection/entity/user-connection.entity";
 import { ConnectionCredentialService } from "../../../connection/connection-credential.service";
+import { markReauthRequired } from "../../../connection/mark-reauth-required";
 import {
     EConnectionAuthStatus,
     EConnectionType,
@@ -20,7 +27,6 @@ import {
 
 @Injectable()
 export class XboxSyncAuthService {
-    private static readonly LOCK_MS = 60_000;
     private static readonly SAFETY_BUFFER_MS = 5 * 60 * 1000;
 
     constructor(
@@ -34,50 +40,6 @@ export class XboxSyncAuthService {
         @InjectQueue(PLAYER_PROVIDER_BUDGET_QUEUE)
         private readonly queue: Queue,
     ) {}
-
-    private async acquireLock(
-        lockKey: string,
-        token: string,
-        maxWaitMs = 10_000,
-    ) {
-        const redis = await this.queue.client;
-        const deadline = Date.now() + maxWaitMs;
-        do {
-            if (
-                await redis.set(
-                    lockKey,
-                    token,
-                    "PX",
-                    XboxSyncAuthService.LOCK_MS,
-                    "NX",
-                )
-            )
-                return true;
-            await new Promise((resolve) => setTimeout(resolve, 25));
-        } while (Date.now() < deadline);
-        return false;
-    }
-
-    private async renewLock(lockKey: string, token: string) {
-        const redis = await this.queue.client;
-        return redis.eval(
-            "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('PEXPIRE', KEYS[1], ARGV[2]) end; return 0",
-            1,
-            lockKey,
-            token,
-            XboxSyncAuthService.LOCK_MS,
-        );
-    }
-
-    private async releaseLock(lockKey: string, token: string) {
-        const redis = await this.queue.client;
-        await redis.eval(
-            "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end; return 0",
-            1,
-            lockKey,
-            token,
-        );
-    }
 
     public async getUserAuthCredentials(playerXUID: string): Promise<{
         XSTSToken: string;
@@ -137,7 +99,7 @@ export class XboxSyncAuthService {
         // Token expired or near expiration: acquire lock and refresh
         const lockKey = `xbox-token-refresh-lock:${connection.id}`;
         const token = randomUUID();
-        const acquired = await this.acquireLock(lockKey, token);
+        const acquired = await acquireTokenLock(this.queue, lockKey, token);
         if (!acquired) {
             throw new ProviderSyncError(
                 "unavailable",
@@ -147,14 +109,14 @@ export class XboxSyncAuthService {
 
         let lockLost = false;
         const renewal = setInterval(() => {
-            this.renewLock(lockKey, token)
+            renewTokenLock(this.queue, lockKey, token)
                 .then((result) => {
                     if (result !== 1) lockLost = true;
                 })
                 .catch(() => {
                     lockLost = true;
                 });
-        }, XboxSyncAuthService.LOCK_MS / 3);
+        }, TOKEN_LOCK_MS / 3);
         const assertLock = async () => {
             const redis = await this.queue.client;
             if (lockLost || (await redis.get(lockKey)) !== token)
@@ -189,8 +151,9 @@ export class XboxSyncAuthService {
                 rechecked?.refreshToken || credentials.refreshToken;
             if (!refreshToken) {
                 await assertLock();
-                connection.authStatus = EConnectionAuthStatus.REAUTH_REQUIRED;
-                await this.connectionRepository.save(connection);
+                await this.connectionRepository.manager.transaction((manager) =>
+                    markReauthRequired(manager, connection),
+                );
                 throw new ProviderSyncError(
                     "reauth_required",
                     "No refresh token available for Xbox connection",
@@ -204,7 +167,7 @@ export class XboxSyncAuthService {
             );
         } finally {
             clearInterval(renewal);
-            await this.releaseLock(lockKey, token);
+            await releaseTokenLock(this.queue, lockKey, token);
         }
     }
 
@@ -259,8 +222,9 @@ export class XboxSyncAuthService {
                 status === 401
             ) {
                 await assertLock();
-                connection.authStatus = EConnectionAuthStatus.REAUTH_REQUIRED;
-                await this.connectionRepository!.save(connection);
+                await this.connectionRepository.manager.transaction((manager) =>
+                    markReauthRequired(manager, connection),
+                );
                 throw new ProviderSyncError(
                     "reauth_required",
                     `Xbox OAuth refresh token revoked or expired: ${
@@ -331,8 +295,9 @@ export class XboxSyncAuthService {
             const xerr = response?.data?.XErr;
             if (typeof xerr === "number") {
                 await assertLock();
-                connection.authStatus = EConnectionAuthStatus.REAUTH_REQUIRED;
-                await this.connectionRepository!.save(connection);
+                await this.connectionRepository.manager.transaction((manager) =>
+                    markReauthRequired(manager, connection),
+                );
                 throw new ProviderSyncError(
                     "reauth_required",
                     `Xbox XSTS authorization failed with XErr: ${xerr}`,

@@ -53,13 +53,21 @@ export class NotificationProfileTargetDto {
 export class NotificationImporterTargetDto {
     @ApiProperty({ enum: ["importer"] }) type: "importer";
     @ApiProperty() id: string;
-    @ApiProperty({ enum: ["steam", "psn", "xbox"] }) provider: string;
+    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames"] })
+    provider: string;
 }
 
 export class NotificationAchievementTargetDto {
     @ApiProperty({ enum: ["achievement"] }) type: "achievement";
     @ApiProperty({ description: "Achievement definition id" }) id: string;
     @ApiProperty() tier: number;
+}
+
+export class NotificationConnectionTargetDto {
+    @ApiProperty({ enum: ["connection"] }) type: "connection";
+    @ApiProperty() id: string;
+    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames"] })
+    provider: string;
 }
 
 export class NotificationTextPreviewDto {
@@ -75,7 +83,8 @@ export class NotificationImportGameDto {
 }
 
 export class NotificationImportPreviewDto {
-    @ApiProperty({ enum: ["steam", "psn", "xbox"] }) provider: string;
+    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames"] })
+    provider: string;
     @ApiProperty() gameCount: number;
     @ApiProperty() importedCount: number;
     @ApiProperty() skippedCount: number;
@@ -109,6 +118,7 @@ export class NotificationActorDto {
     NotificationProfileTargetDto,
     NotificationImporterTargetDto,
     NotificationAchievementTargetDto,
+    NotificationConnectionTargetDto,
     NotificationTextPreviewDto,
     NotificationImportPreviewDto,
 )
@@ -138,6 +148,7 @@ export class NotificationInboxItemDto {
             NotificationProfileTargetDto,
             NotificationImporterTargetDto,
             NotificationAchievementTargetDto,
+            NotificationConnectionTargetDto,
         ].map((type) => ({ $ref: getSchemaPath(type) })),
     })
     target: NotificationTarget | null;

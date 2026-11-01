@@ -139,3 +139,61 @@ describe("forced versus ordinary relationship reconciliation", () => {
         }
     });
 });
+
+describe("external game reconciliation ignores GameNode-owned rows", () => {
+    function run(existingRows: any[], incoming: any[]) {
+        const addAndRemove = jest.fn();
+        const repository = {
+            create: (value: unknown) => value,
+            upsert: jest.fn(),
+            createQueryBuilder: () => ({
+                relation: () => ({ of: () => ({ addAndRemove }) }),
+            }),
+        };
+        const context = {
+            manager: {
+                getRepository: () => repository,
+                connection: { getMetadata: () => ({ target: Object }) },
+            },
+            limiter: new AsyncLeafLimiter(2),
+            forceReconciliation: false,
+        } as unknown as GameImportContext;
+        const service = new GameRepositoryCreateService({
+            get: (_key: string, fallback: unknown) => fallback,
+        } as ConfigService);
+        return service
+            .handleManyToMany(
+                { id: 1, externalGames: incoming } as IGDBPartialGame,
+                { id: 1, externalGames: existingRows } as any,
+                "externalGames",
+                context,
+            )
+            .then(() => ({ addAndRemove, repository }));
+    }
+
+    it("keeps a curated row and still reconciles IGDB rows", async () => {
+        const { addAndRemove } = await run(
+            [
+                { id: 10, checksum: "a", origin: "igdb" },
+                { id: 1e12, checksum: null, origin: "curated" },
+            ],
+            [{ id: 11, checksum: "b" }],
+        );
+        expect(addAndRemove).toHaveBeenCalledWith(
+            [{ id: 11, checksum: "b" }],
+            [{ id: 10, checksum: "a", origin: "igdb" }],
+        );
+    });
+
+    it("does not reconcile when only a curated row differs", async () => {
+        const { addAndRemove, repository } = await run(
+            [
+                { id: 10, checksum: "a", origin: "igdb" },
+                { id: 1e12, checksum: null, origin: "bulk" },
+            ],
+            [{ id: 10, checksum: "a" }],
+        );
+        expect(repository.upsert).not.toHaveBeenCalled();
+        expect(addAndRemove).not.toHaveBeenCalled();
+    });
+});

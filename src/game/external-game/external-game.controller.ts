@@ -1,3 +1,5 @@
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 import {
     Body,
     Controller,
@@ -18,11 +20,19 @@ import {
 } from "./dto/find-external-games.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import { ApiOkResponse } from "@nestjs/swagger";
+import {
+    EPIC_NAMESPACE_FILL_JOB,
+    EXTERNAL_GAME_MAPPING_QUEUE,
+} from "./external-game-mapping.constants";
 
 @Controller("game/external")
 @UseGuards(AuthGuard)
 export class ExternalGameController {
-    constructor(private readonly externalGameService: ExternalGameService) {}
+    constructor(
+        private readonly externalGameService: ExternalGameService,
+        @InjectQueue(EXTERNAL_GAME_MAPPING_QUEUE)
+        private readonly mappingQueue: Queue,
+    ) {}
 
     @Get()
     @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
@@ -46,5 +56,26 @@ export class ExternalGameController {
     @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
     public async submitExternalGame(@Body() dto: SubmitExternalGameDto) {
         return this.externalGameService.submit(dto);
+    }
+
+    /**
+     * Starts the Epic namespace bulk fill. The fixed jobId makes BullMQ ignore a second
+     * trigger while a run is queued or active, and the finished job is removed so the next run can start.
+     */
+    @Post("fill/epic")
+    @Roles([EUserRoles.ADMIN])
+    public async fillEpicNamespaces() {
+        const job = await this.mappingQueue.add(
+            EPIC_NAMESPACE_FILL_JOB,
+            {},
+            {
+                jobId: EPIC_NAMESPACE_FILL_JOB,
+                attempts: 3,
+                backoff: { type: "exponential", delay: 60_000 },
+                removeOnComplete: true,
+                removeOnFail: true,
+            },
+        );
+        return { jobId: job.id, state: await job.getState() };
     }
 }
