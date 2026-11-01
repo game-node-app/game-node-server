@@ -204,12 +204,12 @@ describe("mapUnmappedGame", () => {
     const build = ({
         active = entry as any,
         game = { id: 7, name: "Metro Exodus" } as any,
-        mapped = false,
+        mapped = [] as { gameId: number }[],
     } = {}) => {
         const insert = jest.fn().mockResolvedValue({});
         const repo = {
             insert,
-            existsBy: jest.fn().mockResolvedValue(mapped),
+            find: jest.fn().mockResolvedValue(mapped),
             manager: { findOne: jest.fn().mockResolvedValue(game) },
             createQueryBuilder: () => ({
                 select: () => ({
@@ -250,10 +250,29 @@ describe("mapUnmappedGame", () => {
         );
     });
 
+    it("resolves the entry without writing when the mapping already points at the game", async () => {
+        const { service, insert, unmapped } = build({
+            mapped: [{ gameId: 3 }, { gameId: 7 }],
+        });
+        await expect(service.mapUnmappedGame(9, 7)).resolves.toEqual({
+            id: 7,
+            name: "Metro Exodus",
+        });
+        expect(insert).not.toHaveBeenCalled();
+        expect(unmapped.update).toHaveBeenCalledWith(
+            { id: 9 },
+            { isActive: false },
+        );
+    });
+
     it.each([
         ["an inactive or unknown entry", { active: null }, NotFoundException],
         ["an unknown game", { game: null }, NotFoundException],
-        ["an existing mapping", { mapped: true }, ConflictException],
+        [
+            "a mapping to another game",
+            { mapped: [{ gameId: 3 }] },
+            ConflictException,
+        ],
     ])("refuses %s and changes nothing", async (_name, options, error) => {
         const { service, insert, unmapped } = build(options as any);
         await expect(service.mapUnmappedGame(9, 7)).rejects.toBeInstanceOf(

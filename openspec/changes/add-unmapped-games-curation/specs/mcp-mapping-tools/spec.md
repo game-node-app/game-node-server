@@ -33,7 +33,7 @@ Each mapping tool SHALL require the `mappings:write` scope. A call whose token l
 - **THEN** the response is HTTP 403 with `WWW-Authenticate` error `insufficient_scope` and `scope="mappings:write"`
 
 ### Requirement: List unmapped games tool
-`list_unmapped_games` SHALL accept an optional `category`, an optional `page` and a `limit` from 1 to 50 (default 20). It SHALL return active unmapped entries in the order of the moderator unmapped list. Each entry SHALL include id, source ID, category name, name, owner count, and a store page URL when one can be built from the source ID.
+`list_unmapped_games` SHALL accept an optional `category`, an optional `page` and a `limit` from 1 to 50 (default 20). It SHALL return active unmapped entries without any mapping, in the order of the moderator unmapped list. Each entry SHALL include id, source ID, category name, name, owner count, and a store page URL when one can be built from the source ID.
 
 #### Scenario: Steam entry
 - **WHEN** the tool returns an unmapped Steam entry with app ID `412020`
@@ -55,7 +55,7 @@ Each mapping tool SHALL require the `mappings:write` scope. A call whose token l
 - **THEN** the tool returns a not-found error and nothing changes
 
 ### Requirement: Agent mappings never overwrite
-`map_external_game` SHALL refuse, with a tool error and without changing data, when the entry is unknown or inactive, or when any mapping of any origin already exists for the entry's source ID and category.
+`map_external_game` SHALL refuse, with a tool error and without changing data, when the entry is unknown or inactive, or when a mapping of any origin to a different game already exists for the entry's source ID and category. When an existing mapping already points at the requested game, the call SHALL succeed without writing a mapping and deactivate the entry.
 
 #### Scenario: Entry already resolved
 - **WHEN** the tool is called with an entry a moderator already mapped or dismissed
@@ -63,7 +63,11 @@ Each mapping tool SHALL require the `mappings:write` scope. A call whose token l
 
 #### Scenario: Mapping appeared after registration
 - **WHEN** the tool is called with an active entry whose source ID and category gained a mapping after the entry was registered
-- **THEN** the tool returns an error stating a mapping already exists, the existing mapping is unchanged, and the entry stays active
+- **THEN** the tool returns an error naming the mapped game, the existing mapping is unchanged, and the entry stays active
+
+#### Scenario: Entry already mapped to the requested game
+- **WHEN** the tool is called with an active entry whose source ID and category already map to the requested game
+- **THEN** no mapping is written, the entry becomes inactive, and the result names the game
 
 ### Requirement: Dismiss unmapped game tool
 `dismiss_unmapped_game` SHALL accept an unmapped entry `id` and dismiss it with the same effect as the moderator dismiss endpoint. An unknown or inactive entry SHALL return a tool error.

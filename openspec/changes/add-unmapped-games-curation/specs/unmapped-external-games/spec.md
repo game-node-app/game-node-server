@@ -52,7 +52,7 @@ The system SHALL record each user whose sync or import registered an unmapped en
 - **THEN** the entry's owner count drops by one
 
 ### Requirement: Moderator unmapped list
-`GET /v1/game/external/unmapped`, restricted to `MOD` and `ADMIN`, SHALL return active unmapped entries in the standard paginated response shape. It SHALL accept an optional `category` filter. Entries SHALL be ordered by owner count, highest first, then by id. Each entry SHALL include id, source ID, category, name and owner count. Owner identities SHALL NOT be returned.
+`GET /v1/game/external/unmapped`, restricted to `MOD` and `ADMIN`, SHALL return active unmapped entries that have no mapping of any origin for their source ID and category, in the standard paginated response shape. It SHALL accept an optional `category` filter. Entries SHALL be ordered by owner count, highest first, then by id. Each entry SHALL include id, source ID, category, name and owner count. Owner identities SHALL NOT be returned.
 
 #### Scenario: Most-owned first
 - **WHEN** a moderator requests the list and entry A has 5 owners while entry B has 2
