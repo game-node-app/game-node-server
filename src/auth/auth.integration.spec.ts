@@ -859,7 +859,33 @@ describe("Better Auth integration (dev MySQL)", () => {
                     grant_types: ["authorization_code", "refresh_token"],
                 })
                 .expect(201);
-            return body.client_id as string;
+            // Exercise URL-length IDs through consent, token exchange and refresh.
+            const clientId = (body.client_id as string).padEnd(255, "x");
+            const resources = await dataSource.query(
+                "SELECT * FROM oauthClientResource WHERE clientId = ?",
+                [body.client_id],
+            );
+            await dataSource.query(
+                "DELETE FROM oauthClientResource WHERE clientId = ?",
+                [body.client_id],
+            );
+            await dataSource.query(
+                "UPDATE oauthClient SET clientId = ? WHERE clientId = ?",
+                [clientId, body.client_id],
+            );
+            for (const resource of resources) {
+                await dataSource.query(
+                    "INSERT INTO oauthClientResource (id, clientId, resourceId, metadata, createdAt) VALUES (?, ?, ?, ?, ?)",
+                    [
+                        resource.id,
+                        clientId,
+                        resource.resourceId,
+                        resource.metadata,
+                        resource.createdAt,
+                    ],
+                );
+            }
+            return clientId;
         }
 
         function authorize(
