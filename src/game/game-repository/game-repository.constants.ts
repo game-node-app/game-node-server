@@ -44,6 +44,7 @@ enum EGameExternalGameCategory {
     Igdb = 121,
     // Values from 1000 up are GameNode-only; IGDB never sends them.
     EpicGamesNamespace = 1001,
+    NintendoTitleId = 1002,
 }
 
 enum EGameExternalGameMedia {

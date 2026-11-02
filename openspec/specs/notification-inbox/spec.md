@@ -22,7 +22,7 @@ Notifications SHALL distinguish the action's triggering record, the subject that
 - **AND** the client does not need to traverse the parent comment to discover the root
 
 ### Requirement: Aggregation precedes pagination
-Likes, top-level comments, and replies SHALL be grouped by recipient, action kind, subject, and UTC calendar day. Follow, importer, and moderation events SHALL remain individual items. Groups SHALL persist independently of page boundaries, and counts SHALL distinguish events from distinct actors.
+Likes, top-level comments, and replies SHALL be grouped by recipient, action kind, subject, and UTC calendar day. Follow, importer, moderation, and achievement unlock events SHALL remain individual items. Groups SHALL persist independently of page boundaries, and counts SHALL distinguish events from distinct actors.
 
 #### Scenario: One subject has more events than the page size
 - **WHEN** 30 likes on one subject occur in one grouping day and a page size of 20 is requested
@@ -36,6 +36,10 @@ Likes, top-level comments, and replies SHALL be grouped by recipient, action kin
 #### Scenario: A new grouping day begins
 - **WHEN** another event for the same subject occurs on the next UTC calendar day
 - **THEN** it belongs to a separate group
+
+#### Scenario: Achievement unlocks stay individual
+- **WHEN** a user unlocks two different achievements on the same day
+- **THEN** the inbox shows two individual items, each with the achievement destination and the obtained tier
 
 ### Requirement: Cursor pagination has explicit live-list semantics
 The inbox SHALL paginate groups by descending latest event time and a unique tie-breaker, with a validated recipient-scoped cursor and a page limit from 1 to 100, defaulting to 20. Responses SHALL expose next-cursor and continuation state without requiring a full-history total. Updated groups SHALL retain their identities; visibility filtering SHALL not cause unbounded scans.

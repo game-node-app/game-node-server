@@ -599,6 +599,7 @@ export class NotificationsProjectorService {
                     psn: "PlayStation Network",
                     xbox: "Xbox",
                     epicgames: "Epic Games",
+                    nintendo: "Nintendo",
                 }[connection.type];
                 return {
                     recipientUserId: connection.profileUserId,

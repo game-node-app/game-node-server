@@ -177,6 +177,26 @@ export class ConnectionProviderRegistry {
                     EConnectionType.EPIC_GAMES,
                 ),
         });
+
+        this.register({
+            type: EConnectionType.NINTENDO,
+            name: EConnectionType.NINTENDO.valueOf(),
+            iconName: EConnectionType.NINTENDO.valueOf(),
+            authMode: EConnectionAuthMode.DELEGATED_CODE,
+            isImporterViable: IMPORTER_VIABLE_CONNECTIONS.includes(
+                EConnectionType.NINTENDO,
+            ),
+            isImporterWatchViable: IMPORTER_WATCH_VIABLE_CONNECTIONS.includes(
+                EConnectionType.NINTENDO,
+            ),
+            isPlaytimeImportViable: PLAYTIME_IMPORT_VIABLE_CONNECTIONS.includes(
+                EConnectionType.NINTENDO,
+            ),
+            isAchievementImportViable:
+                ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS.includes(
+                    EConnectionType.NINTENDO,
+                ),
+        });
     }
 
     public register(definition: ConnectionProviderDefinition): void {

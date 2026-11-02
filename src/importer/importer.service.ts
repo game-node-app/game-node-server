@@ -26,6 +26,8 @@ import { ExternalGameService } from "../game/external-game/external-game.service
 import { GameExternalGame } from "../game/external-game/entity/game-external-game.entity";
 import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
 import { EpicSyncService } from "../sync/epic/epic-sync.service";
+import { NintendoSyncService } from "../sync/nintendo/nintendo-sync.service";
+import { NINTENDO_PLATFORM_IDS } from "../sync/nintendo/nintendo-sync.types";
 import { toMap } from "../utils/toMap";
 import { ImporterSearchService } from "./importer-search/importer-search.service";
 import { PreferredPlatformService } from "../preferred-platform/preferred-platform.service";
@@ -59,6 +61,7 @@ export class ImporterService {
         @InjectRepository(Game)
         private readonly gameRepository: Repository<Game>,
         private readonly epicSyncService: EpicSyncService,
+        private readonly nintendoSyncService: NintendoSyncService,
     ) {
         providerRegistry.registerSyncHandlers(EConnectionType.STEAM, {
             fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
@@ -87,6 +90,14 @@ export class ImporterService {
         providerRegistry.registerSyncHandlers(EConnectionType.EPIC_GAMES, {
             fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
                 this.findUnprocessedEpicEntries(
+                    userId,
+                    includeMarked,
+                    sourceUserId,
+                ),
+        });
+        providerRegistry.registerSyncHandlers(EConnectionType.NINTENDO, {
+            fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
+                this.findUnprocessedNintendoEntries(
                     userId,
                     includeMarked,
                     sourceUserId,
@@ -326,6 +337,51 @@ export class ImporterService {
                     items,
                     namespaces,
                 ),
+        );
+    }
+
+    private async findUnprocessedNintendoEntries(
+        userId: string,
+        includeMarked = false,
+        sourceUserId?: string,
+    ) {
+        sourceUserId ??= (
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.NINTENDO,
+            )
+        ).sourceUserId;
+
+        const entries =
+            await this.nintendoSyncService.getPlayHistory(sourceUserId);
+        const byTitle = Map.groupBy(entries, (entry) => entry.titleId);
+        return this.matchUnprocessed(
+            userId,
+            includeMarked,
+            [...byTitle.keys()],
+            EGameExternalGameCategory.NintendoTitleId,
+            (externalGame) =>
+                // A game played on both consoles imports on the one played last.
+                NINTENDO_PLATFORM_IDS[
+                    byTitle
+                        .get(externalGame.uid)!
+                        .reduce((latest, entry) =>
+                            (entry.lastPlayedAt?.getTime() ?? 0) >
+                            (latest.lastPlayedAt?.getTime() ?? 0)
+                                ? entry
+                                : latest,
+                        ).platform
+                ],
+            this.registerUnmapped(
+                userId,
+                EGameExternalGameCategory.NintendoTitleId,
+                new Map(
+                    [...byTitle].map(([id, items]) => [
+                        id,
+                        items.find((item) => item.titleName)?.titleName,
+                    ]),
+                ),
+            ),
         );
     }
 

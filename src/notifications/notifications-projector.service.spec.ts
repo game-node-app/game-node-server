@@ -329,6 +329,7 @@ describe("NotificationsProjectorService", () => {
         it.each([
             [EConnectionType.EPIC_GAMES, "Epic Games"],
             [EConnectionType.XBOX, "Xbox"],
+            [EConnectionType.NINTENDO, "Nintendo"],
         ])(
             "projects ungrouped %s reauth notifications and suppresses deleted connections",
             async (provider, name) => {

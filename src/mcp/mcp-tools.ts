@@ -20,6 +20,7 @@ const mappingCategory = z.enum([
     "PlaystationStoreUs",
     "Microsoft",
     "EpicGamesNamespace",
+    "NintendoTitleId",
 ]);
 
 /**

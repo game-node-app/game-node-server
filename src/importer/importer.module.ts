@@ -19,6 +19,7 @@ import { ImporterBatchImportService } from "./importer-batch-import.service";
 import { ImporterBatchEffectsService } from "./importer-batch-effects.service";
 import { ImporterBatchEffect } from "./entity/importer-batch-effect.entity";
 import { EpicSyncModule } from "../sync/epic/epic-sync.module";
+import { NintendoSyncModule } from "../sync/nintendo/nintendo-sync.module";
 import { ActivitiesQueueModule } from "../activities/activities-queue/activities-queue.module";
 import { AchievementsModule } from "../achievements/achievements.module";
 import { LevelModule } from "../level/level.module";
@@ -37,6 +38,7 @@ import { LevelModule } from "../level/level.module";
         PsnSyncModule,
         XboxSyncModule,
         EpicSyncModule,
+        NintendoSyncModule,
         ExternalGameModule,
         GameRepositoryModule,
         CollectionsEntriesModule,

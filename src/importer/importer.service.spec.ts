@@ -48,6 +48,7 @@ test("PSN discovery keeps first-source platform order and filters processed iden
         { find: jest.fn().mockResolvedValue([]) } as any,
         { find: jest.fn().mockResolvedValue([{ id: 1, cover: null }]) } as any,
         {} as any,
+        {} as any,
     );
     const [games, count] = await service.findUnprocessedEntries(
         "user",
@@ -84,6 +85,7 @@ test("discovery executes a registered handler without provider branches", async 
         {} as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     const handler = jest.fn().mockResolvedValue([{ id: 1, gameId: 10 }]);
     registry.register({
@@ -114,6 +116,7 @@ test("candidate validation is restricted to the user's selected provider snapsho
         {} as any,
         {} as any,
         registry,
+        {} as any,
         {} as any,
         {} as any,
         {} as any,
@@ -174,6 +177,7 @@ test("snapshot binds discovery to the selected connection account", async () => 
         {} as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     registry.register({
         ...registry.get("steam"),
@@ -214,6 +218,7 @@ test("listing filters the user's library before search and pagination and hydrat
         registry,
         { find: findLibrary } as any,
         { find: findGames } as any,
+        {} as any,
         {} as any,
     );
     registry.register({
@@ -284,6 +289,7 @@ test("shared matching returns processed entries only when marked entries are inc
         {} as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     const ids = async (includeMarked: boolean) =>
         (
@@ -333,6 +339,7 @@ describe("Epic Games discovery", () => {
                 ]),
                 getCatalogTitle,
             } as any,
+            {} as any,
         );
         return {
             service,
@@ -401,6 +408,103 @@ describe("Epic Games discovery", () => {
     });
 });
 
+describe("Nintendo discovery", () => {
+    const entry = (titleId: string, platform: string, last: string) => ({
+        titleId,
+        titleName: `Name ${titleId}`,
+        platform,
+        minutes: 10,
+        lastPlayedAt: new Date(last),
+    });
+    const build = (mapped: any[], processedIds: number[] = []) => {
+        const registerUnmappedGames = jest.fn();
+        const getExternalGamesForSourceIds = jest
+            .fn()
+            .mockResolvedValue(mapped);
+        const service = new ImporterService(
+            {
+                findBy: jest
+                    .fn()
+                    .mockResolvedValue(
+                        processedIds.map((id) => ({ gameExternalGameId: id })),
+                    ),
+            } as any,
+            { findBy: jest.fn().mockResolvedValue([]) } as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            { getExternalGamesForSourceIds, registerUnmappedGames } as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            new ConnectionProviderRegistry(),
+            {} as any,
+            {} as any,
+            {} as any,
+            {
+                getPlayHistory: jest
+                    .fn()
+                    .mockResolvedValue([
+                        entry("A", "HAC", "2026-01-01"),
+                        entry("A", "BEE", "2026-06-01"),
+                        entry("B", "HAC", "2026-02-01"),
+                        entry("C", "HAC", "2026-03-01"),
+                    ]),
+            } as any,
+        );
+        return { service, registerUnmappedGames };
+    };
+    const discover = (service: ImporterService, includeMarked = false) =>
+        service.findProviderCandidates(
+            "user",
+            EImporterSource.NINTENDO,
+            includeMarked,
+            "nintendo-account",
+        );
+
+    it("lists a title played on both consoles once, on the console played last", async () => {
+        const { service } = build([
+            { id: 1, gameId: 1, uid: "A" },
+            { id: 2, gameId: 2, uid: "B" },
+        ]);
+        const items = await discover(service);
+        expect(
+            items.map((item) => [item.id, item.preferredPlatformId]),
+        ).toEqual([
+            [1, 508],
+            [2, 130],
+        ]);
+    });
+
+    it("registers an unmapped title with its name and does not list it", async () => {
+        const { service, registerUnmappedGames } = build([
+            { id: 1, gameId: 1, uid: "A" },
+        ]);
+        const items = await discover(service);
+        expect(items.map((item) => item.id)).toEqual([1]);
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            1002,
+            [
+                { sourceUid: "B", name: "Name B" },
+                { sourceUid: "C", name: "Name C" },
+            ],
+            "user",
+        );
+    });
+
+    it("hides processed entries unless they are included", async () => {
+        const mapped = [
+            { id: 1, gameId: 1, uid: "A" },
+            { id: 2, gameId: 2, uid: "B" },
+        ];
+        const { service } = build(mapped, [2]);
+        expect((await discover(service)).map((item) => item.id)).toEqual([1]);
+        expect((await discover(service, true)).map((item) => item.id)).toEqual([
+            1, 2,
+        ]);
+    });
+});
+
 describe("unmapped registration during discovery", () => {
     const build = (providers: { steam?: any; psn?: any; xbox?: any }) => {
         const registerUnmappedGames = jest.fn().mockResolvedValue(undefined);
@@ -420,6 +524,7 @@ describe("unmapped registration during discovery", () => {
                 getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()),
             } as any,
             new ConnectionProviderRegistry(),
+            {} as any,
             {} as any,
             {} as any,
             {} as any,
