@@ -44,6 +44,7 @@ import { SearchModule } from "./search/search.module";
 import { McpModule } from "./mcp/mcp.module";
 import { getRedisConfig } from "./utils/getRedisConfig";
 import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.module";
+import { bullmqTelemetry } from "./tracing";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -128,6 +129,7 @@ import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.mo
                 const { port, host } = getRedisConfig("bullmq");
 
                 return {
+                    telemetry: bullmqTelemetry,
                     connection: {
                         host: host,
                         port: port,

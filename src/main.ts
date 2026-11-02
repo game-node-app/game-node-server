@@ -1,3 +1,5 @@
+// Must stay the first import so instrumentations can patch modules before they load.
+import "./tracing";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { ValidationPipe, VersioningType } from "@nestjs/common";
@@ -26,7 +28,6 @@ import { CORS_OPTIONS } from "./auth/cors-options";
 dayjs.extend(duration);
 
 async function bootstrap() {
-    // await tracer.start();
     initializeTransactionalContext({
         storageDriver: StorageDriver.ASYNC_LOCAL_STORAGE,
     });
