@@ -174,9 +174,12 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
       # Starts paused for the initial validation; set true in Coolify after the smoke tests.
       PLAYER_DATA_SYNC_ENABLED: ${PLAYER_DATA_SYNC_ENABLED:-false}
-      # Telemetry to the shared OpenObserve; disabled while the endpoint is empty. See docs/observability.md.
+      # Telemetry to PostHog; disabled while the endpoint is empty. See docs/observability.md.
       OTEL_SERVICE_NAME: game-node-server
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}
+      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER:-none}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       OTEL_TRACES_SAMPLER: parentbased_traceidratio
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1}

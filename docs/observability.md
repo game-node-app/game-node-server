@@ -1,8 +1,7 @@
 # Observability
 
-The server sends traces, metrics and logs over OTLP to the shared OpenObserve instance
-(Coolify project "Shared Infrastructure", `https://observe.gamenode.app`). Setup lives in
-`src/tracing.ts`, which is the first import of `main.ts`.
+The server sends traces and logs over OTLP to PostHog. Metrics are off (PostHog has no OTLP
+metrics endpoint). Setup lives in `src/tracing.ts`, which is the first import of `main.ts`.
 
 ## Enabling
 
@@ -10,8 +9,15 @@ Set these on the `gamenode-server` Coolify application, then redeploy:
 
 | Variable | Value |
 |---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `https://observe.gamenode.app/api/default` (empty = telemetry off) |
-| `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Basic <token>`. In OpenObserve: Data sources → Custom → OTEL Collector, copy the value after `Authorization: Basic`. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `https://us.i.posthog.com` (`eu.` for EU). Only the on/off switch for `src/tracing.ts` (empty = telemetry off); no signal uses it. |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | `https://us.i.posthog.com/i/v1/traces`. Full path: the SDK does not append anything to signal-specific endpoints. |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | `https://us.i.posthog.com/i/v1/logs` |
+| `OTEL_METRICS_EXPORTER` | `none` (Compose default) |
+| `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Bearer <phc_ project token>`. Not a `phx_` personal API key. Runtime only, buildtime disabled. |
+
+The installed SDK defaults to HTTP/protobuf. See PostHog's
+[tracing](https://posthog.com/docs/distributed-tracing/installation/nodejs) and
+[logs](https://posthog.com/docs/logs/installation/nodejs) setup.
 
 Local dev and tests leave the endpoint unset, so the SDK and BullMQ telemetry stay off.
 
@@ -33,7 +39,7 @@ Local dev and tests leave the endpoint unset, so the SDK and BullMQ telemetry st
   command adds volume and serialization overhead. If explicitly enabled, only command names are
   captured, with a parent span required; command arguments and job payloads are not serialized.
 - **Logs:** every pino log line, tagged with `trace_id`/`span_id`. Still written to stdout too.
-- **Metrics:** HTTP request duration/count and Node runtime (event loop delay, GC, heap), every 60s.
+- **Metrics:** off. Remove `OTEL_METRICS_EXPORTER=none` only with a backend that accepts OTLP metrics.
 
 To trace a user report: search logs around the reported time (level `error`, user or route),
 open the `trace_id` to see the full request.
@@ -50,7 +56,7 @@ All standard OpenTelemetry env vars; set them in Coolify, no code change needed.
 | `OTEL_METRIC_EXPORT_INTERVAL` | Metric export period in ms (default `60000`). |
 | `OTEL_LOGS_EXPORTER=none` / `OTEL_METRICS_EXPORTER=none` | Turn off a signal. |
 | `OTEL_SDK_DISABLED=true` | Turn everything off without removing the endpoint. |
-| `OTEL_LOG_LEVEL=debug` | Print SDK diagnostics, for when nothing shows up in OpenObserve. |
+| `OTEL_LOG_LEVEL=debug` | Print SDK diagnostics, for when nothing shows up in PostHog. |
 
 Sampling only drops traces. Logs (with their `trace_id`) and HTTP metrics are independent,
 so errors stay findable in logs even when their traces were not sampled. Keeping only failed
@@ -59,8 +65,8 @@ but instrumentation and SQL masking still have some cost, especially in query-he
 
 ## Retention
 
-7 days, set on the OpenObserve service with `ZO_COMPACT_DATA_RETENTION_ENABLED=true` and
-`ZO_COMPACT_DATA_RETENTION_DAYS=7`. Per-stream overrides are in OpenObserve's stream settings.
+Retention follows the PostHog project's data retention settings. Historical telemetry
+remains in OpenObserve under its existing retention policy; it is not migrated.
 
 ## Limits
 
