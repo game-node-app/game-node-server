@@ -49,6 +49,18 @@ export class SteamSyncService {
                                 "/IPlayerService/GetRecentlyPlayedGames/v1"
                               ? data?.response?.total_count
                               : undefined;
+                    // Private game details come back as an empty `response` object.
+                    if (
+                        count === undefined &&
+                        data?.response &&
+                        Object.keys(data.response).length === 0 &&
+                        (path === "/IPlayerService/GetOwnedGames/v1" ||
+                            path === "/IPlayerService/GetRecentlyPlayedGames/v1")
+                    )
+                        throw new ProviderSyncError(
+                            "unavailable",
+                            "Steam game details are private",
+                        );
                     if (count === 0) {
                         const response = data.response;
                         if (

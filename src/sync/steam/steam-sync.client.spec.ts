@@ -37,6 +37,8 @@ test("the installed Steam client uses bounded requests and preserves transport f
                     await assert.rejects(service[method]('76561198136665859'));
                 }
             }
+            payload = {response: {}};
+            await assert.rejects(service.getAllGames('76561198136665859'), e => e.outcome === 'unavailable');
             payload = {response: {game_count: 0, total_count: 0}};
             assert.deepEqual(await service.getLibraryGames('76561198136665859'), []);
             failure = {response: {status: 429, headers: {'retry-after': '60'}}};

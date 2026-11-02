@@ -154,7 +154,7 @@
         "workerIdleMemoryLimit": "512MB",
         "testRegex": ".*\\.spec\\.ts$",
         "transform": {
-            "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": { "isolatedModules": true } }]
+            "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": { "isolatedModules": false } }]
         },
         "collectCoverageFrom": [
             "**/*.(t|j)s"
