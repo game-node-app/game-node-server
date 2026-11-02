@@ -29,6 +29,8 @@ import dayjs from "dayjs";
 import { CreateUserPlaytimeDto } from "../dto/create-user-playtime.dto";
 import { XboxSyncService } from "../../sync/xbox/xbox-sync.service";
 import { EpicSyncService } from "../../sync/epic/epic-sync.service";
+import { NintendoSyncService } from "../../sync/nintendo/nintendo-sync.service";
+import { NINTENDO_PLATFORM_IDS } from "../../sync/nintendo/nintendo-sync.types";
 import { registerUnmappedEpicNamespaces } from "../../sync/epic/register-unmapped-epic-namespaces";
 import { ExternalGameMappingsService } from "../../game/external-game/external-game-mappings.service";
 import * as process from "process";
@@ -63,6 +65,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly gameAchievementSyncQueueService: GameAchievementSyncQueueService,
         private readonly registry: ConnectionProviderRegistry,
         private readonly epicSyncService: EpicSyncService,
+        private readonly nintendoSyncService: NintendoSyncService,
     ) {
         super();
         registry.registerSyncHandlers(EConnectionType.STEAM, {
@@ -76,6 +79,9 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         });
         registry.registerSyncHandlers(EConnectionType.EPIC_GAMES, {
             fetchPlaytime: (job) => this.updateEpicPlaytimeInfo(job),
+        });
+        registry.registerSyncHandlers(EConnectionType.NINTENDO, {
+            fetchPlaytime: (job) => this.updateNintendoPlaytimeInfo(job),
         });
     }
 
@@ -698,6 +704,115 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
 
         job.updateProgress({
             totalUpdatedGames: secondsByGame.size,
+        } satisfies PlaytimeWatchJobProgress);
+    }
+
+    async updateNintendoPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
+        const userId = job.data.userId;
+
+        const connection =
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.NINTENDO,
+            );
+
+        const entries = await this.nintendoSyncService.getPlayHistory(
+            connection.sourceUserId,
+        );
+        const titleIds = [...new Set(entries.map((entry) => entry.titleId))];
+        recordPlayerSyncStats({ gamesSeen: titleIds.length });
+        if (titleIds.length === 0) {
+            job.updateProgress({ totalUpdatedGames: 0 });
+            return { outcome: "empty" as const };
+        }
+
+        const externalGames =
+            await this.externalGameService.getExternalGamesForSourceIds(
+                titleIds,
+                EGameExternalGameCategory.NintendoTitleId,
+            );
+        const gameIdByTitle = new Map(
+            externalGames.map((game) => [game.uid, game.gameId]),
+        );
+        assertPlayerSyncActive();
+        const unmapped = titleIds.filter((id) => !gameIdByTitle.has(id));
+        if (unmapped.length > 0) {
+            await this.externalGameService.registerUnmappedGames(
+                EGameExternalGameCategory.NintendoTitleId,
+                unmapped.map((sourceUid) => ({
+                    sourceUid,
+                    name: entries.find(
+                        (entry) =>
+                            entry.titleId === sourceUid && entry.titleName,
+                    )?.titleName,
+                })),
+                userId,
+            );
+        }
+
+        // Entries of one game and platform (e.g. several titles mapped to one game) are combined.
+        const combined = new Map<
+            string,
+            {
+                gameId: number;
+                platformId: number;
+                seconds: number;
+                firstPlayedDate?: Date;
+                lastPlayedDate?: Date;
+            }
+        >();
+        for (const entry of entries) {
+            const gameId = gameIdByTitle.get(entry.titleId);
+            if (gameId == undefined) continue;
+            const platformId = NINTENDO_PLATFORM_IDS[entry.platform];
+            const key = `${gameId}:${platformId}`;
+            const item = combined.get(key) ?? {
+                gameId,
+                platformId,
+                seconds: 0,
+            };
+            item.seconds += entry.minutes * 60;
+            if (
+                entry.firstPlayedAt &&
+                (!item.firstPlayedDate ||
+                    entry.firstPlayedAt < item.firstPlayedDate)
+            )
+                item.firstPlayedDate = entry.firstPlayedAt;
+            if (
+                entry.lastPlayedAt &&
+                (!item.lastPlayedDate ||
+                    entry.lastPlayedAt > item.lastPlayedDate)
+            )
+                item.lastPlayedDate = entry.lastPlayedAt;
+            combined.set(key, item);
+        }
+
+        const existing = await this.playtimeService.findForImport(
+            userId,
+            UserPlaytimeSource.NSWITCH,
+            [...new Set([...combined.values()].map((item) => item.gameId))],
+        );
+        const playtimes: CreateUserPlaytimeDto[] = [];
+        for (const [key, item] of combined) {
+            const existingPlaytimeInfo = existing.get(key);
+            assertPlayerSyncActive();
+            playtimes.push({
+                totalPlayCount: 0,
+                ...existingPlaytimeInfo,
+                gameId: item.gameId,
+                profileUserId: userId,
+                firstPlayedDate: item.firstPlayedDate,
+                lastPlayedDate: item.lastPlayedDate,
+                totalPlaytimeSeconds: item.seconds,
+                recentPlaytimeSeconds: undefined,
+                source: UserPlaytimeSource.NSWITCH,
+                platformId: item.platformId,
+            });
+        }
+        await this.playtimeService.saveImported(playtimes, existing);
+
+        job.updateProgress({
+            totalUpdatedGames: combined.size,
         } satisfies PlaytimeWatchJobProgress);
     }
 }

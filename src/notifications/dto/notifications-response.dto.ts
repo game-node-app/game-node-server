@@ -53,7 +53,7 @@ export class NotificationProfileTargetDto {
 export class NotificationImporterTargetDto {
     @ApiProperty({ enum: ["importer"] }) type: "importer";
     @ApiProperty() id: string;
-    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames"] })
+    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames", "nintendo"] })
     provider: string;
 }
 
@@ -66,7 +66,7 @@ export class NotificationAchievementTargetDto {
 export class NotificationConnectionTargetDto {
     @ApiProperty({ enum: ["connection"] }) type: "connection";
     @ApiProperty() id: string;
-    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames"] })
+    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames", "nintendo"] })
     provider: string;
 }
 
@@ -83,7 +83,7 @@ export class NotificationImportGameDto {
 }
 
 export class NotificationImportPreviewDto {
-    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames"] })
+    @ApiProperty({ enum: ["steam", "psn", "xbox", "epicgames", "nintendo"] })
     provider: string;
     @ApiProperty() gameCount: number;
     @ApiProperty() importedCount: number;

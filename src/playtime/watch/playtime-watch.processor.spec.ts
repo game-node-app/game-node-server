@@ -62,6 +62,7 @@ test("playtime executes the registered handler and rejects missing capabilities"
         {} as any,
         registry,
         {} as any,
+        {} as any,
     );
     const handler = jest.fn().mockResolvedValue({ outcome: "empty" });
     registry.register({
@@ -110,6 +111,7 @@ test("a capped TitleHub response leaves previous playtime and queued achievement
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
         {} as any,
+        {} as any,
     );
     await expect(
         processor.updateXboxPlaytimeInfo({ data: { userId: "user" } } as any),
@@ -153,6 +155,7 @@ test("a late PSN library cannot reach playtime writes or achievement admission",
         {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
     );
     try {
@@ -198,6 +201,7 @@ it.each(["steam", "psn", "xbox"])(
             { addUserSyncJob: enqueue } as any,
             new ConnectionProviderRegistry(),
             {} as any,
+            {} as any,
         );
         const updateProgress = jest.fn().mockResolvedValue(undefined);
         const job = {
@@ -238,6 +242,7 @@ test("legacy jobs never reach provider work", async () => {
         {} as any,
         {} as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
     );
     const fetch = jest.spyOn(processor, "updateSteamPlaytimeInfo");
@@ -329,6 +334,7 @@ test("Steam selection uses recent-list data for timestamp-free and Family Sharin
         {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
@@ -453,6 +459,7 @@ test("PSN title progress fingerprints keep same-service communication IDs distin
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
         {} as any,
+        {} as any,
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
 
@@ -554,6 +561,7 @@ test("Xbox achievement selection follows title progress when playtime stats are 
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
@@ -701,6 +709,7 @@ test("PSN maps persist before one enqueue per concept and same-name titles stay 
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
         {} as any,
+        {} as any,
     );
 
     await processor.updatePsnPlaytimeInfo({
@@ -820,6 +829,7 @@ it.each(["steam", "xbox"])(
                 { addUserSyncJob: jest.fn() } as any,
                 new ConnectionProviderRegistry(),
                 {} as any,
+                {} as any,
             );
             const job = {
                 data: { userId: "user" },
@@ -869,6 +879,7 @@ test("Steam editions sharing one game contribute once to its cumulative observat
         {} as any,
         { addUserSyncJob: jest.fn() } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
     );
     await processor.updateSteamPlaytimeInfo({
@@ -943,6 +954,7 @@ describe("Epic playtime", () => {
                     ],
                 ),
             } as any,
+            {} as any,
         );
         await processor.updateEpicPlaytimeInfo({
             data: { userId: "user" },
@@ -1004,6 +1016,119 @@ describe("Epic playtime", () => {
     });
 });
 
+describe("Nintendo playtime", () => {
+    const entry = (overrides: object) => ({
+        titleId: "A",
+        titleName: "Name A",
+        platform: "HAC",
+        minutes: 250,
+        firstPlayedAt: new Date("2026-08-25"),
+        lastPlayedAt: new Date("2026-08-29"),
+        ...overrides,
+    });
+    const run = async (entries: any[]) => {
+        const saveImported = jest.fn();
+        const registerUnmappedGames = jest.fn();
+        const processor = new PlaytimeWatchProcessor(
+            {
+                findForImport: jest.fn().mockResolvedValue(new Map()),
+                saveImported,
+            } as any,
+            {
+                findOneByUserIdAndTypeOrFail: jest
+                    .fn()
+                    .mockResolvedValue({ sourceUserId: "nintendo-account" }),
+            } as any,
+            {
+                getExternalGamesForSourceIds: jest
+                    .fn()
+                    .mockResolvedValue([{ uid: "A", gameId: 10 }]),
+                registerUnmappedGames,
+            } as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            new ConnectionProviderRegistry(),
+            {} as any,
+            { getPlayHistory: jest.fn().mockResolvedValue(entries) } as any,
+        );
+        const result = await processor.updateNintendoPlaytimeInfo({
+            data: { userId: "user" },
+            updateProgress: jest.fn(),
+        } as any);
+        return { result, saveImported, registerUnmappedGames };
+    };
+
+    it("stores minutes as seconds with Nintendo's real dates on the Switch platform", async () => {
+        const { saveImported } = await run([entry({})]);
+        expect(saveImported.mock.calls[0][0]).toEqual([
+            expect.objectContaining({
+                gameId: 10,
+                platformId: 130,
+                source: "nswitch",
+                totalPlaytimeSeconds: 15000,
+                firstPlayedDate: new Date("2026-08-25"),
+                lastPlayedDate: new Date("2026-08-29"),
+            }),
+        ]);
+    });
+
+    it("keeps one record per console for a title played on both", async () => {
+        const { saveImported } = await run([
+            entry({ minutes: 100 }),
+            entry({ platform: "BEE", minutes: 40 }),
+        ]);
+        expect(
+            saveImported.mock.calls[0][0].map((p: any) => [
+                p.platformId,
+                p.totalPlaytimeSeconds,
+            ]),
+        ).toEqual([
+            [130, 6000],
+            [508, 2400],
+        ]);
+    });
+
+    it("combines titles mapped to one game and keeps the widest date range", async () => {
+        const { saveImported } = await run([
+            entry({ minutes: 10 }),
+            entry({
+                minutes: 20,
+                firstPlayedAt: new Date("2026-08-01"),
+                lastPlayedAt: new Date("2026-09-01"),
+            }),
+        ]);
+        expect(saveImported.mock.calls[0][0]).toEqual([
+            expect.objectContaining({
+                totalPlaytimeSeconds: 1800,
+                firstPlayedDate: new Date("2026-08-01"),
+                lastPlayedDate: new Date("2026-09-01"),
+            }),
+        ]);
+    });
+
+    it("stores nothing for unmapped titles and registers them", async () => {
+        const { saveImported, registerUnmappedGames } = await run([
+            entry({ titleId: "Z", titleName: "Zed" }),
+        ]);
+        expect(saveImported.mock.calls[0][0]).toEqual([]);
+        expect(registerUnmappedGames).toHaveBeenCalledWith(
+            1002,
+            [{ sourceUid: "Z", name: "Zed" }],
+            "user",
+        );
+    });
+
+    it("returns empty for an empty history", async () => {
+        const { result, saveImported } = await run([]);
+        expect(result).toEqual({ outcome: "empty" });
+        expect(saveImported).not.toHaveBeenCalled();
+    });
+});
+
 describe("unmapped game registration", () => {
     const build = (externalGames: any[], providers: any) => {
         const registerUnmappedGames = jest.fn().mockResolvedValue(undefined);
@@ -1032,6 +1157,7 @@ describe("unmapped game registration", () => {
             } as any,
             { addUserSyncJob: jest.fn() } as any,
             new ConnectionProviderRegistry(),
+            {} as any,
             {} as any,
         );
         return { processor, registerUnmappedGames };

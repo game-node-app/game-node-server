@@ -9,9 +9,9 @@ describe("ConnectionProviderRegistry", () => {
         registry = new ConnectionProviderRegistry();
     });
 
-    it("should discover registered providers (steam, psn, xbox, epicgames) and return their capabilities", () => {
+    it("should discover registered providers (steam, psn, xbox, epicgames, nintendo) and return their capabilities", () => {
         const available = registry.getAvailableProviders();
-        expect(available.length).toBe(4);
+        expect(available.length).toBe(5);
 
         const steam = available.find((p) => p.type === EConnectionType.STEAM);
         expect(steam).toBeDefined();
@@ -41,11 +41,24 @@ describe("ConnectionProviderRegistry", () => {
             isPlaytimeImportViable: true,
             isAchievementImportViable: false,
         });
+
+        expect(
+            available.find((p) => p.type === EConnectionType.NINTENDO),
+        ).toEqual({
+            type: "nintendo",
+            name: "nintendo",
+            iconName: "nintendo",
+            authMode: EConnectionAuthMode.DELEGATED_CODE,
+            isImporterViable: true,
+            isImporterWatchViable: true,
+            isPlaytimeImportViable: true,
+            isAchievementImportViable: false,
+        });
     });
 
     it("should reject unknown providers with HTTP 400", () => {
-        expect(registry.has("nintendo" as any)).toBe(false);
-        expect(() => registry.get("nintendo" as any)).toThrow(
+        expect(registry.has("future" as any)).toBe(false);
+        expect(() => registry.get("future" as any)).toThrow(
             expect.objectContaining({
                 status: HttpStatus.BAD_REQUEST,
             }),

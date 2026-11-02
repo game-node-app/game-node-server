@@ -48,9 +48,7 @@ describe("PlayerProviderBudgetService provider validation and budget scoping", (
     });
 
     it("rejects unregistered providers", () => {
-        expect(() => service.keys("Nintendo")).toThrow(
-            "Invalid player provider",
-        );
+        expect(() => service.keys("Sega")).toThrow("Invalid player provider");
         expect(() => service.keys("Unknown")).toThrow(
             "Invalid player provider",
         );

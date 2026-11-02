@@ -581,6 +581,7 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
                         { addUserSyncJob: async () => undefined } as any,
                         new ConnectionProviderRegistry(),
                         {} as any,
+                        {} as any,
                     );
                     for (let attempt = 0; attempt < 2; attempt++) {
                         await processor.updateXboxPlaytimeInfo({
