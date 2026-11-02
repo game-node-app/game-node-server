@@ -1,5 +1,11 @@
 import { PlayerSyncWrite } from "../sync/player-sync-attempt";
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import {
+    BadRequestException,
+    HttpException,
+    HttpStatus,
+    Injectable,
+} from "@nestjs/common";
+import { ProviderSyncError } from "../sync/provider-sync.error";
 import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ImporterProcessedEntry } from "./entity/importer-processed-entry.entity";
@@ -191,7 +197,18 @@ export class ImporterService {
             )
         ).sourceUserId;
 
-        const games = await this.steamSyncService.getLibraryGames(sourceUserId);
+        const games = await this.steamSyncService
+            .getLibraryGames(sourceUserId)
+            .catch((error) => {
+                if (
+                    error instanceof ProviderSyncError &&
+                    error.outcome === "unavailable"
+                )
+                    throw new BadRequestException(
+                        "Your Steam game details are private. Set them to public on Steam to import your games.",
+                    );
+                throw error;
+            });
 
         return this.matchUnprocessed(
             userId,

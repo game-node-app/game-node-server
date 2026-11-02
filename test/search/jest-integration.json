@@ -4,6 +4,6 @@
     "workerIdleMemoryLimit": "512MB",
     "moduleFileExtensions": ["js", "json", "ts"],
     "testMatch": ["<rootDir>/test/search/**/*.integration-spec.ts"],
-    "transform": { "^.+\\.ts$": ["ts-jest", { "tsconfig": { "isolatedModules": true } }] },
+    "transform": { "^.+\\.ts$": ["ts-jest", { "tsconfig": { "isolatedModules": false } }] },
     "testEnvironment": "node"
 }

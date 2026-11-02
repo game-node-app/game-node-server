@@ -4,7 +4,7 @@ import { AchievementDefinition } from "../../src/achievements/entities/achieveme
 import { AchievementEvent } from "../../src/achievements/entities/achievement-event.entity";
 import { AchievementStatus } from "../../src/achievements/achievements.constants";
 
-let nextId = randomInt(900_000, 1_900_000);
+let nextId = randomInt(1_000_000_000_000, 9_000_000_000_000);
 
 /** Minimal rows for achievement specs, on a database built by createNotificationTestDataSource. */
 export function achievementFixtures(ds: DataSource) {
