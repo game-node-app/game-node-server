@@ -25,7 +25,6 @@ import {
 import { AchievementDefinition } from "./entities/achievement-definition.entity";
 import { AchievementEvent } from "./entities/achievement-event.entity";
 
-// AuthGuard reads roles per handler, so every route repeats @Roles
 const EDITORS = [EUserRoles.ADMIN, EUserRoles.EDITOR];
 
 @Controller("achievements/admin")
