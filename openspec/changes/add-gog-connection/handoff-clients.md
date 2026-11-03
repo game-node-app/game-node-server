@@ -72,7 +72,8 @@ state. Avoid recording the pasted URL in logs, analytics or crash reports.
 - Existing achievement reads return `source: 5`, `sourceName: "GOG"`,
   `sourceAbbreviatedName: "GOG"`, `iconName: "gog"`, `platformIds: [6]`.
   Definition `externalId` equals obtained `externalId` (`achievement_id`). GOG has
-  no platinum metadata. Respect empty hidden text instead of inventing a title.
+  no platinum metadata. Names and descriptions are returned as supplied by GOG,
+  regardless of `visible`; clients display the returned text without masking.
 - Owner obtained reads can enqueue a refresh; other-user/public reads expose
   persisted progress without granting refresh authority. Catalogue retrieval
   requires a usable connected account on the server. Provider failures or

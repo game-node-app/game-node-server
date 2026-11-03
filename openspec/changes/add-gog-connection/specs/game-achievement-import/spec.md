@@ -17,6 +17,13 @@ The system SHALL expose GOG achievement definitions and import obtained achievem
 - **WHEN** a non-null unlock date cannot be validated
 - **THEN** the snapshot fails as incomplete without guessing an unlock date or changing completion
 
+### Requirement: Preserve GOG achievement text
+Definitions SHALL return the provider's name and description unchanged regardless of `visible`, in both catalogue reads and synchronization.
+
+#### Scenario: Hidden GOG achievement text
+- **WHEN** GOG returns a definition with `visible: false` and a name and description
+- **THEN** catalogue reads and synchronization return that name and description unchanged, without masking or replacing them
+
 ### Requirement: Complete and isolated GOG achievement snapshots
 GOG achievement synchronization SHALL retrieve all pages and derive definitions, unlocks and completion from one account-specific snapshot. User progress SHALL NOT leak into shared catalogue responses or another user's synchronization. Missing authentication, malformed or truncated responses and ambiguous errors SHALL NOT be treated as no achievements. Definitive no-achievement results SHALL follow existing empty or unsupported handling.
 

@@ -121,10 +121,8 @@ export class GameAchievementService {
                 return achievements.map(
                     (achievement) =>
                         ({
-                            name: achievement.visible ? achievement.name : "",
-                            description: achievement.visible
-                                ? achievement.description
-                                : null,
+                            name: achievement.name,
+                            description: achievement.description,
                             iconUrl: achievement.image_url_unlocked,
                             externalId: achievement.achievement_id,
                             source: EGameExternalGameCategory.Gog,

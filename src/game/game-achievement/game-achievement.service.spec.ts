@@ -233,7 +233,7 @@ describe("GOG catalogue account context", () => {
         );
         return { service, gog, connections };
     };
-    it("projects only catalogue fields, masks hidden text and groups under GOG", async () => {
+    it("projects only catalogue fields, preserves hidden text and groups under GOG", async () => {
         const { service, gog } = build();
         const result = await service.findAllByExternalGameId(5);
         expect(result[0]).toMatchObject({
@@ -245,8 +245,8 @@ describe("GOG catalogue account context", () => {
         expect(result[0]).not.toHaveProperty("date_unlocked");
         expect(result[1]).toMatchObject({
             externalId: "hidden",
-            name: "",
-            description: null,
+            name: "Private",
+            description: "Secret",
         });
         expect(gog.getCatalogueAchievements).toHaveBeenCalledWith("100");
         expect((await service.findAllByGameId(10))[0]).toMatchObject({
@@ -257,7 +257,12 @@ describe("GOG catalogue account context", () => {
     });
     it("uses each syncing user's account and never a random catalogue account", async () => {
         const { service, gog } = build();
-        await service.findAllByExternalGameIdForSync(5, "one");
+        const result = await service.findAllByExternalGameIdForSync(5, "one");
+        expect(result[1]).toMatchObject({
+            externalId: "hidden",
+            name: "Private",
+            description: "Secret",
+        });
         await service.findAllByExternalGameIdForSync(5, "two");
         expect(gog.getAchievements.mock.calls).toEqual([
             ["123", "100"],
