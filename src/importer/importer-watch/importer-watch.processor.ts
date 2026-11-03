@@ -25,6 +25,7 @@ import { CollectionsEntriesService } from "../../collections/collections-entries
 import { importerToConnectionSource } from "../importer.util";
 import { ImporterResponseItemDto } from "../dto/importer-response-item.dto";
 import { appendNotificationIntent } from "../../notifications/notifications-outbox.service";
+import { Game } from "../../game/game-repository/entities/game.entity";
 
 @Processor(IMPORTER_WATCH_QUEUE_NAME, {
     limiter: {
@@ -167,6 +168,24 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
             : null;
 
         if (notification) {
+            const gameSample = newGames.slice(0, 3);
+            const unnamedSample =
+                data.source === EImporterSource.EPIC_GAMES
+                    ? gameSample.filter((game) => !game.name)
+                    : [];
+            const catalogGames = unnamedSample.length
+                ? await this.importerNotificationRepository.manager
+                      .getRepository(Game)
+                      .find({
+                          select: { id: true, name: true },
+                          where: {
+                              id: In(unnamedSample.map((game) => game.gameId)),
+                          },
+                      })
+                : [];
+            const catalogNames = new Map(
+                catalogGames.map((game) => [game.id, game.name]),
+            );
             await appendNotificationIntent(
                 this.importerNotificationRepository.manager,
                 {
@@ -183,9 +202,16 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
                         importedCount: notification.autoImportedCount,
                         skippedCount: notification.autoImportSkippedCount,
                         failedCount: notification.autoImportFailedCount,
-                        gameSample: newGames.slice(0, 3).map((game) => ({
+                        gameSample: gameSample.map((game) => ({
                             id: game.gameId,
-                            title: (game.name || "Game").slice(0, 100),
+                            title: (
+                                game.name ||
+                                catalogNames.get(game.gameId) ||
+                                "Game"
+                            ).slice(
+                                0,
+                                100,
+                            ),
                         })),
                     },
                 },
