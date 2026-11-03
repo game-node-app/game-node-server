@@ -2,7 +2,6 @@ import { uncancellableProviderCall } from "../../player-sync-attempt";
 import { providerFailure, ProviderSyncError } from "../../provider-sync.error";
 import { forwardRef, Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { InjectQueue } from "@nestjs/bullmq";
@@ -15,7 +14,6 @@ import {
     TOKEN_LOCK_MS,
 } from "../../connection-token-lock";
 import { PLAYER_PROVIDER_BUDGET_QUEUE } from "../../player-provider-budget.service";
-import { authenticate, Email } from "@xboxreplay/xboxlive-auth";
 import axios from "axios";
 import { UserConnection } from "../../../connection/entity/user-connection.entity";
 import { ConnectionCredentialService } from "../../../connection/connection-credential.service";
@@ -31,8 +29,6 @@ export class XboxSyncAuthService {
 
     constructor(
         private readonly configService: ConfigService,
-        @Inject(CACHE_MANAGER)
-        private readonly cacheManager: Cache,
         @InjectRepository(UserConnection)
         private readonly connectionRepository: Repository<UserConnection>,
         @Inject(forwardRef(() => ConnectionCredentialService))
@@ -344,54 +340,6 @@ export class XboxSyncAuthService {
         XSTSToken: string;
         userHash: string;
     }> {
-        const catalogKey = "xbox-catalog-auth-cred";
-        const cached = await this.cacheManager.get<{
-            XSTSToken: string;
-            userHash: string;
-            expiresAt: number;
-        }>(catalogKey);
-        if (
-            cached?.XSTSToken &&
-            cached.userHash &&
-            cached.expiresAt - Date.now() > XboxSyncAuthService.SAFETY_BUFFER_MS
-        ) {
-            return { XSTSToken: cached.XSTSToken, userHash: cached.userHash };
-        }
-
-        const systemUser = this.configService.get<Email>("XBOX_API_USER");
-        const systemPassword = this.configService.get<string>("XBOX_API_PASS");
-        let systemError: unknown;
-        if (systemUser && systemPassword) {
-            try {
-                const auth = await uncancellableProviderCall(
-                    "Xbox:catalog",
-                    () => authenticate(systemUser, systemPassword),
-                );
-                const expiresAt = new Date(auth.expires_on).getTime();
-                const ttl =
-                    expiresAt -
-                    Date.now() -
-                    XboxSyncAuthService.SAFETY_BUFFER_MS;
-                if (!Number.isFinite(ttl) || ttl <= 0)
-                    throw new ProviderSyncError(
-                        "unavailable",
-                        "Xbox catalog token is expired or near expiration",
-                    );
-                const credentials = {
-                    XSTSToken: auth.xsts_token,
-                    userHash: auth.user_hash,
-                };
-                await this.cacheManager.set(
-                    catalogKey,
-                    { ...credentials, expiresAt },
-                    ttl,
-                );
-                return credentials;
-            } catch (error) {
-                systemError = error;
-            }
-        }
-
         const connection = await this.connectionRepository.findOne({
             where: {
                 type: EConnectionType.XBOX,
@@ -399,31 +347,8 @@ export class XboxSyncAuthService {
             },
         });
         if (connection) {
-            const credentials = await this.getUserAuthCredentials(
-                connection.sourceUserId,
-            );
-            const stored = await this.credentialService.getCredentials(
-                connection.id,
-            );
-            const expiresAt = new Date(
-                stored?.providerMetadata?.xstsExpiresAt ?? 0,
-            ).getTime();
-            const ttl =
-                expiresAt - Date.now() - XboxSyncAuthService.SAFETY_BUFFER_MS;
-            if (
-                Number.isFinite(ttl) &&
-                ttl > 0 &&
-                stored?.providerMetadata?.xstsToken === credentials.XSTSToken
-            ) {
-                await this.cacheManager.set(
-                    catalogKey,
-                    { ...credentials, expiresAt },
-                    ttl,
-                );
-                return credentials;
-            }
+            return this.getUserAuthCredentials(connection.sourceUserId);
         }
-        if (systemError) throw providerFailure("Xbox:catalog", systemError);
         throw new ProviderSyncError(
             "unavailable",
             "Xbox catalog authentication credentials not available",

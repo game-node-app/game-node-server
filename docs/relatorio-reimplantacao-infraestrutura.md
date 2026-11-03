@@ -33,7 +33,7 @@ A zona `gamenode.app` foi ativada na Cloudflare. As consultas públicas posterio
 | Esquema inicial | Baseline revisada e versionada do esquema atual, validada em banco vazio | Criar a aplicação sem depender de dumps ou arquivos locais ignorados |
 | Chave de conexões | Gerar uma nova `CONNECTION_CREDENTIAL_ENCRYPTION_KEY` e guardá-la como secret | Cifrar as credenciais que forem cadastradas |
 | OAuth de login | IDs e secrets de Google, Discord e Twitter/X; acesso às configurações de callback | Configurar login social |
-| Integrações | Twitch/IGDB, Steam, Xbox OAuth e credenciais PSN/Xbox ainda usadas | Catálogo, bibliotecas e conquistas |
+| Integrações | Twitch/IGDB, Steam, Xbox OAuth e credenciais PSN | Catálogo, bibliotecas e conquistas |
 | Directus | `CMS_LICENSE_KEY` válida para a instalação final, segredo do CMS e contas editoriais | Ativar o CMS e as políticas já adotadas |
 | Repositórios e registry | Acesso ao backend e ao monorepo de clientes; credenciais de publicação/pull no registry escolhido | Produzir e implantar imagens correspondentes ao código atual |
 | Operação | Responsável pela implantação e destino dos alertas | Executar migrações, configurar backups recorrentes e reagir a falhas |
@@ -213,7 +213,7 @@ O `docker-compose.prod.yml` define os serviços de aplicação de produção, in
 | Réplicas da API | **Aplicado:** uma réplica. Medir API, jobs e RAM antes de aumentar. Não aplicar o limite de heap da API como se fosse seu consumo total |
 | MySQL compartilhado | Recurso gerenciado do Coolify, provisionado conforme a seção 6.3. O Compose não espera o banco: ele sobe antes, com o healthcheck do próprio recurso, e os serviços dependentes usam `restart`. Sem portas de banco publicadas |
 | `BETTER_AUTH_SECRET` | **Aplicado:** obrigatório no `server` (seção 7.4); testar autenticação no deploy |
-| Variáveis do `server` | **Aplicado:** só chega ao container o que está em `environment:`. Foram incluídos `NODE_ENV=production`, `CONNECTION_CREDENTIAL_ENCRYPTION_KEY` (obrigatória) e `PLAYER_DATA_SYNC_ENABLED` (padrão `false`). Xbox OAuth fica de fora até a funcionalidade ser implementada. A `.env.example` também não lista todos os provedores de login/Twitch |
+| Variáveis do `server` | **Aplicado:** só chega ao container o que está em `environment:`. Foram incluídos `NODE_ENV=production`, `CONNECTION_CREDENTIAL_ENCRYPTION_KEY` (obrigatória) e `PLAYER_DATA_SYNC_ENABLED` (padrão `false`). Para usar Xbox OAuth, acrescente suas variáveis ao Compose. A `.env.example` também não lista todos os provedores de login/Twitch |
 | Volume `/app/public/uploads` da API | **Removido:** nenhum código grava ali; uploads vão para o R2 |
 | Redes externas e bind mounts precisam existir | Adaptar ao checkout/redes do Coolify; API, migrations, Directus e Manticore entram também na rede externa `gamenode` para alcançar o MySQL gerenciado; a antiga rede `game_node_app_public` foi removida, porque o proxy do Coolify alcança os serviços com domínio por conta própria; garantir configurações Manticore, extensões Directus e `blog-media.cjs` no caminho esperado |
 | API depende do volume público do CMS | O Compose cria `gamenode-blog-public-media` e aguarda `cms-media-init`; Directus escreve e API lê somente |
@@ -354,7 +354,7 @@ PLAYER_DATA_SYNC_ENABLED=false
 
 Acrescentar secrets de uploads, `BETTER_AUTH_SECRET` (seção 7.4), `CONNECTION_CREDENTIAL_ENCRYPTION_KEY`, `BLOG_CMS_DELIVERY_TOKEN`, `BLOG_CMS_PREVIEW_TOKEN`, os seis campos `PROVIDER_{GOOGLE,DISCORD,TWITTER}_CLIENT_{ID,SECRET}`, `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` e integrações utilizadas.
 
-Os tokens de delivery e preview do blog devem ser distintos. Gerar a chave criptográfica nova antes de cadastrar conexões. Xbox OAuth ainda não está implementado e fica fora do Compose; quando estiver, acrescentar ao `server`: `XBOX_OAUTH_CLIENT_ID`, `XBOX_OAUTH_CLIENT_SECRET` e `XBOX_OAUTH_REDIRECT_URI=https://gamenode.app/connections/callback/xbox`; fornecer credenciais PSN/Xbox de serviço quando o código selecionado as usar.
+Os tokens de delivery e preview do blog devem ser distintos. Gerar a chave criptográfica nova antes de cadastrar conexões. Para Xbox OAuth, acrescentar ao `server`: `XBOX_OAUTH_CLIENT_ID`, `XBOX_OAUTH_CLIENT_SECRET` e `XBOX_OAUTH_REDIRECT_URI=https://gamenode.app/connections/callback/xbox`. Consultas autenticadas do catálogo Xbox usam uma conta Xbox conectada. Fornecer credenciais PSN de serviço quando necessárias.
 
 `PLAYER_DATA_SYNC_ENABLED=false` serve para pausar refreshes automáticos de jogadores durante a validação inicial; **não desliga todos os workers nem a sincronização IGDB**. O IGDB atual começa automaticamente quando elegível. Planejar o primeiro start da API com migrations completas, credenciais válidas e recursos disponíveis para a carga inicial do catálogo.
 

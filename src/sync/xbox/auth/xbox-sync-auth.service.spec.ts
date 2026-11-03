@@ -1,8 +1,6 @@
 import { setPlayerProviderBudget } from "../../player-provider-budget.service";
-jest.mock("@xboxreplay/xboxlive-auth", () => ({ authenticate: jest.fn() }));
 jest.mock("axios");
 jest.mock("../../../connection/mark-reauth-required");
-import { authenticate } from "@xboxreplay/xboxlive-auth";
 import axios from "axios";
 import { XboxSyncAuthService } from "./xbox-sync-auth.service";
 import {
@@ -42,32 +40,7 @@ beforeEach(() => {
     setPlayerProviderBudget({ run: (_provider, work) => work() });
 });
 
-test("Xbox authentication preserves exposed status/cause without exposing credentials", async () => {
-    const cause = {
-        data: { attributes: { extra: { statusCode: 403 } } },
-        message: "password=secret",
-    };
-    jest.mocked(authenticate).mockRejectedValue(cause);
-    const service = new XboxSyncAuthService(
-        {
-            get: (key: string) =>
-                key === "XBOX_API_USER" ? "fixture@example.com" : "secret",
-        } as any,
-        { get: jest.fn().mockResolvedValue(undefined) } as any,
-        { findOne: jest.fn().mockResolvedValue(null) } as any,
-        {} as any,
-        queue,
-    );
-    const error = await service
-        .getCatalogAuthCredentials()
-        .catch((error) => error);
-    expect(error).toMatchObject({ outcome: "unavailable", status: 403, cause });
-    expect(JSON.stringify(error)).not.toContain("secret");
-});
-
 describe("XboxSyncAuthService.getUserAuthCredentials", () => {
-    let inMemoryCache: Map<string, any>;
-    let mockCache: any;
     let mockConnectionRepo: any;
     let mockCredentialService: any;
     let mockConfigService: any;
@@ -75,14 +48,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
     const transaction = jest.fn(async (work) => work(manager));
 
     beforeEach(() => {
-        inMemoryCache = new Map();
-        mockCache = {
-            get: jest.fn(async (key: string) => inMemoryCache.get(key)),
-            set: jest.fn(async (key: string, val: any) =>
-                inMemoryCache.set(key, val),
-            ),
-            del: jest.fn(async (key: string) => inMemoryCache.delete(key)),
-        };
         mockConfigService = {
             get: jest.fn((key: string) => {
                 if (key === "XBOX_OAUTH_CLIENT_ID") return "test-client-id";
@@ -106,7 +71,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
         mockConnectionRepo.findOne.mockResolvedValue(null);
         const service = new XboxSyncAuthService(
             mockConfigService,
-            mockCache,
             mockConnectionRepo,
             mockCredentialService,
             queue,
@@ -166,7 +130,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
         try {
             const service = new XboxSyncAuthService(
                 mockConfigService,
-                mockCache,
                 mockConnectionRepo,
                 mockCredentialService,
                 queue,
@@ -205,7 +168,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
         });
         const service = new XboxSyncAuthService(
             mockConfigService,
-            mockCache,
             mockConnectionRepo,
             mockCredentialService,
             queue,
@@ -239,7 +201,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
 
         const service = new XboxSyncAuthService(
             mockConfigService,
-            mockCache,
             mockConnectionRepo,
             mockCredentialService,
             queue,
@@ -300,7 +261,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
 
         const service = new XboxSyncAuthService(
             mockConfigService,
-            mockCache,
             mockConnectionRepo,
             mockCredentialService,
             queue,
@@ -374,7 +334,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
 
             const service = new XboxSyncAuthService(
                 mockConfigService,
-                mockCache,
                 mockConnectionRepo,
                 mockCredentialService,
                 queue,
@@ -455,7 +414,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
 
         const service = new XboxSyncAuthService(
             mockConfigService,
-            mockCache,
             mockConnectionRepo,
             mockCredentialService,
             queue,
@@ -463,7 +421,6 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
 
         const otherService = new XboxSyncAuthService(
             mockConfigService,
-            mockCache,
             mockConnectionRepo,
             mockCredentialService,
             queue,
@@ -488,175 +445,52 @@ describe("XboxSyncAuthService.getUserAuthCredentials", () => {
 });
 
 describe("XboxSyncAuthService.getCatalogAuthCredentials", () => {
-    let mockCache: any;
-    let mockConfigService: any;
-    let mockConnectionRepo: any;
-    let mockCredentialService: any;
-
-    beforeEach(() => {
-        mockCache = {
-            get: jest.fn().mockResolvedValue(undefined),
-            set: jest.fn().mockResolvedValue(undefined),
-            del: jest.fn().mockResolvedValue(undefined),
+    it("uses credentials from a connected Xbox account", async () => {
+        const connectionRepo = {
+            findOne: jest
+                .fn()
+                .mockResolvedValue({ id: 15, sourceUserId: "connected-xuid" }),
         };
-        mockConfigService = {
-            get: jest.fn((key: string) => {
-                if (key === "XBOX_API_USER") return "system@example.com";
-                if (key === "XBOX_API_PASS") return "system-pass";
-                return undefined;
+        const credentialService = {
+            getCredentials: jest.fn().mockResolvedValue({
+                providerMetadata: {
+                    xstsToken: "user-xsts",
+                    userHash: "user-hash",
+                    xstsExpiresAt: new Date(Date.now() + 3600000).toISOString(),
+                },
             }),
         };
-        mockConnectionRepo = {
-            findOne: jest.fn(),
-            save: jest.fn(),
-        };
-        mockCredentialService = {
-            getCredentials: jest.fn(),
-            saveCredentials: jest.fn(),
-        };
-    });
-
-    it("returns cached catalog credentials from cacheManager if present", async () => {
-        mockCache.get.mockResolvedValueOnce({
-            XSTSToken: "catalog-xsts",
-            userHash: "catalog-uhs",
-            expiresAt: Date.now() + 3600000,
-        });
-
         const service = new XboxSyncAuthService(
-            mockConfigService,
-            mockCache,
-            mockConnectionRepo,
-            mockCredentialService,
+            {} as any,
+            connectionRepo as any,
+            credentialService as any,
             queue,
         );
+        const credentials = { XSTSToken: "user-xsts", userHash: "user-hash" };
 
-        const result = await service.getCatalogAuthCredentials();
-        expect(result).toEqual({
-            XSTSToken: "catalog-xsts",
-            userHash: "catalog-uhs",
-        });
-        expect(authenticate).not.toHaveBeenCalled();
-    });
-
-    it("uses system credentials (XBOX_API_USER/XBOX_API_PASS) when configured", async () => {
-        jest.mocked(authenticate).mockResolvedValueOnce({
-            xsts_token: "system-xsts",
-            user_hash: "system-uhs",
-            expires_on: new Date(Date.now() + 3600 * 1000).toISOString(),
-        } as any);
-
-        const service = new XboxSyncAuthService(
-            mockConfigService,
-            mockCache,
-            mockConnectionRepo,
-            mockCredentialService,
-            queue,
+        await expect(service.getCatalogAuthCredentials()).resolves.toEqual(
+            credentials,
         );
-
-        const result = await service.getCatalogAuthCredentials();
-        expect(result).toEqual({
-            XSTSToken: "system-xsts",
-            userHash: "system-uhs",
-        });
-        expect(mockCache.set).toHaveBeenCalledWith(
-            "xbox-catalog-auth-cred",
-            expect.objectContaining({
-                XSTSToken: "system-xsts",
-                userHash: "system-uhs",
-                expiresAt: expect.any(Number),
-            }),
-            expect.any(Number),
-        );
-    });
-
-    it("ignores a near-expiry cached catalog token", async () => {
-        mockCache.get.mockResolvedValue({
-            XSTSToken: "stale",
-            userHash: "old",
-            expiresAt: Date.now() + 30000,
-        });
-        jest.mocked(authenticate).mockResolvedValueOnce({
-            xsts_token: "fresh",
-            user_hash: "new",
-            expires_on: new Date(Date.now() + 3600000).toISOString(),
-        } as any);
-        const service = new XboxSyncAuthService(
-            mockConfigService,
-            mockCache,
-            mockConnectionRepo,
-            mockCredentialService,
-            queue,
-        );
-        await expect(service.getCatalogAuthCredentials()).resolves.toEqual({
-            XSTSToken: "fresh",
-            userHash: "new",
-        });
-        expect(authenticate).toHaveBeenCalledTimes(1);
-    });
-
-    it("falls back to active connected Xbox user when system credentials are not configured", async () => {
-        mockConfigService.get.mockReturnValue(undefined); // No system creds
-
-        mockConnectionRepo.findOne.mockResolvedValue({
-            id: 15,
-            type: EConnectionType.XBOX,
-            sourceUserId: "connected-xuid-456",
-            authStatus: EConnectionAuthStatus.CONNECTED,
-        });
-
-        const futureDate = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-        mockCredentialService.getCredentials.mockResolvedValue({
-            accessToken: "user-access",
-            refreshToken: "user-refresh",
-            providerMetadata: {
-                xstsToken: "user-fallback-xsts",
-                userHash: "user-fallback-uhs",
-                xstsExpiresAt: futureDate,
+        expect(connectionRepo.findOne).toHaveBeenCalledWith({
+            where: {
+                type: EConnectionType.XBOX,
+                authStatus: EConnectionAuthStatus.CONNECTED,
             },
         });
-
-        const service = new XboxSyncAuthService(
-            mockConfigService,
-            mockCache,
-            mockConnectionRepo,
-            mockCredentialService,
-            queue,
-        );
-
-        const result = await service.getCatalogAuthCredentials();
-        expect(result).toEqual({
-            XSTSToken: "user-fallback-xsts",
-            userHash: "user-fallback-uhs",
-        });
-        expect(mockCache.set).toHaveBeenCalledWith(
-            "xbox-catalog-auth-cred",
-            expect.objectContaining({
-                XSTSToken: "user-fallback-xsts",
-                userHash: "user-fallback-uhs",
-                expiresAt: expect.any(Number),
-            }),
-            expect.any(Number),
-        );
-        const ttl = mockCache.set.mock.calls[0][2];
-        expect(ttl).toBeGreaterThan(24 * 60 * 1000);
-        expect(ttl).toBeLessThanOrEqual(25 * 60 * 1000);
+        expect(credentialService.getCredentials).toHaveBeenCalledWith(15);
     });
 
-    it("throws ProviderSyncError with outcome unavailable when neither system nor user credentials available", async () => {
-        mockConfigService.get.mockReturnValue(undefined);
-        mockConnectionRepo.findOne.mockResolvedValue(null);
-
+    it("reports catalog authentication unavailable when no Xbox account is connected", async () => {
         const service = new XboxSyncAuthService(
-            mockConfigService,
-            mockCache,
-            mockConnectionRepo,
-            mockCredentialService,
+            {} as any,
+            { findOne: jest.fn().mockResolvedValue(null) } as any,
+            {} as any,
             queue,
         );
-
-        await expect(service.getCatalogAuthCredentials()).rejects.toThrow(
-            expect.objectContaining({ outcome: "unavailable" }),
+        await expect(service.getCatalogAuthCredentials()).rejects.toMatchObject(
+            {
+                outcome: "unavailable",
+            },
         );
     });
 });
