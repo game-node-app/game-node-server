@@ -157,6 +157,7 @@ export class GameRepositoryCreateService {
         const processAlternativeNames = incoming.alternativeNames !== undefined;
         const processArtworks = incoming.artworks !== undefined;
         const processScreenshots = incoming.screenshots !== undefined;
+        const processVideos = incoming.videos !== undefined;
         const processLocalizations = incoming.gameLocalizations !== undefined;
         const processFranchises = incoming.franchises !== undefined;
         const processPlatforms = incoming.platforms !== undefined;
@@ -195,6 +196,10 @@ export class GameRepositoryCreateService {
         if (processScreenshots) {
             relations.screenshots = true;
             select.screenshots = { id: true, checksum: true };
+        }
+        if (processVideos) {
+            relations.videos = true;
+            select.videos = { id: true, checksum: true };
         }
         if (processLocalizations) {
             relations.gameLocalizations = true;
@@ -339,6 +344,11 @@ export class GameRepositoryCreateService {
         if (processArtworks) {
             relationsPromises.push(
                 this.handleOneToMany(incoming, existing, "artworks", context),
+            );
+        }
+        if (processVideos) {
+            relationsPromises.push(
+                this.handleOneToMany(incoming, existing, "videos", context),
             );
         }
         if (processScreenshots) {

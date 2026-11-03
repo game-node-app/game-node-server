@@ -11,7 +11,8 @@ import { NotificationOutbox } from "../notifications/entity/notification-outbox.
 import * as outbox from "../notifications/notifications-outbox.service";
 import { markReauthRequired } from "./mark-reauth-required";
 
-describe("markReauthRequired on MySQL", () => {
+const providers = [EConnectionType.EPIC_GAMES, EConnectionType.GOG];
+describe.each(providers)("markReauthRequired %s", (provider) => {
     let source: DataSource;
     let connection: UserConnection;
 
@@ -28,7 +29,7 @@ describe("markReauthRequired on MySQL", () => {
             [owner, owner.slice(0, 20)],
         );
         connection = await source.getRepository(UserConnection).save({
-            type: EConnectionType.EPIC_GAMES,
+            type: provider,
             profileUserId: owner,
             sourceUserId: owner,
             sourceUsername: "Fixture",
@@ -61,7 +62,7 @@ describe("markReauthRequired on MySQL", () => {
             eventType: "connection.reauth-required",
             recipientUserId: connection.profileUserId,
             actorUserId: null,
-            payload: { connectionId: connection.id, provider: "epicgames" },
+            payload: { connectionId: connection.id, provider },
         });
         expect(
             await source
@@ -76,7 +77,9 @@ describe("markReauthRequired on MySQL", () => {
         });
         await mark();
         expect(
-            await repo.countBy({ recipientUserId: connection.profileUserId }),
+            await repo.countBy({
+                recipientUserId: connection.profileUserId,
+            }),
         ).toBe(2);
     });
 

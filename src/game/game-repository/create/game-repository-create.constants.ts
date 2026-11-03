@@ -14,6 +14,7 @@ import { GamePlayerPerspective } from "../entities/game-player-perspective.entit
 import { GameKeyword } from "../entities/game-keyword.entity";
 import { GameLocalization } from "../entities/game-localization.entity";
 import { GameScreenshot } from "../entities/game-screenshot.entity";
+import { GameVideo } from "../entities/game-video.entity";
 import { GameCover } from "../entities/game-cover.entity";
 
 /**
@@ -37,6 +38,7 @@ export const GamePropertyPathToEntityMap: Partial<
     keywords: GameKeyword,
     gameLocalizations: GameLocalization,
     screenshots: GameScreenshot,
+    videos: GameVideo,
     cover: GameCover,
     // Self-referencing entities.
     dlcs: Game,

@@ -600,6 +600,7 @@ export class NotificationsProjectorService {
                     xbox: "Xbox",
                     epicgames: "Epic Games",
                     nintendo: "Nintendo",
+                    gog: "GOG",
                 }[connection.type];
                 return {
                     recipientUserId: connection.profileUserId,

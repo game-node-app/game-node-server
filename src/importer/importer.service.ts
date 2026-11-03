@@ -32,6 +32,7 @@ import { ExternalGameService } from "../game/external-game/external-game.service
 import { GameExternalGame } from "../game/external-game/entity/game-external-game.entity";
 import { XboxSyncService } from "../sync/xbox/xbox-sync.service";
 import { EpicSyncService } from "../sync/epic/epic-sync.service";
+import { GogSyncService } from "../sync/gog/gog-sync.service";
 import { NintendoSyncService } from "../sync/nintendo/nintendo-sync.service";
 import { NINTENDO_PLATFORM_IDS } from "../sync/nintendo/nintendo-sync.types";
 import { toMap } from "../utils/toMap";
@@ -68,6 +69,7 @@ export class ImporterService {
         private readonly gameRepository: Repository<Game>,
         private readonly epicSyncService: EpicSyncService,
         private readonly nintendoSyncService: NintendoSyncService,
+        private readonly gogSyncService: GogSyncService,
     ) {
         providerRegistry.registerSyncHandlers(EConnectionType.STEAM, {
             fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
@@ -96,6 +98,14 @@ export class ImporterService {
         providerRegistry.registerSyncHandlers(EConnectionType.EPIC_GAMES, {
             fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
                 this.findUnprocessedEpicEntries(
+                    userId,
+                    includeMarked,
+                    sourceUserId,
+                ),
+        });
+        providerRegistry.registerSyncHandlers(EConnectionType.GOG, {
+            fetchLibraryGames: (userId, includeMarked, sourceUserId) =>
+                this.findUnprocessedGogEntries(
                     userId,
                     includeMarked,
                     sourceUserId,
@@ -353,6 +363,35 @@ export class ImporterService {
                     sourceUserId,
                     items,
                     namespaces,
+                ),
+        );
+    }
+
+    private async findUnprocessedGogEntries(
+        userId: string,
+        includeMarked = false,
+        sourceUserId?: string,
+    ) {
+        sourceUserId ??= (
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.GOG,
+            )
+        ).sourceUserId;
+        const accountId = sourceUserId;
+        const ids = await this.gogSyncService.getLibraryItems(accountId);
+        return this.matchUnprocessed(
+            userId,
+            includeMarked,
+            ids,
+            EGameExternalGameCategory.Gog,
+            () => 6,
+            (unmapped) =>
+                this.gogSyncService.registerUnmappedGames(
+                    this.externalGameService,
+                    userId,
+                    accountId,
+                    unmapped,
                 ),
         );
     }

@@ -482,19 +482,22 @@ describe("McpToolsService", () => {
             expect(auth.getLockoutStates).not.toHaveBeenCalled();
         });
 
-        it("filters unmapped entries by the Nintendo title category", async () => {
-            externalGames.getUnmappedGames.mockResolvedValue([[], 0]);
-            await service.listUnmappedGames({
-                category: "NintendoTitleId",
-                limit: 20,
-                page: 1,
-            });
-            expect(externalGames.getUnmappedGames).toHaveBeenCalledWith({
-                category: EGameExternalGameCategory.NintendoTitleId,
-                limit: 20,
-                offset: 0,
-            });
-        });
+        it.each(["NintendoTitleId", "Gog"] as const)(
+            "filters unmapped entries by %s",
+            async (category) => {
+                externalGames.getUnmappedGames.mockResolvedValue([[], 0]);
+                await service.listUnmappedGames({
+                    category,
+                    limit: 20,
+                    page: 1,
+                });
+                expect(externalGames.getUnmappedGames).toHaveBeenCalledWith({
+                    category: EGameExternalGameCategory[category],
+                    limit: 20,
+                    offset: 0,
+                });
+            },
+        );
 
         it("maps an entry and names the game", async () => {
             externalGames.mapUnmappedGame.mockResolvedValue({

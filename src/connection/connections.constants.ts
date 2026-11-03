@@ -4,6 +4,7 @@ export enum EConnectionType {
     XBOX = "xbox",
     EPIC_GAMES = "epicgames",
     NINTENDO = "nintendo",
+    GOG = "gog",
 }
 
 export enum EConnectionAuthMode {
@@ -23,6 +24,7 @@ export const IMPORTER_VIABLE_CONNECTIONS = [
     EConnectionType.XBOX,
     EConnectionType.EPIC_GAMES,
     EConnectionType.NINTENDO,
+    EConnectionType.GOG,
 ];
 
 export const IMPORTER_WATCH_VIABLE_CONNECTIONS = [
@@ -31,6 +33,7 @@ export const IMPORTER_WATCH_VIABLE_CONNECTIONS = [
     EConnectionType.XBOX,
     EConnectionType.EPIC_GAMES,
     EConnectionType.NINTENDO,
+    EConnectionType.GOG,
 ];
 
 export const PLAYTIME_IMPORT_VIABLE_CONNECTIONS: EConnectionType[] = [
@@ -39,8 +42,10 @@ export const PLAYTIME_IMPORT_VIABLE_CONNECTIONS: EConnectionType[] = [
     EConnectionType.XBOX,
     EConnectionType.EPIC_GAMES,
     EConnectionType.NINTENDO,
+    EConnectionType.GOG,
 ];
 
 export const ACHIEVEMENT_IMPORT_VIABLE_CONNECTIONS: EConnectionType[] = [
+    EConnectionType.GOG,
     EConnectionType.STEAM,
 ];

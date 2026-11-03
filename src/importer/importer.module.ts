@@ -1,4 +1,5 @@
-import { Module } from "@nestjs/common";
+import { GogSyncModule } from "../sync/gog/gog-sync.module";
+import { forwardRef, Module } from "@nestjs/common";
 import { ImporterService } from "./importer.service";
 import { ImporterController } from "./importer.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
@@ -37,6 +38,7 @@ import { LevelModule } from "../level/level.module";
         SteamSyncModule,
         PsnSyncModule,
         XboxSyncModule,
+        forwardRef(() => GogSyncModule),
         EpicSyncModule,
         NintendoSyncModule,
         ExternalGameModule,

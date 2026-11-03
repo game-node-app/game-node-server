@@ -67,6 +67,7 @@ describe("persisted obtained reads", () => {
         {} as any,
         new GameAchievementSyncQueueService(queue as any, state as any),
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     beforeAll(async () => {
         const module = await Test.createTestingModule({
@@ -133,6 +134,23 @@ describe("persisted obtained reads", () => {
         expect(queue.add).toHaveBeenCalledTimes(1);
         expect(provider.getObtainedAchievements).not.toHaveBeenCalled();
         expect(repository.save).not.toHaveBeenCalled();
+    });
+    it("returns persisted GOG progress and queues a GOG refresh", async () => {
+        externalGame.category = EGameExternalGameCategory.Gog;
+        try {
+            const response = await request(app.getHttpServer()).get(
+                "/v2/game/achievement/owner/7/obtained",
+            );
+            expect(response.status).toBe(200);
+            expect(response.body).toEqual([
+                { ...payload[0], source: EGameExternalGameCategory.Gog },
+            ]);
+            expect(queue.add.mock.calls[0][0]).toBe(
+                "game-achievement-gog-sync",
+            );
+        } finally {
+            externalGame.category = EGameExternalGameCategory.Steam;
+        }
     });
     it("anonymous and other-user reads retain visibility without refresh authority", async () => {
         viewer = undefined;

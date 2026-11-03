@@ -69,6 +69,15 @@ export function expandedGame(id = 10) {
         cover: image,
         screenshots: [{ ...image, id: 102 }],
         artworks: [{ ...image, id: 103 }],
+        videos: [
+            {
+                id: 104,
+                game: id,
+                name: "Trailer",
+                video_id: "abc123",
+                checksum: "video",
+            },
+        ],
         game_modes: [resource],
         themes: [resource],
         player_perspectives: [resource],

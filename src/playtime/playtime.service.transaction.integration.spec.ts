@@ -562,6 +562,7 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
                             }),
                         } as any,
                         {
+                            registerUnmappedGames: async () => undefined,
                             getExternalGamesForSourceIds: async () => [
                                 { id: 88, gameId: 88, uid: "existing" },
                                 { id: 89, gameId: 89, uid: "unseen" },
@@ -580,6 +581,7 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
                         { getGamePlatformsMap: async () => new Map() } as any,
                         { addUserSyncJob: async () => undefined } as any,
                         new ConnectionProviderRegistry(),
+                        {} as any,
                         {} as any,
                         {} as any,
                     );

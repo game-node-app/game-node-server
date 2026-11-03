@@ -328,6 +328,7 @@ describe("NotificationsProjectorService", () => {
     describe("event handlers & projection", () => {
         it.each([
             [EConnectionType.EPIC_GAMES, "Epic Games"],
+            [EConnectionType.GOG, "GOG"],
             [EConnectionType.XBOX, "Xbox"],
             [EConnectionType.NINTENDO, "Nintendo"],
         ])(

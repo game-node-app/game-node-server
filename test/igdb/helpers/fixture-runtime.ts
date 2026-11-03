@@ -38,6 +38,7 @@ export async function fixtureRuntime(
         trackPages?: boolean;
         verifyRedis?: boolean;
         tablePrefix?: string;
+        addVideos?: boolean;
     } = {},
 ) {
     Logger.overrideLogger(false);
@@ -83,6 +84,17 @@ export async function fixtureRuntime(
                     throw new Error("Fixture query too large");
             }
             const result = fixtureResponse(query, fixture);
+            if (options.addVideos && query.includes("sort id asc")) {
+                for (const entry of result)
+                    (entry as any).videos = [
+                        {
+                            id: entry.id * 100,
+                            game: entry.id,
+                            video_id: "trailer",
+                            checksum: "video",
+                        },
+                    ];
+            }
             if (invalidGame !== null && query.includes("sort id asc")) {
                 for (const entry of result)
                     if (entry.id === invalidGame) (entry as any).id = -1;
@@ -230,6 +242,7 @@ export async function fixtureRuntime(
     };
     return {
         source,
+        games,
         endpoint,
         setInvalidGame: (id: number | null) => {
             invalidGame = id;

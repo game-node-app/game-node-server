@@ -21,6 +21,7 @@ const mappingCategory = z.enum([
     "Microsoft",
     "EpicGamesNamespace",
     "NintendoTitleId",
+    "Gog",
 ]);
 
 /**

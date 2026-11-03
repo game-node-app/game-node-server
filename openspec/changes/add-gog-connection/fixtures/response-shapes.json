@@ -1,0 +1,142 @@
+{
+    "token": {
+        "access_token": "string",
+        "expires_in": "integer",
+        "token_type": "string",
+        "scope": "string",
+        "session_id": "string",
+        "refresh_token": "string",
+        "user_id": "string"
+    },
+    "profile": {
+        "id": "string",
+        "username": "string",
+        "created_date": "string",
+        "avatar": "object",
+        "is_employee": "boolean",
+        "tags": "array",
+        "email": "string",
+        "email_sha256_hash": "string",
+        "roles": "array",
+        "status": "integer",
+        "last_active_at": "string",
+        "checksum": "string",
+        "settings": "object",
+        "password_set": "boolean",
+        "marketing_consent": "null"
+    },
+    "library": {
+        "total_count": "integer",
+        "limit": "integer",
+        "items": "array"
+    },
+    "library_item": {
+        "platform_id": [
+            "string"
+        ],
+        "external_id": [
+            "string"
+        ],
+        "origin": [
+            "string"
+        ],
+        "title": [
+            "null"
+        ],
+        "my_sorting_title": [
+            "null"
+        ],
+        "generated_sorting_title": [
+            "null"
+        ],
+        "summary": [
+            "null"
+        ],
+        "genres": [
+            "null"
+        ],
+        "themes": [
+            "null"
+        ],
+        "tags": [
+            "array",
+            "null"
+        ],
+        "my_rating": [
+            "null"
+        ],
+        "date_created": [
+            "integer"
+        ],
+        "owned_since": [
+            "integer",
+            "null"
+        ],
+        "hidden": [
+            "boolean"
+        ],
+        "comment": [
+            "null"
+        ],
+        "certificate": [
+            "string"
+        ],
+        "background": [
+            "null"
+        ],
+        "vertical_cover": [
+            "null"
+        ],
+        "square_icon": [
+            "null"
+        ],
+        "logo": [
+            "null"
+        ],
+        "release_dates": [
+            "null"
+        ],
+        "developers": [
+            "null"
+        ],
+        "publishers": [
+            "null"
+        ],
+        "linked_game_id": [
+            "null"
+        ],
+        "owned": [
+            "boolean"
+        ],
+        "subscriptions": [
+            "null"
+        ]
+    },
+    "sessions": {
+        "time_sum": "integer"
+    },
+    "achievements": {
+        "total_count": "integer",
+        "limit": "integer",
+        "page_token": "string",
+        "items": "array",
+        "achievements_mode": "string"
+    },
+    "product": {
+        "id": "integer",
+        "title": "string",
+        "purchase_link": "string",
+        "slug": "string",
+        "content_system_compatibility": "object",
+        "languages": "object",
+        "links": "object",
+        "in_development": "object",
+        "is_secret": "boolean",
+        "is_installable": "boolean",
+        "game_type": "string",
+        "is_pre_order": "boolean",
+        "release_date": "string",
+        "images": "object",
+        "dlcs": "array"
+    }
+}

@@ -16,6 +16,7 @@ import { WorkerHostProcessor } from "../../../utils/WorkerHostProcessor";
 import { Logger } from "@nestjs/common";
 import { Job, UnrecoverableError } from "bullmq";
 import {
+    GAME_ACHIEVEMENT_GOG_JOB_NAME,
     GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME,
     GAME_ACHIEVEMENT_STEAM_JOB_NAME,
     GAME_ACHIEVEMENT_SYNC_QUEUE_NAME,
@@ -55,6 +56,7 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
     @PlayerSyncAttempt()
     async process(job: Job<GameAchievementObtainedUpdateJob>) {
         const VALID_JOBS = [
+            GAME_ACHIEVEMENT_GOG_JOB_NAME,
             GAME_ACHIEVEMENT_STEAM_JOB_NAME,
             GAME_ACHIEVEMENT_XBOX_JOB_NAME,
             GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME,
@@ -62,11 +64,13 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
 
         if (VALID_JOBS.includes(job.name)) {
             const expectedSource =
-                job.name === GAME_ACHIEVEMENT_STEAM_JOB_NAME
-                    ? EConnectionType.STEAM
-                    : job.name === GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME
-                      ? EConnectionType.PSN
-                      : EConnectionType.XBOX;
+                job.name === GAME_ACHIEVEMENT_GOG_JOB_NAME
+                    ? EConnectionType.GOG
+                    : job.name === GAME_ACHIEVEMENT_STEAM_JOB_NAME
+                      ? EConnectionType.STEAM
+                      : job.name === GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME
+                        ? EConnectionType.PSN
+                        : EConnectionType.XBOX;
             const owner = job.data.owner;
             if (!owner) return { outcome: "legacy-skip" };
             if (
@@ -134,6 +138,7 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
                 ),
                 this.gameAchievementService.findAllByExternalGameIdForSync(
                     externalGameId,
+                    userId,
                 ),
             ]);
 

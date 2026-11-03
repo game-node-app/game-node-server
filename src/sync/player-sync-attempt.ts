@@ -208,7 +208,9 @@ export function PlayerSyncAttempt() {
                             "GameAchievementSyncProcessor"
                                 ? "achievement"
                                 : "full",
-                        source: ["steam", "psn", "xbox"].includes(source ?? "")
+                        source: ["steam", "psn", "xbox", "gog"].includes(
+                            source ?? "",
+                        )
                             ? source
                             : "unknown",
                         outcome,

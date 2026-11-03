@@ -184,3 +184,24 @@ Authorization: Bearer <session-or-jwt>
   3. Skips the connection during future scheduled sync cycles.
 - The frontend should present a "Reconnect" button when `authStatus === "reauth_required"`, which initiates the redirect flow (`POST /v1/connections/:type/auth/init`).
 - Completing the callback resets `authStatus` to `"connected"` and immediately resumes sync eligibility.
+
+### GOG
+
+GOG uses `delegated_code` through `POST /v1/connections/gog/auth/init` and
+`POST /v1/connections/gog/auth/callback`. Save the returned GameNode `state`,
+sign in at `authorizationUrl`, then paste the complete final
+`https://embed.gog.com/on_login_success?origin=client&code=...` URL into
+`callbackParams.code`. GOG does not echo GameNode state. The server validates the
+fixed URL and the token/profile identity before storing encrypted credentials.
+Manual connection creation is rejected. Existing collection ownership, settings,
+deletion and reconnect behavior applies.
+
+Fresh access tokens are reused with a five-minute margin. Refresh is serialized
+per connection, retains the existing grant if no replacement is returned, and
+validates any returned account ID. A missing grant or verified HTTP 400
+`invalid_grant` requires reconnection and emits one `GOG` notification per status
+transition. Temporary errors retain credentials. Token-request queries and raw
+Axios errors must never be logged. No new environment variable is required.
+
+Live verification and rollout remain pending as recorded in the GOG change's
+contract evidence; implementation uses the available primary-client evidence.

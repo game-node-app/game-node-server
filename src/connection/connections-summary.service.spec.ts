@@ -153,6 +153,7 @@ test("owner count equals the filtered importer total", async () => {
         { find: jest.fn().mockResolvedValue([{ id: 2, cover: null }]) } as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     registry.register({
         ...registry.get("steam"),

@@ -38,12 +38,10 @@ describe("connection onboarding admission", () => {
             .mockImplementation(async (connection) => connection);
         const providerRegistry = new ConnectionProviderRegistry();
         providerRegistry.registerAuthStrategy(EConnectionType.PSN, {
-            resolvePublicIdentifier: jest
-                .fn()
-                .mockResolvedValue({
-                    sourceUserId: "source-user",
-                    sourceUsername: "source-name",
-                }),
+            resolvePublicIdentifier: jest.fn().mockResolvedValue({
+                sourceUserId: "source-user",
+                sourceUsername: "source-name",
+            }),
         });
         const service = new ConnectionsService(
             {
@@ -110,12 +108,10 @@ describe("ConnectionsService DTO safety & discovery", () => {
     it("findAvailableConnections should derive from registry and include authMode for each provider", async () => {
         const providerRegistry = new ConnectionProviderRegistry();
         providerRegistry.registerAuthStrategy(EConnectionType.PSN, {
-            resolvePublicIdentifier: jest
-                .fn()
-                .mockResolvedValue({
-                    sourceUserId: "source-user",
-                    sourceUsername: "source-name",
-                }),
+            resolvePublicIdentifier: jest.fn().mockResolvedValue({
+                sourceUserId: "source-user",
+                sourceUsername: "source-name",
+            }),
         });
         const service = new ConnectionsService(
             {} as any,
@@ -165,12 +161,10 @@ describe("ConnectionsService Auth Endpoints & Mode Enforcement", () => {
     beforeEach(() => {
         providerRegistry = new ConnectionProviderRegistry();
         providerRegistry.registerAuthStrategy(EConnectionType.PSN, {
-            resolvePublicIdentifier: jest
-                .fn()
-                .mockResolvedValue({
-                    sourceUserId: "psn-account-id",
-                    sourceUsername: "psn-name",
-                }),
+            resolvePublicIdentifier: jest.fn().mockResolvedValue({
+                sourceUserId: "psn-account-id",
+                sourceUsername: "psn-name",
+            }),
         });
         authStateService = {
             initState: jest.fn().mockResolvedValue("state-token-123"),
@@ -367,7 +361,8 @@ describe("ConnectionsService Auth Endpoints & Mode Enforcement", () => {
         });
     });
 
-    describe("delegated_code providers", () => {
+    const delegated = [EConnectionType.EPIC_GAMES, EConnectionType.GOG];
+    describe.each(delegated)("delegated_code %s", (providerType) => {
         it("completes init and callback through the shared endpoints", async () => {
             const initRedirectAuth = jest.fn().mockResolvedValue({
                 authorizationUrl: "https://www.epicgames.com/id/login",
@@ -377,14 +372,14 @@ describe("ConnectionsService Auth Endpoints & Mode Enforcement", () => {
                 sourceUsername: "EpicPlayer",
                 credentials: { accessToken: "token" },
             });
-            providerRegistry.registerAuthStrategy(EConnectionType.EPIC_GAMES, {
+            providerRegistry.registerAuthStrategy(providerType, {
                 initRedirectAuth,
                 completeRedirectAuth,
             });
 
             const init = await service.initRedirectAuth(
                 "user-1",
-                EConnectionType.EPIC_GAMES,
+                providerType,
                 {},
             );
             expect(init.authorizationUrl).toBe(
@@ -393,26 +388,26 @@ describe("ConnectionsService Auth Endpoints & Mode Enforcement", () => {
             expect(authStateService.initState).toHaveBeenCalledWith(
                 expect.objectContaining({
                     userId: "user-1",
-                    type: EConnectionType.EPIC_GAMES,
+                    type: providerType,
                 }),
                 init.state,
             );
 
             authStateService.consumeState.mockResolvedValueOnce({
                 userId: "user-1",
-                type: EConnectionType.EPIC_GAMES,
+                type: providerType,
                 isAutoImportEnabled: false,
                 autoImportCollectionId: null,
             });
             const result = await service.completeRedirectAuth(
                 "user-1",
-                EConnectionType.EPIC_GAMES,
+                providerType,
                 { state: init.state, callbackParams: { code: "abc" } },
             );
             expect(authStateService.consumeState).toHaveBeenCalledWith(
                 init.state,
                 "user-1",
-                EConnectionType.EPIC_GAMES,
+                providerType,
             );
             expect(result.sourceUserId).toBe("epic-account");
             expect(credentialService.saveCredentials).toHaveBeenCalledWith(1, {
@@ -424,7 +419,7 @@ describe("ConnectionsService Auth Endpoints & Mode Enforcement", () => {
         it("rejects manual onboarding with HTTP 400", async () => {
             await expect(
                 service.createOrUpdate("user-1", {
-                    type: EConnectionType.EPIC_GAMES,
+                    type: providerType,
                     userIdentifier: "someone",
                 } as any),
             ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });

@@ -1,3 +1,5 @@
+import { GameVideo } from "../../src/game/game-repository/entities/game-video.entity";
+import { GameRepositoryService } from "../../src/game/game-repository/game-repository.service";
 import { GameScreenshot } from "../../src/game/game-repository/entities/game-screenshot.entity";
 import { DataSource } from "typeorm";
 import { ConfigService } from "@nestjs/config";
@@ -71,6 +73,224 @@ describe("transactional game import on isolated MySQL", () => {
         ensureStatistics: async (manager, gameId) => {
             await ensureStatisticsTarget(manager, StatisticsSourceType.GAME, gameId);
         },
+    });
+
+    it("registers both sides of the video relation", () => {
+        expect(
+            source.getMetadata(GameVideo).relations[0].inverseEntityMetadata
+                .target,
+        ).toBe(Game);
+        expect(
+            source
+                .getMetadata(Game)
+                .relations.find(
+                    (relation) => relation.propertyName === "videos",
+                )?.inverseEntityMetadata.target,
+        ).toBe(GameVideo);
+    });
+
+    it("imports, replays and reconciles video metadata without changing statistics", async () => {
+        const raw = {
+            id: 15001,
+            name: "Video game",
+            slug: "video-game",
+            checksum: "same",
+            videos: [
+                {
+                    id: 15010,
+                    game: 15001,
+                    name: "Trailer",
+                    video_id: "first",
+                    checksum: "one",
+                },
+            ],
+        };
+        const save = (data: Record<string, unknown>, force = true) =>
+            source.transaction((manager) =>
+                service.createOrUpdate(normalizeIgdbGame(data), {
+                    ...context(manager),
+                    forceReconciliation: force,
+                }),
+            );
+        await save(raw);
+        const targetId = (
+            await source.getRepository(Game).findOneByOrFail({ id: 15001 })
+        ).statisticsTargetId;
+        await source.query(
+            "INSERT INTO gi_metric_total (targetId, metricCode, metricValue) VALUES (?, 'views', 7)",
+            [targetId],
+        );
+        await save(raw);
+        expect(
+            await source.getRepository(GameVideo).countBy({ id: 15010 }),
+        ).toBe(1);
+        let video = await source
+            .getRepository(GameVideo)
+            .findOneOrFail({ where: { id: 15010 }, relations: { game: true } });
+        expect(video).toMatchObject({
+            game: { id: 15001 },
+            videoId: "first",
+            url: "https://www.youtube.com/watch?v=first",
+        });
+        await save({
+            ...raw,
+            videos: [
+                { id: 15010, name: "New", video_id: "a&b", checksum: "two" },
+            ],
+        });
+        video = await source
+            .getRepository(GameVideo)
+            .findOneByOrFail({ id: 15010 });
+        expect(video).toMatchObject({
+            name: "New",
+            checksum: "two",
+            url: "https://www.youtube.com/watch?v=a%26b",
+        });
+        await save({ ...raw, videos: [{ id: 15010, checksum: "three" }] });
+        expect(
+            await source
+                .getRepository(GameVideo)
+                .findOneByOrFail({ id: 15010 }),
+        ).toMatchObject({ videoId: null, url: null });
+        expect(
+            await source.query(
+                "SELECT metricValue FROM gi_metric_total WHERE targetId = ? AND metricCode = 'views'",
+                [targetId],
+            ),
+        ).toMatchObject([{ metricValue: 7 }]);
+        await source.getRepository(GameVideo).delete(15010);
+        await save(raw);
+        expect(
+            await source.getRepository(GameVideo).countBy({ id: 15010 }),
+        ).toBe(1);
+        await source.getRepository(GameVideo).delete(15010);
+        const clock = jest.spyOn(Date, "now").mockReturnValue(604800000);
+        try {
+            await save(raw, false);
+            expect(
+                await source.getRepository(GameVideo).countBy({ id: 15010 }),
+            ).toBe(1);
+        } finally {
+            clock.mockRestore();
+        }
+    });
+
+    it("retains absent videos and rolls back a failed video write for retry", async () => {
+        const raw = {
+            id: 16001,
+            name: "Before",
+            slug: "retention",
+            checksum: "one",
+            videos: [
+                { id: 16010, checksum: "a" },
+                { id: 16011, checksum: "b" },
+            ],
+        };
+        const save = (data: Record<string, unknown>) =>
+            source.transaction((manager) =>
+                service.createOrUpdate(
+                    normalizeIgdbGame(data),
+                    context(manager),
+                ),
+            );
+        await save(raw);
+        for (const videos of [
+            undefined,
+            null,
+            [],
+            [{ id: 16010, checksum: "a" }],
+        ]) {
+            await save({ ...raw, videos });
+            expect(
+                await source
+                    .getRepository(GameVideo)
+                    .countBy({ game: { id: 16001 } }),
+            ).toBe(2);
+        }
+        const original = service.handleOneToMany.bind(service);
+        const failure = jest
+            .spyOn(service, "handleOneToMany")
+            .mockImplementation((incoming, existing, path, ctx) =>
+                path === "videos"
+                    ? Promise.reject(new Error("video fault"))
+                    : original(incoming, existing, path, ctx),
+            );
+        try {
+            await expect(
+                save({ ...raw, name: "After", checksum: "two" }),
+            ).rejects.toThrow("video fault");
+        } finally {
+            failure.mockRestore();
+        }
+        expect(
+            await source.getRepository(Game).findOneByOrFail({ id: 16001 }),
+        ).toMatchObject({ name: "Before", checksum: "one" });
+        await save({ ...raw, name: "After", checksum: "two" });
+        expect(
+            await source.getRepository(Game).findOneByOrFail({ id: 16001 }),
+        ).toMatchObject({ name: "After", checksum: "two" });
+        expect(
+            await source
+                .getRepository(GameVideo)
+                .countBy({ game: { id: 16001 } }),
+        ).toBe(2);
+    });
+
+    it("loads videos through the existing single, multiple and resource queries", async () => {
+        await source.transaction((manager) =>
+            service.createOrUpdate(
+                normalizeIgdbGame({
+                    id: 17001,
+                    name: "Videos",
+                    slug: "videos",
+                    checksum: "one",
+                    videos: [
+                        { id: 17010, video_id: "trailer", checksum: "one" },
+                    ],
+                }),
+                context(manager),
+            ),
+        );
+        await source.transaction((manager) =>
+            service.createOrUpdate(
+                normalizeIgdbGame({
+                    id: 17002,
+                    name: "No videos",
+                    slug: "no-videos",
+                    checksum: "one",
+                }),
+                context(manager),
+            ),
+        );
+        const repository = new GameRepositoryService(
+            source,
+            null as any,
+            null as any,
+            source.getRepository(Game),
+            null as any,
+        );
+        const one = await repository.findOneByIdOrFail(17001, {
+            relations: { videos: true },
+        });
+        expect(one.videos).toMatchObject([
+            {
+                id: 17010,
+                videoId: "trailer",
+                url: "https://www.youtube.com/watch?v=trailer",
+            },
+        ]);
+        expect(
+            (await repository.findOneByIdOrFail(17001)).videos,
+        ).toBeUndefined();
+        const many = await repository.findAllByIds({
+            gameIds: [17001, 17002],
+            relations: { videos: true },
+        });
+        expect(many[0].videos).toHaveLength(1);
+        expect(many[1].videos).toEqual([]);
+        expect(await repository.getResource("videos")).toEqual(
+            expect.arrayContaining([expect.objectContaining({ id: 17010 })]),
+        );
     });
 
     it("creates forward references atomically, preserves existing metadata and later hydrates", async () => {
