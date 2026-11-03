@@ -908,3 +908,40 @@ passing search tests and regenerated Swagger; those checks were not repeated for
 fixes, which change no HTTP schemas or search implementation.
 No change was archived and no production cadence was enabled. Live-provider,
 frontend, and production-load checks remain rollout prerequisites.
+
+### GOG imports
+
+GOG uses source `gog`, mapping category `Gog` (5), and PC platform `6`. Manual and
+automatic imports include unplayed owned GOG products, excluding other stores
+linked to Galaxy. All release pages must complete before matching. The shared
+processed/ignored rules and collection ownership validation apply. Unmapped IDs
+enter curation with their owners; missing product titles do not block discovery.
+MCP moderators can filter `Gog` and resolve entries using existing `agent` mapping
+conflict rules. Numeric product IDs do not imply a public store URL.
+
+Playtime is the GOG cumulative `time_sum`, interpreted as minutes from the pinned
+Heroic display path and converted once to seconds. The known-game live comparison
+is still pending rollout. Repeated totals do not add time again. Missing, malformed
+or failed requests fail the stage before any time writes. Existing dates and play
+counts are preserved because this endpoint supplies neither. Activity never
+recorded by Galaxy, including offline DRM-free play not synced to GOG, is unavailable.
+
+GOG achievement definitions and unlocks share one attempt-local response per
+account/product/locale. A worker passes its user to catalogue lookup; public
+catalogue lookup selects a usable connected account and strips identity, tokens,
+unlock state and hidden text. No available account means unavailable, not an empty
+catalogue. String `achievement_id` is the definition/unlock identity; only validated
+RFC 3339 unlock dates produce obtained rows. No platinum state is invented.
+
+Every mapped owned game, including zero-time games, enters the existing initial,
+activity-change, retry and seven-day reconciliation policy. Requests are bounded
+and account-scoped. Obtained rows, completion and activity use the existing atomic
+commit and retryable publication; stale owners cannot commit after reconnect.
+
+Only complete `all_visible` responses are accepted. A reported total larger than
+the received set, hidden-only mode, duplicate identities or malformed date fails
+as incomplete. An achievement continuation contract has not been verified, so no
+page parameter is guessed. Captured empty HTTP 200 results are valid; generic
+403/404 responses are not classified as unsupported. Nonempty/hidden achievements,
+nonzero time and definitive unsupported behavior still require live validation.
+GOG implementation is available for review; rollout remains pending that evidence.

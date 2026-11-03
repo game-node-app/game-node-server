@@ -1,3 +1,4 @@
+import { PlayerSyncOwnershipLost } from "../../../sync/player-data/player-sync-state.service";
 import { ConnectionProviderRegistry } from "../../../connection/connection-provider.registry";
 import {
     playerStateFixture,
@@ -7,6 +8,7 @@ import { GameAchievementSyncProcessor } from "./game-achievement-sync.processor"
 import { GameObtainedAchievementService } from "../game-obtained-achievement.service";
 import { EGameExternalGameCategory } from "../../game-repository/game-repository.constants";
 import {
+    GAME_ACHIEVEMENT_GOG_JOB_NAME,
     GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME,
     GAME_ACHIEVEMENT_STEAM_JOB_NAME,
 } from "./game-achievement-sync.constants";
@@ -114,6 +116,7 @@ test("a failed trophy set cannot persist a partial obtained snapshot or update c
         } as any,
         {} as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
     const persist = jest.spyOn(obtained, "persistObtainedAchievements");
     const save = jest.fn();
@@ -413,7 +416,7 @@ test("one obtained and catalogue snapshot feeds persistence, completion, and act
     expect(fetchObtainedByExternalGameId).toHaveBeenCalledTimes(1);
     expect(fetchObtainedByExternalGameId).toHaveBeenCalledWith("user", 1);
     expect(findAllByExternalGameIdForSync).toHaveBeenCalledTimes(1);
-    expect(findAllByExternalGameIdForSync).toHaveBeenCalledWith(1);
+    expect(findAllByExternalGameIdForSync).toHaveBeenCalledWith(1, "user");
     expect(persistObtainedAchievements).toHaveBeenCalledWith(
         "user",
         obtainedSnapshot,
@@ -621,4 +624,62 @@ redisDescribe("achievement retry outcomes (real Redis)", () => {
             }
         },
     );
+});
+
+describe("GOG achievement job identity", () => {
+    it.each(["source", "user", "game"])(
+        "rejects wrong %s before provider requests",
+        async (kind) => {
+            const catalogue = { findAllByExternalGameIdForSync: jest.fn() };
+            const processor = new GameAchievementSyncProcessor(
+                catalogue as any,
+                {} as any,
+                {} as any,
+                {} as any,
+                playerStateFixture() as any,
+                {} as any,
+            );
+            const owner = {
+                ...playerOwner("user", "gog", 1),
+                ...(kind === "source"
+                    ? { source: "steam" }
+                    : kind === "user"
+                      ? { userId: "other" }
+                      : { externalGameId: 2 }),
+            };
+            await expect(
+                processor.process({
+                    name: GAME_ACHIEVEMENT_GOG_JOB_NAME,
+                    data: { userId: "user", externalGameId: 1, owner },
+                } as any),
+            ).rejects.toThrow("Invalid achievement job identity");
+            expect(
+                catalogue.findAllByExternalGameIdForSync,
+            ).not.toHaveBeenCalled();
+        },
+    );
+    it("rejects a stale GOG owner before reading achievements", async () => {
+        const state = playerStateFixture();
+        state.runOwned.mockRejectedValueOnce(new PlayerSyncOwnershipLost());
+        const catalogue = { findAllByExternalGameIdForSync: jest.fn() };
+        const processor = new GameAchievementSyncProcessor(
+            catalogue as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            state as any,
+            {} as any,
+        );
+        await expect(
+            processor.process({
+                name: GAME_ACHIEVEMENT_GOG_JOB_NAME,
+                data: {
+                    userId: "user",
+                    externalGameId: 1,
+                    owner: playerOwner("user", "gog", 1),
+                },
+            } as any),
+        ).resolves.toEqual({ outcome: "stale-skip" });
+        expect(catalogue.findAllByExternalGameIdForSync).not.toHaveBeenCalled();
+    });
 });

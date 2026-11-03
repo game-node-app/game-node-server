@@ -21,6 +21,7 @@ test("unsupported external categories use the shared HTTP 400 failure", async ()
         {} as any,
         {} as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
 
     const request = service.fetchObtainedByExternalGameId("user", 10);
@@ -66,6 +67,7 @@ test("obtained PSN trophies fetch each communication and service mapping once", 
         { findOneByUserIdAndType: findConnection } as any,
         {} as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
 
     const achievements = await service.fetchObtainedByExternalGameId(
@@ -103,6 +105,7 @@ test("obtained rows use the supplied transaction manager", async () => {
         {} as any,
         {} as any,
         new ConnectionProviderRegistry(),
+        {} as any,
     );
 
     await service.persistObtainedAchievements(
@@ -128,4 +131,53 @@ test("obtained rows use the supplied transaction manager", async () => {
             profileUserId: "user",
         }),
     ]);
+});
+
+it("GOG progress uses the syncing account and stable definition identity", async () => {
+    const registry = new ConnectionProviderRegistry();
+    const gog = {
+        getAchievements: jest.fn(async (account: string) => [
+            {
+                achievement_id: "a",
+                date_unlocked:
+                    account === "123" ? "2026-01-01T00:00:00Z" : null,
+            },
+            { achievement_id: "b", date_unlocked: null },
+        ]),
+    };
+    const service = new GameObtainedAchievementService(
+        {} as any,
+        {
+            findOneByIdOrFail: async () => ({
+                id: 5,
+                gameId: 10,
+                uid: "100",
+                category: 5,
+            }),
+        } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {
+            findOneByUserIdAndType: async (user: string) => ({
+                sourceUserId: user === "one" ? "123" : "456",
+            }),
+        } as any,
+        {} as any,
+        registry,
+        gog as any,
+    );
+    const first = await service.fetchObtainedByExternalGameId("one", 5);
+    const second = await service.fetchObtainedByExternalGameId("two", 5);
+    expect(first[0]).toMatchObject({
+        externalId: "a",
+        externalGameId: 5,
+        gameId: 10,
+        source: 5,
+        isObtained: true,
+        obtainedAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    expect(
+        second.every((item) => !item.isObtained && item.obtainedAt === null),
+    ).toBe(true);
 });

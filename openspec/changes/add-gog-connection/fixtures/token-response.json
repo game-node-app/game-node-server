@@ -1,0 +1,10 @@
+{
+    "status": 200,
+    "body": {
+        "access_token": "<redacted-access-token>",
+        "refresh_token": "<redacted-refresh-token>",
+        "expires_in": 3600,
+        "token_type": "bearer",
+        "user_id": "90000000000000001"
+    }
+}

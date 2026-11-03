@@ -24,21 +24,23 @@ describe("achievement queue admission", () => {
         expect(add).not.toHaveBeenCalled();
     });
 
-    it.each([EConnectionType.STEAM, EConnectionType.PSN, EConnectionType.XBOX])(
-        "propagates rejected Redis writes for %s",
-        async (source) => {
-            const failure = new Error("Redis unavailable");
-            const service = new GameAchievementSyncQueueService(
-                {
-                    add: jest.fn().mockRejectedValue(failure),
-                } as any,
-                playerStateFixture() as any,
-            );
-            await expect(
-                service.addUserSyncJob("test-user", 1, source),
-            ).rejects.toBe(failure);
-        },
-    );
+    it.each([
+        EConnectionType.STEAM,
+        EConnectionType.PSN,
+        EConnectionType.XBOX,
+        EConnectionType.GOG,
+    ])("propagates rejected Redis writes for %s", async (source) => {
+        const failure = new Error("Redis unavailable");
+        const service = new GameAchievementSyncQueueService(
+            {
+                add: jest.fn().mockRejectedValue(failure),
+            } as any,
+            playerStateFixture() as any,
+        );
+        await expect(
+            service.addUserSyncJob("test-user", 1, source),
+        ).rejects.toBe(failure);
+    });
 
     it("adds a job only after per-game selection admits an owner", async () => {
         const queue = { add: jest.fn() };

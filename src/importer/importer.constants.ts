@@ -4,4 +4,5 @@ export enum EImporterSource {
     XBOX = "xbox",
     EPIC_GAMES = "epicgames",
     NINTENDO = "nintendo",
+    GOG = "gog",
 }

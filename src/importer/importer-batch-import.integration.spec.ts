@@ -104,6 +104,7 @@ mysqlDescribe("batch import transactions", () => {
             source.getRepository(Game),
             {} as any,
             {} as any,
+            {} as any,
         );
         registry.register({
             ...registry.get("steam"),

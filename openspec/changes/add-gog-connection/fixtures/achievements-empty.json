@@ -1,0 +1,10 @@
+{
+    "status": 200,
+    "body": {
+        "total_count": 0,
+        "limit": 1000,
+        "page_token": "0",
+        "items": [],
+        "achievements_mode": "all_visible"
+    }
+}

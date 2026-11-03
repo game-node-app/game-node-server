@@ -1,5 +1,6 @@
 import { GameAchievementSyncModule } from "./sync/game-achievement-sync.module";
 import { PlayerDataModule } from "../../sync/player-data/player-data.module";
+import { GogSyncModule } from "../../sync/gog/gog-sync.module";
 import { forwardRef, Module } from "@nestjs/common";
 import { ExternalGameModule } from "../external-game/external-game.module";
 import { GameAchievementService } from "./game-achievement.service";
@@ -32,6 +33,7 @@ import { GameAchievementStatusService } from "./game-achievement-status.service"
         SteamSyncModule,
         PsnSyncModule,
         XboxSyncModule,
+        forwardRef(() => GogSyncModule),
         forwardRef(() => ConnectionsModule),
         GameRepositoryModule,
         forwardRef(() => ActivitiesQueueModule),

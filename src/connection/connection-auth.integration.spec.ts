@@ -1,3 +1,8 @@
+import {
+    acquireTokenLock,
+    renewTokenLock,
+    releaseTokenLock,
+} from "../sync/connection-token-lock";
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
@@ -27,7 +32,6 @@ import { PlayerGameSync } from "../sync/player-data/entity/player-game-sync.enti
 import { PlayerDataProcessor } from "../sync/player-data/player-data.processor";
 import { PLAYER_DATA_JOB } from "../sync/player-data/player-data.constants";
 import { ProviderSyncError } from "../sync/provider-sync.error";
-import { XboxSyncAuthService } from "../sync/xbox/auth/xbox-sync-auth.service";
 
 const integrationDescribe =
     process.env.PLAYER_IMPORT_TEST_MYSQL_PORT &&
@@ -204,34 +208,22 @@ integrationDescribe("connection auth on disposable MySQL and Redis", () => {
     });
 
     it("uses atomic refresh locks with owner-checked renewal and release", async () => {
-        const first = new XboxSyncAuthService(
-            {} as any,
-            source.getRepository(UserConnection),
-            credentials,
-            queue,
-        ) as any;
-        const second = new XboxSyncAuthService(
-            {} as any,
-            source.getRepository(UserConnection),
-            credentials,
-            queue,
-        ) as any;
         const key = `xbox-token-refresh-lock:${randomUUID()}`;
         const results = await Promise.all([
-            first.acquireLock(key, "first", 25),
-            second.acquireLock(key, "second", 25),
+            acquireTokenLock(queue, key, "first", 25),
+            acquireTokenLock(queue, key, "second", 25),
         ]);
         expect(results.filter(Boolean)).toHaveLength(1);
         const redis = await queue.client;
-        const owner = await redis.get(key);
+        const owner = (await redis.get(key))!;
         await redis.pexpire(key, 1000);
-        expect(await first.renewLock(key, owner)).toBe(1);
+        expect(await renewTokenLock(queue, key, owner)).toBe(1);
         expect(await redis.pttl(key)).toBeGreaterThan(59000);
         await redis.set(key, "successor", "PX", 60000);
-        expect(await first.renewLock(key, owner)).toBe(0);
-        await first.releaseLock(key, owner);
+        expect(await renewTokenLock(queue, key, owner)).toBe(0);
+        await releaseTokenLock(queue, key, owner);
         expect(await redis.get(key)).toBe("successor");
-        await second.releaseLock(key, "successor");
+        await releaseTokenLock(queue, key, "successor");
         expect(await redis.get(key)).toBeNull();
     });
 

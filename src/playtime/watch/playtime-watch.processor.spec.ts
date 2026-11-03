@@ -63,6 +63,7 @@ test("playtime executes the registered handler and rejects missing capabilities"
         registry,
         {} as any,
         {} as any,
+        {} as any,
     );
     const handler = jest.fn().mockResolvedValue({ outcome: "empty" });
     registry.register({
@@ -112,6 +113,7 @@ test("a capped TitleHub response leaves previous playtime and queued achievement
         new ConnectionProviderRegistry(),
         {} as any,
         {} as any,
+        {} as any,
     );
     await expect(
         processor.updateXboxPlaytimeInfo({ data: { userId: "user" } } as any),
@@ -155,6 +157,7 @@ test("a late PSN library cannot reach playtime writes or achievement admission",
         {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
         {} as any,
     );
@@ -202,6 +205,7 @@ it.each(["steam", "psn", "xbox"])(
             new ConnectionProviderRegistry(),
             {} as any,
             {} as any,
+            {} as any,
         );
         const updateProgress = jest.fn().mockResolvedValue(undefined);
         const job = {
@@ -242,6 +246,7 @@ test("legacy jobs never reach provider work", async () => {
         {} as any,
         {} as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
         {} as any,
     );
@@ -334,6 +339,7 @@ test("Steam selection uses recent-list data for timestamp-free and Family Sharin
         {} as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
         {} as any,
     );
@@ -460,6 +466,7 @@ test("PSN title progress fingerprints keep same-service communication IDs distin
         new ConnectionProviderRegistry(),
         {} as any,
         {} as any,
+        {} as any,
     );
     const job = { data: { userId: "user" }, updateProgress: jest.fn() } as any;
 
@@ -561,6 +568,7 @@ test("Xbox achievement selection follows title progress when playtime stats are 
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
         { addUserSyncJob: enqueue } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
         {} as any,
     );
@@ -710,6 +718,7 @@ test("PSN maps persist before one enqueue per concept and same-name titles stay 
         new ConnectionProviderRegistry(),
         {} as any,
         {} as any,
+        {} as any,
     );
 
     await processor.updatePsnPlaytimeInfo({
@@ -830,6 +839,7 @@ it.each(["steam", "xbox"])(
                 new ConnectionProviderRegistry(),
                 {} as any,
                 {} as any,
+                {} as any,
             );
             const job = {
                 data: { userId: "user" },
@@ -879,6 +889,7 @@ test("Steam editions sharing one game contribute once to its cumulative observat
         {} as any,
         { addUserSyncJob: jest.fn() } as any,
         new ConnectionProviderRegistry(),
+        {} as any,
         {} as any,
         {} as any,
     );
@@ -954,6 +965,7 @@ describe("Epic playtime", () => {
                     ],
                 ),
             } as any,
+            {} as any,
             {} as any,
         );
         await processor.updateEpicPlaytimeInfo({
@@ -1054,6 +1066,7 @@ describe("Nintendo playtime", () => {
             new ConnectionProviderRegistry(),
             {} as any,
             { getPlayHistory: jest.fn().mockResolvedValue(entries) } as any,
+            {} as any,
         );
         const result = await processor.updateNintendoPlaytimeInfo({
             data: { userId: "user" },
@@ -1159,6 +1172,7 @@ describe("unmapped game registration", () => {
             new ConnectionProviderRegistry(),
             {} as any,
             {} as any,
+            {} as any,
         );
         return { processor, registerUnmappedGames };
     };
@@ -1219,5 +1233,111 @@ describe("unmapped game registration", () => {
             [{ sourceUid: "orphan", name: "Halo Soundtrack" }],
             "user",
         );
+    });
+});
+
+describe("GOG playtime and achievement admission", () => {
+    const build = () => {
+        const previous = {
+            totalPlayCount: 7,
+            firstPlayedDate: new Date("2020-01-01"),
+            lastPlayedDate: new Date("2020-02-01"),
+            totalPlaytimeSeconds: 120,
+        };
+        const playtimes = {
+            findForImport: jest.fn(async () => new Map([["1:6", previous]])),
+            saveImported: jest.fn(),
+        };
+        const gog = {
+            getLibraryItems: async () => ["100", "200"],
+            getPlaytime: jest
+                .fn()
+                .mockResolvedValueOnce(120)
+                .mockResolvedValueOnce(0),
+            registerUnmappedGames: jest.fn(),
+        };
+        const queue = { addUserSyncJob: jest.fn() };
+        const processor = new PlaytimeWatchProcessor(
+            playtimes as any,
+            {
+                findOneByUserIdAndTypeOrFail: async () => ({
+                    sourceUserId: "123",
+                }),
+            } as any,
+            {
+                getExternalGamesForSourceIds: async () => [
+                    { id: 10, gameId: 1, uid: "100" },
+                    { id: 20, gameId: 2, uid: "200" },
+                ],
+            } as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            queue as any,
+            new ConnectionProviderRegistry(),
+            {} as any,
+            {} as any,
+            gog as any,
+        );
+        return { previous, playtimes, gog, queue, processor };
+    };
+    it("writes cumulative PC totals preserving dates/counts and schedules zero-time games", async () => {
+        const { previous, playtimes, queue, processor } = build();
+        const job = {
+            data: { userId: "owner" },
+            updateProgress: jest.fn(),
+        } as any;
+        await processor.updatePlaytimeInfo("gog", job);
+        expect(playtimes.saveImported.mock.calls[0][0]).toEqual([
+            expect.objectContaining({
+                ...previous,
+                gameId: 1,
+                platformId: 6,
+                source: "gog",
+                profileUserId: "owner",
+            }),
+            expect.objectContaining({
+                totalPlayCount: 0,
+                totalPlaytimeSeconds: 0,
+                gameId: 2,
+                source: "gog",
+            }),
+        ]);
+        expect(
+            queue.addUserSyncJob.mock.calls.map((call) => call.slice(0, 3)),
+        ).toEqual([
+            ["owner", 10, "gog"],
+            ["owner", 20, "gog"],
+        ]);
+        const fingerprints = queue.addUserSyncJob.mock.calls.map(
+            (call) => call[3],
+        );
+        queue.addUserSyncJob.mockClear();
+        const gog = (processor as any).gogSyncService;
+        gog.getPlaytime.mockResolvedValueOnce(120).mockResolvedValueOnce(0);
+        await processor.updatePlaytimeInfo("gog", job);
+        expect(queue.addUserSyncJob.mock.calls.map((call) => call[3])).toEqual(
+            fingerprints,
+        );
+        queue.addUserSyncJob.mockClear();
+        gog.getPlaytime.mockResolvedValueOnce(180).mockResolvedValueOnce(0);
+        await processor.updatePlaytimeInfo("gog", job);
+        expect(queue.addUserSyncJob.mock.calls[0][3]).not.toBe(fingerprints[0]);
+    });
+    it("keeps the stage intact when a required later time request fails", async () => {
+        const { playtimes, gog, queue, processor } = build();
+        gog.getPlaytime
+            .mockReset()
+            .mockResolvedValueOnce(120)
+            .mockRejectedValueOnce(new Error("missing time"));
+        await expect(
+            processor.updatePlaytimeInfo("gog", {
+                data: { userId: "owner" },
+            } as any),
+        ).rejects.toThrow("missing time");
+        expect(playtimes.saveImported).not.toHaveBeenCalled();
+        expect(queue.addUserSyncJob).not.toHaveBeenCalled();
     });
 });

@@ -1,3 +1,6 @@
+import { GogSyncService } from "../../sync/gog/gog-sync.service";
+import { ConnectionsService } from "../../connection/connections.service";
+import { EConnectionType } from "../../connection/connections.constants";
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ExternalGameService } from "../external-game/external-game.service";
 import { ProviderSyncError } from "../../sync/provider-sync.error";
@@ -34,6 +37,8 @@ export class GameAchievementService {
         private readonly psnSyncService: PsnSyncService,
         private readonly xboxSyncService: XboxSyncService,
         private readonly gameRepositoryService: GameRepositoryService,
+        private readonly gogSyncService: GogSyncService,
+        private readonly connectionsService: ConnectionsService,
     ) {}
 
     public async findOneByExternalGameId(
@@ -60,13 +65,17 @@ export class GameAchievementService {
         return this.getAllByExternalGameId(externalGameId, false);
     }
 
-    public findAllByExternalGameIdForSync(externalGameId: number) {
-        return this.getAllByExternalGameId(externalGameId, true);
+    public findAllByExternalGameIdForSync(
+        externalGameId: number,
+        userId: string,
+    ) {
+        return this.getAllByExternalGameId(externalGameId, true, userId);
     }
 
     private async getAllByExternalGameId(
         externalGameId: number,
         forSync: boolean,
+        userId?: string,
     ) {
         const externalGame =
             await this.externalGameService.findOneByIdOrFail(externalGameId);
@@ -81,6 +90,50 @@ export class GameAchievementService {
             EGameExternalGameCategory,
             Promise<GameAchievementDto[]>
         >(externalGame.category!)
+            .with(EGameExternalGameCategory.Gog, async () => {
+                let achievements;
+                if (forSync) {
+                    if (!userId)
+                        throw new ProviderSyncError(
+                            "unavailable",
+                            "GOG achievement sync requires a user",
+                        );
+                    const connection =
+                        await this.connectionsService.findOneByUserIdAndType(
+                            userId,
+                            EConnectionType.GOG,
+                        );
+                    if (!connection)
+                        throw new ProviderSyncError(
+                            "unavailable",
+                            "No GOG connection for achievement sync",
+                        );
+                    achievements = await this.gogSyncService.getAchievements(
+                        connection.sourceUserId,
+                        externalGame.uid,
+                    );
+                } else {
+                    achievements =
+                        await this.gogSyncService.getCatalogueAchievements(
+                            externalGame.uid,
+                        );
+                }
+                return achievements.map(
+                    (achievement) =>
+                        ({
+                            name: achievement.visible ? achievement.name : "",
+                            description: achievement.visible
+                                ? achievement.description
+                                : null,
+                            iconUrl: achievement.image_url_unlocked,
+                            externalId: achievement.achievement_id,
+                            source: EGameExternalGameCategory.Gog,
+                            externalGameId: externalGame.id,
+                            gameId: externalGame.gameId,
+                            platformIds: [6],
+                        }) satisfies GameAchievementDto,
+                );
+            })
             .with(EGameExternalGameCategory.Steam, async () => {
                 const PC_PLATFORM_ID = 6;
                 const appId = Number.parseInt(externalGame.uid);

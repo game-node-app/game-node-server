@@ -1,3 +1,5 @@
+import { GogSyncService } from "../../sync/gog/gog-sync.service";
+import { ProviderSyncError } from "../../sync/provider-sync.error";
 import { GameAchievementSyncQueueService } from "./sync/game-achievement-sync-queue.service";
 import { playerSyncWrite } from "../../sync/player-sync-attempt";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -49,7 +51,12 @@ export class GameObtainedAchievementService {
         private readonly connectionsService: ConnectionsService,
         private readonly syncQueue: GameAchievementSyncQueueService,
         private readonly providerRegistry: ConnectionProviderRegistry,
+        private readonly gogSyncService: GogSyncService,
     ) {
+        providerRegistry.registerSyncHandlers(EConnectionType.GOG, {
+            fetchObtainedAchievements: (userId, game) =>
+                this.fetchGog(userId, game),
+        });
         providerRegistry.registerSyncHandlers(EConnectionType.STEAM, {
             fetchObtainedAchievements: (userId, game) =>
                 this.fetchSteam(userId, game),
@@ -83,6 +90,36 @@ export class GameObtainedAchievementService {
         const handler = provider.syncHandlers?.fetchObtainedAchievements;
         if (!handler) throw new UnsupportedGameAchievementSourceError();
         return handler(userId, externalGame);
+    }
+
+    private async fetchGog(
+        userId: string,
+        externalGame: GameExternalGame,
+    ): Promise<GameObtainedAchievementDto[]> {
+        const connection = await this.connectionsService.findOneByUserIdAndType(
+            userId,
+            EConnectionType.GOG,
+        );
+        if (!connection)
+            throw new ProviderSyncError(
+                "unavailable",
+                "No GOG connection for achievement sync",
+            );
+        const achievements = await this.gogSyncService.getAchievements(
+            connection.sourceUserId,
+            externalGame.uid,
+        );
+        return achievements.map((item) => ({
+            externalId: item.achievement_id,
+            externalGameId: externalGame.id,
+            gameId: externalGame.gameId,
+            source: EGameExternalGameCategory.Gog,
+            isObtained: item.date_unlocked !== null,
+            obtainedAt:
+                item.date_unlocked === null
+                    ? null
+                    : new Date(item.date_unlocked),
+        }));
     }
 
     private async fetchSteam(

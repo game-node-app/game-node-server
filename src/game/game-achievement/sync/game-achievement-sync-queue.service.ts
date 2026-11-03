@@ -9,6 +9,7 @@ import {
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import {
+    GAME_ACHIEVEMENT_GOG_JOB_NAME,
     GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME,
     GAME_ACHIEVEMENT_STEAM_JOB_NAME,
     GAME_ACHIEVEMENT_SYNC_QUEUE_NAME,
@@ -43,6 +44,7 @@ export class GameAchievementSyncQueueService {
         );
 
         const jobName = match(source)
+            .with(EConnectionType.GOG, () => GAME_ACHIEVEMENT_GOG_JOB_NAME)
             .with(EConnectionType.XBOX, () => GAME_ACHIEVEMENT_XBOX_JOB_NAME)
             .with(
                 EConnectionType.PSN,

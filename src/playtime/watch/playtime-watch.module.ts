@@ -1,4 +1,5 @@
 import { PlayerDataModule } from "../../sync/player-data/player-data.module";
+import { GogSyncModule } from "../../sync/gog/gog-sync.module";
 import { forwardRef, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { UserPlaytime } from "../entity/user-playtime.entity";
@@ -40,6 +41,7 @@ import { GameAchievementSyncModule } from "../../game/game-achievement/sync/game
         PsnSyncModule,
         SteamSyncModule,
         XboxSyncModule,
+        forwardRef(() => GogSyncModule),
         EpicSyncModule,
         NintendoSyncModule,
         GameRepositoryModule,

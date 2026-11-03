@@ -1,3 +1,5 @@
+import { GogSyncModule } from "../sync/gog/gog-sync.module";
+import { GogConnectionAuthProvider } from "../sync/gog/gog-connection-auth.provider";
 import { PlayerDataModule } from "../sync/player-data/player-data.module";
 import { forwardRef, Module, OnModuleInit } from "@nestjs/common";
 import { ConnectionsService } from "./connections.service";
@@ -46,6 +48,7 @@ import { PlayerConnectionSync } from "../sync/player-data/entity/player-connecti
         XboxSyncModule,
         EpicSyncModule,
         NintendoSyncModule,
+        forwardRef(() => GogSyncModule),
         forwardRef(() => PlaytimeWatchModule),
         forwardRef(() => CollectionsModule),
     ],
@@ -73,9 +76,11 @@ export class ConnectionsModule implements OnModuleInit {
         private readonly epicAuth: EpicConnectionAuthProvider,
         private readonly nintendoAuth: NintendoConnectionAuthProvider,
         private readonly psnSync: PsnSyncService,
+        private readonly gogAuth: GogConnectionAuthProvider,
     ) {}
 
     onModuleInit(): void {
+        this.registry.registerAuthStrategy(EConnectionType.GOG, this.gogAuth);
         this.registry.registerAuthStrategy(EConnectionType.PSN, {
             resolvePublicIdentifier: async (identifier) => {
                 const user = await this.psnSync.resolveUserInfo(identifier);

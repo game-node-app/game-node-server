@@ -227,6 +227,7 @@ test("1,001 candidates use one full-list scan and bounded pages while new user c
         {} as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     importer.isProcessedOrIgnored = fixture.importer.isProcessedOrIgnored;
     importer.markProcessed = fixture.importer.markProcessed;
@@ -276,4 +277,17 @@ test("commitPage appends discovery outbox intent with result identity and counts
     expect(payload.gameCount).toBe(3);
     expect(payload.importedCount).toBe(3);
     expect(payload.gameSample).toHaveLength(3);
+});
+
+test("GOG automatic imports use the configured collection and processed lifecycle", async () => {
+    const fixture = recoveryFixture();
+    await expect(
+        fixture.processor.run({ userId: "user", source: EImporterSource.GOG }),
+    ).resolves.toBe("complete");
+    expect(fixture.createForImport).toHaveBeenCalledTimes(2);
+    expect(fixture.processed).toEqual(new Set([1, 2]));
+    expect(fixture.notifications[0]).toMatchObject({
+        source: EImporterSource.GOG,
+        autoImportedCount: 2,
+    });
 });

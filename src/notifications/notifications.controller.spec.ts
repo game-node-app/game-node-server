@@ -51,6 +51,7 @@ describe("NotificationsController", () => {
                     "xbox",
                     "epicgames",
                     "nintendo",
+                    "gog",
                 ]);
             }
             expect(

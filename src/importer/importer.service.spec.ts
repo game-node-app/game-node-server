@@ -49,6 +49,7 @@ test("PSN discovery keeps first-source platform order and filters processed iden
         { find: jest.fn().mockResolvedValue([{ id: 1, cover: null }]) } as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     const [games, count] = await service.findUnprocessedEntries(
         "user",
@@ -86,6 +87,7 @@ test("discovery executes a registered handler without provider branches", async 
         {} as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     const handler = jest.fn().mockResolvedValue([{ id: 1, gameId: 10 }]);
     registry.register({
@@ -116,6 +118,7 @@ test("candidate validation is restricted to the user's selected provider snapsho
         {} as any,
         {} as any,
         registry,
+        {} as any,
         {} as any,
         {} as any,
         {} as any,
@@ -178,6 +181,7 @@ test("snapshot binds discovery to the selected connection account", async () => 
         {} as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     registry.register({
         ...registry.get("steam"),
@@ -218,6 +222,7 @@ test("listing filters the user's library before search and pagination and hydrat
         registry,
         { find: findLibrary } as any,
         { find: findGames } as any,
+        {} as any,
         {} as any,
         {} as any,
     );
@@ -290,6 +295,7 @@ test("shared matching returns processed entries only when marked entries are inc
         {} as any,
         {} as any,
         {} as any,
+        {} as any,
     );
     const ids = async (includeMarked: boolean) =>
         (
@@ -339,6 +345,7 @@ describe("Epic Games discovery", () => {
                 ]),
                 getCatalogTitle,
             } as any,
+            {} as any,
             {} as any,
         );
         return {
@@ -451,6 +458,7 @@ describe("Nintendo discovery", () => {
                         entry("C", "HAC", "2026-03-01"),
                     ]),
             } as any,
+            {} as any,
         );
         return { service, registerUnmappedGames };
     };
@@ -528,6 +536,7 @@ describe("unmapped registration during discovery", () => {
             {} as any,
             {} as any,
             {} as any,
+            {} as any,
         );
         return { service, registerUnmappedGames };
     };
@@ -600,5 +609,80 @@ describe("unmapped registration during discovery", () => {
             [{ sourceUid: "p1", name: "Halo" }],
             "user",
         );
+    });
+});
+
+describe("GOG discovery", () => {
+    const build = (failure?: Error) => {
+        const matched = jest.fn(async () => [
+            { id: 1, gameId: 10, uid: "100" },
+            { id: 2, gameId: 20, uid: "200" },
+            { id: 3, gameId: 30, uid: "300" },
+        ]);
+        const gog = {
+            getLibraryItems: failure
+                ? jest.fn().mockRejectedValue(failure)
+                : jest.fn().mockResolvedValue(["100", "200", "300", "400"]),
+            registerUnmappedGames: jest.fn(),
+        };
+        const service = new ImporterService(
+            { findBy: async () => [{ gameExternalGameId: 2 }] } as any,
+            { findBy: async () => [{ gameExternalGameId: 3 }] } as any,
+            {} as any,
+            {
+                findOneByUserIdAndTypeOrFail: async () => ({
+                    sourceUserId: "123",
+                }),
+            } as any,
+            {} as any,
+            { getExternalGamesForSourceIds: matched } as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            new ConnectionProviderRegistry(),
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            gog as any,
+        );
+        return { service, matched, gog };
+    };
+    it("imports only unprocessed mappings on PC and can include marked mappings", async () => {
+        const { service, matched, gog } = build();
+        const entries = await service.findProviderCandidates(
+            "owner",
+            EImporterSource.GOG,
+        );
+        expect(
+            entries.map((item) => [item.id, item.preferredPlatformId]),
+        ).toEqual([[1, 6]]);
+        expect(
+            (
+                await service.findProviderCandidates(
+                    "owner",
+                    EImporterSource.GOG,
+                    true,
+                )
+            ).map((item) => item.id),
+        ).toEqual([1, 2, 3]);
+        expect(matched).toHaveBeenCalledWith(
+            ["100", "200", "300", "400"],
+            EGameExternalGameCategory.Gog,
+            true,
+        );
+        expect(gog.registerUnmappedGames).toHaveBeenCalledWith(
+            expect.anything(),
+            "owner",
+            "123",
+            ["400"],
+        );
+    });
+    it("does not expose import candidates when a later library page fails", async () => {
+        const { service, matched } = build(new Error("later page failed"));
+        await expect(
+            service.findProviderCandidates("owner", EImporterSource.GOG),
+        ).rejects.toThrow("later page failed");
+        expect(matched).not.toHaveBeenCalled();
     });
 });

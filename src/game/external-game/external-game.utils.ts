@@ -13,6 +13,7 @@ const externalGameCategoryToIconMap: { [p: string]: number[] } = {
         EGameExternalGameCategory.Microsoft,
     ],
     steam: [EGameExternalGameCategory.Steam],
+    gog: [EGameExternalGameCategory.Gog],
     epicgames: [EGameExternalGameCategory.EpicGamesStore],
     android: [EGameExternalGameCategory.Android],
     playstation: [EGameExternalGameCategory.PlaystationStoreUs],

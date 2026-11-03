@@ -9,9 +9,19 @@ describe("ConnectionProviderRegistry", () => {
         registry = new ConnectionProviderRegistry();
     });
 
-    it("should discover registered providers (steam, psn, xbox, epicgames, nintendo) and return their capabilities", () => {
+    it("should discover registered providers (steam, psn, xbox, epicgames, nintendo, gog) and return their capabilities", () => {
         const available = registry.getAvailableProviders();
-        expect(available.length).toBe(5);
+        expect(available.length).toBe(6);
+        expect(available.find((p) => p.type === EConnectionType.GOG)).toEqual({
+            type: "gog",
+            name: "gog",
+            iconName: "gog",
+            authMode: EConnectionAuthMode.DELEGATED_CODE,
+            isImporterViable: true,
+            isImporterWatchViable: true,
+            isPlaytimeImportViable: true,
+            isAchievementImportViable: true,
+        });
 
         const steam = available.find((p) => p.type === EConnectionType.STEAM);
         expect(steam).toBeDefined();
