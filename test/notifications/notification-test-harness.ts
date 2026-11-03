@@ -8,6 +8,7 @@ export async function createNotificationTestDataSource(): Promise<DataSource> {
     const source = await new DataSource({
         ...settings.mysql,
         timezone: "Z",
+        dateStrings: ["DATE"],
         entities: [resolve(__dirname, "../../src/**/*.entity.ts")],
     }).initialize();
     try {

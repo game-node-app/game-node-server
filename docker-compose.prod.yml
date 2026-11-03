@@ -172,6 +172,7 @@ services:
       BLOG_PUBLIC_MEDIA_PATH: /app/blog-public-media
       CONNECTION_CREDENTIAL_ENCRYPTION_KEY: ${CONNECTION_CREDENTIAL_ENCRYPTION_KEY:?set CONNECTION_CREDENTIAL_ENCRYPTION_KEY}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+      DAILY_IMAGE_SECRET: ${DAILY_IMAGE_SECRET:?set DAILY_IMAGE_SECRET}
       # Starts paused for the initial validation; set true in Coolify after the smoke tests.
       PLAYER_DATA_SYNC_ENABLED: ${PLAYER_DATA_SYNC_ENABLED:-false}
       # Telemetry to PostHog; disabled while the endpoint is empty. See docs/observability.md.

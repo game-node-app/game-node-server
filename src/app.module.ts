@@ -45,6 +45,7 @@ import { McpModule } from "./mcp/mcp.module";
 import { getRedisConfig } from "./utils/getRedisConfig";
 import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.module";
 import { bullmqTelemetry } from "./tracing";
+import { DailyModule } from "./daily/daily.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -80,6 +81,8 @@ import { bullmqTelemetry } from "./tracing";
                     host: process.env.DB_HOST,
                     port: parseInt(process.env.DB_PORT as string) as any,
                     timezone: "Z",
+                    // DATE columns (daily_puzzle.date) stay "YYYY-MM-DD"; as Dates they shift a day west of UTC.
+                    dateStrings: ["DATE"],
                     username: process.env.DB_USER,
                     password: process.env.DB_PASS,
                     database: process.env.DB_DATABASE,
@@ -189,6 +192,7 @@ import { bullmqTelemetry } from "./tracing";
         SearchModule,
         PlayerDataWorkerModule,
         McpModule,
+        DailyModule,
     ],
 })
 export class AppModule implements NestModule {
