@@ -1,4 +1,5 @@
 import { IGDBPartialGame } from "../../../game/game-repository/game-repository.types";
+import { CatalogDataError } from "../catalog/igdb-catalog.client";
 
 export const snakeCaseToCamelCase = (str: string) => {
     if (str == null || str.startsWith("_")) {
@@ -104,7 +105,42 @@ function normalizeValue(value: any): any {
 export function normalizeIgdbGame(
     result: Record<string, unknown>,
 ): IGDBPartialGame {
+    const invalid = (field: string): never => {
+        const id = Number.isSafeInteger(result.id) ? result.id : "unknown";
+        throw new CatalogDataError(`Game ${id}: invalid videos ${field}`);
+    };
+    if (result.videos != null) {
+        if (!Array.isArray(result.videos)) invalid("collection");
+        for (const video of result.videos as unknown[]) {
+            if (!video || typeof video !== "object" || Array.isArray(video))
+                invalid("entry");
+            const entry = video as Record<string, unknown>;
+            if (!Number.isSafeInteger(entry.id) || (entry.id as number) <= 0)
+                invalid("id");
+            for (const field of ["name", "video_id", "checksum"]) {
+                if (entry[field] != null && typeof entry[field] !== "string")
+                    invalid(field);
+            }
+            if (
+                "game" in entry &&
+                (!Number.isSafeInteger(entry.game) ||
+                    (entry.game as number) <= 0 ||
+                    entry.game !== result.id)
+            )
+                invalid("game");
+        }
+    }
     const game = normalizeValue(result) as IGDBPartialGame;
+    if (game.videos) {
+        for (const video of game.videos) {
+            video.name ??= null;
+            video.checksum ??= null;
+            video.videoId ??= null;
+            video.url = video.videoId
+                ? `https://www.youtube.com/watch?v=${encodeURIComponent(video.videoId)}`
+                : null;
+        }
+    }
     if (game.gameLocalizations) game.localizations = game.gameLocalizations;
     return game;
 }

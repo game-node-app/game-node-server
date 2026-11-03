@@ -173,6 +173,10 @@ only to fields consumed by existing entity columns or conversion:
   their conversion fallbacks.
 - `cover.*`, `screenshots.*`, `artworks.*` map to `GameImage` subclasses: identity,
   checksum, alpha channel, animation, dimensions, image ID and URL.
+- `videos` supplies source ID, game ID, name, video ID and checksum. A non-empty
+  video ID is retained and encoded into a derived HTTPS YouTube watch URL. The
+  importer does not download media or check whether a video is available.
+
 - `game_modes.*`, `themes.*`, `player_perspectives.*`, `genres.*`, `franchises.*`,
   `keywords.*`, `game_engines.*` map to `GameResource`: identity, name, slug,
   checksum, URL and timestamps. Engine platform/company expansions follow below.
@@ -201,6 +205,22 @@ only to fields consumed by existing entity columns or conversion:
   handler persists them. Other wildcard fields outside these mapped destinations
   are omitted; no supported persistence destination is removed.
 
+For a single game, `POST /v1/game/repository/42` with body
+`{"relations":{"videos":true}}` includes, for example,
+`"videos":[{"id":123,"name":"Trailer","videoId":"abc123","checksum":"source-checksum","url":"https://www.youtube.com/watch?v=abc123"}]`.
+For several games use `POST /v1/game/repository` with
+`{"gameIds":[42,43],"relations":{"videos":true}}`. Games without videos
+return an empty array. Videos are omitted unless requested. The existing
+`GET /v1/game/repository/resource?resourceName=videos` lists video resources.
+
+Video change verification used the disposable MySQL/Redis harness without live
+IGDB credentials. Type-checking passed; the IGDB unit selection passed 21 suites
+and 146 tests, and integration passed 9 suites and 33 tests (with a 120-second
+Jest timeout). The focused migration check ran up/down/up against disposable
+MySQL and retained test game, screenshot and statistics rows across rollback.
+The tests cover media coexistence, transactional recovery and relationship
+concurrency bounds; scheduling and configuration are unchanged.
+
 ## Relationship reconciliation cadence
 
 The initial internal full scan forces relationship reconciliation for every
@@ -213,7 +233,19 @@ a full scan every week does not force every unchanged relationship every week.
 Base checksums and required relationships commit together, so a failed game
 cannot leave behind a successful checksum that hides its failed writes.
 
+Existing games acquire videos when their relationships are eligible for
+reconciliation; coverage is not guaranteed on the next scan. To populate a
+complete catalog in one full scan, set
+`IGDB_SYNC_SKIP_RELATIONS_ON_CHECKSUM_MATCH=false` on importer replicas for that
+scan, then restore the prior setting. This uses existing progress and does not
+require a catalog state reset.
+
 ## Activation, commands and recovery
+
+Apply the `AddGameVideo` migration before deploying any importer or API replica
+that registers the video relation. To roll back, first deploy the previous
+application version, then revert the migration. Reverting drops imported video
+metadata; game, image, statistics and catalog state rows remain intact.
 
 Apply the state migration before starting the application. Export application
 database settings for the operator command; it intentionally does not load

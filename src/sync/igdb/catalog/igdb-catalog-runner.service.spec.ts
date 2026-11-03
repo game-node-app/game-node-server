@@ -230,6 +230,19 @@ describe("strict catalog page runner", () => {
             warns.mockRestore();
         }
     });
+    it("pauses on malformed videos without importing or advancing the page", async () => {
+        const f = fixture();
+        f.client.fetchPage.mockResolvedValueOnce([
+            { id: 2, name: "Game", videos: [{}] } as any,
+        ]);
+        await expect(f.runner.run("fixture")).rejects.toBeInstanceOf(
+            CatalogDataError,
+        );
+        expect(f.importer.persist).not.toHaveBeenCalled();
+        expect(f.state.pauseRun).toHaveBeenCalledTimes(1);
+        expect(f.durable.committedId).toBe(0);
+        expect(f.state.commitBatch).not.toHaveBeenCalled();
+    });
     it("handles an initially empty catalog without deleting local games", async () => {
         const f = fixture();
         f.client.fetchUpperId.mockResolvedValue(0);

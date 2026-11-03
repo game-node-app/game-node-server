@@ -20,6 +20,7 @@ import {
 } from "../game-repository.constants";
 import { GameCover } from "./game-cover.entity";
 import { GameScreenshot } from "./game-screenshot.entity";
+import { GameVideo } from "./game-video.entity";
 import { GameExternalGame } from "../../external-game/entity/game-external-game.entity";
 import { GameFranchise } from "./game-franchise.entity";
 import { GameLocalization } from "./game-localization.entity";
@@ -191,6 +192,8 @@ export class Game {
         nullable: true,
     })
     screenshots: GameScreenshot[];
+    @OneToMany(() => GameVideo, (video) => video.game, { nullable: true })
+    videos: GameVideo[];
 
     @OneToMany(
         () => GameLocalization,

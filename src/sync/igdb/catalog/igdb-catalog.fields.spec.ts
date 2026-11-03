@@ -24,6 +24,15 @@ describe("catalog field projection", () => {
         expect(IGDB_CATALOG_FIELDS.some((field) => field.includes("*"))).toBe(
             false,
         );
+        expect(
+            IGDB_CATALOG_FIELDS.filter((field) => field.startsWith("videos.")),
+        ).toEqual([
+            "videos.id",
+            "videos.game",
+            "videos.name",
+            "videos.video_id",
+            "videos.checksum",
+        ]);
         expect(IGDB_CATALOG_FIELDS).toEqual(
             expect.arrayContaining([
                 "category",

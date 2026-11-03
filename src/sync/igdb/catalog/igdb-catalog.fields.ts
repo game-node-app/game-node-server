@@ -67,6 +67,7 @@ export const IGDB_CATALOG_FIELDS = [
     ...["cover", "screenshots", "artworks"].flatMap((key) =>
         expand(key, image),
     ),
+    ...expand("videos", ["id", "game", "name", "video_id", "checksum"]),
     ...[
         "game_modes",
         "themes",

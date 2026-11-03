@@ -6,6 +6,7 @@ import { GameAlternativeName } from "./entities/game-alternative-name.entity";
 import { GameCover } from "./entities/game-cover.entity";
 import { GameArtwork } from "./entities/game-artwork.entity";
 import { GameScreenshot } from "./entities/game-screenshot.entity";
+import { GameVideo } from "./entities/game-video.entity";
 import { GameFranchise } from "./entities/game-franchise.entity";
 import { GameGenre } from "./entities/game-genre.entity";
 import { GameLocalization } from "./entities/game-localization.entity";
@@ -36,6 +37,7 @@ import { GameCollection } from "./entities/game-collection.entity";
             GameCover,
             GameArtwork,
             GameScreenshot,
+            GameVideo,
             GameFranchise,
             GameGenre,
             GameLocalization,
