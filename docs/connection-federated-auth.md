@@ -19,7 +19,9 @@ GameNode supports multi-platform gaming service connections (`steam`, `psn`, `xb
 | `XBOX_OAUTH_REDIRECT_URI` | String (URL) | Microsoft OAuth registered redirect URI pointing to the frontend callback route (e.g., `https://gamenode.app/connections/callback/xbox` or `http://localhost:3000/connections/callback/xbox`). |
 | `STEAM_API_KEY` | String | Steam Web API key for server-to-server profile summaries and library/achievement sync. |
 | `PSN_NPSSO_KEY` | String | PlayStation Network NPSSO token for PlayStation API access. |
-| `XBOX_API_USER` / `XBOX_API_PASS` | String | Fallback credentials for catalog-level unauthenticated Xbox operations (`XboxSyncAuthService.getCatalogAuthCredentials`). |
+
+Xbox catalog lookups requiring authentication use a connected Xbox account's
+credentials. They are unavailable if no Xbox account is connected.
 
 ---
 

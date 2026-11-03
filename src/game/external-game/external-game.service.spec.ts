@@ -5,6 +5,50 @@ import { ExternalGameMappingsService } from "./external-game-mappings.service";
 import { runPlayerSyncAttempt } from "../../sync/player-sync-attempt";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 
+test("missing source IDs do not block valid mappings or unmapped registrations", async () => {
+    const find = jest.fn(async (_options: any) => [{ uid: "valid" }]);
+    const query = jest.fn(async (_sql: string, _params: any) => undefined);
+    const service = new ExternalGameService({ find } as any, { query } as any);
+    const ids = [undefined, null, "", "  ", "valid"] as string[];
+
+    await service.getExternalGamesForSourceIds(
+        ids,
+        EGameExternalGameCategory.Microsoft,
+    );
+    expect(find.mock.calls[0][0].where.uid.value).toEqual(["valid"]);
+
+    await service.registerUnmappedGames(
+        EGameExternalGameCategory.Microsoft,
+        ids.map((sourceUid) => ({ sourceUid, name: "Game" })),
+        "user",
+    );
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[0][1]).toEqual([
+        [["valid", EGameExternalGameCategory.Microsoft, "Game"]],
+    ]);
+    expect(query.mock.calls[1][1]).toEqual([
+        "user",
+        EGameExternalGameCategory.Microsoft,
+        ["valid"],
+    ]);
+
+    find.mockClear();
+    query.mockClear();
+    expect(
+        await service.getExternalGamesForSourceIds(
+            ids.slice(0, 4),
+            EGameExternalGameCategory.Microsoft,
+        ),
+    ).toEqual([]);
+    await service.registerUnmappedGames(
+        EGameExternalGameCategory.Microsoft,
+        ids.slice(0, 4).map((sourceUid) => ({ sourceUid })),
+        "user",
+    );
+    expect(find).not.toHaveBeenCalled();
+    expect(query).not.toHaveBeenCalled();
+});
+
 test("mapping reads use bounded distinct IDs and preserve source order within one attempt", async () => {
     const find = jest.fn(async ({ where }) =>
         where.uid.value.toReversed().map((uid: string) => ({ uid })),

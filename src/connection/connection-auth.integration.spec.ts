@@ -206,13 +206,11 @@ integrationDescribe("connection auth on disposable MySQL and Redis", () => {
     it("uses atomic refresh locks with owner-checked renewal and release", async () => {
         const first = new XboxSyncAuthService(
             {} as any,
-            {} as any,
             source.getRepository(UserConnection),
             credentials,
             queue,
         ) as any;
         const second = new XboxSyncAuthService(
-            {} as any,
             {} as any,
             source.getRepository(UserConnection),
             credentials,

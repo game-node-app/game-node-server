@@ -95,7 +95,11 @@ export class ExternalGameService {
         category: EGameExternalGameCategory,
         includeAllMappings = false,
     ) {
-        const ids = [...new Set(sourceIds)];
+        const ids = [
+            ...new Set(
+                sourceIds.filter((id) => typeof id === "string" && id.trim()),
+            ),
+        ];
         const externalGames: GameExternalGame[] = [];
         for (let offset = 0; offset < ids.length; offset += 500) {
             externalGames.push(
@@ -241,6 +245,7 @@ export class ExternalGameService {
         // Later entries win, so a name found for a duplicated source ID is not lost.
         const byUid = new Map<string, string | null>();
         for (const { sourceUid, name } of entries) {
+            if (typeof sourceUid !== "string" || !sourceUid.trim()) continue;
             byUid.set(
                 sourceUid,
                 name?.trim().slice(0, 255) || byUid.get(sourceUid) || null,
