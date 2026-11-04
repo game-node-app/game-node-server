@@ -27,6 +27,9 @@ export class IgdbCatalogState {
     @Column({ type: "int", unsigned: true, default: 0 })
     committedId: number = 0;
 
+    @Column({ type: "varchar", length: 64, default: "games" })
+    sweepEndpoint = "games";
+
     @Column({ type: "int", unsigned: true, nullable: true })
     upperId: number | null = null;
 

@@ -47,7 +47,12 @@ import { ApiProperty } from "@nestjs/swagger";
  * */
 @Entity()
 @Index("UQ_game_statistics_target", ["statisticsTargetId"], { unique: true })
-@Index("IDX_game_statistics_ranking", ["id", "statisticsTargetId", "status", "category"])
+@Index("IDX_game_statistics_ranking", [
+    "id",
+    "statisticsTargetId",
+    "status",
+    "category",
+])
 export class Game {
     /**
      * Should be mapped to the IGDB ID of the game.
@@ -107,6 +112,9 @@ export class Game {
         type: "datetime",
     })
     updatedAt: Date;
+
+    @Column({ type: "datetime", precision: 3, nullable: true })
+    igdbUpdatedAt: Date | null;
 
     @OneToOne(() => StatisticsTarget, { nullable: true, onDelete: "RESTRICT" })
     @JoinColumn({ name: "statisticsTargetId" })

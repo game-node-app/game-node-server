@@ -7,6 +7,7 @@ import {
     CatalogSourceError,
     IgdbCatalogClient,
 } from "./igdb-catalog.client";
+import { IGDB_SYNC_ENDPOINTS as entries } from "./igdb-sync-endpoints";
 import { IGDB_CATALOG_FIELDS } from "./igdb-catalog.fields";
 
 describe("IgdbCatalogClient", () => {
@@ -128,4 +129,81 @@ describe("IgdbCatalogClient", () => {
             await expect(client.fetchUpperId()).rejects.toThrow(code);
         },
     );
+});
+
+describe("registry queries", () => {
+    const post = jest.fn();
+    const client = new IgdbCatalogClient(
+        { axiosRef: { post } } as any,
+        { getAuthHeaders: async () => ({}) } as any,
+        catalogConfig({}),
+        { run: (work: any) => work() } as any,
+    );
+    beforeEach(() =>
+        post
+            .mockReset()
+            .mockResolvedValue({ status: 200, data: [], headers: {} }),
+    );
+    it("requests checksum, ownership and declared compared fields in a sweep", async () => {
+        const cover = entries.find((entry) => entry.endpoint === "covers")!;
+        await client.fetchSweepPage(
+            {
+                ...cover,
+                compare: [
+                    { source: "version_parent", column: "versionParentId" },
+                ],
+            },
+            7,
+            90,
+        );
+        expect(post.mock.calls[0][0]).toContain("/covers");
+        expect(post.mock.calls[0][1]).toBe(
+            "fields id,checksum,game,version_parent; where id > 7 & id <= 90; sort id asc; limit 500;",
+        );
+    });
+    it("uses fixed delta windows and configured expanded limits", async () => {
+        await client.fetchDeltaPage(
+            entries[0],
+            new Date(1000000),
+            new Date(2000000),
+            7,
+        );
+        expect(post.mock.calls[0][1]).toBe(
+            `fields ${IGDB_CATALOG_FIELDS.join(",")}; where updated_at >= 1000 & updated_at < 2000 & id > 7; sort id asc; limit 25;`,
+        );
+        await client.fetchByIds(entries[0], [2, 7]);
+        expect(post.mock.calls[1][1]).toContain(
+            "where id = (2,7); sort id asc; limit 25;",
+        );
+        await client.fetchByIds(
+            entries.find((entry) => entry.endpoint === "genres")!,
+            [2],
+        );
+        expect(post.mock.calls[2][0]).toContain("/genres");
+        expect(post.mock.calls[2][1]).toContain("limit 500;");
+        await expect(
+            client.fetchByIds(
+                entries[0],
+                Array.from({ length: 26 }, (_, i) => i + 1),
+            ),
+        ).rejects.toBeInstanceOf(CatalogDataError);
+    });
+    it.each([
+        [{ id: 9, updated_at: 2000 }],
+        [{ id: 9, updated_at: 999 }],
+        [
+            { id: 9, updated_at: 1500 },
+            { id: 8, updated_at: 1500 },
+        ],
+    ])("rejects out-of-window or unordered delta responses", async (rows) => {
+        post.mockResolvedValue({ status: 200, data: rows });
+        await expect(
+            client.fetchDeltaPage(
+                entries[0],
+                new Date(1000000),
+                new Date(2000000),
+                0,
+            ),
+        ).rejects.toBeInstanceOf(CatalogDataError);
+    });
 });

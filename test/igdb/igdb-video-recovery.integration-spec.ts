@@ -2,8 +2,6 @@ import { randomBytes } from "node:crypto";
 import { fixtureRuntime } from "./helpers/fixture-runtime";
 import { Game } from "../../src/game/game-repository/entities/game.entity";
 import { GameVideo } from "../../src/game/game-repository/entities/game-video.entity";
-import { GameRepositoryCreateService } from "../../src/game/game-repository/create/game-repository-create.service";
-import { ConfigService } from "@nestjs/config";
 import { AsyncLeafLimiter } from "../../src/sync/igdb/catalog/async-leaf-limiter";
 import { normalizeIgdbGame } from "../../src/sync/igdb/utils/game-conversor-utils";
 import { ensureStatisticsTarget } from "../../src/statistics/statistics-target.repository";
@@ -45,7 +43,8 @@ it("rolls back a failed video write without advancing the page and retries safel
         await runtime.runner.run(claim!.runId!);
         expect(await runtime.state.readStatus()).toMatchObject({
             status: "completed",
-            committedId: 45,
+            sweepEndpoint: "player_perspectives",
+            committedId: 0,
         });
         expect(
             await runtime.source.getRepository(GameVideo).countBy({ id: 4500 }),
@@ -55,14 +54,8 @@ it("rolls back a failed video write without advancing the page and retries safel
         );
         const state = await runtime.state.readStatus();
         await runtime.source.getRepository(GameVideo).delete(4500);
-        const override = new GameRepositoryCreateService({
-            get: (key: string, fallback: unknown) =>
-                key === "IGDB_SYNC_SKIP_RELATIONS_ON_CHECKSUM_MATCH"
-                    ? "false"
-                    : fallback,
-        } as ConfigService);
         await runtime.source.transaction((manager) =>
-            override.createOrUpdate(
+            runtime.games.createOrUpdate(
                 normalizeIgdbGame({
                     id: 45,
                     name: "Fixture 45",
@@ -77,6 +70,7 @@ it("rolls back a failed video write without advancing the page and retries safel
                     ownershipGuard: async () => undefined,
                     limiter: new AsyncLeafLimiter(2),
                     forceReconciliation: false,
+                    reconcileRelations: true,
                     ensureStatistics: async (manager, id) => {
                         await ensureStatisticsTarget(
                             manager,

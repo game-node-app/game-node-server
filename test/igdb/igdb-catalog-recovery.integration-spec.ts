@@ -4,7 +4,6 @@ import { fork, ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { QueueEvents } from "bullmq";
 import { fixtureRuntime } from "./helpers/fixture-runtime";
-import { fixtureExpected } from "./helpers/generated-catalog";
 import {
     CATALOG_JOB_OPTIONS,
     IGDB_CATALOG_JOB_NAME,
@@ -107,12 +106,17 @@ describe("two-process durable catalog recovery", () => {
                 );
                 await held;
                 expect((await runtime.state.readStatus()).committedId).toBe(0);
-                const existingGame = await runtime.source.getRepository(Game).findOneByOrFail({ id: 45 });
-                await runtime.source.getRepository(MetricTotal).upsert({
-                    targetId: existingGame.statisticsTargetId!,
-                    metricCode: "views",
-                    metricValue: 11,
-                }, ["targetId", "metricCode"]);
+                const existingGame = await runtime.source
+                    .getRepository(Game)
+                    .findOneByOrFail({ id: 45 });
+                await runtime.source.getRepository(MetricTotal).upsert(
+                    {
+                        targetId: existingGame.statisticsTargetId!,
+                        metricCode: "views",
+                        metricValue: 11,
+                    },
+                    ["targetId", "metricCode"],
+                );
                 if (mode === "kill") {
                     const dead = once(first, "exit");
                     first.kill("SIGKILL");
@@ -136,7 +140,8 @@ describe("two-process durable catalog recovery", () => {
                 const status = await runtime.state.readStatus();
                 expect(status).toMatchObject({
                     status: "completed",
-                    committedId: fixtureExpected(fixture).cursor,
+                    sweepEndpoint: "player_perspectives",
+                    committedId: 0,
                     committedGames: 4,
                     committedBatches: 1,
                 });
@@ -144,13 +149,18 @@ describe("two-process durable catalog recovery", () => {
                     5,
                 );
                 expect(
-                    await runtime.source.getRepository(StatisticsTarget).countBy({ sourceType: StatisticsSourceType.GAME }),
+                    await runtime.source
+                        .getRepository(StatisticsTarget)
+                        .countBy({ sourceType: StatisticsSourceType.GAME }),
                 ).toBe(5);
                 expect(
                     (
                         await runtime.source
                             .getRepository(MetricTotal)
-                            .findOneByOrFail({ targetId: existingGame.statisticsTargetId!, metricCode: "views" })
+                            .findOneByOrFail({
+                                targetId: existingGame.statisticsTargetId!,
+                                metricCode: "views",
+                            })
                     ).metricValue,
                 ).toBe(11);
                 const game = await runtime.source
@@ -235,11 +245,14 @@ describe("two-process durable catalog recovery", () => {
                 await job.waitUntilFinished(events, 15000);
                 expect(await runtime.state.readStatus()).toMatchObject({
                     status: "completed",
-                    committedId: 54,
+                    sweepEndpoint: "player_perspectives",
+                    committedId: 0,
                     committedGames: 4,
                 });
                 expect(
-                    await runtime.source.getRepository(StatisticsTarget).countBy({ sourceType: StatisticsSourceType.GAME }),
+                    await runtime.source
+                        .getRepository(StatisticsTarget)
+                        .countBy({ sourceType: StatisticsSourceType.GAME }),
                 ).toBe(5);
             } finally {
                 await stop(child);

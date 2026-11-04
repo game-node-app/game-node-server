@@ -88,6 +88,7 @@ export async function catalogCommand(
         return {
             runId: current.runId,
             status: current.status,
+            sweepEndpoint: current.sweepEndpoint,
             committedId: current.committedId,
             upperId: current.upperId,
             committedGames: current.committedGames,

@@ -13,6 +13,8 @@ export interface CatalogOwner {
     ownerGeneration: number;
 }
 
+export type OwnershipAssertion = (manager: EntityManager) => Promise<unknown>;
+
 export class CatalogOwnershipLost extends Error {
     constructor() {
         super("Catalog run ownership is no longer valid");
@@ -24,7 +26,7 @@ export class IgdbCatalogStateService {
     constructor(private readonly source: DataSource) {}
 
     async gameTransaction<T>(
-        owner: CatalogOwner,
+        owner: CatalogOwner | OwnershipAssertion,
         work: (manager: EntityManager) => Promise<T>,
     ): Promise<T> {
         const runner = this.source.createQueryRunner();
@@ -44,7 +46,9 @@ export class IgdbCatalogStateService {
                     .catch(() => connection.destroy());
             }, 60_000);
             await runner.startTransaction();
-            await this.assertOwnership(runner.manager, owner);
+            await (typeof owner === "function"
+                ? owner(runner.manager)
+                : this.assertOwnership(runner.manager, owner));
             const result = await work(runner.manager);
             if (expired)
                 throw new Error("Catalog game transaction exceeded 60000 ms");
@@ -130,6 +134,7 @@ export class IgdbCatalogStateService {
                 Object.assign(state, {
                     runId: randomUUID(),
                     status: "running",
+                    sweepEndpoint: "games",
                     committedId: 0,
                     upperId: null,
                     committedGames: 0,
@@ -217,6 +222,17 @@ export class IgdbCatalogStateService {
             state.retryGameId = null;
             state.attempt = 0;
             state.failureSummary = null;
+        });
+    }
+
+    async nextEndpoint(owner: CatalogOwner, previous: string, next: string) {
+        return this.mutate(owner, async (state) => {
+            if (state.sweepEndpoint !== previous)
+                throw new Error("Invalid sweep endpoint checkpoint");
+            state.sweepEndpoint = next;
+            state.committedId = 0;
+            state.upperId = null;
+            state.retryBudgets = null;
         });
     }
 

@@ -1,6 +1,4 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
-import { normalizeIgdbGame } from "../utils/game-conversor-utils";
-import { InvalidGameEntryError } from "../../../game/game-repository/create/game-import-context";
 import { AsyncLeafLimiter } from "./async-leaf-limiter";
 import {
     CATALOG_CONFIG,
@@ -8,19 +6,16 @@ import {
     IgdbCatalogClient,
 } from "./igdb-catalog.client";
 import { CATALOG_TIMING, IgdbCatalogConfig } from "./igdb-catalog.config";
-import { IgdbCatalogImportService } from "./igdb-catalog-import.service";
 import {
     CatalogOwner,
     CatalogOwnershipLost,
     IgdbCatalogStateService,
 } from "./igdb-catalog-state.service";
 import { CatalogStage } from "./entities/igdb-catalog-state.entity";
-import {
-    runCatalogStage,
-    isTransientCatalogError,
-    catalogRetryDelay,
-    retryRuntime,
-} from "./igdb-catalog.retry";
+import { runCatalogStage } from "./igdb-catalog.retry";
+
+import { IGDB_SYNC_ENDPOINTS } from "./igdb-sync-endpoints";
+import { IgdbRefreshService } from "./igdb-refresh.service";
 
 @Injectable()
 export class IgdbCatalogRunnerService implements OnModuleDestroy {
@@ -31,8 +26,8 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
     constructor(
         private readonly state: IgdbCatalogStateService,
         private readonly client: IgdbCatalogClient,
-        private readonly importer: IgdbCatalogImportService,
         @Inject(CATALOG_CONFIG) private readonly config: IgdbCatalogConfig,
+        private readonly refresh: IgdbRefreshService,
     ) {}
 
     run(runId: string): Promise<void> {
@@ -121,186 +116,120 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
         };
         const started = Date.now();
         try {
-            let upper = claimed.upperId;
-            if (upper === null) {
-                upper = await attempt("upper", null, async () => {
-                    const persisted = await this.state.readStatus();
-                    if (persisted.upperId !== null) return persisted.upperId;
-                    const value = await this.client.fetchUpperId(
-                        controller.signal,
-                    );
-                    ensureActive();
-                    await this.state.setUpperId(owner, value);
-                    return value;
-                });
-            }
+            let endpointIndex = IGDB_SYNC_ENDPOINTS.findIndex(
+                (entry) => entry.endpoint === claimed.sweepEndpoint,
+            );
+            if (endpointIndex < 0)
+                throw new CatalogDataError("Unknown sweep endpoint");
             let cursor = claimed.committedId;
+            let upper = claimed.upperId;
             let batches = claimed.committedBatches;
             let games = claimed.committedGames;
-            this.logger.log({
-                event: "catalog.run",
-                runId,
-                cursor,
-                committedBatches: batches,
-                committedGames: games,
-            });
-            while (true) {
+            while (endpointIndex < IGDB_SYNC_ENDPOINTS.length) {
                 ensureActive();
-                let page = await attempt("fetch", null, () =>
-                    this.client.fetchPage(
+                const endpoint = IGDB_SYNC_ENDPOINTS[endpointIndex];
+                if (upper === null) {
+                    upper = await attempt("upper", null, async () => {
+                        const persisted = await this.state.readStatus();
+                        if (persisted.upperId !== null)
+                            return persisted.upperId;
+                        const value = await this.client.fetchUpperId(
+                            controller.signal,
+                            endpoint.endpoint,
+                        );
+                        ensureActive();
+                        await this.state.setUpperId(owner, value);
+                        return value;
+                    });
+                }
+                const page = await attempt("fetch", null, () =>
+                    this.client.fetchSweepPage(
+                        endpoint,
                         cursor,
                         upper!,
-                        this.config.batchSize,
                         controller.signal,
                     ),
                 );
-                if (page.length === 0) {
+                if (!page.length) {
+                    if (endpointIndex === IGDB_SYNC_ENDPOINTS.length - 1) {
+                        await attempt(
+                            "complete",
+                            null,
+                            () =>
+                                this.state.completeRun(
+                                    owner,
+                                    this.config.intervalDays,
+                                ),
+                            false,
+                        );
+                        terminal = true;
+                        this.logger.log({
+                            event: "catalog.completed",
+                            runId,
+                            cursor,
+                            committedBatches: batches,
+                            committedGames: games,
+                            durationMs: Date.now() - started,
+                        });
+                        return;
+                    }
                     await attempt(
-                        "complete",
+                        "checkpoint",
                         null,
-                        async () => {
-                            ensureActive();
-                            await this.state.completeRun(
+                        () =>
+                            this.state.nextEndpoint(
                                 owner,
-                                this.config.intervalDays,
-                            );
-                        },
+                                endpoint.endpoint,
+                                IGDB_SYNC_ENDPOINTS[endpointIndex + 1].endpoint,
+                            ),
                         false,
                     );
-                    terminal = true;
-                    this.logger.log({
-                        event: "catalog.completed",
-                        runId,
-                        cursor,
-                        committedBatches: batches,
-                        committedGames: games,
-                        durationMs: Date.now() - started,
-                    });
-                    return;
+                    endpointIndex++;
+                    cursor = 0;
+                    upper = null;
+                    continue;
                 }
-                const batchStart = Date.now();
-                let failedStageGame: number | null = null;
-                while (true) {
-                    let index = 0;
-                    let failed = false;
-                    let failure: unknown;
-                    const consume = async () => {
-                        while (!failed && index < page.length) {
-                            ensureActive();
-                            const entry = page[index++];
-                            try {
-                                const used = await this.state.readStageAttempts(
-                                    owner,
-                                    "game",
-                                    entry.id,
-                                );
-                                if (used >= this.config.maxAttempts)
-                                    throw new CatalogDataError(
-                                        "Game stage attempt budget exhausted; run will resume after cooldown",
-                                    );
-                                await this.state.admitStageAttempt(
-                                    owner,
-                                    "game",
-                                    entry.id,
-                                    this.config.maxAttempts,
-                                );
-                                ensureActive();
-                                try {
-                                    await this.importer.persist(
-                                        normalizeIgdbGame(entry),
-                                        owner,
-                                        limiter,
-                                        claimed.forceReconciliation,
-                                    );
-                                } catch (error) {
-                                    // Source data cannot be fixed locally; skip it so the scan never stalls.
-                                    if (
-                                        !(
-                                            error instanceof
-                                            InvalidGameEntryError
-                                        )
-                                    )
-                                        throw error;
-                                    this.logger.warn({
-                                        event: "catalog.game.skipped",
-                                        runId,
-                                        gameId: entry.id,
-                                        reason: error.message,
-                                    });
-                                }
-                                await this.state.finishAttemptStage(
-                                    owner,
-                                    "game",
-                                    entry.id,
-                                );
-                            } catch (error) {
-                                if (!failed) {
-                                    failed = true;
-                                    failure = error;
-                                    failedStageGame = entry.id;
-                                }
-                                throw error;
-                            }
-                        }
-                    };
-                    const settled = await Promise.allSettled(
-                        Array.from(
-                            { length: this.config.gameConcurrency },
-                            consume,
+                const changed = await this.refresh.mismatches(endpoint, page);
+                for (const row of changed) {
+                    ensureActive();
+                    await attempt("game", row.id, () =>
+                        this.refresh.apply(
+                            endpoint,
+                            [row],
+                            (manager) =>
+                                this.state.assertOwnership(manager, owner),
+                            limiter,
+                            claimed.forceReconciliation,
+                            false,
+                            controller.signal,
                         ),
                     );
-                    const rejected = settled.find(
-                        (result): result is PromiseRejectedResult =>
-                            result.status === "rejected",
-                    );
-                    if (!rejected) break;
-                    ensureActive();
-                    stage = "game";
-                    gameId = failedStageGame;
-                    const used = await this.state.readStageAttempts(
-                        owner,
-                        "game",
-                        failedStageGame,
-                    );
-                    if (
-                        !isTransientCatalogError(failure) ||
-                        used >= this.config.maxAttempts
-                    )
-                        throw failure;
-                    await retryRuntime.sleep(
-                        catalogRetryDelay(used, failure, retryRuntime),
-                        controller.signal,
-                    );
                 }
-                ensureActive();
                 const maximum = page[page.length - 1].id;
-                const size = page.length;
                 await attempt(
                     "checkpoint",
                     null,
-                    async () => {
-                        ensureActive();
-                        await this.state.commitBatch(
+                    () =>
+                        this.state.commitBatch(
                             owner,
                             cursor,
                             maximum,
-                            size,
-                        );
-                    },
+                            page.length,
+                        ),
                     false,
                 );
                 cursor = maximum;
                 batches++;
-                games += size;
-                page = [];
+                games += page.length;
                 const memory = process.memoryUsage();
                 this.logger.log({
                     event: "catalog.batch",
                     runId,
+                    endpoint: endpoint.endpoint,
                     cursor,
                     committedBatches: batches,
                     committedGames: games,
-                    durationMs: Date.now() - batchStart,
+                    durationMs: Date.now() - started,
                     rss: memory.rss,
                     heapUsed: memory.heapUsed,
                 });

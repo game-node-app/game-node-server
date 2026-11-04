@@ -1,5 +1,6 @@
 import {
     Inject,
+    Optional,
     Injectable,
     Logger,
     OnModuleInit,
@@ -21,6 +22,8 @@ import {
     catalogJobId,
 } from "./igdb-catalog.constants";
 
+import { IgdbDeltaService } from "./igdb-delta.service";
+
 @Injectable()
 export class IgdbCatalogSchedulerService
     implements OnModuleInit, OnModuleDestroy
@@ -32,6 +35,7 @@ export class IgdbCatalogSchedulerService
         private readonly state: IgdbCatalogStateService,
         @InjectQueue(IGDB_CATALOG_QUEUE_NAME) private readonly queue: Queue,
         @Inject(CATALOG_CONFIG) private readonly config: IgdbCatalogConfig,
+        @Optional() private readonly delta?: IgdbDeltaService,
     ) {}
     async onModuleInit() {
         await this.tick();
@@ -43,6 +47,12 @@ export class IgdbCatalogSchedulerService
     @Interval(60000)
     async tick() {
         try {
+            void this.delta?.run().catch(() =>
+                this.logger.error({
+                    event: "catalog.delta.failed",
+                    message: "Delta pass failed; check database connectivity",
+                }),
+            );
             await this.reconcile();
         } catch (error) {
             this.logger.error({
