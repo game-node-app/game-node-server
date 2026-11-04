@@ -175,6 +175,67 @@ it("refreshes an in-place cover edit, skips matching pages and resumes a sweep e
     }
 }, 120000);
 
+it("skips localized covers without a game and completes the sweep", async () => {
+    const runtime = await fixtureRuntime(
+        { seed: 42, games: 1 },
+        {
+            tablePrefix: `r_${randomBytes(4).toString("hex")}_`,
+            trackPages: false,
+        },
+    );
+    try {
+        const initial = (await runtime.state.claimRun())!;
+        await runtime.state.releaseOwnership(initial as any);
+        await runtime.runner.run(initial.runId!);
+        await runtime.source
+            .getRepository(IgdbCatalogState)
+            .update(1, { nextEligibleAt: new Date(0) });
+        const claim = (await runtime.state.claimRun())!;
+        await runtime.state.releaseOwnership(claim as any);
+        await runtime.source.getRepository(IgdbCatalogState).update(1, {
+            status: "running",
+            sweepEndpoint: "covers",
+            committedId: 450,
+            upperId: 447161,
+            ownerToken: null,
+            leaseExpiresAt: null,
+        });
+        const sweep = jest
+            .spyOn(runtime.client, "fetchSweepPage")
+            .mockImplementation(async (endpoint, cursor) =>
+                endpoint.endpoint === "covers" && cursor === 450
+                    ? [
+                          {
+                              id: 451,
+                              game_localization: 40272,
+                              checksum: "cover-45",
+                          },
+                          {
+                              id: 447161,
+                              game_localization: 40272,
+                              checksum: "localized-cover",
+                          },
+                      ]
+                    : [],
+            );
+        const fetch = jest.spyOn(runtime.client, "fetchByIds");
+
+        await runtime.runner.run(claim.runId!);
+
+        expect(
+            sweep.mock.calls.some(
+                ([endpoint, cursor]) =>
+                    endpoint.endpoint === "covers" && cursor === 450,
+            ),
+        ).toBe(true);
+        expect(fetch).not.toHaveBeenCalled();
+        expect((await runtime.state.readStatus()).status).toBe("completed");
+    } finally {
+        await runtime.queue.obliterate({ force: true });
+        await runtime.close();
+    }
+}, 120000);
+
 it("fills a compared field even with an unchanged game checksum", async () => {
     const runtime = await fixtureRuntime(
         { seed: 42, games: 1 },

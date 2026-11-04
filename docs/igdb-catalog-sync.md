@@ -70,9 +70,12 @@ current owner's lease. Every game transaction locks and validates that owner;
 checkpointing advances committed cursor and counts only after a whole page.
 
 A game IGDB returns without a valid identity or name is skipped with a
-`catalog.game.skipped` warning; it never pauses the scan. Any other persistent
-failure moves `running` to `paused` without advancing the cursor and logs the
-error. After a one-hour cooldown the scheduler resumes that same run
+`catalog.game.skipped` warning; it never pauses the scan. A non-transient
+TypeORM `QueryFailedError` also skips that game after its transaction rolls
+back, logging its ID, reason and database code so delta or sweep advances; a
+later delta change or sweep retries it. Any other persistent failure moves
+`running` to `paused` without advancing the cursor and logs the error. After a
+one-hour cooldown the scheduler resumes that same run
 automatically: it returns to `running`, clears its attempt budget, and preserves
 its boundary and progress. No operator action is required. Successful empty-page completion changes `running` to `completed`,
 clears ownership and sets the next eligible time to completion plus 7 or 14

@@ -3,6 +3,7 @@ import { IgdbRefreshService } from "./igdb-refresh.service";
 import { IGDB_SYNC_ENDPOINTS } from "./igdb-sync-endpoints";
 import { catalogConfig } from "./igdb-catalog.config";
 import { AsyncLeafLimiter } from "./async-leaf-limiter";
+import { QueryFailedError } from "typeorm";
 const entry = (endpoint: string) =>
     IGDB_SYNC_ENDPOINTS.find((row) => row.endpoint === endpoint)!;
 function fixture(stored: any[] = []) {
@@ -89,6 +90,87 @@ it("uses expanded delta games directly", async () => {
     );
     expect(f.client.fetchByIds).not.toHaveBeenCalled();
     expect(f.importer.persist).toHaveBeenCalledTimes(1);
+});
+it.each(["ER_BAD_NULL_ERROR", "ER_DUP_ENTRY"])(
+    "skips non-transient database rejection %s and continues persisting games",
+    async (code) => {
+        const f = fixture();
+        const log = jest
+            .spyOn(Logger.prototype, "warn")
+            .mockImplementation(() => undefined);
+        const failure = new QueryFailedError(
+            "UPDATE game",
+            [],
+            Object.assign(new Error("database rejected row"), { code }),
+        );
+        f.importer.persist.mockRejectedValueOnce(failure);
+        try {
+            await f.service.apply(
+                entry("games"),
+                [
+                    { id: 1, name: "Rejected" },
+                    { id: 2, name: "Persisted" },
+                    { id: 3, name: "Also persisted" },
+                ],
+                f.guard,
+                f.limiter,
+                false,
+                true,
+            );
+            expect(f.importer.persist).toHaveBeenCalledTimes(3);
+            expect(log).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    event: "catalog.game.skipped",
+                    gameId: 1,
+                    reason: failure.message,
+                    code,
+                }),
+            );
+        } finally {
+            log.mockRestore();
+        }
+    },
+);
+it.each([
+    {
+        label: "deadlock code",
+        driverError: Object.assign(new Error("deadlock"), {
+            code: "ER_LOCK_DEADLOCK",
+        }),
+    },
+    {
+        label: "deadlock errno",
+        driverError: Object.assign(new Error("deadlock"), { errno: 1213 }),
+    },
+])("rethrows transient database rejection: $label", async ({ driverError }) => {
+    const f = fixture();
+    const failure = new QueryFailedError("UPDATE game", [], driverError);
+    f.importer.persist.mockRejectedValueOnce(failure);
+    await expect(
+        f.service.apply(
+            entry("games"),
+            [{ id: 1, name: "Game" }],
+            f.guard,
+            f.limiter,
+            false,
+            true,
+        ),
+    ).rejects.toBe(failure);
+});
+it("rethrows unexpected game persistence errors", async () => {
+    const f = fixture();
+    const failure = new Error("unexpected persistence error");
+    f.importer.persist.mockRejectedValueOnce(failure);
+    await expect(
+        f.service.apply(
+            entry("games"),
+            [{ id: 1, name: "Game" }],
+            f.guard,
+            f.limiter,
+            false,
+            true,
+        ),
+    ).rejects.toBe(failure);
 });
 it("does not insert a shared entity missing locally", async () => {
     const f = fixture();

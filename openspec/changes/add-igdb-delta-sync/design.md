@@ -109,6 +109,7 @@ A differing compared value triggers the entry's route exactly like a checksum mi
 - [Child rows deleted on IGDB stay locally] → Existing behaviour. This is a Non-Goal and is called out in the docs.
 - [The IGDB `updated_at` query is slow on their side] → The poller makes a handful of requests per pass, and the latency (about 1s) is acceptable.
 - [`compare` ships with no production entry] → Covered by a sweep spec using a test registry entry, so the first real use (a follow-up change) needs no sweep changes.
+- [A deterministic row-level database rejection can block a long delta window or sweep] → After the game's transaction rolls back, skip only non-transient TypeORM `QueryFailedError`s (including duplicate-key errors), log the game ID, reason and database code, and let the stream or sweep advance. Transient errors and all other error types still pause; a later delta change or sweep retries the skipped game.
 
 ## Migration Plan
 

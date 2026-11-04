@@ -1,6 +1,6 @@
 import { InvalidGameEntryError } from "../../../game/game-repository/create/game-import-context";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { DataSource, In } from "typeorm";
+import { DataSource, In, QueryFailedError } from "typeorm";
 import { GameCompany } from "../../../game/game-repository/entities/game-company.entity";
 import { GameCompanyLogo } from "../../../game/game-repository/entities/game-company-logo.entity";
 import { normalizeIgdbGame } from "../utils/game-conversor-utils";
@@ -13,6 +13,7 @@ import {
 } from "./igdb-catalog.client";
 import { IgdbCatalogConfig } from "./igdb-catalog.config";
 import { IgdbCatalogImportService } from "./igdb-catalog-import.service";
+import { isTransientCatalogError } from "./igdb-catalog.retry";
 import {
     IgdbCatalogStateService,
     OwnershipAssertion,
@@ -44,15 +45,29 @@ export class IgdbRefreshService {
                 force,
             );
         } catch (error) {
-            if (!(error instanceof InvalidGameEntryError)) throw error;
+            const rowFailure =
+                error instanceof QueryFailedError &&
+                !isTransientCatalogError(error);
+            if (!(error instanceof InvalidGameEntryError) && !rowFailure)
+                throw error;
+            const failure = error as Error & {
+                code?: string;
+                driverError?: { code?: string };
+            };
             this.logger.warn({
                 event: "catalog.game.skipped",
                 gameId: raw.id,
-                reason: error.message,
+                reason: failure.message,
+                code: failure.driverError?.code ?? failure.code,
             });
         }
     }
     async mismatches(entry: SyncEndpoint, rows: RawCatalogGame[]) {
+        if (!rows.length) return [];
+        if (entry.owner === "game")
+            rows = rows.filter(
+                (row) => row.game !== undefined && row.game !== null,
+            );
         if (!rows.length) return [];
         const repo = this.source.getRepository(entry.local.entity);
         const ownerRelation =

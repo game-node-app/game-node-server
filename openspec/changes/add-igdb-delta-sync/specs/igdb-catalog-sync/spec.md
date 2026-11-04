@@ -21,8 +21,8 @@ The system SHALL poll IGDB at a fixed interval for each tracked stream, reading 
 - **WHEN** an entry changes again after its window was fixed
 - **THEN** it is picked up by a later window and replaying it is idempotent
 
-#### Scenario: Persistent failure in a stream
-- **WHEN** an entry in a stream fails required persistence after its attempt budget
+#### Scenario: Persistent non-skippable failure in a stream
+- **WHEN** an entry fails required persistence with an error that is not eligible for a per-game skip
 - **THEN** that stream's watermark stays unchanged, the failure is recorded with stream, ID and stage, and the stream is retried after the pause cooldown while other streams continue
 
 ### Requirement: Delta change routing
@@ -39,6 +39,11 @@ Delta entries SHALL be applied by kind. Changed games SHALL be imported. Changed
 #### Scenario: Shared entity not stored locally
 - **WHEN** a changed shared entity has no local row
 - **THEN** it is not inserted by the standalone shared-entity delta, and it is created when a referencing game is imported
+
+#### Scenario: Non-transient database rejection for one game
+- **WHEN** the database rejects one game's import with a non-transient TypeORM `QueryFailedError`, including `ER_DUP_ENTRY`
+- **THEN** its transaction is rolled back, the game is skipped with a `catalog.game.skipped` warning containing its ID, reason and database code, and the delta stream or sweep advances
+- **AND** a later delta change or sweep retries the skipped game
 
 ### Requirement: Delta progress seeding
 When a stream has no durable watermark, the system SHALL seed it from the `startedAt` of the most recent catalog run, completed or in progress; if it is null, the system SHALL use the current time minus the configured sweep interval (`now − intervalDays`).

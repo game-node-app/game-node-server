@@ -18,6 +18,7 @@
 ## 4. Refresh routing
 
 - [x] 4.1 Implement routing shared by delta and sweep (design D2), dispatched by the registry `route`: game IDs → expanded fetch in `batchSize` chunks → `persist` with `reconcileRelations`; shared entities → update existing local rows only (company `parentId`, logo upsert); parent games IGDB does not return → logged no-op; verify with unit specs for each route, including "shared entity not stored locally is not inserted".
+- [x] 4.2 Skip invalid entries and non-transient TypeORM `QueryFailedError`s in shared game persistence, logging game ID/reason/code so delta and sweep advance; preserve throws for transient and other errors; verify continuation, transient and unexpected failures, and update the routing spec, design risk and docs.
 
 ## 5. Delta poller
 
