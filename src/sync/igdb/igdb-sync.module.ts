@@ -27,9 +27,15 @@ import { IgdbCatalogState } from "./catalog/entities/igdb-catalog-state.entity";
  * Fetches, checkpoints, and imports the IGDB catalog in-process. The playtime
  * sync shares the same authenticated outbound request budget.
  */
+import { IgdbDeltaState } from "./catalog/entities/igdb-delta-state.entity";
+
+import { IgdbDeltaStateService } from "./catalog/igdb-delta-state.service";
+import { IgdbDeltaService } from "./catalog/igdb-delta.service";
+import { IgdbRefreshService } from "./catalog/igdb-refresh.service";
+
 @Module({
     imports: [
-        TypeOrmModule.forFeature([IgdbCatalogState]),
+        TypeOrmModule.forFeature([IgdbCatalogState, IgdbDeltaState]),
         BullModule.registerQueue({
             name: IGDB_CATALOG_QUEUE_NAME,
             defaultJobOptions: CATALOG_JOB_OPTIONS,
@@ -42,6 +48,9 @@ import { IgdbCatalogState } from "./catalog/entities/igdb-catalog-state.entity";
     providers: [
         { provide: CATALOG_CONFIG, useFactory: () => catalogConfig() },
         IgdbCatalogClient,
+        IgdbDeltaStateService,
+        IgdbDeltaService,
+        IgdbRefreshService,
         IgdbCatalogStateService,
         IgdbCatalogImportService,
         IgdbCatalogRunnerService,

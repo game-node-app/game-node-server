@@ -41,11 +41,15 @@ Delta entries SHALL be applied by kind. Changed games SHALL be imported. Changed
 - **THEN** it is not inserted by the standalone shared-entity delta, and it is created when a referencing game is imported
 
 ### Requirement: Delta progress seeding
-When a stream has no durable watermark, the system SHALL seed it from the start time of the most recently completed catalog run, or from the current time minus the configured sweep interval if none exists, so changes since the last full pass are replayed once.
+When a stream has no durable watermark, the system SHALL seed it from the `startedAt` of the most recent catalog run, completed or in progress; if it is null, the system SHALL use the current time minus the configured sweep interval (`now − intervalDays`).
 
 #### Scenario: First deployment after a completed scan
 - **WHEN** delta polling starts for the first time and the last completed run started at time T
 - **THEN** every stream's first window starts at T minus the overlap
+
+#### Scenario: Sweep in progress
+- **WHEN** a stream has no durable watermark and a catalog sweep is in progress
+- **THEN** its first window starts at that sweep's `startedAt` minus the overlap
 
 ### Requirement: Checksum sweep comparison
 A scheduled catalog run SHALL sweep each tracked IGDB endpoint in ascending ID order, comparing `id`, `checksum`, ownership IDs and each endpoint's declared compared fields against local values. Only missing rows, changed checksums or differing compared fields SHALL trigger refreshes through the delta routing.

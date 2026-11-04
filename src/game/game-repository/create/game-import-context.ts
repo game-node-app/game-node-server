@@ -6,6 +6,7 @@ export interface GameImportContext {
     ownershipGuard(manager: EntityManager): Promise<unknown>;
     limiter: AsyncLeafLimiter;
     forceReconciliation: boolean;
+    reconcileRelations?: boolean;
     ensureStatistics(manager: EntityManager, gameId: number): Promise<void>;
 }
 

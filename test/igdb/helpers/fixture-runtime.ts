@@ -24,6 +24,10 @@ import {
     IGDB_CATALOG_QUEUE_NAME,
     IGDB_OUTBOUND_BUDGET_QUEUE_NAME,
 } from "../../../src/sync/igdb/catalog/igdb-catalog.constants";
+import { IgdbRefreshService } from "../../../src/sync/igdb/catalog/igdb-refresh.service";
+import { IgdbDeltaState } from "../../../src/sync/igdb/catalog/entities/igdb-delta-state.entity";
+import { IgdbDeltaStateService } from "../../../src/sync/igdb/catalog/igdb-delta-state.service";
+import { IgdbDeltaService } from "../../../src/sync/igdb/catalog/igdb-delta.service";
 import { GameRepositoryCreateService } from "../../../src/game/game-repository/create/game-repository-create.service";
 
 export async function fixtureRuntime(
@@ -55,7 +59,7 @@ export async function fixtureRuntime(
         ...settings.mysql,
         timezone: "Z",
         entityPrefix: tablePrefix,
-        entities: [...importEntities(), IgdbCatalogState],
+        entities: [...importEntities(), IgdbCatalogState, IgdbDeltaState],
         synchronize: options.reset ?? true,
     }).initialize();
     if (options.reset ?? true) {
@@ -73,6 +77,8 @@ export async function fixtureRuntime(
             .getRepository(IgdbCatalogState)
             .insert(new IgdbCatalogState());
     }
+    if (options.reset ?? true)
+        await source.getRepository(IgdbDeltaState).save({ stream: "lease" });
     const bounds = new ResourceBounds();
     let invalidGame: number | null = null;
     const server = createServer(async (request, response) => {
@@ -83,7 +89,8 @@ export async function fixtureRuntime(
                 if (query.length > 32768)
                     throw new Error("Fixture query too large");
             }
-            const result = fixtureResponse(query, fixture);
+            const result =
+                request.url === "/games" ? fixtureResponse(query, fixture) : [];
             if (options.addVideos && query.includes("sort id asc")) {
                 for (const entry of result)
                     (entry as any).videos = [
@@ -101,7 +108,7 @@ export async function fixtureRuntime(
             }
             if (
                 options.trackPages !== false &&
-                query.includes("sort id asc") &&
+                query.includes("where id >") &&
                 result.length
             )
                 bounds.pageOpened();
@@ -130,7 +137,10 @@ export async function fixtureRuntime(
     }
     const http = axios.create({ proxy: false });
     http.interceptors.request.use((request) => {
-        request.url = endpoint;
+        request.url = new URL(
+            new URL(request.url!).pathname.split("/").pop()!,
+            endpoint!.replace(/games$/, ""),
+        ).toString();
         return request;
     });
     const config = catalogConfig({});
@@ -206,13 +216,24 @@ export async function fixtureRuntime(
             },
         } as IgdbOutboundBudgetService,
     );
-    const runner = new IgdbCatalogRunnerService(
-        state,
+    const refresh = new IgdbRefreshService(
+        source,
         client,
         importer,
+        state,
         config,
     );
+    const deltaState = new IgdbDeltaStateService(source);
+    const delta = new IgdbDeltaService(
+        source,
+        deltaState,
+        client,
+        refresh,
+        config,
+    );
+    const runner = new IgdbCatalogRunnerService(state, client, config, refresh);
     const close = async () => {
+        await delta.onModuleDestroy();
         await runner.onModuleDestroy();
         await Promise.all([budgetQueue.close(), queue.close()]);
         if (server.listening)
@@ -249,6 +270,10 @@ export async function fixtureRuntime(
         },
         state,
         runner,
+        delta,
+        deltaState,
+        refresh,
+        client,
         queue,
         budgetQueue,
         bounds,

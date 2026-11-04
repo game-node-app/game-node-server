@@ -93,9 +93,10 @@ async function main() {
         const expected = fixtureExpected(fixture);
         assert(
             status.status === "completed" &&
-                status.committedId === expected.cursor &&
+                status.committedId === 0 &&
+                status.sweepEndpoint === "player_perspectives" &&
                 status.committedGames === fixture.games &&
-                status.committedBatches === pages,
+                status.committedBatches === Math.ceil(fixture.games / 500),
             "Final durable progress does not match fixture formulas",
         );
         assert(
@@ -177,7 +178,7 @@ async function main() {
         );
         const report = {
             node: process.version,
-            fixture: { ...fixture, pages, batchSize: 25 },
+            fixture: { ...fixture, pages, batchSize: 25, sweepPageSize: 500 },
             limits: { livePages: 1, games: 1, relationships: 2 },
             observed: {
                 pages: runtime.bounds.maxPages,

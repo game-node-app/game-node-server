@@ -59,6 +59,7 @@ function setup(days = 7) {
             service as unknown as IgdbCatalogStateService,
             queue as unknown as Queue,
             config,
+            { run: async () => undefined } as any,
         );
     return { state, service, queue, config, jobs, make };
 }

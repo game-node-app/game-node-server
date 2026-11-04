@@ -25,6 +25,6 @@ describe("catalog state metadata", () => {
             storage.columns.filter(
                 (column) => column.target === IgdbCatalogState,
             ),
-        ).toHaveLength(19);
+        ).toHaveLength(20);
     });
 });

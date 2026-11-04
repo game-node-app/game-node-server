@@ -54,7 +54,9 @@ describe("transactional game import on isolated MySQL", () => {
                 await cleanup.connect();
                 await cleanup.query("SET FOREIGN_KEY_CHECKS = 0");
                 for (const metadata of source.entityMetadatas)
-                    await cleanup.query(`DROP TABLE IF EXISTS \`${metadata.tableName}\``);
+                    await cleanup.query(
+                        `DROP TABLE IF EXISTS \`${metadata.tableName}\``,
+                    );
             } finally {
                 await cleanup.query("SET FOREIGN_KEY_CHECKS = 1");
                 await cleanup.release();
@@ -71,7 +73,11 @@ describe("transactional game import on isolated MySQL", () => {
         limiter: new AsyncLeafLimiter(2),
         forceReconciliation: true,
         ensureStatistics: async (manager, gameId) => {
-            await ensureStatisticsTarget(manager, StatisticsSourceType.GAME, gameId);
+            await ensureStatisticsTarget(
+                manager,
+                StatisticsSourceType.GAME,
+                gameId,
+            );
         },
     });
 
@@ -110,6 +116,7 @@ describe("transactional game import on isolated MySQL", () => {
                 service.createOrUpdate(normalizeIgdbGame(data), {
                     ...context(manager),
                     forceReconciliation: force,
+                    reconcileRelations: true,
                 }),
             );
         await save(raw);
@@ -294,79 +301,92 @@ describe("transactional game import on isolated MySQL", () => {
     });
 
     it("creates forward references atomically, preserves existing metadata and later hydrates", async () => {
-        await source.query("ALTER TABLE gi_game MODIFY statisticsTargetId BIGINT UNSIGNED NOT NULL");
+        await source.query(
+            "ALTER TABLE gi_game MODIFY statisticsTargetId BIGINT UNSIGNED NOT NULL",
+        );
         try {
-        const game = normalizeIgdbGame({
-            id: 11001,
-            name: "Main",
-            slug: "main",
-            checksum: "main-checksum",
-            dlcs: [
-                {
-                    id: 11002,
-                    name: "Future",
-                    slug: "future",
-                    checksum: "do-not-copy",
-                },
-            ],
-        });
-        await source.transaction((manager) =>
-            service.createOrUpdate(game, context(manager)),
-        );
-        expect(
-            await source.getRepository(Game).findOneByOrFail({ id: 11002 }),
-        ).toMatchObject({ name: "Future", checksum: null });
-        const targetRows = await source.query(
-            "SELECT statisticsTargetId FROM gi_game WHERE id = ?",
-            [11002],
-        );
-        const targetId = Number(targetRows[0].statisticsTargetId);
-        await source.query(
-            "INSERT INTO gi_metric_total (targetId, metricCode, metricValue) VALUES (?, 'views', 8)",
-            [targetId],
-        );
-        await source.query(
-            "UPDATE gi_metric_total SET metricValue = 3 WHERE targetId = ? AND metricCode = 'likes_current'",
-            [targetId],
-        );
-        await source.transaction((manager) =>
-            service.createOrUpdate(game, context(manager)),
-        );
-        expect(
-            await source.query("SELECT id FROM gi_statistics_target WHERE id = ?", [targetId]),
-        ).toHaveLength(1);
-        expect(
-            await source.query("SELECT metricCode, metricValue FROM gi_metric_total WHERE targetId = ? ORDER BY metricCode", [targetId]),
-        ).toEqual([
-            { metricCode: "likes_current", metricValue: 3 },
-            { metricCode: "views", metricValue: 8 },
-        ]);
-        const full = normalizeIgdbGame({
-            id: 11002,
-            name: "Hydrated",
-            slug: "hydrated",
-            checksum: "full-checksum",
-            summary: "Complete metadata",
-        });
-        await source.transaction((manager) =>
-            service.createOrUpdate(full, context(manager)),
-        );
-        await source.transaction((manager) =>
-            service.createOrUpdate(game, context(manager)),
-        );
-        expect(
-            await source.getRepository(Game).findOneByOrFail({ id: 11002 }),
-        ).toMatchObject({
-            name: "Hydrated",
-            checksum: "full-checksum",
-            summary: "Complete metadata",
-        });
-        const linked = await source
-            .getRepository(Game)
-            .findOneOrFail({ where: { id: 11001 }, relations: { dlcs: true } });
-        expect(linked.dlcs.map((entry) => Number(entry.id))).toEqual([11002]);
+            const game = normalizeIgdbGame({
+                id: 11001,
+                name: "Main",
+                slug: "main",
+                checksum: "main-checksum",
+                dlcs: [
+                    {
+                        id: 11002,
+                        name: "Future",
+                        slug: "future",
+                        checksum: "do-not-copy",
+                    },
+                ],
+            });
+            await source.transaction((manager) =>
+                service.createOrUpdate(game, context(manager)),
+            );
+            expect(
+                await source.getRepository(Game).findOneByOrFail({ id: 11002 }),
+            ).toMatchObject({ name: "Future", checksum: null });
+            const targetRows = await source.query(
+                "SELECT statisticsTargetId FROM gi_game WHERE id = ?",
+                [11002],
+            );
+            const targetId = Number(targetRows[0].statisticsTargetId);
+            await source.query(
+                "INSERT INTO gi_metric_total (targetId, metricCode, metricValue) VALUES (?, 'views', 8)",
+                [targetId],
+            );
+            await source.query(
+                "UPDATE gi_metric_total SET metricValue = 3 WHERE targetId = ? AND metricCode = 'likes_current'",
+                [targetId],
+            );
+            await source.transaction((manager) =>
+                service.createOrUpdate(game, context(manager)),
+            );
+            expect(
+                await source.query(
+                    "SELECT id FROM gi_statistics_target WHERE id = ?",
+                    [targetId],
+                ),
+            ).toHaveLength(1);
+            expect(
+                await source.query(
+                    "SELECT metricCode, metricValue FROM gi_metric_total WHERE targetId = ? ORDER BY metricCode",
+                    [targetId],
+                ),
+            ).toEqual([
+                { metricCode: "likes_current", metricValue: 3 },
+                { metricCode: "views", metricValue: 8 },
+            ]);
+            const full = normalizeIgdbGame({
+                id: 11002,
+                name: "Hydrated",
+                slug: "hydrated",
+                checksum: "full-checksum",
+                summary: "Complete metadata",
+            });
+            await source.transaction((manager) =>
+                service.createOrUpdate(full, context(manager)),
+            );
+            await source.transaction((manager) =>
+                service.createOrUpdate(game, context(manager)),
+            );
+            expect(
+                await source.getRepository(Game).findOneByOrFail({ id: 11002 }),
+            ).toMatchObject({
+                name: "Hydrated",
+                checksum: "full-checksum",
+                summary: "Complete metadata",
+            });
+            const linked = await source.getRepository(Game).findOneOrFail({
+                where: { id: 11001 },
+                relations: { dlcs: true },
+            });
+            expect(linked.dlcs.map((entry) => Number(entry.id))).toEqual([
+                11002,
+            ]);
         } finally {
-            await source.query("ALTER TABLE gi_game MODIFY statisticsTargetId BIGINT UNSIGNED NULL");
+            await source.query(
+                "ALTER TABLE gi_game MODIFY statisticsTargetId BIGINT UNSIGNED NULL",
+            );
         }
     });
 
@@ -389,7 +409,11 @@ describe("transactional game import on isolated MySQL", () => {
             source.transaction(async (manager) => {
                 const importing = context(manager);
                 importing.ensureStatistics = async (transaction, id) => {
-                    await ensureStatisticsTarget(transaction, StatisticsSourceType.GAME, id);
+                    await ensureStatisticsTarget(
+                        transaction,
+                        StatisticsSourceType.GAME,
+                        id,
+                    );
                     if (id === 12001)
                         throw new Error("injected after relations");
                 };
@@ -404,7 +428,9 @@ describe("transactional game import on isolated MySQL", () => {
             await source.getRepository(GameCover).countBy({ id: 12010 }),
         ).toBe(0);
         expect(
-            await source.query("SELECT id FROM gi_statistics_target WHERE id IN (SELECT statisticsTargetId FROM gi_game WHERE id = 12002)"),
+            await source.query(
+                "SELECT id FROM gi_statistics_target WHERE id IN (SELECT statisticsTargetId FROM gi_game WHERE id = 12002)",
+            ),
         ).toHaveLength(0);
         await source.transaction((manager) =>
             service.createOrUpdate(game, context(manager)),
@@ -474,14 +500,24 @@ describe("transactional game import on isolated MySQL", () => {
             .insert({ id: 14002, name: "Concurrent", slug: "concurrent" });
         await Promise.all([
             source.transaction((manager) =>
-                ensureStatisticsTarget(manager, StatisticsSourceType.GAME, 14002),
+                ensureStatisticsTarget(
+                    manager,
+                    StatisticsSourceType.GAME,
+                    14002,
+                ),
             ),
             source.transaction((manager) =>
-                ensureStatisticsTarget(manager, StatisticsSourceType.GAME, 14002),
+                ensureStatisticsTarget(
+                    manager,
+                    StatisticsSourceType.GAME,
+                    14002,
+                ),
             ),
         ]);
         expect(
-            await source.query("SELECT statisticsTargetId FROM gi_game WHERE id = 14002 AND statisticsTargetId IS NOT NULL"),
+            await source.query(
+                "SELECT statisticsTargetId FROM gi_game WHERE id = 14002 AND statisticsTargetId IS NOT NULL",
+            ),
         ).toHaveLength(1);
         await source.getRepository(GameScreenshot).delete(102);
         await source.transaction((manager) =>

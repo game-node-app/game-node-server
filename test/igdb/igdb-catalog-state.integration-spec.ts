@@ -8,6 +8,9 @@ import {
     CatalogOwner,
 } from "../../src/sync/igdb/catalog/igdb-catalog-state.service";
 
+import { IgdbDeltaState } from "../../src/sync/igdb/catalog/entities/igdb-delta-state.entity";
+import { AddIgdbDeltaSync1794500000000 } from "../../src/migrations/1794500000000-AddIgdbDeltaSync";
+
 describe("catalog state on isolated MySQL", () => {
     let source: DataSource;
     beforeAll(async () => {
@@ -15,14 +18,52 @@ describe("catalog state on isolated MySQL", () => {
         source = await new DataSource({
             ...settings.mysql,
             timezone: "Z",
-            entities: [IgdbCatalogState],
+            entities: [IgdbCatalogState, IgdbDeltaState],
             connectTimeout: 5000,
         }).initialize();
         await source.query("DROP TABLE IF EXISTS igdb_catalog_state");
+        await source.query("DROP TABLE IF EXISTS igdb_delta_state");
+        await source.query("DROP TABLE IF EXISTS delta_migration_game");
+        await source.query(
+            "CREATE TABLE delta_migration_game (id bigint PRIMARY KEY)",
+        );
         await createBaselineTables(source, ["igdb_catalog_state"]);
+        const runner = source.createQueryRunner();
+        try {
+            await new AddIgdbDeltaSync1794500000000().up({
+                query: (sql: string) =>
+                    runner.query(
+                        sql.replaceAll("`game`", "`delta_migration_game`"),
+                    ),
+            } as any);
+        } finally {
+            await runner.release();
+        }
     });
     afterAll(async () => {
         if (source?.isInitialized) await source.destroy();
+    });
+
+    it("migrates source recency, endpoint and delta state with matching defaults", async () => {
+        expect(
+            (
+                await source
+                    .getRepository(IgdbCatalogState)
+                    .findOneByOrFail({ id: 1 })
+            ).sweepEndpoint,
+        ).toBe("games");
+        expect(await source.getRepository(IgdbDeltaState).find()).toEqual([
+            expect.objectContaining({
+                stream: "lease",
+                cursor: 0,
+                watermark: null,
+                ownerGeneration: 0,
+            }),
+        ]);
+        const columns = await source.query(
+            "SHOW COLUMNS FROM delta_migration_game LIKE 'igdbUpdatedAt'",
+        );
+        expect(columns[0]).toMatchObject({ Type: "datetime(3)", Null: "YES" });
     });
 
     it("seeds the singleton row and rejects a second one", async () => {

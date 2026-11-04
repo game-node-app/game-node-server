@@ -24,8 +24,6 @@ import { StatisticsSourceType } from "../../../statistics/statistics.constants";
 import { MetricTotal } from "../../../statistics/entity/metric-total.entity";
 import { StatisticsTarget } from "../../../statistics/entity/statistics-target.entity";
 
-const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
-
 /**
  * Service responsible for data inserting and updating for all game-related models.
  * PS: Only make changes to this service if you are sure it won't break the sync process.
@@ -34,8 +32,6 @@ const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 export class GameRepositoryCreateService {
     private readonly logger = new Logger(GameRepositoryCreateService.name);
     private readonly shouldProfileSync: boolean;
-    private readonly shouldSkipRelationsOnChecksumMatch: boolean;
-    private readonly reconcileEveryRuns: number;
 
     /**
      * @param configService
@@ -46,18 +42,6 @@ export class GameRepositoryCreateService {
                 "IGDB_SYNC_PROFILE_HOT_PATH",
                 "false",
             ) === "true";
-        this.shouldSkipRelationsOnChecksumMatch =
-            this.configService.get<string>(
-                "IGDB_SYNC_SKIP_RELATIONS_ON_CHECKSUM_MATCH",
-                "true",
-            ) !== "false";
-        this.reconcileEveryRuns = this.parsePositiveInteger(
-            this.configService.get<string>(
-                "IGDB_SYNC_RECONCILE_EVERY_RUNS",
-                "4",
-            ),
-            4,
-        );
     }
 
     async isValidEntry(game: IGDBPartialGame) {
@@ -96,27 +80,70 @@ export class GameRepositoryCreateService {
         const gameRepository = context.manager.getRepository(Game);
         const existing = await gameRepository.findOne({
             where: { id: game.id },
-            select: { id: true, checksum: true, statisticsTargetId: true },
+            select: {
+                id: true,
+                checksum: true,
+                statisticsTargetId: true,
+                igdbUpdatedAt: true,
+            },
             lock: { mode: "pessimistic_write" },
         });
 
+        const incomingUpdatedAt =
+            game.updatedAt instanceof Date ? game.updatedAt : null;
+        if (
+            incomingUpdatedAt &&
+            existing?.igdbUpdatedAt &&
+            incomingUpdatedAt < existing.igdbUpdatedAt
+        ) {
+            this.logger.log({
+                event: "catalog.game.stale_skipped",
+                gameId: game.id,
+            });
+            return;
+        }
         this.handleDeprecatedFields(game);
 
         const checksumHasChanged =
             existing == undefined || existing.checksum !== game.checksum;
 
-        if (checksumHasChanged) {
+        // Refreshes also fill newly stored fields whose source checksum did not change.
+        if (checksumHasChanged || context.reconcileRelations) {
             if (this.shouldProfileSync)
                 this.logger.log(`Upserting game ${game.id} - ${game.name}`);
-            const statisticsTargetId = existing?.statisticsTargetId ??
-                await this.leaf(context, () => createStatisticsTarget(context.manager, StatisticsSourceType.GAME));
-            await gameRepository.upsert({ ...game, statisticsTargetId }, ["id"]);
+            const statisticsTargetId =
+                existing?.statisticsTargetId ??
+                (await this.leaf(context, () =>
+                    createStatisticsTarget(
+                        context.manager,
+                        StatisticsSourceType.GAME,
+                    ),
+                ));
+            await gameRepository.upsert(
+                {
+                    ...game,
+                    igdbUpdatedAt: incomingUpdatedAt,
+                    statisticsTargetId,
+                },
+                ["id"],
+            );
+        }
+
+        if (
+            !checksumHasChanged &&
+            !context.reconcileRelations &&
+            incomingUpdatedAt &&
+            incomingUpdatedAt.getTime() !== existing?.igdbUpdatedAt?.getTime()
+        ) {
+            await gameRepository.update(game.id, {
+                igdbUpdatedAt: incomingUpdatedAt,
+            });
         }
 
         const shouldReconcileRelations =
             context.forceReconciliation ||
             checksumHasChanged ||
-            this.shouldReconcileRelationsForGame(game.id);
+            context.reconcileRelations;
 
         if (shouldReconcileRelations) {
             if (this.shouldProfileSync)
@@ -539,17 +566,29 @@ export class GameRepositoryCreateService {
                         lock: { mode: "pessimistic_write" },
                     });
                     if (!stored) {
-                        const statisticsTargetId = await createStatisticsTarget(context.manager, StatisticsSourceType.GAME);
-                        const inserted = await repository.createQueryBuilder().insert().values({
-                            id: entry.id,
-                            name: entry.name,
-                            slug: entry.slug,
-                            checksum: null as unknown as string,
-                            statisticsTargetId,
-                        } as any).orIgnore().execute();
+                        const statisticsTargetId = await createStatisticsTarget(
+                            context.manager,
+                            StatisticsSourceType.GAME,
+                        );
+                        const inserted = await repository
+                            .createQueryBuilder()
+                            .insert()
+                            .values({
+                                id: entry.id,
+                                name: entry.name,
+                                slug: entry.slug,
+                                checksum: null as unknown as string,
+                                statisticsTargetId,
+                            } as any)
+                            .orIgnore()
+                            .execute();
                         if (Number(inserted.raw.affectedRows) === 0) {
-                            await context.manager.delete(MetricTotal, { targetId: statisticsTargetId });
-                            await context.manager.delete(StatisticsTarget, { id: statisticsTargetId });
+                            await context.manager.delete(MetricTotal, {
+                                targetId: statisticsTargetId,
+                            });
+                            await context.manager.delete(StatisticsTarget, {
+                                id: statisticsTargetId,
+                            });
                         }
                     }
                 });
@@ -829,14 +868,23 @@ export class GameRepositoryCreateService {
         const enginePlatforms = engines.flatMap(
             (engine) => (engine.platforms ?? []) as GamePlatform[],
         );
+        const existingPlatformChecksums = new Map(
+            existing.gameEngines
+                ?.flatMap((engine) => engine.platforms ?? [])
+                .map((platform) => [platform.id, platform.checksum]),
+        );
         const uniqueEnginePlatforms = [
             ...new Map(
-                enginePlatforms.map((platform) => [
-                    platform.id!,
-                    platform,
-                ] as const),
+                enginePlatforms.map(
+                    (platform) => [platform.id!, platform] as const,
+                ),
             ).values(),
-        ];
+        ].filter(
+            (platform) =>
+                context.forceReconciliation ||
+                existingPlatformChecksums.get(platform.id) !==
+                    platform.checksum,
+        );
         if (uniqueEnginePlatforms.length !== 0)
             await this.leaf(context, () =>
                 context.manager
@@ -873,13 +921,17 @@ export class GameRepositoryCreateService {
                 (platform) => !existingPlatformIds.has(platform.id!),
             );
 
-            await this.leaf(context, () =>
-                repository
-                    .createQueryBuilder()
-                    .relation(GameEngine, "platforms")
-                    .of(engine)
-                    .addAndRemove(incomingNotInExisting, existingNotInIncoming),
-            );
+            if (incomingNotInExisting.length || existingNotInIncoming.length)
+                await this.leaf(context, () =>
+                    repository
+                        .createQueryBuilder()
+                        .relation(GameEngine, "platforms")
+                        .of(engine)
+                        .addAndRemove(
+                            incomingNotInExisting,
+                            existingNotInIncoming,
+                        ),
+                );
         }
     }
 
@@ -939,54 +991,6 @@ export class GameRepositoryCreateService {
 
         incoming.category = incoming.category ?? incoming.gameType;
         incoming.status = incoming.status ?? incoming.gameStatus;
-    }
-
-    /**
-     * Determines if a checksum-matched game should still run full relation reconciliation.
-     *
-     * This is intentionally stateless and deterministic:
-     * 1. A "time bucket" is derived from epoch weeks: `floor(now / ONE_WEEK_IN_MS)`.
-     * 2. The current bucket for this run is `timeBucket % reconcileEveryRuns`.
-     * 3. Each game is pinned to a stable bucket using `abs(gameId) % reconcileEveryRuns`.
-     * 4. A game is reconciled only when both buckets match.
-     *
-     * With `reconcileEveryRuns = 4`, this means roughly one quarter of checksum-matched
-     * games are reconciled per weekly run, and all buckets are covered across four
-     * consecutive weekly runs.
-     *
-     * Important tradeoff: this does NOT persist per-game execution history, so it provides
-     * probabilistic cadence by schedule/bucket, not strict per-game run counting.
-     * - Multiple sync runs in the same week can hit the same bucket repeatedly.
-     * - Missed weekly runs can delay specific buckets.
-     */
-    private shouldReconcileRelationsForGame(gameId: number): boolean {
-        if (!this.shouldSkipRelationsOnChecksumMatch) {
-            return true;
-        }
-
-        if (this.reconcileEveryRuns <= 1) {
-            return true;
-        }
-
-        const runBucket =
-            Math.floor(Date.now() / ONE_WEEK_IN_MS) % this.reconcileEveryRuns;
-        return Math.abs(gameId) % this.reconcileEveryRuns === runBucket;
-    }
-
-    private parsePositiveInteger(
-        rawValue: string | undefined,
-        fallback: number,
-    ): number {
-        if (rawValue == undefined) {
-            return fallback;
-        }
-
-        const parsed = Number.parseInt(rawValue, 10);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
-            return fallback;
-        }
-
-        return parsed;
     }
 
     private getProfilingStart(): bigint | null {

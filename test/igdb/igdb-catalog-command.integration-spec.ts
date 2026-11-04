@@ -28,6 +28,9 @@ describe("local operator commands without application bootstrap", () => {
         }).initialize();
         await source.query("DROP TABLE IF EXISTS igdb_catalog_state");
         await createBaselineTables(source, ["igdb_catalog_state"]);
+        await source.query(
+            "ALTER TABLE igdb_catalog_state ADD sweepEndpoint varchar(64) NOT NULL DEFAULT 'games'",
+        );
         await source.getRepository(IgdbCatalogState).update(1, {
             status: "paused",
             runId,

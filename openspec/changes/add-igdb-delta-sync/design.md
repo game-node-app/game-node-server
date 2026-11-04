@@ -77,6 +77,8 @@ Refresh imports set a new context flag `reconcileRelations: true`. When set, `cr
 ### D8. Seeding and rollout order
 Streams seed their watermark from `igdb_catalog_state.startedAt` of the last completed run, otherwise `now − intervalDays`. In production that is 2026-10-30 21:45. The first games window then spans about 5 days, roughly 115k games, which at the observed rate is a few hours. This is a fixed window and resumes safely.
 
+A sweep started at T compares every row after T, so the delta from T together with that sweep covers the catalog without retaining another timestamp. A stream without a watermark during an ongoing sweep starts at that sweep's `startedAt` minus the overlap.
+
 A stream added later uses the same rule. Its historical rows are imported by the next ordinary sweep, which traverses every endpoint from ID zero with no `updated_at` filter. No backfill process or operator action is required.
 
 ### D9. One endpoint registry with compared fields
@@ -111,6 +113,6 @@ A differing compared value triggers the entry's route exactly like a checksum mi
 ## Migration Plan
 
 1. Migration: add `game.igdbUpdatedAt`, add `igdb_catalog_state.sweepEndpoint` (default `games`) and create `igdb_delta_state`. All are additive.
-2. Deploy. Every delta stream seeds from the last run's `startedAt` and begins catching up. The next scheduled run (due 2026-11-07) executes as a sweep.
+2. Deploy. Every delta stream seeds from the most recent run's `startedAt`, completed or in progress, and begins catching up. The next scheduled run (due 2026-11-07) executes as a sweep.
 3. Remove `IGDB_SYNC_RECONCILE_EVERY_RUNS` / `IGDB_SYNC_SKIP_RELATIONS_ON_CHECKSUM_MATCH` from the deployment env. They are ignored if left in place.
 4. Rollback: revert the code. The additive columns and table are harmless. If a sweep is mid-run on an endpoint other than `games`, its `committedId` is not a game ID. Before reverting, wait until the sweep is `completed` or reset `committedId` to 0, otherwise the old runner would skip games.

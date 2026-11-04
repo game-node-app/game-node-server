@@ -6,6 +6,7 @@ import { IGDBPartialGame } from "../../../game/game-repository/game-repository.t
 import { AsyncLeafLimiter } from "./async-leaf-limiter";
 import {
     CatalogOwner,
+    OwnershipAssertion,
     IgdbCatalogStateService,
 } from "./igdb-catalog-state.service";
 
@@ -17,7 +18,7 @@ export class IgdbCatalogImportService {
     ) {}
     async persist(
         game: IGDBPartialGame,
-        owner: CatalogOwner,
+        owner: CatalogOwner | OwnershipAssertion,
         limiter: AsyncLeafLimiter,
         forceReconciliation: boolean,
     ) {
@@ -25,11 +26,18 @@ export class IgdbCatalogImportService {
             await this.games.createOrUpdate(game, {
                 manager,
                 ownershipGuard: (transaction) =>
-                    this.state.assertOwnership(transaction, owner),
+                    typeof owner === "function"
+                        ? owner(transaction)
+                        : this.state.assertOwnership(transaction, owner),
                 limiter,
                 forceReconciliation,
+                reconcileRelations: true,
                 ensureStatistics: async (manager, gameId) => {
-                    await ensureStatisticsTarget(manager, StatisticsSourceType.GAME, gameId);
+                    await ensureStatisticsTarget(
+                        manager,
+                        StatisticsSourceType.GAME,
+                        gameId,
+                    );
                 },
             });
         });

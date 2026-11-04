@@ -3,7 +3,7 @@
 ## Local verification
 
 Use Node.js, Yarn Classic (or `corepack yarn`), Docker Engine and Docker Compose.
-The disposable harness runs only MySQL 8 and Redis 7, without application `.env`,
+The disposable harness runs only MySQL 8 and Redis 8, without application `.env`,
 external authentication or live IGDB credentials.
 
 ```sh
@@ -221,24 +221,67 @@ MySQL and retained test game, screenshot and statistics rows across rollback.
 The tests cover media coexistence, transactional recovery and relationship
 concurrency bounds; scheduling and configuration are unchanged.
 
-## Relationship reconciliation cadence
+## Delta polling and checksum sweeps
 
-The initial internal full scan forces relationship reconciliation for every
-consumed game, including matching checksums and page replay after a restart.
-This flag is persisted with the run. Later scans preserve normal checksum skips
-and the existing epoch-week buckets (`IGDB_SYNC_RECONCILE_EVERY_RUNS`, default 4).
-Only the bucket matching a game's ID reconciles unchanged relationships in that
-week. This policy is separate from the 7/14-day cooldown between completed scans;
-a full scan every week does not force every unchanged relationship every week.
-Base checksums and required relationships commit together, so a failed game
-cannot leave behind a successful checksum that hides its failed writes.
+The scheduler ticks every 60 seconds. A fenced delta pass becomes eligible five
+minutes after the previous pass ends, independently of the seven/fourteen-day
+sweep schedule. Streams run in registry order without overlap across replicas.
+A stream fixes a window from watermark minus ten minutes to now minus sixty
+seconds, then pages by ascending ID. Only an empty final page advances the
+watermark. Page checkpoints commit after required writes and statistics settle;
+a failed stream keeps its window/cursor and pauses for one hour while other
+streams continue. Expired leases permit takeover and fence prior owners.
 
-Existing games acquire videos when their relationships are eligible for
-reconciliation; coverage is not guaranteed on the next scan. To populate a
-complete catalog in one full scan, set
-`IGDB_SYNC_SKIP_RELATIONS_ON_CHECKSUM_MATCH=false` on importer replicas for that
-scan, then restore the prior setting. This uses existing progress and does not
-require a catalog state reset.
+Streams without a watermark seed from the most recent catalog run's `startedAt`,
+completed or in progress; a null value falls back to `now − intervalDays`.
+During an ongoing sweep the first window starts at its `startedAt` minus the
+overlap. The sweep and delta together cover older and newer source changes.
+
+`IGDB_SYNC_ENDPOINTS` in `src/sync/igdb/catalog/igdb-sync-endpoints.ts` declares
+both delta streams and sweep order: games, covers, screenshots, artworks,
+game_videos, alternative_names, involved_companies, external_games,
+game_localizations, company_logos, companies, platforms, genres, themes,
+keywords, franchises, game_engines, game_modes and player_perspectives.
+Timestamped entries enable delta; image/video/alternative-name/logo edits rely
+on the sweep. Games delta pages use the expanded projection (default 25);
+other streams and sweep pages have at most 500 rows. Expanded refresh fetches
+respect `IGDB_CATALOG_BATCH_SIZE`. All requests share the existing outbound budget.
+
+The sweep compares checksums, ownership and declared compared fields. Matching
+pages cause no expanded fetch or game writes. A mismatch in a child refreshes
+its parent game; shared streams update existing local rows only. Company logos
+route through referencing local companies; unreferenced logos are ignored.
+Missing parent games are logged no-ops. Non-IGDB external rows are excluded.
+At about 3.2 million source rows, a sweep costs roughly 6,400 page requests plus
+expanded refreshes, about 27 minutes of the shared budget before those refreshes.
+
+To add an endpoint, implement its existing entity/write path and add a registry
+entry with local columns, ownership, route and delta eligibility in sweep order.
+The client derives projections from that entry. To fill a newly stored ID field,
+add a `compare` mapping with its source field, local column and target entity;
+link sets also name the local relation. References absent locally do not trigger
+refreshes. Current entries have empty comparison lists; no separate backfill or
+watermark reset is required.
+
+Every delta/sweep refresh sets `reconcileRelations`, retaining per-relationship
+checksum diffs. Only the first run uses `forceReconciliation` to bypass diffs.
+`IGDB_SYNC_RECONCILE_EVERY_RUNS` and
+`IGDB_SYNC_SKIP_RELATIONS_ON_CHECKSUM_MATCH` were removed and are ignored if
+left in deployment environments. Remove both settings when deploying.
+`game.igdbUpdatedAt` stores the source timestamp independently of `updatedAt`;
+an older incoming game makes no writes and logs `catalog.game.stale_skipped`.
+Equal timestamps proceed so child-only changes are applied.
+
+`catalog.delta.stream` logs stream, watermark lag, fixed window, cursor, applied
+count, duration and failure stage. `catalog.delta.pass` logs aggregate counts and
+duration. Neither includes payloads or credentials. No source deletes propagate:
+missing games and children remain locally, including children removed on IGDB.
+
+Deploy the additive `AddIgdbDeltaSync` migration before application replicas.
+Rollback can leave the new columns/table in place. Before reverting the code,
+wait for an active sweep to complete or reset `committedId` to zero: a cursor
+from an endpoint other than games is not a game ID and the old runner would
+otherwise skip games. No additional completed-run timestamp column is needed.
 
 ## Activation, commands and recovery
 
