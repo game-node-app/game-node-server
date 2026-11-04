@@ -245,7 +245,9 @@ describe("IGDB source recency", () => {
         expect(ensureStatistics).toHaveBeenCalledTimes(stale ? 0 : 1);
         if (!stale)
             expect(repository.upsert.mock.calls[0][0].igdbUpdatedAt).toEqual(
-                offset === null ? null : new Date(+timestamp + offset * 1000),
+                offset === null
+                    ? timestamp
+                    : new Date(+timestamp + offset * 1000),
             );
     });
 

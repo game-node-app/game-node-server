@@ -122,7 +122,8 @@ export class GameRepositoryCreateService {
             await gameRepository.upsert(
                 {
                     ...game,
-                    igdbUpdatedAt: incomingUpdatedAt,
+                    igdbUpdatedAt:
+                        incomingUpdatedAt ?? existing?.igdbUpdatedAt ?? null,
                     statisticsTargetId,
                 },
                 ["id"],
