@@ -79,6 +79,7 @@ mysqlDescribe("batch status transactions", () => {
             {} as any,
             {} as any,
             {} as any,
+            {} as any,
         );
         registry.register({
             ...registry.get("steam"),

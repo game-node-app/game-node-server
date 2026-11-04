@@ -179,6 +179,16 @@ export class ConnectionProviderRegistry {
         });
 
         this.register({
+            type: EConnectionType.GOG,
+            name: "gog",
+            iconName: "gog",
+            authMode: EConnectionAuthMode.DELEGATED_CODE,
+            isImporterViable: true,
+            isImporterWatchViable: true,
+            isPlaytimeImportViable: true,
+            isAchievementImportViable: true,
+        });
+        this.register({
             type: EConnectionType.NINTENDO,
             name: EConnectionType.NINTENDO.valueOf(),
             iconName: EConnectionType.NINTENDO.valueOf(),

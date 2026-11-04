@@ -2,6 +2,7 @@ import { EConnectionType } from "../../connection/connections.constants";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 
 export const GAME_ACHIEVEMENT_ENABLED_SOURCES = [
+    EGameExternalGameCategory.Gog,
     EGameExternalGameCategory.Steam,
     EGameExternalGameCategory.PlaystationStoreUs,
     EGameExternalGameCategory.Microsoft,
@@ -9,6 +10,7 @@ export const GAME_ACHIEVEMENT_ENABLED_SOURCES = [
 ];
 
 export const ACHIEVEMENT_CONNECTION_SOURCE = new Map([
+    [EGameExternalGameCategory.Gog, EConnectionType.GOG],
     [EGameExternalGameCategory.Steam, EConnectionType.STEAM],
     [EGameExternalGameCategory.PlaystationStoreUs, EConnectionType.PSN],
     [EGameExternalGameCategory.Microsoft, EConnectionType.XBOX],

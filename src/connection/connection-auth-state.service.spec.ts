@@ -3,7 +3,8 @@ import { ConnectionAuthStateService } from "./connection-auth-state.service";
 import { EConnectionType } from "./connections.constants";
 import { HttpException, HttpStatus } from "@nestjs/common";
 
-describe("ConnectionAuthStateService", () => {
+const providers = [EConnectionType.STEAM, EConnectionType.GOG];
+describe.each(providers)("ConnectionAuthStateService %s", (provider) => {
     let redis: { set: jest.Mock; eval: jest.Mock };
     let values: Map<string, string>;
     let service: ConnectionAuthStateService;
@@ -28,7 +29,7 @@ describe("ConnectionAuthStateService", () => {
     it("should initialize state with a 10-minute TTL and store payload", async () => {
         const state = await service.initState({
             userId: "user-123",
-            type: EConnectionType.STEAM,
+            type: provider,
             isAutoImportEnabled: true,
             autoImportCollectionId: "col-abc",
             codeVerifier: "verifier-xyz",
@@ -44,7 +45,7 @@ describe("ConnectionAuthStateService", () => {
         expect(ttl).toBe(10 * 60 * 1000); // 10 minutes (600000 ms)
         expect(JSON.parse(value)).toMatchObject({
             userId: "user-123",
-            type: EConnectionType.STEAM,
+            type: provider,
             isAutoImportEnabled: true,
             autoImportCollectionId: "col-abc",
             codeVerifier: "verifier-xyz",
@@ -55,7 +56,7 @@ describe("ConnectionAuthStateService", () => {
     it("should successfully consume state and delete it from cache", async () => {
         const storedState = {
             userId: "user-123",
-            type: EConnectionType.STEAM,
+            type: provider,
             isAutoImportEnabled: true,
             autoImportCollectionId: "col-abc",
         };
@@ -64,7 +65,7 @@ describe("ConnectionAuthStateService", () => {
         const result = await service.consumeState(
             "dummy-state",
             "user-123",
-            EConnectionType.STEAM,
+            provider,
         );
 
         expect(result).toEqual(storedState);
@@ -74,14 +75,14 @@ describe("ConnectionAuthStateService", () => {
     it("allows only one concurrent consumption across service instances", async () => {
         const state = await service.initState({
             userId: "user",
-            type: EConnectionType.STEAM,
+            type: provider,
         });
         const other = new ConnectionAuthStateService({
             client: Promise.resolve(redis),
         } as unknown as Queue);
         const results = await Promise.allSettled([
-            service.consumeState(state, "user", EConnectionType.STEAM),
-            other.consumeState(state, "user", EConnectionType.STEAM),
+            service.consumeState(state, "user", provider),
+            other.consumeState(state, "user", provider),
         ]);
         expect(
             results.filter((result) => result.status === "fulfilled"),
@@ -99,11 +100,7 @@ describe("ConnectionAuthStateService", () => {
         });
 
         await expect(
-            service.consumeState(
-                null as any,
-                "user-123",
-                EConnectionType.STEAM,
-            ),
+            service.consumeState(null as any, "user-123", provider),
         ).rejects.toMatchObject({
             status: HttpStatus.BAD_REQUEST,
         });
@@ -114,7 +111,7 @@ describe("ConnectionAuthStateService", () => {
             service.consumeState(
                 "already-consumed-state",
                 "user-123",
-                EConnectionType.STEAM,
+                provider,
             ),
         ).rejects.toMatchObject({
             status: HttpStatus.BAD_REQUEST,
@@ -125,16 +122,12 @@ describe("ConnectionAuthStateService", () => {
     it("should reject with 403 on session mismatch (different userId) and invalidate the state", async () => {
         const storedState = {
             userId: "attacker-456",
-            type: EConnectionType.STEAM,
+            type: provider,
         };
         values.set("conn-auth-state:stolen-state", JSON.stringify(storedState));
 
         await expect(
-            service.consumeState(
-                "stolen-state",
-                "victim-123",
-                EConnectionType.STEAM,
-            ),
+            service.consumeState("stolen-state", "victim-123", provider),
         ).rejects.toMatchObject({
             status: HttpStatus.FORBIDDEN,
         });
@@ -146,7 +139,7 @@ describe("ConnectionAuthStateService", () => {
     it("should reject with 403 on provider type mismatch and invalidate the state", async () => {
         const storedState = {
             userId: "user-123",
-            type: EConnectionType.STEAM,
+            type: provider,
         };
         values.set("conn-auth-state:steam-state", JSON.stringify(storedState));
 

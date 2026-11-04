@@ -1,0 +1,614 @@
+{
+    "status": 200,
+    "body": {
+        "total_count": 121,
+        "limit": 500,
+        "items": [
+            {
+                "platform_id": "steam",
+                "external_id": "1000000000",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000001",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000002",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000003",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000004",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000005",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000006",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000007",
+                "owned": true
+            },
+            {
+                "platform_id": "gog",
+                "external_id": "1000000008",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000009",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000010",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000011",
+                "owned": true
+            },
+            {
+                "platform_id": "gog",
+                "external_id": "1000000012",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000013",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000014",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000015",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000016",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000017",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000018",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000019",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000020",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000021",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000022",
+                "owned": true
+            },
+            {
+                "platform_id": "gog",
+                "external_id": "1000000023",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000024",
+                "owned": true
+            },
+            {
+                "platform_id": "gog",
+                "external_id": "1000000025",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000026",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000027",
+                "owned": true
+            },
+            {
+                "platform_id": "gog",
+                "external_id": "1000000028",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000029",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000030",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000031",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000032",
+                "owned": true
+            },
+            {
+                "platform_id": "gog",
+                "external_id": "1000000033",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000034",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000035",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000036",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000037",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000038",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000039",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000040",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000041",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000042",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000043",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000044",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000045",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000046",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000047",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000048",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000049",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000050",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000051",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000052",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000053",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000054",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000055",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000056",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000057",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000058",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000059",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000060",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000061",
+                "owned": true
+            },
+            {
+                "platform_id": "gog",
+                "external_id": "1000000062",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000063",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000064",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000065",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000066",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000067",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000068",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000069",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000070",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000071",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000072",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000073",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000074",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000075",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000076",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000077",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000078",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000079",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000080",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000081",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000082",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000083",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000084",
+                "owned": true
+            },
+            {
+                "platform_id": "gog",
+                "external_id": "1000000085",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000086",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000087",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000088",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000089",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000090",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000091",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000092",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000093",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000094",
+                "owned": true
+            },
+            {
+                "platform_id": "generic",
+                "external_id": "1000000095",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000096",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000097",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000098",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000099",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000100",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000101",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000102",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000103",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000104",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000105",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000106",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000107",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000108",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000109",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000110",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000111",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000112",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000113",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000114",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000115",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000116",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000117",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000118",
+                "owned": true
+            },
+            {
+                "platform_id": "epic",
+                "external_id": "1000000119",
+                "owned": true
+            },
+            {
+                "platform_id": "steam",
+                "external_id": "1000000120",
+                "owned": true
+            }
+        ]
+    }
+}

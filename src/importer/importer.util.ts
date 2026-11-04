@@ -11,6 +11,8 @@ export const connectionToImporterSource = (connectionType: EConnectionType) => {
             return EImporterSource.XBOX;
         case EConnectionType.EPIC_GAMES:
             return EImporterSource.EPIC_GAMES;
+        case EConnectionType.GOG:
+            return EImporterSource.GOG;
         case EConnectionType.NINTENDO:
             return EImporterSource.NINTENDO;
     }
@@ -28,6 +30,8 @@ export const importerToConnectionSource = (
             return EConnectionType.XBOX;
         case EImporterSource.EPIC_GAMES:
             return EConnectionType.EPIC_GAMES;
+        case EImporterSource.GOG:
+            return EConnectionType.GOG;
         case EImporterSource.NINTENDO:
             return EConnectionType.NINTENDO;
     }

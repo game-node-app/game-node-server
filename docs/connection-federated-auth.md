@@ -19,7 +19,9 @@ GameNode supports multi-platform gaming service connections (`steam`, `psn`, `xb
 | `XBOX_OAUTH_REDIRECT_URI` | String (URL) | Microsoft OAuth registered redirect URI pointing to the frontend callback route (e.g., `https://gamenode.app/connections/callback/xbox` or `http://localhost:3000/connections/callback/xbox`). |
 | `STEAM_API_KEY` | String | Steam Web API key for server-to-server profile summaries and library/achievement sync. |
 | `PSN_NPSSO_KEY` | String | PlayStation Network NPSSO token for PlayStation API access. |
-| `XBOX_API_USER` / `XBOX_API_PASS` | String | Fallback credentials for catalog-level unauthenticated Xbox operations (`XboxSyncAuthService.getCatalogAuthCredentials`). |
+
+Xbox catalog lookups requiring authentication use a connected Xbox account's
+credentials. They are unavailable if no Xbox account is connected.
 
 ---
 
@@ -182,3 +184,24 @@ Authorization: Bearer <session-or-jwt>
   3. Skips the connection during future scheduled sync cycles.
 - The frontend should present a "Reconnect" button when `authStatus === "reauth_required"`, which initiates the redirect flow (`POST /v1/connections/:type/auth/init`).
 - Completing the callback resets `authStatus` to `"connected"` and immediately resumes sync eligibility.
+
+### GOG
+
+GOG uses `delegated_code` through `POST /v1/connections/gog/auth/init` and
+`POST /v1/connections/gog/auth/callback`. Save the returned GameNode `state`,
+sign in at `authorizationUrl`, then paste the complete final
+`https://embed.gog.com/on_login_success?origin=client&code=...` URL into
+`callbackParams.code`. GOG does not echo GameNode state. The server validates the
+fixed URL and the token/profile identity before storing encrypted credentials.
+Manual connection creation is rejected. Existing collection ownership, settings,
+deletion and reconnect behavior applies.
+
+Fresh access tokens are reused with a five-minute margin. Refresh is serialized
+per connection, retains the existing grant if no replacement is returned, and
+validates any returned account ID. A missing grant or verified HTTP 400
+`invalid_grant` requires reconnection and emits one `GOG` notification per status
+transition. Temporary errors retain credentials. Token-request queries and raw
+Axios errors must never be logged. No new environment variable is required.
+
+Live verification and rollout remain pending as recorded in the GOG change's
+contract evidence; implementation uses the available primary-client evidence.

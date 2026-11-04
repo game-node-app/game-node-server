@@ -1,3 +1,4 @@
+import { GogSyncService } from "../../sync/gog/gog-sync.service";
 import { generateChecksum } from "../../utils/checksum";
 import {
     assertPlayerSyncActive,
@@ -66,6 +67,7 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         private readonly registry: ConnectionProviderRegistry,
         private readonly epicSyncService: EpicSyncService,
         private readonly nintendoSyncService: NintendoSyncService,
+        private readonly gogSyncService: GogSyncService,
     ) {
         super();
         registry.registerSyncHandlers(EConnectionType.STEAM, {
@@ -79,6 +81,9 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         });
         registry.registerSyncHandlers(EConnectionType.EPIC_GAMES, {
             fetchPlaytime: (job) => this.updateEpicPlaytimeInfo(job),
+        });
+        registry.registerSyncHandlers(EConnectionType.GOG, {
+            fetchPlaytime: (job) => this.updateGogPlaytimeInfo(job),
         });
         registry.registerSyncHandlers(EConnectionType.NINTENDO, {
             fetchPlaytime: (job) => this.updateNintendoPlaytimeInfo(job),
@@ -705,6 +710,81 @@ export class PlaytimeWatchProcessor extends WorkerHostProcessor {
         job.updateProgress({
             totalUpdatedGames: secondsByGame.size,
         } satisfies PlaytimeWatchJobProgress);
+    }
+
+    async updateGogPlaytimeInfo(job: Job<PlaytimeWatchJob>) {
+        const userId = job.data.userId;
+        const connection =
+            await this.connectionsService.findOneByUserIdAndTypeOrFail(
+                userId,
+                EConnectionType.GOG,
+            );
+        const ids = await this.gogSyncService.getLibraryItems(
+            connection.sourceUserId,
+        );
+        recordPlayerSyncStats({ gamesSeen: ids.length });
+        const games =
+            await this.externalGameService.getExternalGamesForSourceIds(
+                ids,
+                EGameExternalGameCategory.Gog,
+            );
+        const mapped = new Set(games.map((game) => game.uid));
+        await this.gogSyncService.registerUnmappedGames(
+            this.externalGameService,
+            userId,
+            connection.sourceUserId,
+            ids.filter((id) => !mapped.has(id)),
+        );
+        const seconds = new Map<string, number>();
+        for (const id of mapped) {
+            assertPlayerSyncActive();
+            seconds.set(
+                id,
+                await this.gogSyncService.getPlaytime(
+                    connection.sourceUserId,
+                    id,
+                ),
+            );
+        }
+        const byGame = Map.groupBy(games, (game) => game.gameId);
+        const existing = await this.playtimeService.findForImport(
+            userId,
+            UserPlaytimeSource.GOG,
+            [...byGame.keys()],
+        );
+        const playtimes: CreateUserPlaytimeDto[] = [];
+        for (const [gameId, mappings] of byGame) {
+            const previous = existing.get(`${gameId}:6`);
+            playtimes.push({
+                totalPlayCount: 0,
+                firstPlayedDate: undefined,
+                lastPlayedDate: undefined,
+                ...previous,
+                profileUserId: userId,
+                gameId,
+                platformId: 6,
+                source: UserPlaytimeSource.GOG,
+                totalPlaytimeSeconds: [
+                    ...new Set(mappings.map((game) => game.uid)),
+                ].reduce((total, id) => total + seconds.get(id)!, 0),
+                recentPlaytimeSeconds: undefined,
+            });
+        }
+        assertPlayerSyncActive();
+        await this.playtimeService.saveImported(playtimes, existing);
+        for (const game of games) {
+            assertPlayerSyncActive();
+            await this.gameAchievementSyncQueueService.addUserSyncJob(
+                userId,
+                game.id,
+                EConnectionType.GOG,
+                generateChecksum([game.uid, seconds.get(game.uid)]),
+            );
+        }
+        await job.updateProgress({
+            totalUpdatedGames: byGame.size,
+        } satisfies PlaytimeWatchJobProgress);
+        return { outcome: ids.length ? "complete" : "empty" };
     }
 
     async updateNintendoPlaytimeInfo(job: Job<PlaytimeWatchJob>) {

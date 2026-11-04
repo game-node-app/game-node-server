@@ -37,15 +37,17 @@ export class AuthGuard implements CanActivate {
 
         const request = context.switchToHttp().getRequest();
 
-        const isPublic = this.reflector.get<boolean>(
+        // Handler metadata wins; class-level decorators apply to every route.
+        const targets = [context.getHandler(), context.getClass()];
+
+        const isPublic = this.reflector.getAllAndOverride<boolean>(
             "isPublic",
-            context.getHandler(),
+            targets,
         );
 
-        const requiredRoles = this.reflector.get<string[] | undefined>(
-            "roles",
-            context.getHandler(),
-        );
+        const requiredRoles = this.reflector.getAllAndOverride<
+            string[] | undefined
+        >("roles", targets);
 
         const result = await this.authService.getSession(request);
 

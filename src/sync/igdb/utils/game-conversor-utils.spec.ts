@@ -4,8 +4,68 @@ import {
     snakeCaseToCamelCase,
 } from "./game-conversor-utils";
 import { expandedGame } from "../catalog/fixtures/expanded-game";
+import { CatalogDataError } from "../catalog/igdb-catalog.client";
 
 describe("single-game normalization", () => {
+    it.each([
+        {},
+        1,
+        "videos",
+        [null],
+        [1],
+        [[]],
+        [{}],
+        [{ id: 0 }],
+        [{ id: 1.5 }],
+        [{ id: Number.MAX_SAFE_INTEGER + 1 }],
+        [{ id: 1, name: {} }],
+        [{ id: 1, video_id: 1 }],
+        [{ id: 1, checksum: false }],
+        [{ id: 1, game: null }],
+        [{ id: 1, game: 2 }],
+    ])("rejects malformed videos %j", (videos) => {
+        expect(() => normalizeIgdbGame({ id: 1, videos })).toThrow(
+            CatalogDataError,
+        );
+        expect(() => normalizeIgdbGame({ id: 1, videos })).toThrow(
+            "Game 1: invalid videos",
+        );
+    });
+    it("accepts absent, null, empty and minimally populated videos", () => {
+        expect(normalizeIgdbGame({ id: 1 }).videos).toBeUndefined();
+        expect(normalizeIgdbGame({ id: 1, videos: null }).videos).toBeNull();
+        expect(normalizeIgdbGame({ id: 1, videos: [] }).videos).toEqual([]);
+        expect(
+            normalizeIgdbGame({ id: 1, videos: [{ id: 2, game: 1 }] })
+                .videos?.[0],
+        ).toMatchObject({ id: 2 });
+    });
+    it("derives encoded URLs and clears missing or empty identifiers", () => {
+        const videos = normalizeIgdbGame({
+            id: 1,
+            videos: [
+                { id: 2, video_id: "abc123_Xy-Z" },
+                { id: 3, video_id: "a&b?#" },
+                { id: 4 },
+                { id: 5, video_id: "" },
+            ],
+        }).videos!;
+        expect(videos[0]).toMatchObject({
+            videoId: "abc123_Xy-Z",
+            url: "https://www.youtube.com/watch?v=abc123_Xy-Z",
+        });
+        expect(videos[1]).toMatchObject({
+            videoId: "a&b?#",
+            url: "https://www.youtube.com/watch?v=a%26b%3F%23",
+        });
+        expect(videos[2]).toMatchObject({
+            name: null,
+            checksum: null,
+            videoId: null,
+            url: null,
+        });
+        expect(videos[3]).toMatchObject({ videoId: "", url: null });
+    });
     it("converts dates and keys at every level without mutating the fixture", () => {
         const source = expandedGame();
         const snapshot = structuredClone(source);

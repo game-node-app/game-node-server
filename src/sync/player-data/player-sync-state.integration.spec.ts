@@ -930,6 +930,21 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
         async () => {
             const state = new PlayerSyncStateService(source);
             const clock = new Date("2026-11-01T00:00:00Z");
+            jest.useFakeTimers({
+                now: clock,
+                doNotFake: [
+                    "nextTick",
+                    "setImmediate",
+                    "clearImmediate",
+                    "setTimeout",
+                    "clearTimeout",
+                    "setInterval",
+                    "clearInterval",
+                    "queueMicrotask",
+                    "performance",
+                    "hrtime",
+                ],
+            });
             jest.spyOn(state as any, "now").mockImplementation(
                 async () => new Date(clock),
             );
@@ -1023,6 +1038,7 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
             } finally {
                 await queue.obliterate();
                 await queue.close();
+                jest.useRealTimers();
             }
         },
     );

@@ -6,6 +6,8 @@ export const GAME_ACHIEVEMENT_XBOX_JOB_NAME = "game-achievement-xbox-sync";
 export const GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME =
     "game-achievement-playstation-sync";
 
+export const GAME_ACHIEVEMENT_GOG_JOB_NAME = "game-achievement-gog-sync";
+
 export const GAME_ACHIEVEMENT_STEAM_JOB_NAME = "game-achievement-steam-sync";
 
 export interface GameAchievementObtainedUpdateJob {

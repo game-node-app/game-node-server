@@ -155,6 +155,7 @@ describe("import and notification recovery on disposable MySQL", () => {
             {} as any,
             {} as any,
             {} as any,
+            {} as any,
         );
         const notifications = source.getRepository(ImporterWatchNotification);
         const worker = new ImporterWatchProcessor(
@@ -561,6 +562,7 @@ describe("import and notification recovery on disposable MySQL", () => {
                 new ConnectionProviderRegistry(),
                 {} as any,
                 {} as any,
+                {} as any,
             );
             const fullWorker = new PlayerDataProcessor(
                 a,
@@ -576,6 +578,7 @@ describe("import and notification recovery on disposable MySQL", () => {
                 f.connections as any,
                 gameAdmission,
                 new ConnectionProviderRegistry(),
+                {} as any,
             );
             const catalogue = {
                 findAllByExternalGameIdForSync: jest.fn(async (id: number) => [

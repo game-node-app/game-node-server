@@ -99,17 +99,20 @@ describe("NotificationsOutboxService appendNotificationIntent", () => {
         },
     );
 
-    it.each(["epicgames", "xbox"])("accepts a %s reauth intent", (provider) => {
-        expect(() =>
-            validateNotificationIntent({
-                eventType: "connection.reauth-required",
-                eventVersion: 1,
-                recipientUserId: "owner",
-                actorUserId: null,
-                payload: { connectionId: 1, provider },
-            }),
-        ).not.toThrow();
-    });
+    it.each(["epicgames", "xbox", "gog"])(
+        "accepts a %s reauth intent",
+        (provider) => {
+            expect(() =>
+                validateNotificationIntent({
+                    eventType: "connection.reauth-required",
+                    eventVersion: 1,
+                    recipientUserId: "owner",
+                    actorUserId: null,
+                    payload: { connectionId: 1, provider },
+                }),
+            ).not.toThrow();
+        },
+    );
 
     it("rejects invalid occurrence dates", () => {
         expect(() =>

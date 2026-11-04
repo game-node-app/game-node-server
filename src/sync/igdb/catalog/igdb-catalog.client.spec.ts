@@ -49,6 +49,8 @@ describe("IgdbCatalogClient", () => {
         expect(post.mock.calls[0][1]).toBe(
             `fields ${IGDB_CATALOG_FIELDS.join(",")}; sort id asc; where id > 0 & id <= 90; limit 25;`,
         );
+        expect(post).toHaveBeenCalledTimes(1);
+        expect(post.mock.calls[0][0]).toContain("/games");
         expect(post.mock.calls[0][2]).toMatchObject({
             timeout: 30000,
             maxContentLength: 16777216,

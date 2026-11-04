@@ -1,9 +1,11 @@
+import { EConnectionType } from "../../../connection/connections.constants";
 import { randomUUID } from "node:crypto";
 import { DataSource } from "typeorm";
 import { EGameExternalGameCategory } from "../../game-repository/game-repository.constants";
 import { GameAchievementSyncProcessor } from "./game-achievement-sync.processor";
 import { GameAchievementActivityService } from "../game-achievement-activity.service";
 import {
+    GAME_ACHIEVEMENT_GOG_JOB_NAME,
     GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME,
     GAME_ACHIEVEMENT_STEAM_JOB_NAME,
 } from "./game-achievement-sync.constants";
@@ -16,7 +18,8 @@ const mysqlDescribe = process.env.PLAYER_IMPORT_TEST_MYSQL_PORT
     ? describe
     : describe.skip;
 
-mysqlDescribe("achievement commit transactions on disposable MySQL", () => {
+const providers = [EConnectionType.STEAM, EConnectionType.GOG];
+mysqlDescribe.each(providers)("achievement commit %s", (provider) => {
     const database = `player_achievement_tx_${randomUUID().replaceAll("-", "")}`;
     const options = {
         type: "mysql" as const,
@@ -509,7 +512,9 @@ mysqlDescribe("achievement commit transactions on disposable MySQL", () => {
 
     function obtained(
         externalId: string,
-        source = EGameExternalGameCategory.Steam,
+        source = provider === EConnectionType.GOG
+            ? EGameExternalGameCategory.Gog
+            : EGameExternalGameCategory.Steam,
     ) {
         return {
             externalGameId: 1,
@@ -521,7 +526,11 @@ mysqlDescribe("achievement commit transactions on disposable MySQL", () => {
         };
     }
 
-    function job(name = GAME_ACHIEVEMENT_STEAM_JOB_NAME) {
+    function job(
+        name = provider === EConnectionType.GOG
+            ? GAME_ACHIEVEMENT_GOG_JOB_NAME
+            : GAME_ACHIEVEMENT_STEAM_JOB_NAME,
+    ) {
         return {
             name,
             data: {
@@ -531,7 +540,9 @@ mysqlDescribe("achievement commit transactions on disposable MySQL", () => {
                     "user",
                     name === GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME
                         ? "psn"
-                        : "steam",
+                        : name === GAME_ACHIEVEMENT_GOG_JOB_NAME
+                          ? "gog"
+                          : "steam",
                     1,
                 ),
             },
