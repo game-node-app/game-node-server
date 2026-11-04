@@ -633,6 +633,9 @@ export class GameRepositoryCreateService {
                 );
         }
 
+        // One-to-many: the upsert already links rows; detaching would NULL the NOT NULL gameId. IGDB deletions are not propagated.
+        if (propertyPath === "externalGames") return;
+
         if (
             incomingNotInExisting.length === 0 &&
             existingNotInIncoming.length === 0

@@ -149,11 +149,8 @@ export class IgdbDeltaService implements OnModuleDestroy {
                         controller.abort(error);
                         throw error;
                     }
-                    await this.state.pause(
-                        owner,
-                        entry.endpoint,
-                        `${stage}: required stage failed`,
-                    );
+                    failure = `${stage}: ${error instanceof Error ? error.message : String(error)}`;
+                    await this.state.pause(owner, entry.endpoint, failure);
                 } finally {
                     total += count;
                     this.logger.log({

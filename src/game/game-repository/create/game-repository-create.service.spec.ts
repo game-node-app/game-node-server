@@ -171,18 +171,20 @@ describe("external game reconciliation ignores GameNode-owned rows", () => {
             .then(() => ({ addAndRemove, repository }));
     }
 
-    it("keeps a curated row and still reconciles IGDB rows", async () => {
-        const { addAndRemove } = await run(
+    it("upserts IGDB rows without detaching rows IGDB dropped", async () => {
+        const { addAndRemove, repository } = await run(
             [
                 { id: 10, checksum: "a", origin: "igdb" },
                 { id: 1e12, checksum: null, origin: "curated" },
             ],
             [{ id: 11, checksum: "b" }],
         );
-        expect(addAndRemove).toHaveBeenCalledWith(
-            [{ id: 11, checksum: "b" }],
-            [{ id: 10, checksum: "a", origin: "igdb" }],
+        expect(repository.upsert).toHaveBeenCalledWith(
+            [expect.objectContaining({ id: 11, gameId: 1 })],
+            ["id"],
         );
+        // Detaching sets the NOT NULL gameId to NULL and fails in MySQL.
+        expect(addAndRemove).not.toHaveBeenCalled();
     });
 
     it("does not reconcile when only a curated row differs", async () => {
