@@ -61,6 +61,7 @@ export function expandedGame(id = 10) {
         game_status: 0,
         aggregated_rating: 80,
         aggregated_rating_count: 2,
+        total_rating_count: 40,
         summary: "Summary",
         storyline: "Story",
         url: "//fixture/game",

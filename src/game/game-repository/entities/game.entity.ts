@@ -48,6 +48,7 @@ import { ApiProperty } from "@nestjs/swagger";
 @Entity()
 @Index("UQ_game_statistics_target", ["statisticsTargetId"], { unique: true })
 @Index("IDX_game_statistics_ranking", ["id", "statisticsTargetId", "status", "category"])
+@Index("IDX_game_total_rating_count", ["totalRatingCount"])
 export class Game {
     /**
      * Should be mapped to the IGDB ID of the game.
@@ -70,6 +71,11 @@ export class Game {
         nullable: true,
     })
     aggregatedRatingCount?: number;
+    /** IGDB critic and user ratings together; how widely known a game is. */
+    @Column("int", {
+        nullable: true,
+    })
+    totalRatingCount?: number;
     @Column({
         default: EGameCategory.Main,
     })

@@ -46,6 +46,8 @@ describe("catalog field projection", () => {
 
     it("retains images, nested metadata, links, external IDs and localization aliases", () => {
         const game = normalizeIgdbGame(expandedGame());
+        // The Daily pool ranks games by it.
+        expect(game.totalRatingCount).toBe(40);
         expect(game.cover).toMatchObject({
             imageId: "image-token",
             alphaChannel: true,

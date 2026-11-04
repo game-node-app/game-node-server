@@ -22,9 +22,17 @@ const MODE_FILTERS: Record<DailyMode, string> = {
         AND g.firstReleaseDate <= NOW()`,
 };
 
-/** Candidate sources, tried in order: popularity first, IGDB rating count when there is no popularity yet. */
+/**
+ * Only games enough people rated on IGDB, so the answer is one most players could know.
+ * GameNode's own popularity isn't used: most of its top 1000 have a single view.
+ */
+// shortcut: thresholds picked without IGDB data at hand, tune them once the pool size per mode is known.
+const MIN_TOTAL_RATINGS = 50;
+const POOL_SIZE = 2000;
+
+/** Candidate sources, tried in order; critic reviews only until the catalog sync fills `totalRatingCount`. */
 const CANDIDATE_SOURCES = [
-    "SELECT g.id FROM ranking_score rs JOIN game g ON g.statisticsTargetId = rs.targetId WHERE rs.rankingKey = 'game:popular:all' AND rs.score > 0 ORDER BY rs.score DESC LIMIT 1000",
+    `SELECT id FROM game WHERE category = ${EGameCategory.Main} AND totalRatingCount >= ${MIN_TOTAL_RATINGS} ORDER BY totalRatingCount DESC LIMIT ${POOL_SIZE}`,
     `SELECT id FROM game WHERE category = ${EGameCategory.Main} ORDER BY aggregatedRatingCount DESC LIMIT 1000`,
 ];
 

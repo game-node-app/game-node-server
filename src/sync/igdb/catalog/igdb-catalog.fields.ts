@@ -55,6 +55,7 @@ export const IGDB_CATALOG_FIELDS = [
     "checksum",
     "aggregated_rating",
     "aggregated_rating_count",
+    "total_rating_count",
     "status",
     "category",
     "game_type",
