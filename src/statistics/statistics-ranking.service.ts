@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { DataSource, EntityManager } from "typeorm";
 import { GameRankingCriteriaDto, StatisticsRankingsRequestDto } from "./dto/statistics-api.dto";
 import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
+import { EGameCategory } from "../game/game-repository/game-repository.constants";
 import { StatisticsSourceType } from "./statistics.constants";
 import {
     floorStatisticsMicros,
@@ -179,6 +180,10 @@ export class StatisticsRankingService {
             ? { sql: "SELECT targetId, score FROM ranking_score WHERE rankingKey = ?", parameters: [rankingKey] }
             : this.scoreQuery(mode, fromInstant, toInstant, fromInstant === null);
         const source = this.sourceQuery(sourceType, dto, actorId);
+        if (sourceType === StatisticsSourceType.GAME) {
+            source.from += ` JOIN (${score.sql}) prepared ON prepared.targetId = t.id AND prepared.score > 0`;
+            source.parameters.unshift(...score.parameters);
+        }
         const cacheKey = this.cacheKey(actorId, dto, fromInstant, toInstant);
         const countRows = await manager.query(
             `SELECT COUNT(*) AS total ${source.from} WHERE ${source.where}`,
@@ -217,7 +222,7 @@ export class StatisticsRankingService {
         const metricJoins = `LEFT JOIN metric_total views ON views.targetId = t.id AND views.metricCode = 'views'
             LEFT JOIN metric_total likes ON likes.targetId = t.id AND likes.metricCode = 'likes_current'`;
         const rows = sourceType === StatisticsSourceType.GAME
-            ? await this.gameRankingPage(manager, source, score, limit, offset)
+            ? await this.gameRankingPage(manager, source, limit, offset)
             : await manager.query(
                 `SELECT ${source.alias}.id AS sourceId, COALESCE(prepared.score, 0) AS score,
                     COALESCE(views.metricValue, 0) AS viewsCount, COALESCE(likes.metricValue, 0) AS likesCount
@@ -251,33 +256,13 @@ export class StatisticsRankingService {
         return this.response(items, total, limit, offset, mode, asOfInstant, fromInstant, toInstant, freshness);
     }
 
-    private async gameRankingPage(manager: EntityManager, source: SourceQuery, score: ScoreQuery, limit: number, offset: number) {
-        const positiveJoin = `JOIN (${score.sql}) prepared ON prepared.targetId = t.id AND prepared.score > 0`;
-        const parameters = [...score.parameters, ...source.parameters];
+    private async gameRankingPage(manager: EntityManager, source: SourceQuery, limit: number, offset: number) {
         const rows = await manager.query(
             `SELECT g.id AS sourceId, t.id AS targetId, prepared.score
-             ${source.from} ${positiveJoin} WHERE ${source.where}
+             ${source.from} WHERE ${source.where}
              ORDER BY prepared.score DESC, g.id ASC LIMIT ? OFFSET ?`,
-            [...parameters, limit, offset],
+            [...source.parameters, limit, offset],
         );
-        if (rows.length < limit) {
-            let positiveCount = offset + rows.length;
-            if (offset > 0 && rows.length === 0) {
-                const [count] = await manager.query(
-                    `SELECT COUNT(*) AS total ${source.from} ${positiveJoin} WHERE ${source.where}`,
-                    parameters,
-                );
-                positiveCount = safeCount(count.total);
-            }
-            const zeros = await manager.query(
-                `SELECT STRAIGHT_JOIN g.id AS sourceId, t.id AS targetId, 0 AS score
-                 ${source.from} LEFT ${positiveJoin}
-                 WHERE ${source.where} AND prepared.targetId IS NULL
-                 ORDER BY g.id ASC LIMIT ? OFFSET ?`,
-                [...parameters, limit - rows.length, Math.max(0, offset - positiveCount)],
-            );
-            rows.push(...zeros);
-        }
         if (!rows.length) return rows;
         const metrics = await manager.query(
             `SELECT t.id AS targetId, COALESCE(views.metricValue, 0) AS viewsCount,
@@ -305,6 +290,11 @@ export class StatisticsRankingService {
             ];
             const parameters: unknown[] = [];
             const criteria = dto?.criteria as GameRankingCriteriaDto | undefined;
+            // Prepared scores retain every category so explicit category filters still work.
+            if (dto && !criteria?.category?.length) {
+                where.push("g.category IN (?)");
+                parameters.push([EGameCategory.Main, EGameCategory.Remake, EGameCategory.Remaster]);
+            }
             for (const key of ["ids", "status", "category"] as const) {
                 const value = criteria?.[key] as unknown[] | undefined;
                 if (value?.length) {
@@ -444,7 +434,7 @@ export class StatisticsRankingService {
             actorId: dto.sourceType === StatisticsSourceType.REVIEW && dto.excludeOwn ? actorId ?? null : null,
         };
         const digest = createHash("sha256").update(JSON.stringify(filter)).digest("hex");
-        return `statistics:rank:${definitionVersion}:${digest}`;
+        return `statistics:rank:v2:${definitionVersion}:${digest}`;
     }
 
     private async freshness(manager: EntityManager) {

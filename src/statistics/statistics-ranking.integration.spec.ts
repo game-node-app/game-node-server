@@ -6,6 +6,7 @@ import { createCache } from "cache-manager";
 import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
 import { StatisticsRankingService } from "./statistics-ranking.service";
 import { StatisticsSourceType } from "./statistics.constants";
+import { EGameCategory } from "../game/game-repository/game-repository.constants";
 import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 import { ensureStatisticsTarget } from "./statistics-target.repository";
 
@@ -69,7 +70,7 @@ describe("statistics rankings", () => {
         return reviewId;
     }
 
-    it("filters games in SQL before paging, excludes mature games, and retains zero-score ties", async () => {
+    it("filters games in SQL before paging, excludes mature games, and omits zero scores", async () => {
         const firstId = 2_000_000_000 - randomInt(100_000);
         const zeroId = firstId + 1;
         const matureId = firstId + 2;
@@ -77,14 +78,15 @@ describe("statistics rankings", () => {
         const targets = new Map<number, number>();
         for (const id of [firstId, zeroId, tiedId, matureId]) targets.set(id, await createGame(id));
         await setMetric(targets.get(firstId)!, "views", 10);
+        await setMetric(targets.get(matureId)!, "views", 100);
         const themeId = randomInt(1_000_000, 2_000_000_000);
         await dataSource.query(
             "INSERT IGNORE INTO game_theme (id, name, slug) VALUES (?, 'Mature', 'mature'), (?, ?, ?)",
             [MATURE_THEME_ID, themeId, `Adventure ${themeId}`, `adventure-${themeId}`],
         );
         await dataSource.query(
-            "INSERT INTO game_themes_game_theme (gameId, gameThemeId) VALUES (?, ?), (?, ?)",
-            [zeroId, themeId, matureId, MATURE_THEME_ID],
+            "INSERT INTO game_themes_game_theme (gameId, gameThemeId) VALUES (?, ?), (?, ?), (?, ?)",
+            [firstId, themeId, zeroId, themeId, matureId, MATURE_THEME_ID],
         );
 
         const page = await service.findRankings(undefined, {
@@ -96,7 +98,7 @@ describe("statistics rankings", () => {
             offset: 0,
         });
         expect(page.pagination.total).toBe(1);
-        expect(page.items.map((item: any) => item.sourceId)).toEqual([zeroId]);
+        expect(page.items.map((item: any) => item.sourceId)).toEqual([firstId]);
 
         const allGames = await service.findRankings(undefined, {
             sourceType: StatisticsSourceType.GAME,
@@ -106,11 +108,11 @@ describe("statistics rankings", () => {
             limit: 20,
             offset: 0,
         });
-        expect(allGames.items.map((item: any) => item.sourceId)).toEqual([zeroId, tiedId]);
-        expect(allGames.items.map((item: any) => item.score)).toEqual([0, 0]);
+        expect(allGames.items).toEqual([]);
+        expect(allGames.pagination).toEqual({ total: 0, limit: 20, offset: 0, hasNextPage: false });
     });
 
-    it("pages across positive scores, zero scores and games missing from the prepared key in native ID order", async () => {
+    it("pages positive scores in native ID tie order without padding zeros or missing prepared scores", async () => {
         const firstId = 2_050_000_000 - randomInt(100_000);
         const ids = Array.from({ length: 5 }, (_, index) => firstId + index);
         const targets = new Map<number, number>();
@@ -124,7 +126,7 @@ describe("statistics rankings", () => {
         }
         await setMetric(targets.get(ids[3])!, "views", 123);
         await setMetric(targets.get(ids[3])!, "likes_current", 7);
-        const expected = [ids[1], ids[4], ids[0], ids[2], ids[3]];
+        const expected = [ids[1], ids[4], ids[0]];
         for (const offset of [0, 1, 2, 3, 4, 5, 10000]) {
             const page = await service.findRankings(undefined, {
                 sourceType: StatisticsSourceType.GAME,
@@ -135,9 +137,7 @@ describe("statistics rankings", () => {
                 offset,
             });
             expect(page.items.map((item: any) => item.sourceId)).toEqual(expected.slice(offset, offset + 2));
-            expect(page.pagination).toEqual({ total: 5, limit: 2, offset, hasNextPage: offset + 2 < 5 });
-            const missing = page.items.find((item: any) => item.sourceId === ids[3]);
-            if (missing) expect(missing).toMatchObject({ score: 0, viewsCount: 123, likesCount: 7 });
+            expect(page.pagination).toEqual({ total: 3, limit: 2, offset, hasNextPage: offset + 2 < 3 });
         }
         const genreId = randomInt(1_000_000, 2_000_000_000);
         for (const id of [genreId, genreId + 1])
@@ -154,8 +154,9 @@ describe("statistics rankings", () => {
             limit: 2,
             offset: 1,
         });
-        expect(filtered.pagination.total).toBe(3);
-        expect(filtered.items.map((item: any) => item.sourceId)).toEqual([ids[0], ids[2]]);
+        expect(filtered.pagination.total).toBe(2);
+        expect(filtered.items.map((item: any) => item.sourceId)).toEqual([ids[0]]);
+        expect(filtered.pagination.hasNextPage).toBe(false);
     });
 
     it("serves missing presets from projected metrics without rebuilding a key during the request", async () => {
@@ -182,6 +183,52 @@ describe("statistics rankings", () => {
             const [count] = await dataSource.query("SELECT COUNT(*) AS total FROM ranking_score WHERE rankingKey = ?", [key]);
             expect(Number(count.total)).toBe(0);
         }
+    });
+
+    it.each(["all", "year"])("defaults %s rankings to main games, remakes and remasters and supports explicit categories", async (period) => {
+        const firstId = 2_070_000_000 - randomInt(100_000);
+        const categories = [EGameCategory.Main, EGameCategory.Remake, EGameCategory.Remaster, EGameCategory.DlcAddon, EGameCategory.Expansion];
+        const ids = categories.map((_, index) => firstId + index);
+        for (const [index, category] of categories.entries()) {
+            const targetId = await createGame(ids[index]);
+            await dataSource.query("UPDATE game SET category = ? WHERE id = ?", [category, ids[index]]);
+            await setMetric(targetId, "views", 10);
+            await dataSource.query(
+                "INSERT INTO metric_hour (targetId, metricCode, bucketStart, metricValue) VALUES (?, 'views', DATE_FORMAT(UTC_TIMESTAMP() - INTERVAL 2 HOUR, '%Y-%m-%d %H:00:00'), 10)",
+                [targetId],
+            );
+        }
+        if (period === "year") await (service as any).refreshKey(StatisticsSourceType.GAME, "popular", period);
+        const request = { sourceType: StatisticsSourceType.GAME, mode: "popular", period, criteria: { ids }, limit: 20, offset: 0 } as any;
+        for (const category of [undefined, []]) {
+            const page = await service.findRankings(undefined, { ...request, criteria: { ids, category } });
+            expect(page.items.map((item: any) => item.sourceId)).toEqual(ids.slice(0, 3));
+            expect(page.pagination.total).toBe(3);
+        }
+        const expansions = await service.findRankings(undefined, {
+            ...request, criteria: { ids, category: [EGameCategory.DlcAddon, EGameCategory.Expansion] },
+        });
+        expect(expansions.items.map((item: any) => item.sourceId)).toEqual(ids.slice(3));
+        expect(expansions.pagination.total).toBe(2);
+    });
+
+    it("rechecks cached positive-score eligibility even when the total stays unchanged", async () => {
+        const firstId = 2_080_000_000 - randomInt(100_000);
+        const firstTarget = await createGame(firstId);
+        const secondTarget = await createGame(firstId + 1);
+        await setMetric(firstTarget, "views", 5);
+        const cache = createCache();
+        const rankings = new StatisticsRankingService(dataSource, cache);
+        const request = { sourceType: StatisticsSourceType.GAME, mode: "popular", period: "all",
+            criteria: { ids: [firstId, firstId + 1] }, limit: 20, offset: 0 } as any;
+        const first = await rankings.findRankings(undefined, request);
+        expect(first.items.map((item: any) => item.sourceId)).toEqual([firstId]);
+        await setMetric(firstTarget, "views", 0);
+        await setMetric(secondTarget, "views", 5);
+        const changed = await rankings.findRankings(undefined, request);
+        expect(changed.pagination.total).toBe(first.pagination.total);
+        expect(changed.items.map((item: any) => item.sourceId)).toEqual([firstId + 1]);
+        await cache.disconnect();
     });
 
     it("pins only eligible reviews and rejects unbounded recent/all rankings", async () => {
