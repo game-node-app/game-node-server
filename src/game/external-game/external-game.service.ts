@@ -123,9 +123,14 @@ export class ExternalGameService {
         dto: FindExternalGamesRequestDto,
     ): Promise<TPaginationData<GameExternalGame>> {
         const findOptions = buildBaseFindOptions<GameExternalGame>(dto);
+        // Exact category + store ID lookup; duplicate UIDs collapse so they cannot duplicate rows.
+        const lookup = dto.uids
+            ? { category: dto.category, uid: In([...new Set(dto.uids)]) }
+            : undefined;
 
         return this.gameExternalGameRepository.findAndCount({
             ...findOptions,
+            where: lookup,
             order: {
                 updatedAt: "DESC",
             },

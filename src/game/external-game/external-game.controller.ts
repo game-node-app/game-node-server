@@ -3,6 +3,7 @@ import { Queue } from "bullmq";
 import {
     Body,
     Controller,
+    ForbiddenException,
     Get,
     Param,
     ParseIntPipe,
@@ -12,6 +13,8 @@ import {
     UseInterceptors,
 } from "@nestjs/common";
 import { AuthGuard } from "../../auth/auth.guard";
+import { parseRoles } from "../../auth/auth.service";
+import { Session, SessionContainer } from "../../auth/session.decorator";
 import { ExternalGameService } from "./external-game.service";
 import { Roles } from "../../auth/roles.decorator";
 import { EUserRoles } from "../../utils/constants";
@@ -40,13 +43,28 @@ export class ExternalGameController {
         private readonly mappingQueue: Queue,
     ) {}
 
+    /**
+     * Any signed-in user may look up exact category + store IDs (`category` with `uids`);
+     * the unfiltered catalog listing stays limited to moderators and admins.
+     */
     @Get()
-    @Roles([EUserRoles.MOD, EUserRoles.ADMIN])
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
         type: FindExternalGamesResponseDto,
     })
-    public async findAll(@Query() dto: FindExternalGamesRequestDto) {
+    public async findAll(
+        @Query() dto: FindExternalGamesRequestDto,
+        @Session() session: SessionContainer,
+    ) {
+        if (dto.uids === undefined) {
+            const roles = parseRoles(session.user.role);
+            if (
+                ![EUserRoles.MOD, EUserRoles.ADMIN].some((role) =>
+                    roles.includes(role),
+                )
+            )
+                throw new ForbiddenException();
+        }
         return (await this.externalGameService.findAll(
             dto,
         )) as unknown as FindExternalGamesResponseDto;
