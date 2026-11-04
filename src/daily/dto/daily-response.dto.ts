@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, PickType } from "@nestjs/swagger";
 import { PaginationInfo } from "../../utils/pagination/pagination-response.dto";
 import {
     DailyGuessResult,
@@ -79,6 +79,13 @@ export const DAILY_REVEAL_ORDER: DailyRevealColumn[] = [
     "gameEngines",
 ];
 
+export class DailyGuessTraitsDto extends PickType(DailySpecsColumnsDto, [
+    "genres",
+    "themes",
+    "platforms",
+    "franchise",
+] as const) {}
+
 export class DailyGuessFeedbackDto {
     /** `null` for a skip. */
     gameId: number | null;
@@ -88,6 +95,8 @@ export class DailyGuessFeedbackDto {
     commonPlatforms: string[];
     /** Specs mode only. */
     columns?: DailySpecsColumnsDto;
+    /** Cover, artwork and keywords modes only; never on a skip. */
+    traits?: DailyGuessTraitsDto;
 }
 
 export class DailyYearRangeDto {
@@ -139,7 +148,7 @@ export class DailyPlayResponseDto {
     hintAt: number | null;
     /** Only once the puzzle is finished. */
     answer?: DailyAnswerDto;
-    /** Only once the puzzle is finished. */
+    /** Also sent while the puzzle is in progress. */
     community?: DailyCommunityDto;
 }
 

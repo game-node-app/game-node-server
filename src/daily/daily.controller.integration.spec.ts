@@ -82,6 +82,7 @@ describe("DailyController on MySQL", () => {
         );
         expect(first.status).toBe(DailyStatus.IN_PROGRESS);
         expect(first.answer).toBeUndefined();
+        expect(first.community).toEqual({ players: 0, averageAttempts: 0 });
 
         await expect(
             controller.play(puzzle.id, { guesses: [WRONG_IDS[1]] }, session),

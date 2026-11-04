@@ -104,6 +104,52 @@ describe("evaluateDaily", () => {
         expect(feedback.columns).toBeUndefined();
     });
 
+    it("sends only genre, theme, platform and franchise traits outside specs mode", () => {
+        const guess = game(2, {
+            franchises: [n(100, "Zelda"), n(101, "Mario")],
+            genres: [n(10, "RPG"), n(11, "Adventure")],
+            platforms: [n(21, "PC")],
+            gameEngines: [n(40, "Unreal")],
+        });
+        const [feedback, skip] = play(DailyMode.COVER, [guess, null]).feedback;
+        expect(feedback.traits).toEqual({
+            genres: { match: DailyMatch.MATCH, values: ["RPG", "Adventure"] },
+            themes: { match: DailyMatch.MATCH, values: [] },
+            platforms: { match: DailyMatch.NONE, values: ["PC"] },
+            franchise: { match: DailyMatch.PARTIAL },
+        });
+        expect(skip.traits).toBeUndefined();
+        for (const mode of [DailyMode.ARTWORK, DailyMode.KEYWORDS])
+            expect(
+                Object.keys(play(mode, [guess]).feedback[0].traits!),
+            ).toEqual(["genres", "themes", "platforms", "franchise"]);
+        expect(
+            play(DailyMode.SPECS, [guess]).feedback[0].traits,
+        ).toBeUndefined();
+    });
+
+    it("never matches the franchise of two games without one", () => {
+        const noFranchise = { ...answer, franchises: [] };
+        const [feedback] = evaluateDaily({
+            mode: DailyMode.COVER,
+            answer: noFranchise,
+            guesses: [game(2)],
+            hintAt: null,
+            keywords,
+        }).feedback;
+        expect(feedback.result).toBe(DailyGuessResult.WRONG);
+        expect(feedback.traits?.franchise.match).toBe(DailyMatch.NONE);
+        expect(
+            evaluateDaily({
+                mode: DailyMode.SPECS,
+                answer: noFranchise,
+                guesses: [game(2)],
+                hintAt: null,
+                keywords,
+            }).feedback[0].columns?.franchise.match,
+        ).toBe(DailyMatch.NONE);
+    });
+
     it("unlocks image levels with attempts, capped at 5", () => {
         expect(play(DailyMode.COVER, []).hints.imageLevel).toBe(0);
         expect(play(DailyMode.ARTWORK, wrong(3)).hints.imageLevel).toBe(3);

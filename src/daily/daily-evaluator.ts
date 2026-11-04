@@ -124,7 +124,12 @@ const specsColumns = (
     ) as Record<(typeof SET_COLUMNS)[number], DailySetColumnDto>;
     return {
         ...sets,
-        franchise: { match: setMatch(guess.franchises, answer.franchises) },
+        // Two games without a franchise don't share one.
+        franchise: {
+            match: guess.franchises.length
+                ? setMatch(guess.franchises, answer.franchises)
+                : DailyMatch.NONE,
+        },
         releaseYear: yearColumn(guess.year, answer.year),
     };
 };
@@ -142,6 +147,7 @@ const feedbackFor = (
             commonGenres: [],
             commonPlatforms: [],
         };
+    const columns = specsColumns(guess, answer);
     const result =
         guess.id === answer.id
             ? DailyGuessResult.CORRECT
@@ -154,8 +160,17 @@ const feedbackFor = (
         result,
         commonGenres: common(guess.genres, answer.genres),
         commonPlatforms: common(guess.platforms, answer.platforms),
-        columns:
-            mode === DailyMode.SPECS ? specsColumns(guess, answer) : undefined,
+        columns: mode === DailyMode.SPECS ? columns : undefined,
+        // Only these columns outside specs mode, so the others can't leak extra hints.
+        traits:
+            mode === DailyMode.SPECS
+                ? undefined
+                : {
+                      genres: columns.genres,
+                      themes: columns.themes,
+                      platforms: columns.platforms,
+                      franchise: columns.franchise,
+                  },
     };
 };
 

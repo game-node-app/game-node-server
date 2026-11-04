@@ -484,7 +484,7 @@ export class DailyService {
             hintAvailable: evaluation.hintAvailable,
             hintAt,
             answer: evaluation.answer,
-            community: finished ? await this.community(puzzle.id) : undefined,
+            community: await this.community(puzzle.id),
         };
     }
 
