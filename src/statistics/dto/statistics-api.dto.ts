@@ -137,7 +137,10 @@ export class StatisticsRankingsRequestDto {
     @IsUtcInstant()
     to?: string;
 
-    @ApiPropertyOptional({ type: GameRankingCriteriaDto })
+    @ApiPropertyOptional({
+        type: GameRankingCriteriaDto,
+        description: "Game rankings require a positive score and default to main games, remakes and remasters when category is omitted or empty.",
+    })
     @IsOptional()
     @ValidateNested()
     @Type(() => GameRankingCriteriaDto)
