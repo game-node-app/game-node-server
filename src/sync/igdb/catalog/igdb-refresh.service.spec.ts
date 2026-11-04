@@ -92,7 +92,7 @@ it("uses expanded delta games directly", async () => {
     expect(f.importer.persist).toHaveBeenCalledTimes(1);
 });
 it.each(["ER_BAD_NULL_ERROR", "ER_DUP_ENTRY"])(
-    "skips non-transient database rejection %s and continues persisting games",
+    "skips known row-level database rejection %s and continues persisting games",
     async (code) => {
         const f = fixture();
         const log = jest
@@ -131,6 +131,30 @@ it.each(["ER_BAD_NULL_ERROR", "ER_DUP_ENTRY"])(
         }
     },
 );
+it.each([
+    "ER_BAD_FIELD_ERROR",
+    "ER_NO_SUCH_TABLE",
+    "ER_OPTION_PREVENTS_STATEMENT",
+    "ER_TABLEACCESS_DENIED_ERROR",
+])("rethrows systemic database rejection %s", async (code) => {
+    const f = fixture();
+    const failure = new QueryFailedError(
+        "UPDATE game",
+        [],
+        Object.assign(new Error("database unavailable"), { code }),
+    );
+    f.importer.persist.mockRejectedValueOnce(failure);
+    await expect(
+        f.service.apply(
+            entry("games"),
+            [{ id: 1, name: "Game" }],
+            f.guard,
+            f.limiter,
+            false,
+            true,
+        ),
+    ).rejects.toBe(failure);
+});
 it.each([
     {
         label: "deadlock code",

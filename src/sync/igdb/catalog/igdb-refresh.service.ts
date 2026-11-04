@@ -13,7 +13,6 @@ import {
 } from "./igdb-catalog.client";
 import { IgdbCatalogConfig } from "./igdb-catalog.config";
 import { IgdbCatalogImportService } from "./igdb-catalog-import.service";
-import { isTransientCatalogError } from "./igdb-catalog.retry";
 import {
     IgdbCatalogStateService,
     OwnershipAssertion,
@@ -45,15 +44,17 @@ export class IgdbRefreshService {
                 force,
             );
         } catch (error) {
-            const rowFailure =
-                error instanceof QueryFailedError &&
-                !isTransientCatalogError(error);
-            if (!(error instanceof InvalidGameEntryError) && !rowFailure)
-                throw error;
             const failure = error as Error & {
                 code?: string;
                 driverError?: { code?: string };
             };
+            const rowFailure =
+                error instanceof QueryFailedError &&
+                ["ER_BAD_NULL_ERROR", "ER_DUP_ENTRY"].includes(
+                    failure?.driverError?.code ?? failure?.code ?? "",
+                );
+            if (!(error instanceof InvalidGameEntryError) && !rowFailure)
+                throw error;
             this.logger.warn({
                 event: "catalog.game.skipped",
                 gameId: raw.id,
