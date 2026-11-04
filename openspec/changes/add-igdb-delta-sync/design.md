@@ -52,6 +52,7 @@ Each stream stores `watermark`. A pass fixes `windowStart = watermark − overla
 | `companies`, `platforms`, `genres`, `themes`, `keywords`, `franchises`, `game_engines`, `game_modes`, `player_perspectives` | the same subfields used under the game expansion, page 500 | upsert existing local rows by ID (company `parent`→`parentId`; logo upserted alongside) |
 | `character_genders`, `character_species` | `id,name,checksum,created_at,updated_at`, page 500 | update existing lookup rows without refreshing characters or games |
 
+- This table and the D3 endpoint order are declared once, in the endpoint registry (D10).
 - Using the expanded field list on the `games` stream avoids a second fetch for the high-volume stream.
 - Standalone shared-entity routing only updates existing rows (spec: *Delta change routing*). Game imports create their dependencies; character imports create referenced gender/species and mug-shot rows. Characters themselves can be inserted even when none of their games exist locally.
 
@@ -59,8 +60,8 @@ Each stream stores `watermark`. A pass fixes `windowStart = watermark − overla
 The existing runner, state row, lease, attempt budgets, pause/cooldown and 7/14-day schedule stay. What changes:
 - State gains `sweepEndpoint`. `committedId` is the cursor within that endpoint. `upperId` is fixed per endpoint, taken at the start of each endpoint the same way as today.
 - Endpoint order: `games`, `covers`, `screenshots`, `artworks`, `game_videos`, `alternative_names`, `involved_companies`, `external_games`, `game_localizations`, `company_logos`, `companies`, the existing shared resources, then `characters`, `character_mug_shots`, `character_genders`, `character_species`. Games precede characters so newly imported games can be linked in the same sweep.
-- For each page (500, `fields id,checksum[,game]`), load local `(id, checksum[, gameId])` for those IDs from the matching entity in `GamePropertyPathToEntityMap`, or `Game`/`GameCompany`/`GameCompanyLogo`. Mismatched or missing entries are routed as in D2. Games missing locally are imported. Company logos have no owner field on IGDB, so they route to the local companies that reference the logo. Refreshing those companies upserts the logo.
-- Character pages use `fields id,checksum,games`. Import missing or changed characters through D9 in expanded chunks of `batchSize`. Also compare the returned game IDs that exist locally with the join table: a missing link triggers a character refresh even when its checksum matches. This repairs links to games imported after the character, without storing pending game IDs or adding per-game character requests. A page whose checksums and required links match causes no expanded fetch or writes.
+- For each page (500, `fields id,checksum[,game]` plus the entry's compared fields from D10), load local `(id, checksum[, gameId])` and the compared local values for those IDs from the matching entity in `GamePropertyPathToEntityMap`, or `Game`/`GameCompany`/`GameCompanyLogo`. Mismatched or missing entries, and entries whose compared fields differ (D10), are routed as in D2. Games missing locally are imported. Company logos have no owner field on IGDB, so they route to the local companies that reference the logo. Refreshing those companies upserts the logo.
+- Character pages use `fields id,checksum,games`. Import missing or changed characters through D9 in expanded chunks of `batchSize`. Also compare the returned game IDs that exist locally with the join table (the character entry's `games` compared field, D10): a missing link triggers a character refresh even when its checksum matches. This repairs links to games imported after the character, without storing pending game IDs or adding per-game character requests. A page whose checksums and required links match causes no expanded fetch or writes.
 - `character_mug_shots`: compare the image checksum independently of the character checksum, then refresh the local characters that reference a missing or changed image. As with company logos, the image has no owner field and unreferenced images are not inserted. Gender/species sweeps update existing lookup rows; character imports create missing referenced lookups.
 - `external_games`: compare only IGDB-origin rows (`origin` column).
 - Cost for the previously measured endpoints: about 3.2M rows / 500 ≈ 6.4k requests, roughly 27 min of the shared budget. Character endpoint sizes and the first sweep's expanded character fetches/writes are additional and unmeasured. All requests use the same shared budget and bounded pages.
@@ -96,6 +97,22 @@ The character and gender/species streams use exactly the same seeding rule. Do n
 - A single character persistence path handles delta pages and sweep refreshes. Under D4 ownership and D6 recency checks, upsert changed character metadata, independently diff/upsert referenced dependencies, and add missing game links idempotently. An unchanged parent checksum must not suppress a changed mug shot or missing association. Character-only writes do not initialize game statistics or import game payloads.
 - Register entities with the game repository module and the explicit IGDB test entity list. Existing optional game relation loading exposes `characters` and its requested nested relations without eager-loading characters on every game read.
 - Alternative rejected: fetching characters while refreshing every game. IGDB provides the association on `/characters`, and a separate character stream avoids repeated queries and duplicate imports for characters shared across games.
+
+### D10. One endpoint registry with compared fields
+A single constant `IGDB_SYNC_ENDPOINTS` in `src/sync/igdb/catalog/` declares every IGDB endpoint the importer tracks. The array order is the D3 sweep order. Each entry has:
+- `endpoint`: IGDB endpoint name.
+- `delta`: whether it is a timestamped delta stream (D2).
+- `owner`: how a row reaches what gets refreshed: the source `game` field, a local column that references it (company logos → companies, mug shots → characters), or none.
+- `local`: entity and columns loaded for comparison.
+- `route`: `game`, `character`, `shared` or `lookup` (D2).
+- `compare`: source fields compared with stored values besides `checksum`. Each maps to a local column or to a set of local link IDs restricted to locally available targets.
+
+The delta poller iterates entries with `delta`; the sweep iterates all entries; client sweep/delta queries derive `fields` from the entry. No other code lists endpoints. Adding an IGDB entity means its entity and migration, its handler or writer, and one registry entry.
+
+`compare` generalizes the character `games` link check. A differing compared value triggers the entry's route exactly like a checksum mismatch. A source value that references a row missing locally is not a mismatch (same rule as character links). Initially the only compared field is `characters.games`.
+- Why: IGDB checksums do not change when GameNode starts storing a source field it previously ignored, so a checksum-only sweep never fills a new column or link on existing rows. With `compare`, the next ordinary sweep backfills it, consistent with D8's no-backfill rule. Example: storing `version_parent` on games later only needs `compare: ["version_parent" → versionParentId]` on the `games` entry.
+- Keep compared fields to IDs or ID lists so sweep pages stay small.
+- Alternative rejected: separate endpoint lists in the client, poller and runner (they drift), and per-field backfill commands (contradicts D8).
 
 ## Risks / Trade-offs
 

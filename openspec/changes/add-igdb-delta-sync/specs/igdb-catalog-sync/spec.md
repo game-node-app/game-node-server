@@ -117,7 +117,7 @@ When a stream has no durable watermark, the system SHALL seed it from the start 
 - **THEN** every stream's first window starts at T minus the overlap
 
 ### Requirement: Checksum sweep comparison
-A scheduled catalog run SHALL sweep each tracked IGDB endpoint in ascending ID order, comparing `id`, `checksum` and ownership IDs where applicable against local rows. Character pages SHALL also compare `games` with stored links to available games. Only missing or changed rows or missing character-game links SHALL trigger refreshes through the delta routing. Entries whose checksums and required links match SHALL cause no writes.
+A scheduled catalog run SHALL sweep each tracked IGDB endpoint in ascending ID order, comparing `id`, `checksum`, ownership IDs and each endpoint's declared compared fields (for characters, `games` links) against local values. Only missing rows, changed checksums or differing compared fields SHALL trigger refreshes through the delta routing.
 
 #### Scenario: In-place cover edit
 - **WHEN** an IGDB cover keeps its ID but its checksum differs from the stored cover
@@ -130,6 +130,15 @@ A scheduled catalog run SHALL sweep each tracked IGDB endpoint in ascending ID o
 #### Scenario: Nothing changed
 - **WHEN** every entry on a sweep page matches its stored checksum and all required character-game links exist
 - **THEN** no expanded fetch or game write is made for that page
+
+#### Scenario: Newly stored source field on existing rows
+- **WHEN** the importer starts storing a source field declared as compared on an endpoint, and existing rows have unchanged IGDB checksums
+- **THEN** the next ordinary sweep refreshes each row whose stored value differs from the source
+- **AND** no separate backfill job, command or watermark reset is needed
+
+#### Scenario: Compared field references a row absent locally
+- **WHEN** a compared source value references a row that is not stored locally
+- **THEN** it does not count as a difference and triggers no refresh
 
 #### Scenario: In-place character mug-shot edit
 - **WHEN** a referenced IGDB mug shot keeps its ID but its checksum changes while its character's timestamp and checksum remain unchanged
