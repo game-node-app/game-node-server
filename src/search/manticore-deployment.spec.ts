@@ -170,6 +170,7 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                     DB_HOST: "managed-mysql-uuid",
                     CONNECTION_CREDENTIAL_ENCRYPTION_KEY: "test_connection_key",
                     BETTER_AUTH_SECRET: "test_better_auth_secret",
+                    DAILY_IMAGE_SECRET: "test_daily_image_secret",
                     SERVER_IMAGE_TAG: "test",
                     CMS_DB_PASSWORD: "cms_db_pass",
                     CMS_SECRET: "cms_test_secret",
