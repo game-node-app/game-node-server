@@ -172,6 +172,7 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                     BETTER_AUTH_SECRET: "test_better_auth_secret",
                     DAILY_IMAGE_SECRET: "test_daily_image_secret",
                     SERVER_IMAGE_TAG: "test",
+                    MANTICORE_IMAGE_TAG: "test",
                     CMS_DB_PASSWORD: "cms_db_pass",
                     CMS_SECRET: "cms_test_secret",
                     CMS_LICENSE_KEY: "cms_test_license",
@@ -196,7 +197,15 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
         expect(prodConfig.services.server_migration.restart).toBe("no");
         const prodManticore = prodConfig.services.manticore;
         expect(prodManticore).toBeDefined();
-        expect(prodManticore.image).toBe("manticoresearch/manticore:29.9.0");
+        // Config files ship inside the image; bind mounts get frozen by Coolify and went stale in prod.
+        expect(prodManticore.image).toBe("lamarcke/game-node-manticore:test");
+        expect(prodManticore.volumes).toHaveLength(1);
+        expect(
+            fs.readFileSync(
+                path.join(REPO_ROOT, "docker/manticore/Dockerfile"),
+                "utf8",
+            ),
+        ).toContain(`FROM ${devManticore.image}\n`);
         expect(prodManticore.ports).toBeUndefined();
         expect(prodManticore.environment.DB_HOST).toBe("managed-mysql-uuid");
         expect(prodManticore.environment.DB_USER).toBe("prod_db_user_from_env");

@@ -35,7 +35,9 @@ services:
       - game_node_app
 
   manticore:
-    image: manticoresearch/manticore:29.9.0
+    # Config template, entrypoint and reindex script are baked into the image (docker/manticore/Dockerfile);
+    # Coolify freezes bind-mounted repo files after the first deploy, which left prod on a stale template.
+    image: lamarcke/game-node-manticore:${MANTICORE_IMAGE_TAG:?set MANTICORE_IMAGE_TAG}
     hostname: manticore
     environment:
       TZ: UTC
@@ -45,8 +47,6 @@ services:
       DB_PASS: ${DB_PASS}
       DB_DATABASE: gamenode
       CREATE_PLAIN_TABLES: "games:0 3 * * *;users:0 * * * *;games;users"
-    entrypoint: ["/bin/bash", "/etc/manticoresearch/entrypoint.sh"]
-    command: ["searchd", "--nodetach"]
     restart: always
     deploy:
       replicas: 1
@@ -60,9 +60,6 @@ services:
         hard: -1
     volumes:
       - manticore:/var/lib/manticore
-      - ./docker/manticore/manticore.conf.template:/etc/manticoresearch/manticore.conf.template:ro
-      - ./docker/manticore/entrypoint.sh:/etc/manticoresearch/entrypoint.sh:ro
-      - ./docker/manticore/reindex.sh:/etc/manticoresearch/reindex.sh:ro
     networks:
       - game_node_app
       - gamenode
