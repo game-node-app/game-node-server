@@ -424,6 +424,7 @@ export interface SeedGameFixture {
     id: number;
     name: string;
     slug: string;
+    aggregatedRatingCount?: number | null;
     category?: number;
     status?: number;
     url?: string | null;
@@ -534,12 +535,13 @@ export async function seedSearchFixtures(
         }
 
         await dataSource.query(
-            `INSERT INTO \`game\` (\`id\`, \`name\`, \`slug\`, \`category\`, \`status\`, \`url\`, \`firstReleaseDate\`, \`createdAt\`, \`updatedAt\`, \`statisticsTargetId\`)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO \`game\` (\`id\`, \`name\`, \`slug\`, \`aggregatedRatingCount\`, \`category\`, \`status\`, \`url\`, \`firstReleaseDate\`, \`createdAt\`, \`updatedAt\`, \`statisticsTargetId\`)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 game.id,
                 game.name,
                 game.slug,
+                game.aggregatedRatingCount ?? null,
                 game.category ?? 0,
                 game.status ?? 0,
                 game.url ?? `https://www.igdb.com/games/${game.slug}`,

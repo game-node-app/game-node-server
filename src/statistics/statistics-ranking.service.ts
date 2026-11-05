@@ -179,7 +179,7 @@ export class StatisticsRankingService {
         const score = rankingKey
             ? { sql: "SELECT targetId, score FROM ranking_score WHERE rankingKey = ?", parameters: [rankingKey] }
             : this.scoreQuery(mode, fromInstant, toInstant, fromInstant === null);
-        const source = this.sourceQuery(sourceType, dto, actorId);
+        const source = this.sourceQuery(sourceType, dto, actorId, asOf);
         if (sourceType === StatisticsSourceType.GAME) {
             source.from += ` JOIN (${score.sql}) prepared ON prepared.targetId = t.id AND prepared.score > 0`;
             source.parameters.unshift(...score.parameters);
@@ -260,7 +260,7 @@ export class StatisticsRankingService {
         const rows = await manager.query(
             `SELECT g.id AS sourceId, t.id AS targetId, prepared.score
              ${source.from} WHERE ${source.where}
-             ORDER BY prepared.score DESC, g.id ASC LIMIT ? OFFSET ?`,
+             ORDER BY prepared.score DESC, COALESCE(g.aggregatedRatingCount, 0) DESC, g.firstReleaseDate DESC, g.id ASC LIMIT ? OFFSET ?`,
             [...source.parameters, limit, offset],
         );
         if (!rows.length) return rows;
@@ -281,6 +281,7 @@ export class StatisticsRankingService {
         sourceType: StatisticsSourceType.GAME | StatisticsSourceType.REVIEW,
         dto?: StatisticsRankingsRequestDto,
         actorId?: string,
+        asOf?: Date,
     ): SourceQuery {
         if (sourceType === StatisticsSourceType.GAME) {
             const where = [
@@ -289,6 +290,10 @@ export class StatisticsRankingService {
                 `NOT EXISTS (SELECT 1 FROM game_themes_game_theme mature WHERE mature.gameId = g.id AND mature.gameThemeId = ${MATURE_THEME_ID})`,
             ];
             const parameters: unknown[] = [];
+            if (asOf) {
+                where.push("(g.aggregatedRatingCount >= 1 OR g.firstReleaseDate > ?)");
+                parameters.push(asOf);
+            }
             const criteria = dto?.criteria as GameRankingCriteriaDto | undefined;
             // Prepared scores retain every category so explicit category filters still work.
             if (dto && !criteria?.category?.length) {
@@ -434,7 +439,7 @@ export class StatisticsRankingService {
             actorId: dto.sourceType === StatisticsSourceType.REVIEW && dto.excludeOwn ? actorId ?? null : null,
         };
         const digest = createHash("sha256").update(JSON.stringify(filter)).digest("hex");
-        return `statistics:rank:v2:${definitionVersion}:${digest}`;
+        return `statistics:rank:v3:${definitionVersion}:${digest}`;
     }
 
     private async freshness(manager: EntityManager) {

@@ -59,9 +59,7 @@ export interface ResolvedGameRelationFilters {
 }
 
 export interface ManticoreQueryFilter {
-    match_phrase?: {
-        "name,alternative_names": string;
-    };
+    match_phrase?: Record<string, string>;
     match?: {
         username: string;
     };
@@ -76,6 +74,7 @@ export interface ManticoreSearchRequest {
     query: {
         bool?: {
             must: ManticoreQueryFilter[];
+            should?: ManticoreQueryFilter[];
         };
         match?: {
             username: string;
@@ -86,8 +85,11 @@ export interface ManticoreSearchRequest {
     offset: number;
     sort: Array<Record<string, "asc" | "desc">>;
     track_total_hits: boolean;
+    track_scores?: boolean;
+    expressions?: Record<string, string>;
     options: {
         max_matches: number;
+        ranker?: string;
     };
 }
 
@@ -135,10 +137,27 @@ export interface ManticoreValidatedResponse<TSource> {
     hits: Array<ManticoreRawHit<TSource>>;
 }
 
-const GAME_MATCH_FIELD = "name,alternative_names" as const;
+const GAME_MATCH_FIELD = "name_search" as const;
+const GAME_EXACT_MATCH_FIELD = "exact_names" as const;
 const USER_MATCH_FIELD = "username" as const;
 const MAX_MATCHES_WINDOW = SEARCH_MAX_OFFSET + SEARCH_MAX_LIMIT;
 const DECIMAL_ID_REGEX = /^\d+$/;
+const GAME_RANKER =
+    "expr(IF(field_mask & 1, 1000000000, 0) + sum(lcs*user_weight)*1000 + bm25)";
+const EXACT_MATCH_EXPRESSION = "IF(WEIGHT() >= 1000000000, 1, 0)";
+const TEXT_RELEVANCE_EXPRESSION =
+    "IF(WEIGHT() >= 1000000000, WEIGHT() - 1000000000, WEIGHT())";
+
+function normalizeGameSearchQuery(query: string): string {
+    return query
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .replace(/['\u2018\u2019\uFF07]/gu, "")
+        .replace(/gnnamebegin|gnnameend|gnaliasboundary/giu, "gn mark")
+        .replace(/[\p{P}\p{S}]+/gu, " ")
+        .replace(/\s+/gu, " ")
+        .trim();
+}
 
 @Injectable()
 export class SearchService {
@@ -234,6 +253,18 @@ export class SearchService {
         options: { prefixMode: boolean },
     ): Promise<GameSearchResponseDto> {
         const { page, limit, offset } = resolveEffectivePagination(dto);
+
+        const rawQuery = typeof dto.query === "string" ? dto.query.trim() : "";
+        if (rawQuery.length > 0 && !normalizeGameSearchQuery(rawQuery)) {
+            return {
+                data: {
+                    items: [],
+                    took: 0,
+                },
+                pagination: this.buildPaginationInfo(0, limit, page),
+            };
+        }
+
         const resolvedRelations = await this.resolveGameRelationFilters(dto);
 
         if (resolvedRelations.shortCircuitEmpty) {
@@ -410,13 +441,24 @@ export class SearchService {
         resolvedRelations?: ResolvedGameRelationFilters,
     ): ManticoreSearchRequest {
         const must: ManticoreQueryFilter[] = [];
-        const rawQuery = typeof dto.query === "string" ? dto.query.trim() : "";
+        const should: ManticoreQueryFilter[] = [];
+        const normalizedQuery = normalizeGameSearchQuery(
+            typeof dto.query === "string" ? dto.query : "",
+        );
 
-        if (rawQuery.length > 0) {
-            const phrase = prefixMode ? `^${rawQuery}*` : `^${rawQuery}`;
+        if (normalizedQuery.length > 0) {
+            const words = normalizedQuery.split(" ");
+            const phrase = prefixMode
+                ? `${words.slice(0, -1).join(" ")}${words.length > 1 ? " " : ""}${words[words.length - 1]}*`
+                : normalizedQuery;
             must.push({
                 match_phrase: {
                     [GAME_MATCH_FIELD]: phrase,
+                },
+            });
+            should.push({
+                match_phrase: {
+                    [GAME_EXACT_MATCH_FIELD]: `gnnamebegin ${phrase} gnnameend`,
                 },
             });
         }
@@ -477,6 +519,7 @@ export class SearchService {
                     ? {
                           bool: {
                               must,
+                              ...(should.length > 0 ? { should } : {}),
                           },
                       }
                     : {
@@ -484,15 +527,35 @@ export class SearchService {
                       },
             limit,
             offset,
-            sort: [
-                { _score: "desc" },
-                { num_views: "desc" },
-                { first_release_date: "desc" },
-                { id: "asc" },
-            ],
+            sort:
+                normalizedQuery.length > 0
+                    ? [
+                          { exact_match: "desc" },
+                          { aggregated_rating_count: "desc" },
+                          { text_relevance: "desc" },
+                          { first_release_date: "desc" },
+                          { id: "asc" },
+                      ]
+                    : [
+                          { aggregated_rating_count: "desc" },
+                          { first_release_date: "desc" },
+                          { id: "asc" },
+                      ],
             track_total_hits: true,
+            ...(normalizedQuery.length > 0
+                ? {
+                      track_scores: true,
+                      expressions: {
+                          exact_match: EXACT_MATCH_EXPRESSION,
+                          text_relevance: TEXT_RELEVANCE_EXPRESSION,
+                      },
+                  }
+                : {}),
             options: {
                 max_matches: MAX_MATCHES_WINDOW,
+                ...(normalizedQuery.length > 0
+                    ? { ranker: GAME_RANKER }
+                    : {}),
             },
         };
     }

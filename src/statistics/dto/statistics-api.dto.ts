@@ -139,7 +139,7 @@ export class StatisticsRankingsRequestDto {
 
     @ApiPropertyOptional({
         type: GameRankingCriteriaDto,
-        description: "Game rankings require a positive score and default to main games, remakes and remasters when category is omitted or empty.",
+        description: "Game rankings require a positive score, at least one external critic review (or an upcoming release date), and default to main games, remakes and remasters when category is omitted or empty.",
     })
     @IsOptional()
     @ValidateNested()

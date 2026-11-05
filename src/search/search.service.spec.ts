@@ -427,7 +427,7 @@ describe("SearchService", () => {
     });
 
     describe("2.2 Game queries, category/status IN filters, filter-only match-all, and deterministic sort", () => {
-        it("builds anchored phrase query on name,alternative_names with category/status IN filters and ordered sort", async () => {
+        it("builds normalized phrase and exact-name clauses with category/status filters and engine-side exact priority", async () => {
             httpService.post.mockReturnValueOnce(
                 of(
                     makeAxiosResponse({
@@ -458,7 +458,7 @@ describe("SearchService", () => {
                         must: [
                             {
                                 match_phrase: {
-                                    "name,alternative_names": "^Chrono Trigger",
+                                    name_search: "Chrono Trigger",
                                 },
                             },
                             {
@@ -472,19 +472,36 @@ describe("SearchService", () => {
                                 },
                             },
                         ],
+                        should: [
+                            {
+                                match_phrase: {
+                                    exact_names:
+                                        "gnnamebegin Chrono Trigger gnnameend",
+                                },
+                            },
+                        ],
                     },
                 },
                 limit: 15,
                 offset: 15,
                 sort: [
-                    { _score: "desc" },
-                    { num_views: "desc" },
+                    { exact_match: "desc" },
+                    { aggregated_rating_count: "desc" },
+                    { text_relevance: "desc" },
                     { first_release_date: "desc" },
                     { id: "asc" },
                 ],
                 track_total_hits: true,
+                track_scores: true,
+                expressions: {
+                    exact_match: "IF(WEIGHT() >= 1000000000, 1, 0)",
+                    text_relevance:
+                        "IF(WEIGHT() >= 1000000000, WEIGHT() - 1000000000, WEIGHT())",
+                },
                 options: {
                     max_matches: 10100,
+                    ranker:
+                        "expr(IF(field_mask & 1, 1000000000, 0) + sum(lcs*user_weight)*1000 + bm25)",
                 },
             });
         });
@@ -525,12 +542,78 @@ describe("SearchService", () => {
                     ],
                 },
             });
+            expect(filterOnlyBody.sort).toEqual([
+                { aggregated_rating_count: "desc" },
+                { first_release_date: "desc" },
+                { id: "asc" },
+            ]);
+            expect(filterOnlyBody.expressions).toBeUndefined();
 
             await service.searchGames({});
             const [, matchAllBody] = httpService.post.mock.calls[1];
             expect(matchAllBody.query).toEqual({
                 match_all: {},
             });
+            expect(matchAllBody.sort).toEqual([
+                { aggregated_rating_count: "desc" },
+                { first_release_date: "desc" },
+                { id: "asc" },
+            ]);
+        });
+
+        it("normalizes Unicode and punctuation into literal phrase tokens", async () => {
+            httpService.post.mockReturnValueOnce(
+                of(
+                    makeAxiosResponse({
+                        took: 1,
+                        hits: { total: 0, total_relation: "eq", hits: [] },
+                    }),
+                ),
+            );
+
+            await service.searchGames({ query: "Poke\u0301mon’s: My*Game" });
+
+            const [, requestBody] = httpService.post.mock.calls[0];
+            expect(requestBody.query).toEqual({
+                bool: {
+                    must: [
+                        {
+                            match_phrase: {
+                                name_search: "Pokemons My Game",
+                            },
+                        },
+                    ],
+                    should: [
+                        {
+                            match_phrase: {
+                                exact_names:
+                                    "gnnamebegin Pokemons My Game gnnameend",
+                            },
+                        },
+                    ],
+                },
+            });
+        });
+
+        it("short-circuits nonblank queries that normalize to no searchable text", async () => {
+            await expect(
+                service.searchGames({ query: "\u0301'!*~" }),
+            ).resolves.toEqual({
+                data: { items: [], took: 0 },
+                pagination: {
+                    totalItems: 0,
+                    totalPages: 0,
+                    hasNextPage: false,
+                },
+            });
+            await expect(
+                service.autocompleteGames({ query: "'!*~" }),
+            ).resolves.toEqual({ data: [], total: 0 });
+
+            expect(httpService.post).not.toHaveBeenCalled();
+            expect(genreRepo.createQueryBuilder).not.toHaveBeenCalled();
+            expect(themeRepo.createQueryBuilder).not.toHaveBeenCalled();
+            expect(platformRepo.createQueryBuilder).not.toHaveBeenCalled();
         });
     });
 
@@ -853,7 +936,7 @@ describe("SearchService", () => {
             );
 
             const res = await service.autocompleteGames({
-                query: "elden",
+                query: "elden ring sh",
                 page: 3,
                 limit: 100,
                 category: [0, 2],
@@ -872,12 +955,20 @@ describe("SearchService", () => {
                     must: [
                         {
                             match_phrase: {
-                                "name,alternative_names": "^elden*",
+                                name_search: "elden ring sh*",
                             },
                         },
                         {
                             in: {
                                 category: [0, 2],
+                            },
+                        },
+                    ],
+                    should: [
+                        {
+                            match_phrase: {
+                                exact_names:
+                                    "gnnamebegin elden ring sh* gnnameend",
                             },
                         },
                     ],
@@ -1023,7 +1114,7 @@ describe("SearchService", () => {
                     must: [
                         {
                             match_phrase: {
-                                "name,alternative_names": "^Chrono",
+                                name_search: "Chrono",
                             },
                         },
                         {
@@ -1049,6 +1140,13 @@ describe("SearchService", () => {
                         {
                             in: {
                                 platform_ids: [6, 48, 130],
+                            },
+                        },
+                    ],
+                    should: [
+                        {
+                            match_phrase: {
+                                exact_names: "gnnamebegin Chrono gnnameend",
                             },
                         },
                     ],

@@ -23,8 +23,17 @@ describe("statistics rankings", () => {
         if (dataSource?.isInitialized) await dataSource.destroy();
     });
 
-    async function createGame(id: number) {
-        await dataSource.query("INSERT INTO game (id, name, slug) VALUES (?, ?, ?)", [id, `Ranking ${id}`, `ranking-${id}`]);
+    async function createGame(
+        id: number,
+        options: { aggregatedRatingCount?: number | null; firstReleaseDate?: Date | string | null } = {},
+    ) {
+        const aggregatedRatingCount =
+            options.aggregatedRatingCount !== undefined ? options.aggregatedRatingCount : 1;
+        const firstReleaseDate = options.firstReleaseDate ?? null;
+        await dataSource.query(
+            "INSERT INTO game (id, name, slug, aggregatedRatingCount, firstReleaseDate) VALUES (?, ?, ?, ?, ?)",
+            [id, `Ranking ${id}`, `ranking-${id}`, aggregatedRatingCount, firstReleaseDate],
+        );
         return dataSource.transaction(async (manager) =>
             Number(await ensureStatisticsTarget(manager, StatisticsSourceType.GAME, id)),
         );
@@ -112,7 +121,7 @@ describe("statistics rankings", () => {
         expect(allGames.pagination).toEqual({ total: 0, limit: 20, offset: 0, hasNextPage: false });
     });
 
-    it("pages positive scores in native ID tie order without padding zeros or missing prepared scores", async () => {
+    it("pages positive scores in tie tuple order without padding zeros or missing prepared scores", async () => {
         const firstId = 2_050_000_000 - randomInt(100_000);
         const ids = Array.from({ length: 5 }, (_, index) => firstId + index);
         const targets = new Map<number, number>();
@@ -157,6 +166,106 @@ describe("statistics rankings", () => {
         expect(filtered.pagination.total).toBe(2);
         expect(filtered.items.map((item: any) => item.sourceId)).toEqual([ids[0]]);
         expect(filtered.pagination.hasNextPage).toBe(false);
+    });
+
+    it("orders games with equal scores by critic review count against native ID order", async () => {
+        const baseId = 2_180_000_000 - randomInt(100_000);
+        const lowerId = baseId + 1;
+        const higherId = baseId + 2;
+
+        const lowerIdTarget = await createGame(lowerId, {
+            aggregatedRatingCount: 2,
+            firstReleaseDate: new Date("2020-01-01T00:00:00Z"),
+        });
+        const higherIdTarget = await createGame(higherId, {
+            aggregatedRatingCount: 10,
+            firstReleaseDate: new Date("2020-01-01T00:00:00Z"),
+        });
+
+        await setMetric(lowerIdTarget, "views", 50);
+        await setMetric(higherIdTarget, "views", 50);
+
+        const page = await service.findRankings(undefined, {
+            sourceType: StatisticsSourceType.GAME,
+            mode: "popular" as any,
+            period: "all",
+            criteria: { ids: [lowerId, higherId] } as any,
+            limit: 10,
+            offset: 0,
+        });
+
+        expect(page.items.map((item: any) => item.sourceId)).toEqual([higherId, lowerId]);
+    });
+
+    it("orders games with equal score and critic count by newer release date, with null date last", async () => {
+        const baseId = 2_190_000_000 - randomInt(100_000);
+        const olderId = baseId + 1;
+        const newerId = baseId + 2;
+        const nullDateId = baseId + 3;
+
+        const olderTarget = await createGame(olderId, {
+            aggregatedRatingCount: 5,
+            firstReleaseDate: new Date("2021-01-01T00:00:00Z"),
+        });
+        const newerTarget = await createGame(newerId, {
+            aggregatedRatingCount: 5,
+            firstReleaseDate: new Date("2023-01-01T00:00:00Z"),
+        });
+        const nullDateTarget = await createGame(nullDateId, {
+            aggregatedRatingCount: 5,
+            firstReleaseDate: null,
+        });
+
+        await setMetric(olderTarget, "views", 50);
+        await setMetric(newerTarget, "views", 50);
+        await setMetric(nullDateTarget, "views", 50);
+
+        const page = await service.findRankings(undefined, {
+            sourceType: StatisticsSourceType.GAME,
+            mode: "popular" as any,
+            period: "all",
+            criteria: { ids: [olderId, newerId, nullDateId] } as any,
+            limit: 10,
+            offset: 0,
+        });
+
+        expect(page.items.map((item: any) => item.sourceId)).toEqual([newerId, olderId, nullDateId]);
+    });
+
+    it("keeps ascending native ID across two consecutive pages for full ties with no repeat or skip", async () => {
+        const baseId = 2_200_000_000 - randomInt(100_000);
+        const ids = [baseId + 1, baseId + 2, baseId + 3, baseId + 4];
+        const releaseDate = new Date("2022-06-01T00:00:00Z");
+
+        for (const id of ids) {
+            const target = await createGame(id, {
+                aggregatedRatingCount: 5,
+                firstReleaseDate: releaseDate,
+            });
+            await setMetric(target, "views", 40);
+        }
+
+        const page1 = await service.findRankings(undefined, {
+            sourceType: StatisticsSourceType.GAME,
+            mode: "popular" as any,
+            period: "all",
+            criteria: { ids } as any,
+            limit: 2,
+            offset: 0,
+        });
+        const page2 = await service.findRankings(undefined, {
+            sourceType: StatisticsSourceType.GAME,
+            mode: "popular" as any,
+            period: "all",
+            criteria: { ids } as any,
+            limit: 2,
+            offset: 2,
+        });
+
+        expect(page1.items.map((item: any) => item.sourceId)).toEqual([ids[0], ids[1]]);
+        expect(page2.items.map((item: any) => item.sourceId)).toEqual([ids[2], ids[3]]);
+        expect(page1.pagination).toEqual({ total: 4, limit: 2, offset: 0, hasNextPage: true });
+        expect(page2.pagination).toEqual({ total: 4, limit: 2, offset: 2, hasNextPage: false });
     });
 
     it("serves missing presets from projected metrics without rebuilding a key during the request", async () => {
@@ -418,5 +527,112 @@ describe("statistics rankings", () => {
             set: async () => { throw new Error("cache down"); },
         } as any);
         expect((await unavailableCache.findRankings(firstOwner, request)).items).toEqual(first.items);
+    });
+
+    it("excludes unreviewed released games with top scores and unreviewed games with null release dates, while ranking unreviewed upcoming games", async () => {
+        const baseId = 2_150_000_000 - randomInt(100_000);
+        const unreviewedReleasedId = baseId + 1;
+        const reviewedReleasedId = baseId + 2;
+        const unreviewedUpcomingId = baseId + 3;
+        const unreviewedNullDateId = baseId + 4;
+
+        const unreviewedReleasedTarget = await createGame(unreviewedReleasedId, {
+            aggregatedRatingCount: 0,
+            firstReleaseDate: new Date("2020-01-01T00:00:00Z"),
+        });
+        const reviewedReleasedTarget = await createGame(reviewedReleasedId, {
+            aggregatedRatingCount: 5,
+            firstReleaseDate: new Date("2020-01-01T00:00:00Z"),
+        });
+        const unreviewedUpcomingTarget = await createGame(unreviewedUpcomingId, {
+            aggregatedRatingCount: 0,
+            firstReleaseDate: new Date(Date.now() + 365 * 86_400_000),
+        });
+        const unreviewedNullDateTarget = await createGame(unreviewedNullDateId, {
+            aggregatedRatingCount: 0,
+            firstReleaseDate: null,
+        });
+
+        await setMetric(unreviewedReleasedTarget, "views", 100);
+        await setMetric(reviewedReleasedTarget, "views", 50);
+        await setMetric(unreviewedUpcomingTarget, "views", 40);
+        await setMetric(unreviewedNullDateTarget, "views", 200);
+
+        const page = await service.findRankings(undefined, {
+            sourceType: StatisticsSourceType.GAME,
+            mode: "popular" as any,
+            period: "all",
+            criteria: { ids: [unreviewedReleasedId, reviewedReleasedId, unreviewedUpcomingId, unreviewedNullDateId] } as any,
+            limit: 20,
+            offset: 0,
+        });
+
+        expect(page.pagination.total).toBe(2);
+        expect(page.items.map((item: any) => item.sourceId)).toEqual([reviewedReleasedId, unreviewedUpcomingId]);
+    });
+
+    it("returns an empty page with total 0 when criteria.ids select only an unreviewed released game", async () => {
+        const gameId = 2_160_000_000 - randomInt(100_000);
+        const targetId = await createGame(gameId, {
+            aggregatedRatingCount: 0,
+            firstReleaseDate: new Date("2020-01-01T00:00:00Z"),
+        });
+        await setMetric(targetId, "views", 50);
+
+        const page = await service.findRankings(undefined, {
+            sourceType: StatisticsSourceType.GAME,
+            mode: "popular" as any,
+            period: "all",
+            criteria: { ids: [gameId] } as any,
+            limit: 20,
+            offset: 0,
+        });
+
+        expect(page.items).toEqual([]);
+        expect(page.pagination.total).toBe(0);
+    });
+
+    it("drops a cached game when revalidation detects its critic count was reset to 0", async () => {
+        const firstId = 2_170_000_000 - randomInt(100_000);
+        const secondId = firstId + 1;
+        const thirdId = firstId + 2;
+        const firstTarget = await createGame(firstId, {
+            aggregatedRatingCount: 3,
+            firstReleaseDate: new Date("2020-01-01T00:00:00Z"),
+        });
+        const secondTarget = await createGame(secondId, {
+            aggregatedRatingCount: 3,
+            firstReleaseDate: new Date("2020-01-01T00:00:00Z"),
+        });
+        const thirdTarget = await createGame(thirdId, {
+            aggregatedRatingCount: 0,
+            firstReleaseDate: new Date("2020-01-01T00:00:00Z"),
+        });
+        await setMetric(firstTarget, "views", 10);
+        await setMetric(secondTarget, "views", 8);
+        await setMetric(thirdTarget, "views", 6);
+
+        const cache = createCache();
+        const rankings = new StatisticsRankingService(dataSource, cache);
+        const request = {
+            sourceType: StatisticsSourceType.GAME,
+            mode: "popular" as any,
+            period: "all",
+            criteria: { ids: [firstId, secondId, thirdId] } as any,
+            limit: 20,
+            offset: 0,
+        } as any;
+
+        const first = await rankings.findRankings(undefined, request);
+        expect(first.pagination.total).toBe(2);
+        expect(first.items.map((item: any) => item.sourceId)).toEqual([firstId, secondId]);
+
+        await dataSource.query("UPDATE game SET aggregatedRatingCount = 0 WHERE id = ?", [firstId]);
+        await dataSource.query("UPDATE game SET aggregatedRatingCount = 3 WHERE id = ?", [thirdId]);
+
+        const changed = await rankings.findRankings(undefined, request);
+        expect(changed.pagination.total).toBe(first.pagination.total);
+        expect(changed.items.map((item: any) => item.sourceId)).toEqual([secondId, thirdId]);
+        await cache.disconnect();
     });
 });
