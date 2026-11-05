@@ -49,7 +49,7 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
         expect(rendered).not.toContain("{{DB_");
         expect(rendered).toContain("min_infix_len      = 3");
         expect(rendered).toContain("index_exact_words  = 1");
-        expect(rendered).toContain("expand_keywords    = 1");
+        expect(rendered).toContain("expand_keywords    = 0");
         expect(rendered).toContain(
             "sql_attr_multi     = bigint genre_ids from query; SELECT gameId, gameGenreId FROM game_genres_game_genre",
         );

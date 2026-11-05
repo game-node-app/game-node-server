@@ -117,6 +117,14 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
 
     it("3.3 retains sparse games with LEFT JOIN / zero popularity and preserves complete multi-value IDs and un-truncated labels on high-fanout games", async () => {
         const fanoutCount = 60;
+        const longAliases = Array.from(
+            { length: 400 },
+            (_, i) =>
+                `Catalog Alias ${String(i + 1).padStart(3, "0")} ${"extended segment ".repeat(10)}`,
+        );
+        expect(Buffer.byteLength(longAliases.join(", "), "utf8")).toBeGreaterThan(
+            65535,
+        );
         const genres = Array.from({ length: fanoutCount }, (_, i) => ({
             id: i + 1,
             name: `Genre Label Number ${String(i + 1).padStart(2, "0")} Extended Description`,
@@ -145,6 +153,7 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
                     id: 2001,
                     name: "Sparse Catalog Entry",
                     slug: "sparse-catalog-entry",
+                    aggregatedRatingCount: null,
                     category: 0,
                     status: 2,
                     firstReleaseDate: null,
@@ -155,6 +164,7 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
                     id: 2002,
                     name: "High Fanout Compendium",
                     slug: "high-fanout-compendium",
+                    aggregatedRatingCount: 14,
                     category: 0,
                     status: 0,
                     firstReleaseDate: "2023-06-15 00:00:00",
@@ -170,6 +180,20 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
                     keywordIds: keywords.map((k) => k.id),
                     viewsCount: 950,
                     likesCount: 88,
+                },
+                {
+                    id: 2003,
+                    name: "High Local Engagement",
+                    slug: "high-local-engagement",
+                    aggregatedRatingCount: 0,
+                    viewsCount: 100000,
+                    likesCount: 10000,
+                },
+                {
+                    id: 2004,
+                    name: "Boundary Spoof gnnameend gnaliasboundary",
+                    slug: "boundary-spoof",
+                    alternativeNames: ["Crossing Alpha", "Beta Crossing", ...longAliases],
                 },
             ],
         });
@@ -196,6 +220,7 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
         const sparseDoc = sparseRes.hits.hits[0]._source;
         expect(sparseDoc.num_views).toBe(0);
         expect(sparseDoc.num_likes).toBe(0);
+        expect(sparseDoc.aggregated_rating_count).toBe(0);
         expect(sparseDoc.first_release_date).toBe(0);
         expect(sparseDoc.cover_url).toBe("");
         expect(sparseDoc.genre_ids).toEqual([]);
@@ -223,6 +248,20 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
         expect(fanoutDoc.theme_ids).toHaveLength(fanoutCount);
         expect(fanoutDoc.platform_ids).toHaveLength(fanoutCount);
 
+        const ratingOrder = await queryManticoreRaw({
+            table: "games",
+            query: { match_all: {} },
+            sort: [{ aggregated_rating_count: "desc" }, { id: "asc" }],
+            limit: 3,
+        });
+        expect(ratingOrder.hits.hits.map((hit: any) => hit._id)).toEqual([
+            2002, 2001, 2003,
+        ]);
+        expect(ratingOrder.hits.hits[0]._source.aggregated_rating_count).toBe(14);
+        expect(ratingOrder.hits.hits[0]._source.num_views).toBeLessThan(
+            ratingOrder.hits.hits[2]._source.num_views,
+        );
+
         expect(fanoutDoc.genres_names.length).toBeGreaterThan(2000);
         expect(fanoutDoc.genres_names).toContain(
             genres[fanoutCount - 1].name,
@@ -242,6 +281,171 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
         expect(fanoutDoc.keywords_names).toContain(
             keywords[fanoutCount - 1].name,
         );
+
+        const middleAlias = await queryManticoreRaw({
+            table: "games",
+            query: {
+                bool: {
+                    must: [
+                        {
+                            match_phrase: {
+                                exact_names:
+                                    "gnnamebegin Alternative Title Variant 20 Extended gnnameend",
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+        expect(middleAlias.hits.hits.map((hit: any) => hit._id)).toEqual([
+            2002,
+        ]);
+
+        const exactRankedMatch = await queryManticoreRaw({
+            table: "games",
+            query: {
+                bool: {
+                    must: [
+                        {
+                            match_phrase: {
+                                name_search:
+                                    "Alternative Title Variant 20 Extended",
+                            },
+                        },
+                    ],
+                    should: [
+                        {
+                            match_phrase: {
+                                exact_names:
+                                    "gnnamebegin Alternative Title Variant 20 Extended gnnameend",
+                            },
+                        },
+                    ],
+                },
+            },
+            limit: 10,
+            track_scores: true,
+            options: {
+                max_matches: 100,
+                ranker:
+                    "expr(IF(field_mask & 1, 1000000000, 0) + sum(lcs*user_weight)*1000 + bm25)",
+            },
+            expressions: {
+                exact_match: "IF(WEIGHT() >= 1000000000, 1, 0)",
+                text_relevance:
+                    "IF(WEIGHT() >= 1000000000, WEIGHT() - 1000000000, WEIGHT())",
+            },
+        });
+        expect(exactRankedMatch.hits.hits[0]._source.exact_match).toBe(1);
+        expect(exactRankedMatch.hits.hits[0]._source.text_relevance).toBeGreaterThan(0);
+
+        const textOnlyRankedMatch = await queryManticoreRaw({
+            table: "games",
+            query: {
+                bool: {
+                    must: [{ match_phrase: { name_search: "Title Variant 20" } }],
+                    should: [
+                        {
+                            match_phrase: {
+                                exact_names:
+                                    "gnnamebegin Title Variant 20 gnnameend",
+                            },
+                        },
+                    ],
+                },
+            },
+            limit: 10,
+            track_scores: true,
+            options: {
+                max_matches: 100,
+                ranker:
+                    "expr(IF(field_mask & 1, 1000000000, 0) + sum(lcs*user_weight)*1000 + bm25)",
+            },
+            expressions: {
+                exact_match: "IF(WEIGHT() >= 1000000000, 1, 0)",
+                text_relevance:
+                    "IF(WEIGHT() >= 1000000000, WEIGHT() - 1000000000, WEIGHT())",
+            },
+        });
+        expect(textOnlyRankedMatch.hits.hits[0]._source.exact_match).toBe(0);
+        expect(textOnlyRankedMatch.hits.hits[0]._source.text_relevance).toBeGreaterThan(0);
+
+        const finalLongAlias = longAliases[longAliases.length - 1];
+        const longAliasExact = await queryManticoreRaw({
+            table: "games",
+            query: {
+                bool: {
+                    must: [
+                        {
+                            match_phrase: {
+                                exact_names: `gnnamebegin ${finalLongAlias} gnnameend`,
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+        expect(longAliasExact.hits.hits.map((hit: any) => hit._id)).toEqual([
+            2004,
+        ]);
+        expect(longAliasExact.hits.hits[0]._source.alias_data_complete).toBe(1);
+
+        const crossAliasPhrase = await queryManticoreRaw({
+            table: "games",
+            query: {
+                bool: {
+                    must: [{ match_phrase: { name_search: "Alpha Beta" } }],
+                },
+            },
+        });
+        expect(crossAliasPhrase.hits.total).toBe(0);
+
+        const markerSpoofExact = await queryManticoreRaw({
+            table: "games",
+            query: {
+                bool: {
+                    must: [
+                        {
+                            match_phrase: {
+                                exact_names:
+                                    "gnnamebegin Boundary Spoof gnnameend",
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+        expect(markerSpoofExact.hits.total).toBe(0);
+
+        const markerSpoofBoundary = await queryManticoreRaw({
+            table: "games",
+            query: {
+                bool: {
+                    must: [
+                        {
+                            match_phrase: {
+                                name_search:
+                                    "gnaliasboundary gnaliasboundary Crossing",
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+        expect(markerSpoofBoundary.hits.total).toBe(0);
+
+        const documents = await queryManticoreRaw({
+            table: "games",
+            query: { match_all: {} },
+            limit: 10,
+        });
+        expect(documents.hits.total).toBe(4);
+        expect(new Set(documents.hits.hits.map((hit: any) => hit._id)).size).toBe(4);
+        expect(
+            documents.hits.hits.every(
+                (hit: any) => hit._source.alias_data_complete === 1,
+            ),
+        ).toBe(true);
     });
 
     it("3.4 resolves genres/themes/platforms by case-insensitive names, decimal IDs, and platform abbreviations with OR within field, AND across fields, and engine-level pagination", async () => {
@@ -711,6 +915,35 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
                     platformIds: [6],
                     viewsCount: 200,
                 },
+                {
+                    id: 5004,
+                    name: "Poke\u0301mon Crystal",
+                    slug: "pokemon-crystal",
+                    category: 0,
+                    status: 0,
+                    firstReleaseDate: "2000-09-06 00:00:00",
+                },
+                {
+                    id: 5005,
+                    name: "I'm on Observation Duty",
+                    slug: "im-on-observation-duty",
+                    category: 0,
+                    status: 0,
+                },
+                {
+                    id: 5006,
+                    name: "Assassin’s Creed",
+                    slug: "assassins-creed",
+                    category: 0,
+                    status: 0,
+                },
+                {
+                    id: 5007,
+                    name: "Сталкер: Тень Чернобыля",
+                    slug: "stalker-shadow-of-chernobyl",
+                    category: 0,
+                    status: 0,
+                },
                 // Deterministic tie-breaking fixtures for "Nexus Chronicle"
                 {
                     id: 5010,
@@ -747,6 +980,82 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
                     status: 0,
                     firstReleaseDate: "2021-01-01 00:00:00",
                     viewsCount: 100,
+                },
+                {
+                    id: 5018,
+                    name: "Nexus Chronicle Epsilon",
+                    slug: "nexus-chronicle-epsilon",
+                    category: 0,
+                    status: 0,
+                    firstReleaseDate: "2019-01-01 00:00:00",
+                },
+                {
+                    id: 5019,
+                    name: "Nexus Chronicle Zeta",
+                    slug: "nexus-chronicle-zeta",
+                    category: 0,
+                    status: 0,
+                    firstReleaseDate: "2018-01-01 00:00:00",
+                },
+                {
+                    id: 5014,
+                    name: "Operator Alpha",
+                    slug: "operator-alpha",
+                },
+                {
+                    id: 5015,
+                    name: "Operator Beta",
+                    slug: "operator-beta",
+                },
+                {
+                    id: 5016,
+                    name: "Operator Alpha Beta",
+                    slug: "operator-alpha-beta",
+                },
+                {
+                    id: 5017,
+                    name: "Operator Alphabeta",
+                    slug: "operator-alphabeta",
+                },
+                {
+                    id: 5020,
+                    name: "Minecraft: Java Edition",
+                    slug: "minecraft-java-edition",
+                    aggregatedRatingCount: 14,
+                    alternativeNames: ["Minecraft"],
+                    firstReleaseDate: "2011-11-18 00:00:00",
+                },
+                {
+                    id: 5021,
+                    name: "Minecraft: Legends",
+                    slug: "minecraft-legends",
+                    aggregatedRatingCount: 5,
+                    firstReleaseDate: "2023-04-18 00:00:00",
+                    viewsCount: 0,
+                },
+                {
+                    id: 5022,
+                    name: "Minecraft",
+                    slug: "minecraft",
+                    aggregatedRatingCount: 0,
+                    firstReleaseDate: "2011-11-18 00:00:00",
+                    viewsCount: 1000000,
+                },
+                {
+                    id: 5023,
+                    name: "The Minecraft Experience",
+                    slug: "the-minecraft-experience",
+                    aggregatedRatingCount: 1000,
+                    firstReleaseDate: "2025-01-01 00:00:00",
+                    viewsCount: 1,
+                },
+                {
+                    id: 5024,
+                    name: "Minecraft Minecraft Minecraft Chronicles",
+                    slug: "minecraft-minecraft-minecraft-chronicles",
+                    aggregatedRatingCount: 4,
+                    firstReleaseDate: "2026-01-01 00:00:00",
+                    viewsCount: 1000000,
                 },
             ],
             profiles,
@@ -797,7 +1106,71 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
             .send({ query: "Pok\u00e9mon" })
             .expect(200);
         expect(accentedRes.body.data.items.map((g: any) => g.id)).toEqual([
-            5002,
+            5002, 5004,
+        ]);
+
+        const pokemonQueries = [
+            "Pokémon",
+            "Poke\u0301mon",
+            "Pokemon",
+            "POKEMON",
+        ];
+        const pokemonResults = await Promise.all(
+            pokemonQueries.map((query) =>
+                request(app.getHttpServer())
+                    .post("/search/games")
+                    .send({ query })
+                    .expect(200),
+            ),
+        );
+        const pokemonIds = pokemonResults[0].body.data.items.map(
+            (g: any) => g.id,
+        );
+        for (const result of pokemonResults.slice(1)) {
+            expect(result.body.data.items.map((g: any) => g.id)).toEqual(
+                pokemonIds,
+            );
+        }
+        expect(pokemonResults[0].body.data.items).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 5002, name: "Pok\u00e9mon Emerald" }),
+                expect.objectContaining({ id: 5004, name: "Poke\u0301mon Crystal" }),
+            ]),
+        );
+
+        for (const query of [
+            "I'm on Observation Duty",
+            "I’m on Observation Duty",
+            "Im on Observation Duty",
+        ]) {
+            const result = await request(app.getHttpServer())
+                .post("/search/games")
+                .send({ query })
+                .expect(200);
+            expect(result.body.data.items.map((g: any) => g.id)).toEqual([5005]);
+        }
+
+        for (const query of [
+            "Assassin's Creed",
+            "Assassin’s Creed",
+            "Assassins Creed",
+        ]) {
+            const result = await request(app.getHttpServer())
+                .post("/search/games")
+                .send({ query })
+                .expect(200);
+            expect(result.body.data.items.map((g: any) => g.id)).toEqual([5006]);
+        }
+
+        const nonLatinRes = await request(app.getHttpServer())
+            .post("/search/games")
+            .send({ query: "Сталкер: Тень Чернобыля" })
+            .expect(200);
+        expect(nonLatinRes.body.data.items).toEqual([
+            expect.objectContaining({
+                id: 5007,
+                name: "Сталкер: Тень Чернобыля",
+            }),
         ]);
 
         const quotedRes = await request(app.getHttpServer())
@@ -806,13 +1179,124 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
             .expect(200);
         expect(quotedRes.body.data.items.map((g: any) => g.id)).toEqual([5003]);
 
-        // C. Wildcard input handling across all 3 endpoints
+        const phraseInsideTitle = await request(app.getHttpServer())
+            .post("/search/games")
+            .send({ query: "Evil 4" })
+            .expect(200);
+        expect(phraseInsideTitle.body.data.items.map((g: any) => g.id)).toEqual([
+            5001,
+        ]);
+
+        for (const query of ["4 Evil", "sident Evil"]) {
+            const result = await request(app.getHttpServer())
+                .post("/search/games")
+                .send({ query })
+                .expect(200);
+            expect(result.body.data.items).toEqual([]);
+            expect(result.body.pagination.totalItems).toBe(0);
+        }
+
+        const operatorRes = await request(app.getHttpServer())
+            .post("/search/games")
+            .send({ query: "Alpha|Beta" })
+            .expect(200);
+        expect(operatorRes.body.data.items.map((g: any) => g.id)).toEqual([
+            5016,
+        ]);
+
+        const literalStarRes = await request(app.getHttpServer())
+            .post("/search/games")
+            .send({ query: "Alph*" })
+            .expect(200);
+        expect(literalStarRes.body.data.items).toEqual([]);
+
+        // C. Wildcard input is treated as a separator; autocomplete alone adds a final-word prefix.
         const wildcardGameRes = await request(app.getHttpServer())
             .post("/search/games")
             .send({ query: "Resident*" })
             .expect(200);
         expect(wildcardGameRes.body.data.items.map((g: any) => g.id)).toEqual([
             5001,
+        ]);
+
+        const [partialAuto, partialAutoUnordered] = await Promise.all([
+            request(app.getHttpServer())
+                .post("/search/games/autocomplete")
+                .send({ query: "Resident Ev" })
+                .expect(200),
+            request(app.getHttpServer())
+                .post("/search/games/autocomplete")
+                .send({ query: "Res Ev" })
+                .expect(200),
+        ]);
+        expect(partialAuto.body).toEqual({ data: ["Resident Evil 4"], total: 1 });
+        expect(partialAutoUnordered.body).toEqual({ data: [], total: 0 });
+
+        const minecraftRes = await request(app.getHttpServer())
+            .post("/search/games")
+            .send({ query: "Minecraft", limit: 10 })
+            .expect(200);
+        expect(minecraftRes.body.data.items.map((g: any) => g.id)).toEqual([
+            5020, 5022, 5023, 5021, 5024,
+        ]);
+        for (const internalField of [
+            "exact_names",
+            "name_search",
+            "alias_data_complete",
+            "exact_match",
+            "text_relevance",
+            "aggregated_rating_count",
+            "_score",
+        ]) {
+            expect(minecraftRes.body.data.items[0]).not.toHaveProperty(
+                internalField,
+            );
+        }
+
+        const relevanceOrder = await queryManticoreRaw({
+            table: "games",
+            query: {
+                bool: {
+                    must: [{ match_phrase: { name_search: "Minecraft" } }],
+                    should: [
+                        {
+                            match_phrase: {
+                                exact_names:
+                                    "gnnamebegin Minecraft gnnameend",
+                            },
+                        },
+                    ],
+                },
+            },
+            limit: 10,
+            sort: [{ text_relevance: "desc" }],
+            track_scores: true,
+            options: {
+                max_matches: 100,
+                ranker:
+                    "expr(IF(field_mask & 1, 1000000000, 0) + sum(lcs*user_weight)*1000 + bm25)",
+            },
+            expressions: {
+                exact_match: "IF(WEIGHT() >= 1000000000, 1, 0)",
+                text_relevance:
+                    "IF(WEIGHT() >= 1000000000, WEIGHT() - 1000000000, WEIGHT())",
+            },
+        });
+        const textRelevanceIds = relevanceOrder.hits.hits.map((hit: any) =>
+            Number(hit._id),
+        );
+        expect(textRelevanceIds).toContain(5024);
+        expect(textRelevanceIds).toContain(5021);
+        expect(textRelevanceIds.indexOf(5024)).toBeLessThan(
+            textRelevanceIds.indexOf(5021),
+        );
+
+        const browseRes = await request(app.getHttpServer())
+            .post("/search/games")
+            .send({ query: "", category: [0], limit: 4 })
+            .expect(200);
+        expect(browseRes.body.data.items.map((g: any) => g.id)).toEqual([
+            5023, 5020, 5021, 5024,
         ]);
 
         const [autoNeutral, autoV1] = await Promise.all([
@@ -828,21 +1312,22 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
         expect(autoNeutral.body).toEqual(autoV1.body);
         expect(autoNeutral.body).toEqual({
             data: [
-                "Nexus Chronicle Alpha",
                 "Nexus Chronicle Beta",
                 "Nexus Chronicle Gamma",
                 "Nexus Chronicle Delta",
+                "Nexus Chronicle Alpha",
+                "Nexus Chronicle Epsilon",
             ],
-            total: 4,
+            total: 5,
         });
 
-        // D. Deterministic tie-breaking: _score DESC -> num_views DESC -> first_release_date DESC -> id ASC
+        // D. Deterministic tie-breaking: critic count -> text relevance -> release date -> ID.
         const tieRes = await request(app.getHttpServer())
             .post("/search/games")
             .send({ query: "Nexus Chronicle" })
             .expect(200);
         expect(tieRes.body.data.items.map((g: any) => g.id)).toEqual([
-            5010, 5011, 5012, 5013,
+            5011, 5012, 5013, 5010, 5018, 5019,
         ]);
 
         // E. Intentional fixes verified separately from legacy behavior:
@@ -887,6 +1372,7 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
     it("4.2 returns exact filtered totals and deep pages above Manticore's default 1000-result window without lower-bound truncation", async () => {
         await seedSearchFixtures(dataSource, {
             genres: [{ id: 12, name: "Role-playing (RPG)" }],
+            themes: [{ id: 1, name: "Action" }],
             platforms: [
                 { id: 6, name: "PC (Microsoft Windows)", abbreviation: "PC" },
             ],
@@ -902,16 +1388,19 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
             const end = Math.min(start + batchSize - 1, totalSeeded);
             const gameValues: string[] = [];
             const genreRelValues: string[] = [];
+            const themeRelValues: string[] = [];
             const platRelValues: string[] = [];
 
             for (let id = start; id <= end; id++) {
                 const isMatching = id <= matchingCount;
                 const category = isMatching ? 0 : 2;
+                const status = isMatching ? 0 : 2;
                 gameValues.push(
-                    `(${id}, 'Deep Window Game ${id}', 'deep-window-game-${id}', ${category}, 0, '2022-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00')`,
+                    `(${id}, 'Deep Window Game ${id}', 'deep-window-game-${id}', ${category}, ${status}, '2022-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00')`,
                 );
                 if (isMatching) {
                     genreRelValues.push(`(${id}, 12)`);
+                    themeRelValues.push(`(${id}, 1)`);
                     platRelValues.push(`(6, ${id})`);
                 }
             }
@@ -941,6 +1430,11 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
                     `INSERT INTO \`game_genres_game_genre\` (\`gameId\`, \`gameGenreId\`) VALUES ${genreRelValues.join(", ")}`,
                 );
             }
+            if (themeRelValues.length > 0) {
+                await dataSource.query(
+                    `INSERT INTO \`game_themes_game_theme\` (\`gameId\`, \`gameThemeId\`) VALUES ${themeRelValues.join(", ")}`,
+                );
+            }
             if (platRelValues.length > 0) {
                 await dataSource.query(
                     `INSERT INTO \`game_platform_games_game\` (\`gamePlatformId\`, \`gameId\`) VALUES ${platRelValues.join(", ")}`,
@@ -959,7 +1453,9 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
             .send({
                 query: "Deep Window Game",
                 category: [0],
+                status: [0],
                 genres: ["Role-playing (RPG)"],
+                themes: ["Action"],
                 platforms: ["PC"],
                 page: 11,
                 limit: 100,
@@ -981,7 +1477,9 @@ describe("Search MySQL/Manticore disposable fixture harness & document schema (3
             .send({
                 query: "Deep Window Game",
                 category: [0],
+                status: [0],
                 genres: ["Role-playing (RPG)"],
+                themes: ["Action"],
                 platforms: ["PC"],
                 page: 12,
                 limit: 100,

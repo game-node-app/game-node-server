@@ -22,14 +22,19 @@ source games_source {
     sql_db           = {{DB_DATABASE}}
     sql_query_pre    = SET CHARACTER_SET_RESULTS=utf8mb4
     sql_query_pre    = SET NAMES utf8mb4
-    sql_query_pre    = SET SESSION group_concat_max_len = 65535
+    # shortcut: alias name fields cap at 16 MiB per game; add a build gate if catalog aliases can exceed this.
+    sql_query_pre    = SET SESSION group_concat_max_len = 16777216
     sql_query        = \
     SELECT game.id, \
+           gameNames.exact_names, \
+           gameNames.name_search, \
+           gameNames.alias_data_complete, \
            game.name, \
            game.slug, \
            game.category, \
            game.status, \
            game.url, \
+           COALESCE(game.aggregatedRatingCount, 0)             AS aggregated_rating_count, \
            COALESCE(UNIX_TIMESTAMP(game.firstReleaseDate), 0) AS first_release_date, \
            COALESCE(UNIX_TIMESTAMP(game.createdAt), 0)        AS created_at, \
            COALESCE(UNIX_TIMESTAMP(game.updatedAt), 0)        AS updated_at, \
@@ -45,6 +50,21 @@ source games_source {
            'manticore'                                        AS source \
     FROM game \
              LEFT JOIN game_cover AS gameCover ON game.id = gameCover.gameId \
+             LEFT JOIN (SELECT names.id AS gameId, \
+                               CONCAT('gnnamebegin ', REGEXP_REPLACE(names.name, 'gnnamebegin|gnnameend|gnaliasboundary', 'gn mark', 1, 0, 'i'), ' gnnameend ', COALESCE(aliasData.exact_aliases, '')) AS exact_names, \
+                               CONCAT(REGEXP_REPLACE(names.name, 'gnnamebegin|gnnameend|gnaliasboundary', 'gn mark', 1, 0, 'i'), ' gnaliasboundary ', COALESCE(aliasData.phrase_aliases, '')) AS name_search, \
+                               CASE WHEN aliasData.gameId IS NULL THEN 1 \
+                                    WHEN (LENGTH(aliasData.exact_aliases) - LENGTH(REPLACE(aliasData.exact_aliases, 'gnnameend', ''))) / LENGTH('gnnameend') = aliasData.alias_count \
+                                    AND (LENGTH(aliasData.phrase_aliases) - LENGTH(REPLACE(aliasData.phrase_aliases, 'gnaliasboundary', ''))) / LENGTH('gnaliasboundary') = aliasData.alias_count THEN 1 ELSE 0 END AS alias_data_complete \
+                        FROM game AS names \
+                                 LEFT JOIN (SELECT safeNames.gameId, \
+                                                   GROUP_CONCAT(CONCAT('gnnamebegin ', safeNames.safe_name, ' gnnameend') ORDER BY safeNames.alias_id ASC SEPARATOR ' ') AS exact_aliases, \
+                                                   GROUP_CONCAT(CONCAT(safeNames.safe_name, ' gnaliasboundary') ORDER BY safeNames.alias_id ASC SEPARATOR ' ') AS phrase_aliases, \
+                                                   COUNT(*) AS alias_count \
+                                            FROM (SELECT gan.id AS alias_id, gan.gameId, \
+                                                         REGEXP_REPLACE(gan.name, 'gnnamebegin|gnnameend|gnaliasboundary', 'gn mark', 1, 0, 'i') AS safe_name \
+                                                  FROM game_alternative_name gan WHERE gan.name IS NOT NULL) AS safeNames \
+                                            GROUP BY safeNames.gameId) AS aliasData ON aliasData.gameId = names.id) AS gameNames ON gameNames.gameId = game.id \
              LEFT JOIN (SELECT gan.gameId, GROUP_CONCAT(DISTINCT gan.name ORDER BY gan.id ASC SEPARATOR ', ') AS alternativeNames FROM game_alternative_name gan GROUP BY gan.gameId) \
                        AS gameAlternativeName ON gameAlternativeName.gameId = game.id \
              LEFT JOIN (SELECT gpgg.gameId, \
@@ -76,6 +96,8 @@ source games_source {
     sql_attr_string    = source
     sql_attr_bigint    = category
     sql_attr_bigint    = status
+    sql_attr_bigint    = aggregated_rating_count
+    sql_attr_bigint    = alias_data_complete
     sql_attr_bigint    = num_views
     sql_attr_bigint    = num_likes
     sql_attr_multi     = bigint genre_ids from query; SELECT gameId, gameGenreId FROM game_genres_game_genre
@@ -109,9 +131,11 @@ source users_source {
 table games {
     dict               = keywords
     type               = plain
+    charset_table      = non_cont
+    ignore_chars       = U+0027,U+2018,U+2019,U+FF07,U+0300..U+036F,U+1AB0..U+1AFF,U+20D0..U+20FF,U+FE20..U+FE2F
     min_infix_len      = 3
     index_exact_words  = 1
-    expand_keywords    = 1
+    expand_keywords    = 0
     source             = games_source
     path               = /var/lib/manticore/games
 }
