@@ -12,6 +12,7 @@ concurrency:
 
 env:
   IMAGE: lamarcke/game-node-server
+  MANTICORE_IMAGE: lamarcke/game-node-manticore
   COOLIFY_APP_UUID: lwi5aeyjnmuc0yzrqpq8c78n
 
 jobs:
@@ -37,18 +38,55 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  manticore:
+    name: Build Manticore image (only if docker/manticore changed)
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Content-addressed tag: identical files always map to the same, already published image.
+      - id: tag
+        run: echo "tag=$(echo '${{ hashFiles('docker/manticore/**') }}' | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - id: exists
+        run: |
+          if docker buildx imagetools inspect "$MANTICORE_IMAGE:${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.exists.outputs.published != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - if: steps.exists.outputs.published != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/manticore
+          push: true
+          tags: ${{ env.MANTICORE_IMAGE }}:${{ steps.tag.outputs.tag }}
+
   deploy:
     name: Deploy to Coolify
-    needs: build
+    needs: [build, manticore]
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Point the compose at the new image
+      - name: Point the compose at the new images
         run: |
-          curl -fsS -X PATCH "${{ secrets.COOLIFY_URL }}/api/v1/applications/$COOLIFY_APP_UUID/envs" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"key\":\"SERVER_IMAGE_TAG\",\"value\":\"${{ github.sha }}\",\"is_literal\":true}"
+          set_env() {
+            curl -fsS -X PATCH "${{ secrets.COOLIFY_URL }}/api/v1/applications/$COOLIFY_APP_UUID/envs" \
+              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"key\":\"$1\",\"value\":\"$2\",\"is_literal\":true}"
+          }
+          set_env SERVER_IMAGE_TAG "${{ github.sha }}"
+          set_env MANTICORE_IMAGE_TAG "${{ needs.manticore.outputs.tag }}"
 
       - name: Deploy and wait for the result
         run: |
