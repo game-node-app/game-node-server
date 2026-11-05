@@ -22,11 +22,7 @@ const MODE_FILTERS: Record<DailyMode, string> = {
         AND g.firstReleaseDate <= NOW()`,
 };
 
-/** Candidate sources, tried in order: popularity first, IGDB rating count when there is no popularity yet. */
-const CANDIDATE_SOURCES = [
-    "SELECT g.id FROM ranking_score rs JOIN game g ON g.statisticsTargetId = rs.targetId WHERE rs.rankingKey = 'game:popular:all' AND rs.score > 0 ORDER BY rs.score DESC LIMIT 1000",
-    `SELECT id FROM game WHERE category = ${EGameCategory.Main} ORDER BY aggregatedRatingCount DESC LIMIT 1000`,
-];
+const MINIMUM_CRITIC_REVIEWS = 1;
 
 @Injectable()
 export class DailyPoolService {
@@ -37,21 +33,18 @@ export class DailyPoolService {
         mode: DailyMode,
         date: string,
     ): Promise<{ gameId: number; meta: DailyPuzzleMeta } | null> {
-        for (const source of CANDIDATE_SOURCES) {
-            const [row] = await this.dataSource.query(
-                `SELECT g.id FROM (${source}) candidate JOIN game g ON g.id = candidate.id
-                WHERE g.category = ${EGameCategory.Main} AND ${MODE_FILTERS[mode]}
+        const [row] = await this.dataSource.query(
+            `SELECT candidate.id FROM (SELECT g.id FROM game g
+                WHERE g.category = ${EGameCategory.Main} AND g.aggregatedRatingCount >= ? AND ${MODE_FILTERS[mode]}
                     AND NOT EXISTS (SELECT 1 FROM game_themes_game_theme m WHERE m.gameId = g.id AND m.gameThemeId = ${MATURE_THEME_ID})
                     AND g.id NOT IN (SELECT p.gameId FROM daily_puzzle p WHERE p.mode = ? AND p.date > DATE_SUB(?, INTERVAL 365 DAY))
+                ORDER BY g.aggregatedRatingCount DESC, g.id ASC LIMIT 1000) candidate
                 ORDER BY RAND() LIMIT 1`,
-                [mode, date],
-            );
-            if (row) {
-                const gameId = Number(row.id);
-                return { gameId, meta: await this.meta(mode, gameId) };
-            }
-        }
-        return null;
+            [MINIMUM_CRITIC_REVIEWS, mode, date],
+        );
+        if (!row) return null;
+        const gameId = Number(row.id);
+        return { gameId, meta: await this.meta(mode, gameId) };
     }
 
     private async meta(
