@@ -15,6 +15,7 @@ import { createAccessControl } from "better-auth/plugins/access";
 import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
 import { createPool } from "mysql2/promise";
 import { UserInitService } from "../user/user-init/user-init.service";
+import { SupporterSubscriptionStartService } from "../billing/supporter-subscription-start.service";
 import { EUserRoles } from "../utils/constants";
 import { MCP_PATH, MCP_SCOPES } from "../mcp/mcp.constants";
 
@@ -81,7 +82,11 @@ export class AuthService implements OnModuleDestroy {
     private readonly logger = new Logger(AuthService.name);
     private readonly pool;
 
-    constructor(configService: ConfigService, moduleRef: ModuleRef) {
+    constructor(
+        configService: ConfigService,
+        moduleRef: ModuleRef,
+        supporterStarts: SupporterSubscriptionStartService,
+    ) {
         const provider = (name: string) => ({
             clientId: configService.getOrThrow<string>(
                 `PROVIDER_${name}_CLIENT_ID`,
@@ -140,6 +145,28 @@ export class AuthService implements OnModuleDestroy {
                         : "unknown"
                 }`,
             );
+
+        const onSubscriptionChange = async (data: {
+            subscription: SupporterSubscriptionRow;
+            // Only these fields are read; the plugin's hook types resolve Stripe's ESM build.
+            stripeSubscription: Pick<Stripe.Subscription, "id" | "start_date">;
+        }) => {
+            await logSubscription(data);
+            try {
+                await supporterStarts.record(
+                    data.stripeSubscription.id,
+                    data.subscription.referenceId,
+                    new Date(data.stripeSubscription.start_date * 1000),
+                );
+            } catch (error) {
+                // A duplicate or out-of-order webhook must not fail the hook.
+                this.logger.warn(
+                    `Could not record supporter start for ${data.stripeSubscription.id}: ${
+                        error instanceof Error ? error.message : String(error)
+                    }`,
+                );
+            }
+        };
 
         this.auth = betterAuth({
             appName: "GameNode",
@@ -243,8 +270,8 @@ export class AuthService implements OnModuleDestroy {
                                           allow_promotion_codes: true,
                                       },
                                   }),
-                                  onSubscriptionComplete: logSubscription,
-                                  onSubscriptionUpdate: logSubscription,
+                                  onSubscriptionComplete: onSubscriptionChange,
+                                  onSubscriptionUpdate: onSubscriptionChange,
                                   onSubscriptionCancel: logSubscription,
                                   onSubscriptionDeleted: logSubscription,
                               },
