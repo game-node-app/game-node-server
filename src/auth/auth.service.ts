@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ModuleRef } from "@nestjs/core";
 import type { IncomingMessage } from "http";
@@ -9,6 +9,8 @@ import { admin, bearer, jwt } from "better-auth/plugins";
 import { mcp } from "@better-auth/mcp";
 import { cimd } from "@better-auth/cimd";
 import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { stripe, type StripeOptions } from "@better-auth/stripe";
+import Stripe from "stripe";
 import { createAccessControl } from "better-auth/plugins/access";
 import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
 import { createPool } from "mysql2/promise";
@@ -37,12 +39,46 @@ export interface LockoutState {
     isBanned: boolean;
 }
 
+/** Row shape of the Better Auth Stripe plugin's `subscription` table (design D4/D5). */
+export interface SupporterSubscriptionRow {
+    id: string;
+    plan: string;
+    referenceId: string;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    status:
+        | "active"
+        | "canceled"
+        | "incomplete"
+        | "incomplete_expired"
+        | "past_due"
+        | "paused"
+        | "trialing"
+        | "unpaid";
+    periodStart?: Date;
+    periodEnd?: Date;
+    trialStart?: Date;
+    trialEnd?: Date;
+    cancelAtPeriodEnd?: boolean;
+    cancelAt?: Date;
+    canceledAt?: Date;
+    endedAt?: Date;
+    seats?: number;
+    billingInterval?: "day" | "week" | "month" | "year";
+    stripeScheduleId?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
 /**
  * Owns the in-process Better Auth instance, mounted at /v1/auth in main.ts.
  */
 @Injectable()
 export class AuthService implements OnModuleDestroy {
     readonly auth;
+    readonly stripeEnabled: boolean;
+    readonly stripe: Stripe | null;
+    private readonly logger = new Logger(AuthService.name);
     private readonly pool;
 
     constructor(configService: ConfigService, moduleRef: ModuleRef) {
@@ -66,6 +102,44 @@ export class AuthService implements OnModuleDestroy {
 
         const apiUrl = configService.getOrThrow<string>("DOMAIN_API");
         const websiteUrl = configService.getOrThrow<string>("DOMAIN_WEBSITE");
+
+        // All four values are required to sell; local development and CI boot without Stripe (design D3).
+        const stripeSecretKey = configService.get<string>("STRIPE_SECRET_KEY");
+        const stripeWebhookSecret = configService.get<string>(
+            "STRIPE_WEBHOOK_SECRET",
+        );
+        const monthlyPriceId = configService.get<string>(
+            "STRIPE_PRICE_SUPPORTER_MONTHLY",
+        );
+        const yearlyPriceId = configService.get<string>(
+            "STRIPE_PRICE_SUPPORTER_YEARLY",
+        );
+        const stripeConfig =
+            stripeSecretKey &&
+            stripeWebhookSecret &&
+            monthlyPriceId &&
+            yearlyPriceId
+                ? {
+                      client: new Stripe(stripeSecretKey),
+                      webhookSecret: stripeWebhookSecret,
+                      monthlyPriceId,
+                      yearlyPriceId,
+                  }
+                : null;
+        this.stripe = stripeConfig?.client ?? null;
+        this.stripeEnabled = stripeConfig !== null;
+        const logSubscription = async ({
+            subscription,
+        }: {
+            subscription: SupporterSubscriptionRow;
+        }) =>
+            this.logger.log(
+                `Stripe subscription ${subscription.plan} ${subscription.status}, period ends ${
+                    subscription.periodEnd
+                        ? new Date(subscription.periodEnd).toISOString()
+                        : "unknown"
+                }`,
+            );
 
         this.auth = betterAuth({
             appName: "GameNode",
@@ -131,6 +205,52 @@ export class AuthService implements OnModuleDestroy {
                     fetchClientMetadataResource,
                     metadataProfile: "mcp-2026-07-28",
                 }),
+                ...(stripeConfig
+                    ? [
+                          stripe({
+                              // The plugin's ESM types resolve stripe's ESM build; ours are CJS (identical runtime).
+                              stripeClient:
+                                  stripeConfig.client as unknown as StripeOptions["stripeClient"],
+                              stripeWebhookSecret: stripeConfig.webhookSecret,
+                              createCustomerOnSignUp: false,
+                              subscription: {
+                                  enabled: true,
+                                  plans: [
+                                      {
+                                          name: "supporter",
+                                          priceId: stripeConfig.monthlyPriceId,
+                                          annualDiscountPriceId:
+                                              stripeConfig.yearlyPriceId,
+                                      },
+                                  ],
+                                  authorizeReference: async ({
+                                      user,
+                                      referenceId,
+                                  }) => referenceId === user.id,
+                                  // Stripe Tax is unavailable for this account's country; the advertised prices are the total.
+                                  getCheckoutSessionParams: (
+                                      _data,
+                                      _req,
+                                      ctx,
+                                  ) => ({
+                                      params: {
+                                          // Stripe does not localize multi-currency Prices on its own.
+                                          currency:
+                                              ctx.body?.metadata?.currency ===
+                                              "brl"
+                                                  ? "brl"
+                                                  : "usd",
+                                          allow_promotion_codes: true,
+                                      },
+                                  }),
+                                  onSubscriptionComplete: logSubscription,
+                                  onSubscriptionUpdate: logSubscription,
+                                  onSubscriptionCancel: logSubscription,
+                                  onSubscriptionDeleted: logSubscription,
+                              },
+                          }),
+                      ]
+                    : []),
             ],
         });
     }
@@ -206,6 +326,17 @@ export class AuthService implements OnModuleDestroy {
             });
         }
         return states;
+    }
+
+    async getSubscriptions(
+        userId: string,
+    ): Promise<SupporterSubscriptionRow[]> {
+        if (!this.stripeEnabled) return [];
+        const ctx = await this.auth.$context;
+        return ctx.adapter.findMany<SupporterSubscriptionRow>({
+            model: "subscription",
+            where: [{ field: "referenceId", value: userId }],
+        });
     }
 }
 

@@ -11,11 +11,19 @@ The system SHALL maintain a central `ConnectionProviderRegistry` where each supp
 
 #### Scenario: Client queries available connection providers
 - **WHEN** a client requests `GET /v1/connections`
-- **THEN** the response lists each registered provider along with its capability flags and `authMode` (`"redirect"` for `steam` and `xbox`, `"public_identifier"` for `psn`, `"delegated_code"` for `epicgames`)
+- **THEN** the response lists each registered provider along with its capability flags and `authMode` (`"redirect"` for `steam` and `xbox`, `"public_identifier"` for `psn`, `"delegated_code"` for `epicgames`, `gog` and `nintendo`)
 
 #### Scenario: Epic Games capabilities
 - **WHEN** a client requests `GET /v1/connections`
 - **THEN** `epicgames` reports importer, importer-watch and playtime import as viable, and achievement import as not viable
+
+#### Scenario: GOG capabilities
+- **WHEN** a client requests `GET /v1/connections`
+- **THEN** `gog` appears with name and icon `gog`, auth mode `delegated_code`, and importer, importer-watch, playtime-import and achievement-import flags all true
+
+#### Scenario: Nintendo capabilities
+- **WHEN** a client requests `GET /v1/connections`
+- **THEN** `nintendo` reports importer, importer-watch and playtime import as viable, achievement import as not viable, and the icon name `nintendo`
 
 ### Requirement: Registry-driven onboarding and synchronization dispatch
 Connection onboarding (`ConnectionsService`), background playtime refresh (`PlayerDataProcessor` / `PlaytimeWatchProcessor`), library discovery (`ImporterService`), and obtained achievement fetching (`GameObtainedAchievementService`) SHALL resolve provider handlers through the registry rather than hard-coded provider switch statements.
@@ -32,7 +40,7 @@ Connection onboarding (`ConnectionsService`), background playtime refresh (`Play
 - **THEN** the cooldown applies to that connection's budget scope rather than halting Xbox synchronization for all other users' independent tokens
 
 ### Requirement: Shared library matching across providers
-Library discovery SHALL match every provider's source game IDs through one shared path. That path SHALL exclude entries the user already imported or ignored (unless processed entries are requested), look up mappings for the provider's category, and attach the provider's preferred platform. Steam, PSN, Xbox and Epic Games SHALL return the same results as with per-provider matching.
+Library discovery SHALL match every provider's source game IDs through one shared path. That path SHALL exclude entries the user already imported or ignored (unless processed entries are requested), look up mappings for the provider's category, and attach the provider's preferred platform. Steam, PSN, Xbox, Epic Games, GOG and Nintendo SHALL return the same results as with per-provider matching.
 
 #### Scenario: Unprocessed entries for any provider
 - **WHEN** `ImporterService` lists unprocessed entries for a connection whose provider returned source IDs
@@ -41,3 +49,7 @@ Library discovery SHALL match every provider's source game IDs through one share
 #### Scenario: Including processed entries
 - **WHEN** unprocessed entries are requested with processed entries included
 - **THEN** every mapping of every returned source ID is listed, including ones the user already processed or ignored
+
+#### Scenario: GOG library matching
+- **WHEN** the GOG library returns owned product IDs
+- **THEN** they use existing `Gog` mappings with PC as the preferred platform and honor the same processed/ignored filtering as other providers

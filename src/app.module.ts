@@ -46,6 +46,7 @@ import { getRedisConfig } from "./utils/getRedisConfig";
 import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.module";
 import { bullmqTelemetry } from "./tracing";
 import { DailyModule } from "./daily/daily.module";
+import { BillingModule } from "./billing/billing.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -193,6 +194,7 @@ import { DailyModule } from "./daily/daily.module";
         PlayerDataWorkerModule,
         McpModule,
         DailyModule,
+        BillingModule,
     ],
 })
 export class AppModule implements NestModule {

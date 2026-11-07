@@ -33,7 +33,7 @@ Each mapping tool SHALL require the `mappings:write` scope. A call whose token l
 - **THEN** the response is HTTP 403 with `WWW-Authenticate` error `insufficient_scope` and `scope="mappings:write"`
 
 ### Requirement: List unmapped games tool
-`list_unmapped_games` SHALL accept an optional `category`, an optional `page` and a `limit` from 1 to 50 (default 20). It SHALL return active unmapped entries without any mapping, in the order of the moderator unmapped list. Each entry SHALL include id, source ID, category name, name, owner count, and a store page URL when one can be built from the source ID.
+`list_unmapped_games` SHALL accept an optional `category` including `Gog`, an optional `page` and a `limit` from 1 to 50 (default 20). It SHALL return active unmapped entries without any mapping, in the order of the moderator unmapped list. Each entry SHALL include id, source ID, category name, name, owner count, and a store page URL when one can be built from the source ID.
 
 #### Scenario: Steam entry
 - **WHEN** the tool returns an unmapped Steam entry with app ID `412020`
@@ -42,6 +42,14 @@ Each mapping tool SHALL require the `mappings:write` scope. A call whose token l
 #### Scenario: Epic entry
 - **WHEN** the tool returns an unmapped Epic namespace entry
 - **THEN** the entry includes the name if known and no store page URL
+
+#### Scenario: GOG category filter
+- **WHEN** an authorized admin calls `list_unmapped_games` with `category: "Gog"`
+- **THEN** only active unmapped GOG entries are returned, using their GOG product IDs, without fabricated store URLs
+
+#### Scenario: Resolving a GOG entry
+- **WHEN** an authorized admin maps an active GOG entry through `map_external_game`
+- **THEN** an `agent` mapping is created in category `Gog` under the existing conflict and permission rules, and the entry becomes inactive
 
 ### Requirement: Map external game tool
 `map_external_game` SHALL accept an unmapped entry `id` and a catalog `game_id`, then create a mapping from that entry's source ID and category to the game, with origin `agent`, and deactivate the entry. The result SHALL name the mapped game.
