@@ -14,15 +14,39 @@ The API SHALL accept unauthenticated JSON POST requests at `/search/games`, `/se
 - **THEN** the main API handles the request directly without a redirect, session requirement, or Go API dependency
 
 ### Requirement: Game matching and ordering
-Game search SHALL match names and alternative names with the existing anchored phrase behavior. Results SHALL order by relevance descending, views descending, release date descending, then game ID ascending. Empty or omitted game queries SHALL browse using the supplied filters.
+Game search SHALL match the complete normalized input phrase within a title or individual alternative name. Results SHALL order by normalized exact title-or-alias match first, critic-review count descending (null as zero), textual relevance descending, release timestamp descending, then game ID ascending. Critic coverage SHALL NOT restrict eligibility. Empty or omitted queries SHALL browse supplied filters with no exact-match or textual preference.
 
 #### Scenario: Alternative name and equal scores
-- **WHEN** a query matches an alternative name and several games have equal relevance
-- **THEN** the alternative-name game is eligible and views, release date, and ID determine a stable result order
+- **WHEN** several matching games have equal exact-match priority, critic counts, and textual relevance
+- **THEN** release timestamp descending and ID ascending determine a stable order, including games matching an alternative name
 
 #### Scenario: Filter-only discovery
 - **WHEN** the game query is empty and a category is supplied
-- **THEN** matching category games are returned without requiring a full-text term
+- **THEN** matching category games are returned without requiring a full-text term, ordered by critic count descending, release timestamp descending, and ID ascending
+
+#### Scenario: Exact name outranks a popular partial match
+- **WHEN** a game has a normalized title or individual alias equal to the query and another game only contains that phrase with more critic reviews
+- **THEN** the exact match appears first even when it has no critic reviews
+
+#### Scenario: Exact alternative name identifies the original game
+- **WHEN** a fixture named Minecraft: Java Edition has alias Minecraft and 14 critic reviews, Minecraft: Legends has 5, and another game named Minecraft has no critic reviews
+- **THEN** searching Minecraft places Minecraft: Java Edition ahead of both other fixtures
+
+#### Scenario: Critic counts precede local engagement and engine relevance
+- **WHEN** two matches have the same exact-match priority and one has more critic reviews while the other has more views or higher textual relevance
+- **THEN** the game with more critic reviews appears first
+
+#### Scenario: Unreviewed games remain searchable
+- **WHEN** matching games have null, zero, or positive critic counts and no explicit caller filter excludes them
+- **THEN** all remain eligible, with null and zero treated equally for ordering
+
+#### Scenario: Phrase matching preserves term order and alias boundaries
+- **WHEN** input words occur out of order, only inside longer words, or across two separate aliases without the complete phrase occurring in a single name
+- **THEN** those occurrences alone do not match the query
+
+#### Scenario: Input is literal search text
+- **WHEN** a query contains quotes, parentheses, asterisks, or other engine query operators
+- **THEN** the caller cannot alter server-selected fields, boolean clauses, filters, or wildcard behavior through those characters
 
 ### Requirement: All declared game filters apply
 Game search SHALL support category/status integer arrays and genre/theme/platform string arrays. Values within one field SHALL use OR; populated fields SHALL combine with AND. Empty arrays SHALL add no restriction. String values SHALL resolve as exact case-insensitive resource names or decimal IDs; platform abbreviations SHALL also resolve. Unresolved values SHALL never remove a restriction.
@@ -58,11 +82,38 @@ Game and user search SHALL default to limit 20 and page 1 when omitted or zero. 
 - **THEN** items is empty while totalItems remains 21, totalPages remains 2, and hasNextPage is false
 
 ### Requirement: Game autocomplete
-Autocomplete SHALL reuse game matching and filters with a prefix query, force page 1 and limit 5, and return `{data:string[],total:number}` where total is the number of returned names. Empty autocomplete input SHALL return an empty result without an engine query.
+Autocomplete SHALL reuse game normalization, ordering, and filters, matching complete preceding words and a prefix of the final word in a title or individual alias. It SHALL force page 1 and limit 5, return `{data:string[],total:number}`, and return empty results without an engine query for blank or normalization-empty input. Total SHALL be the number of returned names.
 
 #### Scenario: Suggestions ignore caller pagination
 - **WHEN** a caller submits a prefix with page 3 and limit 100
 - **THEN** up to five names from the first matching page are returned
+
+#### Scenario: Prefix typing retains the same ranking policy
+- **WHEN** a caller types Minec and later Minecraft against fixtures for the original game, spinoffs, and unreviewed fan games
+- **THEN** partial-word suggestions use critic counts before textual relevance, and the completed query promotes exact title-or-alias matches
+
+#### Scenario: Autocomplete accepts equivalent spelling
+- **WHEN** a caller submits accented, decomposed-accent, straight-apostrophe, curly-apostrophe, or omitted-apostrophe variants of the same prefix
+- **THEN** the equivalent variants return the same ordered suggestions with original display names
+
+### Requirement: Equivalent game-name spellings
+Game matching and exact-match priority SHALL use consistent case folding, Latin accent folding, canonical Unicode equivalence, and equivalence of straight, curly, and omitted apostrophes within words. Normalization SHALL apply to titles, individual aliases, and input without changing returned names. It SHALL NOT expand contractions into different words or search image text.
+
+#### Scenario: Omitted apostrophe in a contraction
+- **WHEN** a fixture is named I'm on Observation Duty
+- **THEN** I'm on Observation Duty, I’m on Observation Duty, and Im on Observation Duty find the same game with equal exact-match priority
+
+#### Scenario: Omitted apostrophe in a possessive
+- **WHEN** a fixture is named Assassin's Creed
+- **THEN** Assassin's Creed, Assassin’s Creed, and Assassins Creed produce equivalent matches and exact-match priority
+
+#### Scenario: Composed and decomposed accents
+- **WHEN** input spells Pokémon using precomposed é, e followed by a combining acute accent, unaccented Pokemon, or different casing
+- **THEN** all variants produce the same ordered results for equivalent indexed titles and aliases
+
+#### Scenario: Normalization produces no searchable text
+- **WHEN** nonblank game input contains only ignored apostrophes or combining marks
+- **THEN** search and autocomplete return no matches rather than browsing the catalog
 
 ### Requirement: Username prefix matching
 User search SHALL require a nonblank query, match username prefixes, retain engine relevance order with userId as a stable tie-breaker, and expose no additional profile or account data.
