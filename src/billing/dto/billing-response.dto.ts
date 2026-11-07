@@ -22,6 +22,8 @@ export class BillingMeResponseDto {
     billingInterval: string | null;
     periodEnd: Date | null;
     cancelAtPeriodEnd: boolean | null;
+    /** Start of the current continuous subscription; null unless isSupporter. */
+    supporterSince: Date | null;
 }
 
 export class BillingPortalResponseDto {

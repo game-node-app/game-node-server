@@ -1,6 +1,7 @@
 import {
     ConflictException,
     Injectable,
+    Logger,
     NotFoundException,
     ServiceUnavailableException,
 } from "@nestjs/common";
@@ -11,6 +12,7 @@ import type { IncomingHttpHeaders } from "http";
 import type Stripe from "stripe";
 import { AuthService } from "../auth/auth.service";
 import type { SupporterSubscriptionRow } from "../auth/auth.service";
+import { SupporterSubscriptionStartService } from "./supporter-subscription-start.service";
 import type {
     CheckoutRequestDto,
     PortalRequestDto,
@@ -29,9 +31,11 @@ const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
 @Injectable()
 export class BillingService {
     private readonly websiteUrl: string;
+    private readonly logger = new Logger(BillingService.name);
 
     constructor(
         private readonly authService: AuthService,
+        private readonly supporterStarts: SupporterSubscriptionStartService,
         configService: ConfigService,
     ) {
         this.websiteUrl = configService.getOrThrow<string>("DOMAIN_WEBSITE");
@@ -92,14 +96,18 @@ export class BillingService {
 
         const rows = await this.authService.getSubscriptions(userId);
         const best = this.pickBestRow(rows);
+        const isSupporter = rows.some((row) => this.grantsEntitlement(row));
 
         return {
-            isSupporter: rows.some((row) => this.grantsEntitlement(row)),
+            isSupporter,
             status: best?.status ?? null,
             plan: best?.plan ?? null,
             billingInterval: best?.billingInterval ?? null,
             periodEnd: best?.periodEnd ?? null,
             cancelAtPeriodEnd: best?.cancelAtPeriodEnd ?? null,
+            supporterSince: isSupporter
+                ? await this.findSupporterSince(best)
+                : null,
         };
     }
 
@@ -138,9 +146,9 @@ export class BillingService {
                             ? "brl"
                             : "usd",
                 },
-                successUrl: `${this.websiteUrl}/supporter?checkout=success`,
-                cancelUrl: `${this.websiteUrl}/supporter?checkout=cancel`,
-                returnUrl: `${this.websiteUrl}/supporter`,
+                successUrl: this.supporterSettingsUrl("success"),
+                cancelUrl: this.supporterSettingsUrl("cancel"),
+                returnUrl: this.supporterSettingsUrl(),
                 disableRedirect: true,
                 ...(dto.locale
                     ? { locale: dto.locale as CheckoutSessionLocale }
@@ -169,7 +177,7 @@ export class BillingService {
             const { url } = await this.authService.auth.api.createBillingPortal(
                 {
                     body: {
-                        returnUrl: `${this.websiteUrl}/supporter`,
+                        returnUrl: this.supporterSettingsUrl(),
                         disableRedirect: true,
                         ...(dto.locale
                             ? { locale: dto.locale as CheckoutSessionLocale }
@@ -240,6 +248,49 @@ export class BillingService {
             cancelAtPeriodEnd: false,
             periodEnd: this.periodEndOf(subscription),
         };
+    }
+
+    /**
+     * Stripe's subscription.start_date, stable across renewals and plan switches. Rows created before
+     * the table existed are filled on first read; a Stripe failure must not fail /me.
+     */
+    private async findSupporterSince(
+        best: SupporterSubscriptionRow | undefined,
+    ): Promise<Date | null> {
+        const stripeSubscriptionId = best?.stripeSubscriptionId;
+        if (!stripeSubscriptionId) return null;
+
+        const stored =
+            await this.supporterStarts.findStartedAt(stripeSubscriptionId);
+        if (stored) return stored;
+
+        try {
+            const subscription =
+                await this.requireStripe().subscriptions.retrieve(
+                    stripeSubscriptionId,
+                );
+            const startedAt = new Date(subscription.start_date * 1000);
+            await this.supporterStarts.record(
+                subscription.id,
+                best.referenceId,
+                startedAt,
+            );
+            return startedAt;
+        } catch (error) {
+            this.logger.warn(
+                `Could not resolve supporter start for ${stripeSubscriptionId}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+            return null;
+        }
+    }
+
+    /** Billing lives in the website's settings tab. */
+    private supporterSettingsUrl(checkout?: "success" | "cancel"): string {
+        return `${this.websiteUrl}/home?settings=premium${
+            checkout ? `&checkout=${checkout}` : ""
+        }`;
     }
 
     private requireStripe(): Stripe {

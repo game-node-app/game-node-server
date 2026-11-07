@@ -4,10 +4,13 @@ import {
     ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { Repository } from "typeorm";
 import { AuthService } from "../auth/auth.service";
 import type { SupporterSubscriptionRow } from "../auth/auth.service";
 import { BillingService } from "./billing.service";
 import type { CheckoutRequestDto } from "./dto/billing-request.dto";
+import type { SupporterSubscriptionStart } from "./entity/supporter-subscription-start.entity";
+import { SupporterSubscriptionStartService } from "./supporter-subscription-start.service";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEBSITE = "https://gamenode.test";
@@ -26,6 +29,12 @@ describe("BillingService", () => {
             },
         },
     };
+    const startRepository = {
+        upsert: jest.fn(),
+        findOneBy: jest.fn(),
+    };
+    let supporterStartRows: Map<string, SupporterSubscriptionStart>;
+    let supporterStartService: SupporterSubscriptionStartService;
     let service: BillingService;
 
     const row = (
@@ -41,8 +50,27 @@ describe("BillingService", () => {
     beforeEach(() => {
         jest.resetAllMocks();
         authService.stripeEnabled = true;
+        supporterStartRows = new Map();
+        startRepository.upsert.mockImplementation(
+            async (entity: SupporterSubscriptionStart) => {
+                supporterStartRows.set(entity.stripeSubscriptionId, {
+                    ...entity,
+                });
+            },
+        );
+        startRepository.findOneBy.mockImplementation(
+            async ({
+                stripeSubscriptionId,
+            }: {
+                stripeSubscriptionId: string;
+            }) => supporterStartRows.get(stripeSubscriptionId) ?? null,
+        );
+        supporterStartService = new SupporterSubscriptionStartService(
+            startRepository as unknown as Repository<SupporterSubscriptionStart>,
+        );
         service = new BillingService(
             authService as unknown as AuthService,
+            supporterStartService,
             new ConfigService({ DOMAIN_WEBSITE: WEBSITE }),
         );
     });
@@ -183,7 +211,28 @@ describe("BillingService", () => {
                 billingInterval: "month",
                 periodEnd,
                 cancelAtPeriodEnd: true,
+                supporterSince: null,
             });
+        });
+
+        it("returns the stored start for an active subscription", async () => {
+            const startedAt = new Date("2025-03-01T00:00:00Z");
+            supporterStartRows.set("sub_1", {
+                stripeSubscriptionId: "sub_1",
+                userId: "user-1",
+                startedAt,
+            });
+            authService.getSubscriptions.mockResolvedValue([
+                row({ stripeSubscriptionId: "sub_1" }),
+            ]);
+
+            await expect(service.getMe("user-1")).resolves.toMatchObject({
+                isSupporter: true,
+                supporterSince: startedAt,
+            });
+            expect(
+                authService.stripe.subscriptions.retrieve,
+            ).not.toHaveBeenCalled();
         });
 
         it("returns nulls without a subscription", async () => {
@@ -196,7 +245,86 @@ describe("BillingService", () => {
                 billingInterval: null,
                 periodEnd: null,
                 cancelAtPeriodEnd: null,
+                supporterSince: null,
             });
+        });
+
+        it("returns null when a canceled subscription's period has ended", async () => {
+            supporterStartRows.set("sub_1", {
+                stripeSubscriptionId: "sub_1",
+                userId: "user-1",
+                startedAt: new Date("2025-03-01T00:00:00Z"),
+            });
+            authService.getSubscriptions.mockResolvedValue([
+                row({
+                    status: "canceled",
+                    periodEnd: new Date(Date.now() - DAY_MS),
+                    stripeSubscriptionId: "sub_1",
+                }),
+            ]);
+
+            await expect(service.getMe("user-1")).resolves.toMatchObject({
+                isSupporter: false,
+                supporterSince: null,
+            });
+            expect(startRepository.findOneBy).not.toHaveBeenCalled();
+        });
+
+        it("fills the start from Stripe once and persists it", async () => {
+            authService.getSubscriptions.mockResolvedValue([
+                row({ stripeSubscriptionId: "sub_1" }),
+            ]);
+            authService.stripe.subscriptions.retrieve.mockResolvedValue({
+                id: "sub_1",
+                start_date: 1700000000,
+            });
+
+            await expect(service.getMe("user-1")).resolves.toMatchObject({
+                supporterSince: new Date(1700000000 * 1000),
+            });
+            await expect(service.getMe("user-1")).resolves.toMatchObject({
+                supporterSince: new Date(1700000000 * 1000),
+            });
+
+            expect(
+                authService.stripe.subscriptions.retrieve,
+            ).toHaveBeenCalledTimes(1);
+            expect(supporterStartRows.size).toBe(1);
+        });
+
+        it("returns null without throwing when Stripe fails", async () => {
+            authService.getSubscriptions.mockResolvedValue([
+                row({ stripeSubscriptionId: "sub_1" }),
+            ]);
+            authService.stripe.subscriptions.retrieve.mockRejectedValue(
+                new Error("Stripe is down"),
+            );
+
+            await expect(service.getMe("user-1")).resolves.toMatchObject({
+                isSupporter: true,
+                supporterSince: null,
+            });
+            expect(supporterStartRows.size).toBe(0);
+        });
+    });
+
+    describe("supporter start", () => {
+        it("upserts once per Stripe subscription", async () => {
+            const startedAt = new Date("2025-03-01T00:00:00Z");
+
+            await supporterStartService.record("sub_1", "user-1", startedAt);
+            await supporterStartService.record("sub_1", "user-1", startedAt);
+
+            expect(supporterStartRows.size).toBe(1);
+            expect(supporterStartRows.get("sub_1")).toEqual({
+                stripeSubscriptionId: "sub_1",
+                userId: "user-1",
+                startedAt,
+            });
+            expect(startRepository.upsert).toHaveBeenCalledWith(
+                { stripeSubscriptionId: "sub_1", userId: "user-1", startedAt },
+                ["stripeSubscriptionId"],
+            );
         });
     });
 
@@ -235,9 +363,9 @@ describe("BillingService", () => {
                         plan: "supporter",
                         annual,
                         metadata: { currency: "usd" },
-                        successUrl: `${WEBSITE}/supporter?checkout=success`,
-                        cancelUrl: `${WEBSITE}/supporter?checkout=cancel`,
-                        returnUrl: `${WEBSITE}/supporter`,
+                        successUrl: `${WEBSITE}/home?settings=premium&checkout=success`,
+                        cancelUrl: `${WEBSITE}/home?settings=premium&checkout=cancel`,
+                        returnUrl: `${WEBSITE}/home?settings=premium`,
                         disableRedirect: true,
                         ...(locale ? { locale } : {}),
                     },
@@ -267,9 +395,9 @@ describe("BillingService", () => {
                 plan: "supporter",
                 annual: false,
                 metadata: { currency: "usd" },
-                successUrl: `${WEBSITE}/supporter?checkout=success`,
-                cancelUrl: `${WEBSITE}/supporter?checkout=cancel`,
-                returnUrl: `${WEBSITE}/supporter`,
+                successUrl: `${WEBSITE}/home?settings=premium&checkout=success`,
+                cancelUrl: `${WEBSITE}/home?settings=premium&checkout=cancel`,
+                returnUrl: `${WEBSITE}/home?settings=premium`,
                 disableRedirect: true,
             });
         });
@@ -340,7 +468,7 @@ describe("BillingService", () => {
                 authService.auth.api.createBillingPortal,
             ).toHaveBeenCalledWith({
                 body: {
-                    returnUrl: `${WEBSITE}/supporter`,
+                    returnUrl: `${WEBSITE}/home?settings=premium`,
                     disableRedirect: true,
                 },
                 headers: expect.anything(),
