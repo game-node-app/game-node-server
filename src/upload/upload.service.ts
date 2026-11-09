@@ -1,7 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+    DeleteObjectCommand,
+    PutObjectCommand,
+    S3Client,
+} from "@aws-sdk/client-s3";
 import crypto from "crypto";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import mimetype from "mime-types";
 import { ImageCompressorService } from "./image-compressor/image-compressor.service";
 
@@ -58,5 +64,40 @@ export class UploadService {
             fileName,
             fileExt,
         } as const;
+    }
+
+    async saveStoredFile(userId: string, path: string, contentType: string) {
+        const fileName = crypto.randomBytes(16).toString("hex");
+        const fileExt = mimetype.extension(contentType) || "bin";
+        const fileNameWithExtension = `${fileName}.${fileExt}`;
+
+        const command = new PutObjectCommand({
+            Bucket: this.BUCKET_NAME,
+            Body: createReadStream(path),
+            ContentLength: (await stat(path)).size,
+            Key: fileNameWithExtension,
+            ContentType: contentType,
+            CacheControl: "public, max-age=31536000, immutable",
+            Metadata: {
+                userId: userId,
+            },
+        });
+
+        await this.client.send(command);
+
+        return {
+            fileNameWithExtension: fileNameWithExtension,
+            fileName,
+            fileExt,
+        } as const;
+    }
+
+    async delete(key: string) {
+        await this.client.send(
+            new DeleteObjectCommand({
+                Bucket: this.BUCKET_NAME,
+                Key: key,
+            }),
+        );
     }
 }

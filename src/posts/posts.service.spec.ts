@@ -42,3 +42,21 @@ it("returns the saved post and registers its activity after committing", async (
         activities.register.mock.invocationCallOrder[0],
     );
 });
+
+it("keeps GIF uploads for posts unchanged", async () => {
+    const save = jest.fn(async () => ({
+        fileName: "post-image",
+        fileExt: "gif",
+        fileNameWithExtension: "post-image.gif",
+    }));
+    const service = new PostsService({} as any, { save } as any, {} as any);
+    const file = {
+        buffer: Buffer.from("GIF89a"),
+        mimetype: "image/gif",
+    } as Express.Multer.File;
+
+    await expect(service.uploadPostImage("user", file)).resolves.toEqual({
+        filename: "post-image.gif",
+    });
+    expect(save).toHaveBeenCalledWith("user", file);
+});

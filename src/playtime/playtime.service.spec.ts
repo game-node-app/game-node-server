@@ -227,10 +227,12 @@ test("a multi-game import aggregates each derived window once after inserting al
 test("identical manual retries preserve legacy counts and omitted provider dates", async () => {
     const existing = {
         ...observation(),
+        totalPlaytimeSeconds: 3600,
+        lastPlayedDate: new Date("2026-10-01T10:20:30.000Z"),
         totalPlayCount: 7,
         recentPlaytimeSeconds: 42,
         firstPlayedDate: new Date("2020-01-01T00:00:00Z"),
-        updatedAt: now,
+        updatedAt: new Date(),
     };
     const current = makeService(existing);
     const saved = await current.service.submit("user", {

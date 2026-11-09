@@ -1,7 +1,7 @@
 import {
+    BadRequestException,
     Body,
     Controller,
-    FileTypeValidator,
     Get,
     MaxFileSizeValidator,
     Param,
@@ -15,26 +15,41 @@ import {
 import { ProfileService } from "./profile.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
-import {
-    ApiConsumes,
-    ApiOkResponse,
-    ApiResponse,
-    ApiTags,
-} from "@nestjs/swagger";
+import { ApiConsumes, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import sharp from "sharp";
 import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
-import { Profile } from "./entities/profile.entity";
 import { Public } from "../auth/public.decorator";
 import { UpdateProfileImageDto } from "./dto/update-profile-image.dto";
 import { Roles } from "../auth/roles.decorator";
 import { EUserRoles } from "../utils/constants";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
+import { ProfileResponseDto } from "./dto/profile-response.dto";
+import { ProfileVideoService } from "./profile-video/profile-video.service";
+
+const PROFILE_IMAGE_MAX_BYTES = 10 * 1024 * 1000;
+
+/** Design 10: reject anything whose decoded content is not JPEG or PNG. */
+async function assertProfileImageContent(file: Express.Multer.File) {
+    let format: string | undefined;
+    try {
+        format = (await sharp(file.buffer).metadata()).format;
+    } catch {
+        format = undefined;
+    }
+    if (format !== "jpeg" && format !== "png") {
+        throw new BadRequestException("Profile images must be PNG or JPEG.");
+    }
+}
 
 @Controller("profile")
 @ApiTags("profile")
 @UseGuards(AuthGuard)
 export class ProfileController {
-    constructor(private readonly profileService: ProfileService) {}
+    constructor(
+        private readonly profileService: ProfileService,
+        private readonly profileVideoService: ProfileVideoService,
+    ) {}
 
     @Patch()
     async update(
@@ -49,7 +64,11 @@ export class ProfileController {
 
     @Put("image")
     @ApiConsumes("multipart/form-data")
-    @UseInterceptors(FileInterceptor("file"))
+    @UseInterceptors(
+        FileInterceptor("file", {
+            limits: { fileSize: PROFILE_IMAGE_MAX_BYTES },
+        }),
+    )
     async updateImage(
         @Session() session: SessionContainer,
         @Body() updateImageDto: UpdateProfileImageDto,
@@ -57,17 +76,15 @@ export class ProfileController {
             new ParseFilePipe({
                 fileIsRequired: false,
                 validators: [
-                    new FileTypeValidator({
-                        fileType: "image",
-                    }),
                     new MaxFileSizeValidator({
-                        maxSize: 10 * 1024 * 1000,
+                        maxSize: PROFILE_IMAGE_MAX_BYTES,
                     }),
                 ],
             }),
         )
         file: Express.Multer.File,
     ) {
+        if (file) await assertProfileImageContent(file);
         await this.profileService.updateProfileImage(
             session.getUserId(),
             updateImageDto,
@@ -75,17 +92,27 @@ export class ProfileController {
         );
     }
 
+    private async findWithVideos(userId: string, includeUploads: boolean) {
+        const profile = await this.profileService.findOneByIdOrFail(userId);
+        return {
+            ...profile,
+            ...(await this.profileVideoService.findForProfileRead(
+                userId,
+                includeUploads,
+            )),
+        };
+    }
+
     /**
      * Used to access own profile
      * @param session
      */
     @Get()
-    @ApiResponse({
-        status: 200,
-        type: Profile,
+    @ApiOkResponse({
+        type: ProfileResponseDto,
     })
     async findOwn(@Session() session: SessionContainer) {
-        return await this.profileService.findOneByIdOrFail(session.getUserId());
+        return await this.findWithVideos(session.getUserId(), true);
     }
 
     @Get("all")
@@ -105,10 +132,13 @@ export class ProfileController {
      */
     @Get(":id")
     @Public()
+    @ApiOkResponse({
+        type: ProfileResponseDto,
+    })
     async findOneById(
         @Session() session: SessionContainer,
         @Param("id") profileId: string,
     ) {
-        return await this.profileService.findOneByIdOrFail(profileId);
+        return await this.findWithVideos(profileId, false);
     }
 }
