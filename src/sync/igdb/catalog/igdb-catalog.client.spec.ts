@@ -168,7 +168,7 @@ describe("registry queries", () => {
             90,
         );
         expect(post.mock.calls[0][1]).toBe(
-            "fields id,checksum,game,artwork_type; where id > 7 & id <= 90; sort id asc; limit 500;",
+            "fields id,checksum,game,artwork_type,image_type; where id > 7 & id <= 90; sort id asc; limit 500;",
         );
     });
     it("fetches expanded cover and artwork option sources in one request", async () => {

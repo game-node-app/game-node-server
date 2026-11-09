@@ -77,7 +77,7 @@ export const IGDB_SYNC_ENDPOINTS: SyncEndpoint[] = [
     entry("screenshots", "screenshots", false, "game", "game"),
     {
         ...entry("artworks", "artworks", false, "game", "game"),
-        sweepFields: ["artwork_type"],
+        sweepFields: ["artwork_type", "image_type"],
     },
     entry("game_videos", "videos", false, "game", "game"),
     entry(

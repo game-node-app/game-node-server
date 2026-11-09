@@ -51,6 +51,6 @@ it("declares every endpoint in sweep order with registered entities and valid ro
         IGDB_SYNC_ENDPOINTS.find((entry) => entry.endpoint === endpoint)!
             .sweepFields;
     expect(sweepFields("covers")).toEqual(["game_localization", "image_type"]);
-    expect(sweepFields("artworks")).toEqual(["artwork_type"]);
+    expect(sweepFields("artworks")).toEqual(["artwork_type", "image_type"]);
     expect(sweepFields("games")).toBeUndefined();
 });

@@ -204,11 +204,15 @@ it("stores alternative and historical artworks but keeps every artwork on the no
             image_id: "historical",
             checksum: "historical",
         }),
+        detail({ id: 14, game: 45, image_id: "alt", checksum: "alt" }),
     ]);
     const rows = [
         { id: 11, game: 45, artwork_type: 9, checksum: "alternative" },
         { id: 12, game: 45, artwork_type: 10, checksum: "historical" },
         { id: 13, game: 45, artwork_type: 1, checksum: "artwork" },
+        // image_type wins over artwork_type when both are present.
+        { id: 14, game: 45, artwork_type: 9, image_type: 10, checksum: "alt" },
+        { id: 15, game: 45, artwork_type: 1, image_type: 1, checksum: "plain" },
     ];
 
     const remaining = await f.service.syncPage(entry("artworks"), rows, owner);
@@ -217,7 +221,7 @@ it("stores alternative and historical artworks but keeps every artwork on the no
     expect(f.coverRepository.find).not.toHaveBeenCalled();
     expect(f.client.fetchOptionSources).toHaveBeenCalledWith(
         entry("artworks"),
-        [11, 12],
+        [11, 12, 14],
         undefined,
     );
     expect(f.upsert).toHaveBeenCalledWith(
@@ -234,6 +238,10 @@ it("stores alternative and historical artworks but keeps every artwork on the no
                 kind: GameCoverKind.Historical,
                 origin: GameCoverOrigin.Artwork,
                 igdbId: 12,
+            }),
+            expect.objectContaining({
+                kind: GameCoverKind.Alternative,
+                igdbId: 14,
             }),
         ],
         ["origin", "igdbId"],

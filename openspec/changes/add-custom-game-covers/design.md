@@ -10,7 +10,7 @@ See proposal.md for motivation and specs/ for behavior.
 - `AuthGuard` calls Better Auth `getSession` on every guarded request, including `@Public` ones. No `cookieCache` is configured, so a signed-in request costs a database lookup.
 - The sweep compares `id` and `checksum`, and `SyncEndpoint.compare` is an existing, unused way to backfill new fields.
 - IGDB counts from 2026-11-09: 14,595 localized covers (`game` always empty), 9,641 historical or alternative covers with `game` set, 3,891 artworks of those types, and 8,100 games with `version_parent`.
-- IGDB `image_types`: 8 Main, 9 Historical, 10 Alternative. IGDB `artwork_types`: 9 Alternative, 10 Historical. Regions are Japan, Europe and Korea.
+- IGDB `image_types`: 8 Main, 9 Historical, 10 Alternative. IGDB `artwork_types` (deprecated) swap them: 9 Alternative, 10 Historical. Artworks also carry `image_type` with the same numbering as covers, but IGDB leaves it empty on about half of the 9 and 10 rows (checked against the live API on 2026-11-09). Regions are Japan, Europe and Korea.
 - An expanded `covers` query returns `game_localization.game` and `game_localization.region.*` in one request.
 
 ## Goals / Non-Goals
@@ -100,10 +100,10 @@ WHERE gameId IN (game.id, root)
 
 ### 7. Sweep routing for option sources
 
-`SyncEndpoint` gains optional `sweepFields`, appended to the sweep query: `game_localization,image_type` for `covers`, and `artwork_type` for `artworks`. The runner calls `IgdbCoverOptionService.syncPage` before `mismatches`:
+`SyncEndpoint` gains optional `sweepFields`, appended to the sweep query: `game_localization,image_type` for `covers`, and `artwork_type,image_type` for `artworks`. The runner calls `IgdbCoverOptionService.syncPage` before `mismatches`:
 
 - `covers`: rows with `game_localization`, and rows with `image_type` 9 or 10 that are not in `game_cover`, become option sources and leave the normal path.
-- `artworks`: rows with `artwork_type` 9 or 10 become option sources and also stay on the normal path, because they are stored in `game_artwork`.
+- `artworks`: rows classified as alternative or historical become option sources, by `image_type` 10 or 9 when present and by the legacy `artwork_type` 9 or 10 otherwise, and also stay on the normal path, because they are stored in `game_artwork`.
 - Only sources that are missing or have a different checksum are fetched, using one expanded query per 500 rows. Writes run inside the existing ownership guard.
 - Rows that are already primary covers stay on the normal path.
 

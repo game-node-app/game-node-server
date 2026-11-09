@@ -19,11 +19,27 @@ import {
 } from "./igdb-catalog-state.service";
 import { SyncEndpoint } from "./igdb-sync-endpoints";
 
-// IGDB swaps these values between covers (image_type) and artworks (artwork_type).
+// image_type numbering is shared by covers and artworks.
 const HISTORICAL_COVER = 9;
 const ALTERNATIVE_COVER = 10;
-const ALTERNATIVE_ARTWORK = 9;
-const HISTORICAL_ARTWORK = 10;
+// Deprecated artwork_type swaps the two. IGDB leaves image_type empty on about half of the
+// rows that still carry it, so it is only the fallback.
+const LEGACY_ALTERNATIVE_ARTWORK = 9;
+const LEGACY_HISTORICAL_ARTWORK = 10;
+
+const artworkKind = (row: RawCatalogGame) => {
+    if (row.image_type != null)
+        return row.image_type === ALTERNATIVE_COVER
+            ? GameCoverKind.Alternative
+            : row.image_type === HISTORICAL_COVER
+              ? GameCoverKind.Historical
+              : null;
+    return row.artwork_type === LEGACY_ALTERNATIVE_ARTWORK
+        ? GameCoverKind.Alternative
+        : row.artwork_type === LEGACY_HISTORICAL_ARTWORK
+          ? GameCoverKind.Historical
+          : null;
+};
 
 interface OptionSource {
     row: RawCatalogGame;
@@ -142,19 +158,15 @@ export class IgdbCoverOptionService {
             };
         }
         if (entry.endpoint === "artworks") {
-            for (const row of rows)
-                if (
-                    row.artwork_type === ALTERNATIVE_ARTWORK ||
-                    row.artwork_type === HISTORICAL_ARTWORK
-                )
+            for (const row of rows) {
+                const kind = artworkKind(row);
+                if (kind)
                     sources.push({
                         row,
                         origin: GameCoverOrigin.Artwork,
-                        kind:
-                            row.artwork_type === ALTERNATIVE_ARTWORK
-                                ? GameCoverKind.Alternative
-                                : GameCoverKind.Historical,
+                        kind,
                     });
+            }
         }
         return { sources, remaining: rows };
     }
