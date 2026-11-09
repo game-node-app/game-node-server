@@ -7,8 +7,10 @@ import {
     PrimaryColumn,
     UpdateDateColumn,
 } from "typeorm";
+import { ApiProperty } from "@nestjs/swagger";
 import { ProfileAvatar } from "./profile-avatar.entity";
 import { ProfileBanner } from "./profile-banner.entity";
+import { CustomCoverMode } from "../../game/game-cover/game-cover.constants";
 
 /**
  * Profiles represent a user in the community scope. Unlike 'Library', they should be used by tables representing
@@ -52,6 +54,14 @@ export class Profile {
         nullable: true,
     })
     usernameLastUpdatedAt: Date | null;
+
+    @ApiProperty({ enum: CustomCoverMode })
+    @Column({
+        type: "varchar",
+        length: 16,
+        default: CustomCoverMode.Any,
+    })
+    customCoverMode: CustomCoverMode;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

@@ -25,6 +25,7 @@ import {
     IGDB_OUTBOUND_BUDGET_QUEUE_NAME,
 } from "../../../src/sync/igdb/catalog/igdb-catalog.constants";
 import { IgdbRefreshService } from "../../../src/sync/igdb/catalog/igdb-refresh.service";
+import { IgdbCoverOptionService } from "../../../src/sync/igdb/catalog/igdb-cover-option.service";
 import { IgdbDeltaState } from "../../../src/sync/igdb/catalog/entities/igdb-delta-state.entity";
 import { IgdbDeltaStateService } from "../../../src/sync/igdb/catalog/igdb-delta-state.service";
 import { IgdbDeltaService } from "../../../src/sync/igdb/catalog/igdb-delta.service";
@@ -231,7 +232,13 @@ export async function fixtureRuntime(
         refresh,
         config,
     );
-    const runner = new IgdbCatalogRunnerService(state, client, config, refresh);
+    const runner = new IgdbCatalogRunnerService(
+        state,
+        client,
+        config,
+        refresh,
+        new IgdbCoverOptionService(source, client, state),
+    );
     const close = async () => {
         await delta.onModuleDestroy();
         await runner.onModuleDestroy();

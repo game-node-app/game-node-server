@@ -158,8 +158,42 @@ describe("registry queries", () => {
         );
         expect(post.mock.calls[0][0]).toContain("/covers");
         expect(post.mock.calls[0][1]).toBe(
-            "fields id,checksum,game,version_parent; where id > 7 & id <= 90; sort id asc; limit 500;",
+            "fields id,checksum,game,version_parent,game_localization,image_type; where id > 7 & id <= 90; sort id asc; limit 500;",
         );
+    });
+    it("appends each endpoint's cover option sweep fields", async () => {
+        await client.fetchSweepPage(
+            entries.find((entry) => entry.endpoint === "artworks")!,
+            7,
+            90,
+        );
+        expect(post.mock.calls[0][1]).toBe(
+            "fields id,checksum,game,artwork_type,image_type; where id > 7 & id <= 90; sort id asc; limit 500;",
+        );
+    });
+    it("fetches expanded cover and artwork option sources in one request", async () => {
+        await client.fetchOptionSources(
+            entries.find((entry) => entry.endpoint === "covers")!,
+            [7, 9],
+        );
+        expect(post.mock.calls[0][0]).toContain("/covers");
+        expect(post.mock.calls[0][1]).toBe(
+            "fields id,alpha_channel,animated,checksum,game,height,image_id,url,width,game_localization.game,game_localization.region.*; where id = (7,9); sort id asc; limit 500;",
+        );
+        await client.fetchOptionSources(
+            entries.find((entry) => entry.endpoint === "artworks")!,
+            [3],
+        );
+        expect(post.mock.calls[1][0]).toContain("/artworks");
+        expect(post.mock.calls[1][1]).toBe(
+            "fields id,alpha_channel,animated,checksum,game,height,image_id,url,width; where id = (3); sort id asc; limit 500;",
+        );
+        await expect(
+            client.fetchOptionSources(
+                entries.find((entry) => entry.endpoint === "covers")!,
+                Array.from({ length: 501 }, (_, index) => index + 1),
+            ),
+        ).rejects.toBeInstanceOf(CatalogDataError);
     });
     it("uses fixed delta windows and configured expanded limits", async () => {
         await client.fetchDeltaPage(

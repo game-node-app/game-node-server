@@ -76,7 +76,7 @@ describe("source creation after statistics retirement", () => {
             expect(targetIds.every((id) => Number.isSafeInteger(id) && Number(id) > 0)).toBe(true);
             expect(await dataSource.query("SELECT COUNT(*) AS count FROM statistics_event WHERE targetId IN (?)", [targetIds])).toEqual([{ count: 0 }]);
             const entries = new CollectionsEntriesService(dataSource.getRepository(CollectionEntry), dataSource.getRepository(CollectionEntryToCollection),
-                {} as any, {} as any, {} as any, {} as any, {} as any, lifecycle);
+                {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, lifecycle);
             await entries.delete(owner, entryId);
             await posts.delete(owner, post.id);
             expect(await dataSource.query("SELECT COUNT(*) AS count FROM statistics_target WHERE id IN (?) AND isActive = 1", [targetIds])).toEqual([{ count: 0 }]);

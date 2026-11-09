@@ -19,6 +19,15 @@ import {
 import { GamePlatform } from "../entities/game-platform.entity";
 import { ArrayKeys } from "../../../utils/arrayKeys";
 import { GamePropertyPathToEntityMap } from "./game-repository-create.constants";
+import {
+    coverOptionImage,
+    GameCoverOptionValues,
+    upsertGameCoverOptions,
+} from "../../game-cover/game-cover-option.upsert";
+import {
+    GameCoverKind,
+    GameCoverOrigin,
+} from "../../game-cover/game-cover.constants";
 import { createStatisticsTarget } from "../../../statistics/statistics-target.repository";
 import { StatisticsSourceType } from "../../../statistics/statistics.constants";
 import { MetricTotal } from "../../../statistics/entity/metric-total.entity";
@@ -103,6 +112,7 @@ export class GameRepositoryCreateService {
             return;
         }
         this.handleDeprecatedFields(game);
+        await this.resolveVersionParent(game, context);
 
         const checksumHasChanged =
             existing == undefined || existing.checksum !== game.checksum;
@@ -158,6 +168,8 @@ export class GameRepositoryCreateService {
                     `Skipping relationship processing for game ${game.id} - ${game.name} due to checksum match and reconciliation settings`,
                 );
         }
+
+        await this.upsertEditionOptions(game, context);
 
         await this.leaf(context, () =>
             context.ensureStatistics(context.manager, game.id),
@@ -976,6 +988,85 @@ export class GameRepositoryCreateService {
         this.logProfilingDuration("handleDeepNestedEntities", startedAt, {
             gameId: incoming.id,
         });
+    }
+
+    /**
+     * IGDB `version_parent` is a game ID. Link it only when that game is already
+     * stored; a forward reference must not create a placeholder game.
+     */
+    private async resolveVersionParent(
+        incoming: IGDBPartialGame,
+        context: GameImportContext,
+    ) {
+        const reference = incoming.versionParent;
+        const parentId =
+            typeof reference === "number" ? reference : reference?.id;
+        const exists =
+            Number.isSafeInteger(parentId) &&
+            (await context.manager
+                .getRepository(Game)
+                .existsBy({ id: parentId }));
+        incoming.versionParentId = exists ? parentId : null;
+        incoming.versionTitle = exists ? (incoming.versionTitle ?? null) : null;
+        delete incoming.versionParent;
+    }
+
+    /**
+     * Design 8: an edition offers its cover to its base game, and a base game
+     * offers its own cover to its editions.
+     */
+    private async upsertEditionOptions(
+        incoming: IGDBPartialGame,
+        context: GameImportContext,
+    ) {
+        const gameRepository = context.manager.getRepository(Game);
+        const cover = incoming.cover;
+        const parentId = incoming.versionParentId;
+        const options: GameCoverOptionValues[] = [];
+        if (parentId) {
+            if (cover)
+                options.push({
+                    ...coverOptionImage(cover),
+                    gameId: parentId,
+                    kind: GameCoverKind.Edition,
+                    origin: GameCoverOrigin.Game,
+                    igdbId: incoming.id,
+                    label: incoming.versionTitle ?? incoming.name,
+                });
+            const parent = await this.leaf(context, () =>
+                gameRepository.findOne({
+                    where: { id: parentId },
+                    select: { id: true, name: true },
+                    relations: { cover: true },
+                }),
+            );
+            if (parent?.cover)
+                options.push({
+                    ...coverOptionImage(parent.cover),
+                    gameId: parent.id,
+                    kind: GameCoverKind.Edition,
+                    origin: GameCoverOrigin.Game,
+                    igdbId: parent.id,
+                    label: parent.name,
+                });
+        } else if (cover) {
+            const isBase = await this.leaf(context, () =>
+                gameRepository.existsBy({ versionParentId: incoming.id }),
+            );
+            if (isBase)
+                options.push({
+                    ...coverOptionImage(cover),
+                    gameId: incoming.id,
+                    kind: GameCoverKind.Edition,
+                    origin: GameCoverOrigin.Game,
+                    igdbId: incoming.id,
+                    label: incoming.name,
+                });
+        }
+        if (options.length === 0) return;
+        await this.leaf(context, () =>
+            upsertGameCoverOptions(context.manager, options),
+        );
     }
 
     /**

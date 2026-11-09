@@ -108,6 +108,7 @@ describe("import and notification recovery on disposable MySQL", () => {
             { registerLevelExpIncreaseActivity: jest.fn() } as any,
             collectionLookup as any,
             {} as any,
+            {} as any,
         );
         jest.spyOn(collections, "findOneByUserIdAndGameId").mockImplementation(
             (libraryUserId, gameId) =>

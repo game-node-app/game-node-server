@@ -65,6 +65,8 @@ export function expandedGame(id = 10) {
         storyline: "Story",
         url: "//fixture/game",
         first_release_date: 1,
+        version_parent: id + 1,
+        version_title: "Edition title",
         updated_at: 2,
         cover: image,
         screenshots: [{ ...image, id: 102 }],

@@ -243,25 +243,16 @@ it("updates only existing shared rows and fences before writing", async () => {
     ).rejects.toThrow("ownership");
     expect(f.repo.update).not.toHaveBeenCalled();
 });
-it("compares checksum, ownership and a declared reference only when target exists locally", async () => {
+it("compares checksum, ownership and the declared edition link only when the parent exists locally", async () => {
     const f = fixture([{ id: 1, checksum: "same", versionParentId: 7 }]);
-    const compared = {
-        ...entry("games"),
-        compare: [
-            {
-                source: "version_parent",
-                column: "versionParentId",
-                target: entry("games").local.entity,
-            },
-        ],
-    };
+    const games = entry("games");
     f.repo.find
         .mockResolvedValueOnce([
             { id: 1, checksum: "same", versionParentId: 7 },
         ])
         .mockResolvedValueOnce([{ id: 9 }]);
     expect(
-        await f.service.mismatches(compared, [
+        await f.service.mismatches(games, [
             { id: 1, checksum: "same", version_parent: 9 },
         ]),
     ).toHaveLength(1);
@@ -271,13 +262,16 @@ it("compares checksum, ownership and a declared reference only when target exist
         ])
         .mockResolvedValueOnce([]);
     expect(
-        await f.service.mismatches(compared, [
+        await f.service.mismatches(games, [
             { id: 1, checksum: "same", version_parent: 9 },
         ]),
     ).toEqual([]);
+    f.repo.find
+        .mockResolvedValueOnce([
+            { id: 1, checksum: "same", versionParentId: null },
+        ])
+        .mockResolvedValueOnce([]);
     expect(
-        await f.service.mismatches(entry("games"), [
-            { id: 1, checksum: "same" },
-        ]),
+        await f.service.mismatches(games, [{ id: 1, checksum: "same" }]),
     ).toEqual([]);
 });

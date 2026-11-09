@@ -7,6 +7,7 @@ jest.mock("typeorm-transactional", () => ({
 }));
 import { CollectionsEntriesService } from "./collections-entries.service";
 import { Library } from "../../libraries/entities/library.entity";
+import { In } from "typeorm";
 
 function fixture(existing?: any, collections: any[] = []) {
     const lock = jest.fn().mockResolvedValue({ userId: "owner" });
@@ -15,21 +16,35 @@ function fixture(existing?: any, collections: any[] = []) {
         findOne: jest.fn().mockResolvedValue(existing),
         save: jest.fn(async (row) => ({ ...row, id: "entry" })),
         update: jest.fn(),
+        findAndCount: jest.fn().mockResolvedValue([[], 0]),
         manager: { getRepository: jest.fn(() => ({ findOne: lock })) },
     };
+    const collectionsService = {
+        findAllByIds: jest.fn().mockResolvedValue(collections),
+        findOneById: jest.fn(),
+    };
+    const userGameCovers = { find: jest.fn().mockResolvedValue([]) };
     const service = new CollectionsEntriesService(
         repository as any,
         {} as any,
         { register: jest.fn() } as any,
         achievements as any,
         { registerLevelExpIncreaseActivity: jest.fn() } as any,
-        { findAllByIds: jest.fn().mockResolvedValue(collections) } as any,
+        collectionsService as any,
         {} as any,
+        userGameCovers as any,
     );
     jest.spyOn(service as any, "updateAssociatedCollections").mockResolvedValue(
         undefined,
     );
-    return { service, repository, lock, achievements };
+    return {
+        service,
+        repository,
+        lock,
+        achievements,
+        collectionsService,
+        userGameCovers,
+    };
 }
 
 test("changes favorite status on the authenticated user's entry", async () => {
@@ -137,5 +152,109 @@ describe("collection ownership", () => {
         const { service, repository } = fixture();
         await service.createOrUpdate("owner", dto([]));
         expect(repository.save).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("custom cover filter", () => {
+    test("filters the owner's library by their chosen games", async () => {
+        const { service, repository, userGameCovers } = fixture();
+        userGameCovers.find.mockResolvedValue([{ gameId: 7 }]);
+        repository.findAndCount.mockResolvedValue([
+            [{ id: "entry", gameId: 7 }],
+            1,
+        ]);
+
+        await service.findAllByUserIdWithPermissions("owner", "owner", {
+            hasCustomCover: true,
+        });
+
+        expect(userGameCovers.find).toHaveBeenCalledWith({
+            select: { gameId: true },
+            where: { userId: "owner" },
+        });
+        expect(repository.findAndCount).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({ gameId: In([7]) }),
+            }),
+        );
+    });
+
+    test("returns an empty page for an owner with no choices without listing entries", async () => {
+        const { service, repository } = fixture();
+
+        const result = await service.findAllByUserIdWithPermissions(
+            "owner",
+            "owner",
+            { hasCustomCover: true },
+        );
+
+        expect(result).toEqual([[], 0]);
+        expect(repository.findAndCount).not.toHaveBeenCalled();
+    });
+
+    test("filters favorites by the owner's chosen games", async () => {
+        const { service, repository, userGameCovers } = fixture();
+        userGameCovers.find.mockResolvedValue([{ gameId: 7 }]);
+
+        await service.findFavoritesByUserId("owner", "owner", {
+            hasCustomCover: true,
+        });
+
+        expect(repository.findAndCount).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({
+                    isFavorite: true,
+                    gameId: In([7]),
+                }),
+            }),
+        );
+    });
+
+    test("filters a collection listing by the collection owner's choices", async () => {
+        const { service, repository, collectionsService, userGameCovers } =
+            fixture();
+        collectionsService.findOneById.mockResolvedValue({
+            id: "collection",
+            libraryUserId: "owner",
+        });
+        userGameCovers.find.mockResolvedValue([{ gameId: 7 }]);
+
+        await service.findAllByCollectionIdWithPermissions(
+            "viewer",
+            "collection",
+            { hasCustomCover: true },
+        );
+
+        expect(collectionsService.findOneById).toHaveBeenCalledWith(
+            "collection",
+        );
+        expect(userGameCovers.find).toHaveBeenCalledWith({
+            select: { gameId: true },
+            where: { userId: "owner" },
+        });
+        expect(repository.findAndCount).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({ gameId: In([7]) }),
+            }),
+        );
+    });
+
+    test("keeps entries only in private collections hidden from another viewer", async () => {
+        const { service, repository, userGameCovers } = fixture();
+        userGameCovers.find.mockResolvedValue([{ gameId: 7 }]);
+
+        await service.findAllByUserIdWithPermissions("viewer", "owner", {
+            hasCustomCover: true,
+        });
+
+        expect(repository.findAndCount).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({
+                    libraryUserId: "owner",
+                    collectionsMap: { collection: { isPublic: true } },
+                    gameId: In([7]),
+                }),
+            }),
+        );
     });
 });

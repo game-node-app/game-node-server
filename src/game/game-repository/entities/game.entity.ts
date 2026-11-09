@@ -4,6 +4,7 @@ import {
     Entity,
     JoinTable,
     ManyToMany,
+    ManyToOne,
     OneToMany,
     OneToOne,
     JoinColumn,
@@ -125,6 +126,19 @@ export class Game {
     //
     // **Self-referencing relationships**
     //
+
+    // IGDB `version_parent`/`version_title`: links an edition to its base game.
+    @Index("IDX_game_version_parent")
+    @Column({ type: "bigint", nullable: true })
+    versionParentId: number | null;
+    @ManyToOne(() => Game, { nullable: true, onDelete: "SET NULL" })
+    @JoinColumn({
+        name: "versionParentId",
+        foreignKeyConstraintName: "FK_game_version_parent",
+    })
+    versionParent: Game | null;
+    @Column({ type: "varchar", nullable: true })
+    versionTitle: string | null;
 
     @ManyToMany(() => Game, (game) => game.dlcOf, {
         nullable: true,

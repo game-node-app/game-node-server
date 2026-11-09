@@ -2,6 +2,11 @@ import { IgdbCatalogState } from "../../src/sync/igdb/catalog/entities/igdb-cata
 import { IgdbDeltaState } from "../../src/sync/igdb/catalog/entities/igdb-delta-state.entity";
 import { IGDB_SYNC_ENDPOINTS } from "../../src/sync/igdb/catalog/igdb-sync-endpoints";
 import { GameCover } from "../../src/game/game-repository/entities/game-cover.entity";
+import { GameCoverOption } from "../../src/game/game-cover/entities/game-cover-option.entity";
+import {
+    GameCoverKind,
+    GameCoverOrigin,
+} from "../../src/game/game-cover/game-cover.constants";
 import { randomBytes } from "node:crypto";
 import { fixtureRuntime } from "./helpers/fixture-runtime";
 import { Game } from "../../src/game/game-repository/entities/game.entity";
@@ -246,6 +251,7 @@ it("fills a compared field even with an unchanged game checksum", async () => {
     );
     const endpoints = IGDB_SYNC_ENDPOINTS;
     const games = endpoints[0];
+    const compare = [...games.compare];
     try {
         const claim = (await runtime.state.claimRun())!;
         await runtime.state.releaseOwnership(claim as any);
@@ -280,7 +286,97 @@ it("fills a compared field even with an unchanged game checksum", async () => {
                 .findOneByOrFail({ id: 45 }),
         ).toMatchObject({ category: 1, checksum: "fixture-42-45" });
     } finally {
-        games.compare.length = 0;
+        games.compare = compare;
+        await runtime.queue.obliterate({ force: true });
+        await runtime.close();
+    }
+}, 120000);
+
+it("links an edition from the sweep only when its base game exists locally", async () => {
+    const runtime = await fixtureRuntime(
+        { seed: 42, games: 1 },
+        {
+            tablePrefix: `r_${randomBytes(4).toString("hex")}_`,
+            trackPages: false,
+        },
+    );
+    try {
+        const first = (await runtime.state.claimRun())!;
+        await runtime.state.releaseOwnership(first as any);
+        await runtime.runner.run(first.runId!);
+        const stored = () =>
+            runtime.source.getRepository(Game).findOneByOrFail({ id: 45 });
+        expect((await stored()).versionParentId).toBeNull();
+
+        const page = jest.spyOn(runtime.client, "fetchSweepPage");
+        const originalFetch = runtime.client.fetchByIds.bind(runtime.client);
+        const fetch = jest.spyOn(runtime.client, "fetchByIds");
+        const claim = async () => {
+            await runtime.source
+                .getRepository(IgdbCatalogState)
+                .update(1, { nextEligibleAt: new Date(0) });
+            const run = (await runtime.state.claimRun())!;
+            await runtime.state.releaseOwnership(run as any);
+            return run;
+        };
+        page.mockImplementation(async (entry, cursor) =>
+            entry.endpoint === "games" && cursor === 0
+                ? [{ id: 45, checksum: "fixture-42-45", version_parent: 99 }]
+                : [],
+        );
+
+        await runtime.runner.run((await claim()).runId!);
+        expect(fetch).not.toHaveBeenCalled();
+        expect(
+            await runtime.source.getRepository(Game).countBy({ id: 99 }),
+        ).toBe(0);
+        expect((await stored()).versionParentId).toBeNull();
+
+        await runtime.source
+            .getRepository(Game)
+            .insert({ id: 99, name: "Base game", slug: "base-game" });
+        await runtime.source.getRepository(GameCover).insert({
+            id: 991,
+            game: { id: 99 },
+            imageId: "base-cover",
+        } as any);
+        fetch.mockImplementation(async (...args) =>
+            (await originalFetch(...args)).map((game) => ({
+                ...game,
+                version_parent: 99,
+            })),
+        );
+
+        await runtime.runner.run((await claim()).runId!);
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect((await stored()).versionParentId).toBe(99);
+        expect(
+            await runtime.source
+                .getRepository(GameCoverOption)
+                .findOneByOrFail({
+                    origin: GameCoverOrigin.Game,
+                    igdbId: 45,
+                }),
+        ).toMatchObject({
+            gameId: 99,
+            kind: GameCoverKind.Edition,
+            label: "Fixture 45",
+            imageId: "cover-45",
+        });
+        expect(
+            await runtime.source
+                .getRepository(GameCoverOption)
+                .findOneByOrFail({
+                    origin: GameCoverOrigin.Game,
+                    igdbId: 99,
+                }),
+        ).toMatchObject({
+            gameId: 99,
+            kind: GameCoverKind.Edition,
+            label: "Base game",
+            imageId: "base-cover",
+        });
+    } finally {
         await runtime.queue.obliterate({ force: true });
         await runtime.close();
     }

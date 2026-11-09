@@ -32,6 +32,7 @@ import { ExternalGameModule } from "./game/external-game/external-game.module";
 import { XboxSyncModule } from "./sync/xbox/xbox-sync.module";
 import { createKeyv } from "@keyv/redis";
 import { GameAchievementModule } from "./game/game-achievement/game-achievement.module";
+import { GameCoverModule } from "./game/game-cover/game-cover.module";
 import { JournalModule } from "./journal/journal.module";
 import { addTransactionalDataSource } from "typeorm-transactional";
 import { DataSource } from "typeorm";
@@ -185,6 +186,7 @@ import { BillingModule } from "./billing/billing.module";
         ExternalGameModule,
         XboxSyncModule,
         GameAchievementModule,
+        GameCoverModule,
         JournalModule,
         AwardsModule,
         UserAccountModule,

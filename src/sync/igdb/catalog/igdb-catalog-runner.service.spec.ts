@@ -7,6 +7,7 @@ import { InvalidGameEntryError } from "../../../game/game-repository/create/game
 
 import { normalizeIgdbGame } from "../utils/game-conversor-utils";
 import { IgdbRefreshService } from "./igdb-refresh.service";
+import { IgdbCoverOptionService } from "./igdb-cover-option.service";
 jest.mock("./igdb-sync-endpoints", () => ({
     IGDB_SYNC_ENDPOINTS: [
         { endpoint: "games", route: "game", owner: null, compare: [] },
@@ -136,6 +137,9 @@ function fixture(concurrency = 1) {
                 }
             },
         } as unknown as IgdbRefreshService,
+        {
+            syncPage: async (_entry: unknown, rows: any[]) => rows,
+        } as unknown as IgdbCoverOptionService,
     );
     return {
         runner,

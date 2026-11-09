@@ -2,12 +2,16 @@ jest.mock("../statistics/statistics-target.repository", () => ({
     cleanupStatisticsProfile: jest.fn(async () => undefined),
 }));
 
+import { ArgumentMetadata, ValidationPipe } from "@nestjs/common";
+import { getMetadataArgsStorage } from "typeorm";
 import { ProfileService } from "./profile.service";
 import { Profile } from "./entities/profile.entity";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
 import { ProfileBanner } from "./entities/profile-banner.entity";
 import { ProfileVideo } from "./entities/profile-video.entity";
 import { UpdateProfileImageDto } from "./dto/update-profile-image.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { CustomCoverMode } from "../game/game-cover/game-cover.constants";
 import { lockoutAuthService } from "../../test/mocks/lockout-auth-service.mock";
 
 function imageFile(): Express.Multer.File {
@@ -412,6 +416,66 @@ describe("ProfileService", () => {
             await expect(
                 fixture.service.deleteByUserId("user-1"),
             ).resolves.toBeUndefined();
+        });
+    });
+
+    describe("customCoverMode", () => {
+        it("defaults to any", () => {
+            const column = getMetadataArgsStorage().columns.find(
+                (column) =>
+                    column.target === Profile &&
+                    column.propertyName === "customCoverMode",
+            );
+
+            expect(column?.options.default).toBe(CustomCoverMode.Any);
+        });
+
+        it("stores a valid mode and leaves other fields unchanged", async () => {
+            const profile = {
+                userId: "user-1",
+                username: "me",
+                bio: "old bio",
+                customCoverMode: CustomCoverMode.Any,
+            };
+            const profileRepository = {
+                findOne: jest.fn(async () => ({ ...profile })),
+                save: jest.fn(async (value) => value),
+            };
+            const service = new ProfileService(
+                profileRepository as never,
+                {} as never,
+                {} as never,
+                {} as never,
+            );
+
+            await service.update("user-1", {
+                customCoverMode: CustomCoverMode.PreferYours,
+            });
+
+            expect(profileRepository.save).toHaveBeenCalledWith({
+                ...profile,
+                customCoverMode: CustomCoverMode.PreferYours,
+            });
+        });
+
+        it("rejects an invalid mode with 400 and accepts a valid one", async () => {
+            const pipe = new ValidationPipe({ transform: true });
+            const metadata: ArgumentMetadata = {
+                type: "body",
+                metatype: UpdateProfileDto,
+            };
+
+            await expect(
+                pipe.transform({ customCoverMode: "sometimes" }, metadata),
+            ).rejects.toMatchObject({ status: 400 });
+            await expect(
+                pipe.transform(
+                    { customCoverMode: CustomCoverMode.None },
+                    metadata,
+                ),
+            ).resolves.toMatchObject({
+                customCoverMode: CustomCoverMode.None,
+            });
         });
     });
 });

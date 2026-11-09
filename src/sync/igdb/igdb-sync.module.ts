@@ -32,6 +32,7 @@ import { IgdbDeltaState } from "./catalog/entities/igdb-delta-state.entity";
 import { IgdbDeltaStateService } from "./catalog/igdb-delta-state.service";
 import { IgdbDeltaService } from "./catalog/igdb-delta.service";
 import { IgdbRefreshService } from "./catalog/igdb-refresh.service";
+import { IgdbCoverOptionService } from "./catalog/igdb-cover-option.service";
 
 @Module({
     imports: [
@@ -51,6 +52,7 @@ import { IgdbRefreshService } from "./catalog/igdb-refresh.service";
         IgdbDeltaStateService,
         IgdbDeltaService,
         IgdbRefreshService,
+        IgdbCoverOptionService,
         IgdbCatalogStateService,
         IgdbCatalogImportService,
         IgdbCatalogRunnerService,

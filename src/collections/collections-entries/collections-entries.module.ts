@@ -13,6 +13,7 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
 import { CollectionsOrderingService } from "./order/collections-ordering.service";
 import { CollectionsOrderingController } from "./order/collections-ordering.controller";
 import { NotificationsModule } from "../../notifications/notifications.module";
+import { UserGameCover } from "../../game/game-cover/entities/user-game-cover.entity";
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { NotificationsModule } from "../../notifications/notifications.module";
             CollectionEntry,
             GamePlatform,
             CollectionEntryToCollection,
+            UserGameCover,
         ]),
         forwardRef(() => ActivitiesQueueModule),
         AchievementsModule,
