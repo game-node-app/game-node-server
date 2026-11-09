@@ -138,6 +138,7 @@ mysqlDescribe("batch import transactions", () => {
             levels as any,
             collections as any,
             {} as any,
+            {} as any,
         );
         const effects = new ImporterBatchEffectsService(
             source.getRepository(ImporterBatchEffect),

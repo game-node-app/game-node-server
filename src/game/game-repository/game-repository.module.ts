@@ -24,6 +24,7 @@ import { GamePlayerPerspective } from "./entities/game-player-perspective.entity
 import { ExternalGameModule } from "../external-game/external-game.module";
 import { GameRepositoryCreateService } from "./create/game-repository-create.service";
 import { GameCollection } from "./entities/game-collection.entity";
+import { GameCoverModule } from "../game-cover/game-cover.module";
 
 /**
  * This is a pretty big module, with lots of dependencies.
@@ -53,6 +54,7 @@ import { GameCollection } from "./entities/game-collection.entity";
             GamePlayerPerspective,
         ]),
         ExternalGameModule,
+        GameCoverModule,
     ],
     providers: [GameRepositoryService, GameRepositoryCreateService],
     exports: [GameRepositoryService, GameRepositoryCreateService],

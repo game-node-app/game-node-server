@@ -16,6 +16,7 @@ import { runCatalogStage } from "./igdb-catalog.retry";
 
 import { IGDB_SYNC_ENDPOINTS } from "./igdb-sync-endpoints";
 import { IgdbRefreshService } from "./igdb-refresh.service";
+import { IgdbCoverOptionService } from "./igdb-cover-option.service";
 
 @Injectable()
 export class IgdbCatalogRunnerService implements OnModuleDestroy {
@@ -28,6 +29,7 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
         private readonly client: IgdbCatalogClient,
         @Inject(CATALOG_CONFIG) private readonly config: IgdbCatalogConfig,
         private readonly refresh: IgdbRefreshService,
+        private readonly coverOptions: IgdbCoverOptionService,
     ) {}
 
     run(runId: string): Promise<void> {
@@ -142,13 +144,26 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
                         return value;
                     });
                 }
-                const page = await attempt("fetch", null, () =>
-                    this.client.fetchSweepPage(
-                        endpoint,
-                        cursor,
-                        upper!,
-                        controller.signal,
-                    ),
+                const { page, rows } = await attempt(
+                    "fetch",
+                    null,
+                    async () => {
+                        const page = await this.client.fetchSweepPage(
+                            endpoint,
+                            cursor,
+                            upper!,
+                            controller.signal,
+                        );
+                        return {
+                            page,
+                            rows: await this.coverOptions.syncPage(
+                                endpoint,
+                                page,
+                                owner,
+                                controller.signal,
+                            ),
+                        };
+                    },
                 );
                 if (!page.length) {
                     if (endpointIndex === IGDB_SYNC_ENDPOINTS.length - 1) {
@@ -189,7 +204,7 @@ export class IgdbCatalogRunnerService implements OnModuleDestroy {
                     upper = null;
                     continue;
                 }
-                const changed = await this.refresh.mismatches(endpoint, page);
+                const changed = await this.refresh.mismatches(endpoint, rows);
                 for (const row of changed) {
                     ensureActive();
                     await attempt("game", row.id, () =>

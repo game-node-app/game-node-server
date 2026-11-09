@@ -12,6 +12,9 @@ import { GameEngineLogo } from "../../../src/game/game-repository/entities/game-
 import { GamePropertyPathToEntityMap } from "../../../src/game/game-repository/create/game-repository-create.constants";
 import { StatisticsTarget } from "../../../src/statistics/entity/statistics-target.entity";
 import { MetricTotal } from "../../../src/statistics/entity/metric-total.entity";
+import { GameCoverOption } from "../../../src/game/game-cover/entities/game-cover-option.entity";
+import { UserGameCover } from "../../../src/game/game-cover/entities/user-game-cover.entity";
+import { Profile } from "../../../src/profile/entities/profile.entity";
 
 type EntityConstructor = new (...args: any[]) => any;
 
@@ -25,6 +28,9 @@ export function importEntities(): EntitySchema[] {
         GameCompany,
         GameCompanyLogo,
         GameEngineLogo,
+        GameCoverOption,
+        UserGameCover,
+        Profile,
         ...(Object.values(GamePropertyPathToEntityMap) as EntityConstructor[]),
     ]);
     const storage = getMetadataArgsStorage();
@@ -103,11 +109,38 @@ export function importEntities(): EntitySchema[] {
                 ...(joinTable ? { joinTable: true } : {}),
             };
         }
+        const columnUnique = new Set(
+            storage.columns
+                .filter(
+                    (item) =>
+                        ancestors.includes(item.target as EntityConstructor) &&
+                        item.options.unique,
+                )
+                .map((item) => item.propertyName),
+        );
+        const uniques = storage.uniques
+            .filter((item) =>
+                ancestors.includes(item.target as EntityConstructor),
+            )
+            .flatMap((item) =>
+                Array.isArray(item.columns)
+                    ? [{ name: item.name, columns: item.columns }]
+                    : [],
+            )
+            // Column-level `unique: true` is already part of the column options.
+            .filter(
+                (item) =>
+                    !(
+                        item.columns.length === 1 &&
+                        columnUnique.has(item.columns[0])
+                    ),
+            );
         return new EntitySchema({
             name: target.name,
             target: target as any,
             columns,
             relations,
+            uniques,
         });
     });
 }

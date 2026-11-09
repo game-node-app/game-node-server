@@ -249,6 +249,8 @@ export class ProfileService {
             profile.usernameLastUpdatedAt = new Date();
         }
         profile.bio = updateProfileDto.bio ?? profile.bio;
+        profile.customCoverMode =
+            updateProfileDto.customCoverMode ?? profile.customCoverMode;
 
         await this.profileRepository.save(profile);
     }

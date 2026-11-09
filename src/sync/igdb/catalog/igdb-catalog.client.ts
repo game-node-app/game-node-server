@@ -192,6 +192,7 @@ export class IgdbCatalogClient {
             "checksum",
             ...(entry.owner === "game" ? ["game"] : []),
             ...entry.compare.map((field) => field.source),
+            ...(entry.sweepFields ?? []),
         ];
         return this.validatePage(
             await this.request(
@@ -262,6 +263,48 @@ export class IgdbCatalogClient {
             0,
             Number.MAX_SAFE_INTEGER,
             limit,
+        );
+        if (rows.some((row) => !ids.includes(row.id)))
+            throw new CatalogDataError("IGDB returned an unrequested ID");
+        return rows;
+    }
+    /** Design 7: one expanded image query for every option source batch. */
+    async fetchOptionSources(
+        entry: SyncEndpoint,
+        ids: number[],
+        signal?: AbortSignal,
+    ) {
+        if (entry.endpoint !== "covers" && entry.endpoint !== "artworks")
+            throw new CatalogDataError("Unsupported option source endpoint");
+        if (
+            !ids.length ||
+            ids.length > 500 ||
+            ids.some((id) => !Number.isSafeInteger(id) || id <= 0)
+        )
+            throw new CatalogDataError("Invalid option source IDs");
+        const fields = [
+            "id",
+            "alpha_channel",
+            "animated",
+            "checksum",
+            "game",
+            "height",
+            "image_id",
+            "url",
+            "width",
+            ...(entry.endpoint === "covers"
+                ? ["game_localization.game", "game_localization.region.*"]
+                : []),
+        ];
+        const rows = this.validatePage(
+            await this.request(
+                `fields ${fields.join(",")}; where id = (${ids.join(",")}); sort id asc; limit 500;`,
+                signal,
+                entry.endpoint,
+            ),
+            0,
+            Number.MAX_SAFE_INTEGER,
+            500,
         );
         if (rows.some((row) => !ids.includes(row.id)))
             throw new CatalogDataError("IGDB returned an unrequested ID");

@@ -17,6 +17,13 @@ import { GameRepositoryCreateService } from "../../src/game/game-repository/crea
 import { AsyncLeafLimiter } from "../../src/sync/igdb/catalog/async-leaf-limiter";
 import { normalizeIgdbGame } from "../../src/sync/igdb/utils/game-conversor-utils";
 import { GameImportContext } from "../../src/game/game-repository/create/game-import-context";
+import { GameCoverOption } from "../../src/game/game-cover/entities/game-cover-option.entity";
+import { UserGameCover } from "../../src/game/game-cover/entities/user-game-cover.entity";
+import {
+    GameCoverKind,
+    GameCoverOrigin,
+} from "../../src/game/game-cover/game-cover.constants";
+import { Profile } from "../../src/profile/entities/profile.entity";
 
 describe("transactional game import on isolated MySQL", () => {
     let source: DataSource;
@@ -528,6 +535,225 @@ describe("transactional game import on isolated MySQL", () => {
         );
         expect(
             await source.getRepository(GameScreenshot).countBy({ id: 102 }),
+        ).toBe(1);
+    });
+
+    const saveGame = (data: Record<string, unknown>) =>
+        source.transaction((manager) =>
+            service.createOrUpdate(normalizeIgdbGame(data), context(manager)),
+        );
+
+    it("stores the edition link only when the base game exists locally", async () => {
+        await saveGame({
+            id: 18401,
+            name: "Base game",
+            slug: "base-game",
+            checksum: "base",
+            cover: { id: 18411, image_id: "base-cover" },
+        });
+        await saveGame({
+            id: 18402,
+            name: "Edition",
+            slug: "edition",
+            checksum: "edition",
+            version_parent: 18401,
+            version_title: "Edition title",
+            cover: { id: 18412, image_id: "edition-cover" },
+        });
+        expect(
+            await source.getRepository(Game).findOneByOrFail({ id: 18402 }),
+        ).toMatchObject({
+            versionParentId: 18401,
+            versionTitle: "Edition title",
+        });
+
+        await saveGame({
+            id: 18403,
+            name: "Orphan edition",
+            slug: "orphan-edition",
+            checksum: "orphan",
+            version_parent: 18999,
+            version_title: "Orphan",
+            cover: { id: 18413, image_id: "orphan-cover" },
+        });
+        expect(
+            await source.getRepository(Game).findOneByOrFail({ id: 18403 }),
+        ).toMatchObject({ versionParentId: null, versionTitle: null });
+        expect(await source.getRepository(Game).countBy({ id: 18999 })).toBe(0);
+    });
+
+    it("stores edition cover options for an edition and its base game", async () => {
+        await saveGame({
+            id: 18101,
+            name: "Base game",
+            slug: "base-game",
+            checksum: "base",
+            cover: {
+                id: 18111,
+                image_id: "base-cover",
+                checksum: "base-image",
+                width: 10,
+                height: 20,
+            },
+        });
+        expect(
+            await source
+                .getRepository(GameCoverOption)
+                .countBy({ gameId: 18101 }),
+        ).toBe(0);
+
+        await saveGame({
+            id: 18102,
+            name: "Deluxe edition",
+            slug: "deluxe-edition",
+            checksum: "edition",
+            version_parent: 18101,
+            version_title: "Deluxe",
+            cover: {
+                id: 18112,
+                image_id: "edition-cover",
+                checksum: "edition-image",
+                width: 30,
+                height: 40,
+            },
+        });
+        expect(
+            await source.getRepository(GameCoverOption).findOneByOrFail({
+                origin: GameCoverOrigin.Game,
+                igdbId: 18102,
+            }),
+        ).toMatchObject({
+            gameId: 18101,
+            kind: GameCoverKind.Edition,
+            label: "Deluxe",
+            imageId: "edition-cover",
+            checksum: "edition-image",
+            width: 30,
+            height: 40,
+        });
+        expect(
+            await source.getRepository(GameCoverOption).findOneByOrFail({
+                origin: GameCoverOrigin.Game,
+                igdbId: 18101,
+            }),
+        ).toMatchObject({
+            gameId: 18101,
+            kind: GameCoverKind.Edition,
+            label: "Base game",
+            imageId: "base-cover",
+        });
+
+        // Re-importing a base that already has stored editions restores its own option.
+        await source.getRepository(GameCoverOption).delete({
+            origin: GameCoverOrigin.Game,
+            igdbId: 18101,
+        });
+        await saveGame({
+            id: 18101,
+            name: "Base game",
+            slug: "base-game",
+            checksum: "base",
+            cover: {
+                id: 18111,
+                image_id: "base-cover",
+                checksum: "base-image",
+            },
+        });
+        expect(
+            await source.getRepository(GameCoverOption).findOneByOrFail({
+                origin: GameCoverOrigin.Game,
+                igdbId: 18101,
+            }),
+        ).toMatchObject({ gameId: 18101, label: "Base game" });
+
+        await saveGame({
+            id: 18103,
+            name: "Standalone",
+            slug: "standalone",
+            checksum: "standalone",
+            cover: { id: 18113, image_id: "standalone-cover" },
+        });
+        expect(
+            await source.getRepository(GameCoverOption).countBy({
+                origin: GameCoverOrigin.Game,
+                igdbId: 18103,
+            }),
+        ).toBe(0);
+    });
+
+    it("keeps the same edition option and user choice when the cover changes", async () => {
+        const edition = (cover: Record<string, unknown>, checksum: string) => ({
+            id: 18202,
+            name: "Collector edition",
+            slug: "collector-edition",
+            checksum,
+            version_parent: 18201,
+            version_title: "Collector",
+            cover,
+        });
+        await saveGame({
+            id: 18201,
+            name: "Base two",
+            slug: "base-two",
+            checksum: "base-two",
+            cover: { id: 18211, image_id: "base-two-cover" },
+        });
+        await saveGame(
+            edition(
+                { id: 18212, image_id: "old-cover", checksum: "old" },
+                "one",
+            ),
+        );
+        const option = await source
+            .getRepository(GameCoverOption)
+            .findOneByOrFail({
+                origin: GameCoverOrigin.Game,
+                igdbId: 18202,
+            });
+        await source
+            .getRepository(Profile)
+            .insert({ userId: "cover-user", username: "cover-user" });
+        await source.getRepository(UserGameCover).insert({
+            userId: "cover-user",
+            gameId: 18202,
+            coverOptionId: option.id,
+        });
+
+        await saveGame(
+            edition(
+                { id: 18213, image_id: "new-cover", checksum: "new" },
+                "two",
+            ),
+        );
+        const updated = await source
+            .getRepository(GameCoverOption)
+            .findOneByOrFail({
+                origin: GameCoverOrigin.Game,
+                igdbId: 18202,
+            });
+        expect(updated.id).toBe(option.id);
+        expect(updated).toMatchObject({
+            imageId: "new-cover",
+            checksum: "new",
+        });
+        expect(
+            await source.getRepository(UserGameCover).findOneByOrFail({
+                userId: "cover-user",
+                gameId: 18202,
+            }),
+        ).toMatchObject({ coverOptionId: option.id });
+
+        await saveGame(
+            edition(
+                { id: 18213, image_id: "new-cover", checksum: "new" },
+                "two",
+            ),
+        );
+        expect(
+            await source.getRepository(GameCoverOption).countBy({
+                origin: GameCoverOrigin.Game,
+                igdbId: 18202,
+            }),
         ).toBe(1);
     });
 });

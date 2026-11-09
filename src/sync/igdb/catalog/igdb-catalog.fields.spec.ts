@@ -41,7 +41,7 @@ describe("catalog field projection", () => {
                 "external_games.media",
             ]),
         );
-        expect(IGDB_CATALOG_UNUSED_SOURCE_FIELDS).toHaveLength(6);
+        expect(IGDB_CATALOG_UNUSED_SOURCE_FIELDS).toHaveLength(4);
     });
 
     it("retains images, nested metadata, links, external IDs and localization aliases", () => {
@@ -62,5 +62,7 @@ describe("catalog field projection", () => {
         expect(game.externalGames[0].uid).toBe("steam-id");
         expect(game.localizations).toEqual(game.gameLocalizations);
         expect(game.gameLocalizations?.[0]?.name).toBe("Localized");
+        expect(game.versionParent).toBe(11);
+        expect(game.versionTitle).toBe("Edition title");
     });
 });

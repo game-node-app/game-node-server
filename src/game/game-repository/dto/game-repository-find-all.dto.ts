@@ -1,6 +1,13 @@
 import { Game } from "../entities/game.entity";
-import { IsNotEmpty, IsNumber, IsObject, IsOptional } from "class-validator";
+import {
+    IsNotEmpty,
+    IsNumber,
+    IsObject,
+    IsOptional,
+    IsString,
+} from "class-validator";
 import { FindOptionsRelations } from "typeorm";
+import { ToBoolean } from "../../../utils/toBoolean";
 
 export class GameRepositoryFindAllDto {
     @IsNotEmpty()
@@ -17,4 +24,10 @@ export class GameRepositoryFindAllDto {
     @IsOptional()
     @IsObject()
     relations?: FindOptionsRelations<Game>;
+    @IsOptional()
+    @ToBoolean()
+    personalizeCovers?: boolean;
+    @IsOptional()
+    @IsString()
+    coverOwnerUserId?: string;
 }

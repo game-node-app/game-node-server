@@ -8,6 +8,7 @@ import { Expose, Transform } from "class-transformer";
 import qs from "qs";
 import { GameRepositoryFilterDto } from "../../../game/game-repository/dto/game-repository-filter.dto";
 import { EGameCategory } from "../../../game/game-repository/game-repository.constants";
+import { ToBoolean } from "../../../utils/toBoolean";
 
 export class FindCollectionEntriesGameFilterDto extends PickType(
     GameRepositoryFilterDto,
@@ -51,4 +52,7 @@ export class FindCollectionEntriesDto extends OmitType(
         );
     })
     gameFilters?: FindCollectionEntriesGameFilterDto;
+    @IsOptional()
+    @ToBoolean()
+    hasCustomCover?: boolean;
 }

@@ -6,8 +6,10 @@ import {
     Param,
     Post,
     Query,
+    Req,
     UseInterceptors,
 } from "@nestjs/common";
+import type { Request } from "express";
 import { GameRepositoryService } from "./game-repository.service";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
 import { GameRepositoryFindOneDto } from "./dto/game-repository-find-one.dto";
@@ -19,12 +21,16 @@ import {
     GameRepositoryCollectionType,
 } from "./dto/game-repository-collection.dto";
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
+import { AuthService } from "../../auth/auth.service";
+import { GameCoverService } from "../game-cover/game-cover.service";
 
 @Controller("game/repository")
 @ApiTags("game-repository")
 export class GameRepositoryController {
     constructor(
         private readonly gameRepositoryService: GameRepositoryService,
+        private readonly gameCoverService: GameCoverService,
+        private readonly authService: AuthService,
     ) {}
 
     @Get("resource")
@@ -65,14 +71,64 @@ export class GameRepositoryController {
     @HttpCode(200)
     async findOneById(
         @Param("id") id: number,
+        @Req() req: Request,
         @Body() dto?: GameRepositoryFindOneDto,
     ) {
-        return this.gameRepositoryService.findOneByIdOrFail(id, dto);
+        // Only the game and relations reach the cached method, so cache keys stay unchanged.
+        const { personalizeCovers, coverOwnerUserId, ...cachedDto } = dto ?? {};
+        const game = await this.gameRepositoryService.findOneByIdOrFail(
+            id,
+            dto ? cachedDto : undefined,
+        );
+
+        if (!dto || !this.shouldPersonalize(dto)) return game;
+
+        return (
+            await this.gameCoverService.applyEffectiveCovers(
+                [game],
+                await this.findViewerUserId(req),
+                coverOwnerUserId,
+            )
+        )[0];
     }
 
     @Post()
     @HttpCode(200)
-    async findAllByIds(@Body() dto: GameRepositoryFindAllDto) {
-        return await this.gameRepositoryService.findAllByIds(dto);
+    async findAllByIds(
+        @Body() dto: GameRepositoryFindAllDto,
+        @Req() req: Request,
+    ) {
+        // Keep the existing invalid-query behavior when the body is missing.
+        if (!dto) return await this.gameRepositoryService.findAllByIds(dto);
+
+        // Only the game ids and relations reach the cached method, so cache keys stay unchanged.
+        const { personalizeCovers, coverOwnerUserId, ...cachedDto } = dto;
+        const games = await this.gameRepositoryService.findAllByIds(cachedDto);
+
+        if (!this.shouldPersonalize(dto)) return games;
+
+        return await this.gameCoverService.applyEffectiveCovers(
+            games,
+            await this.findViewerUserId(req),
+            coverOwnerUserId,
+        );
+    }
+
+    private shouldPersonalize(
+        dto: GameRepositoryFindAllDto | GameRepositoryFindOneDto,
+    ): boolean {
+        return (
+            !!(dto.personalizeCovers || dto.coverOwnerUserId) &&
+            !!dto.relations?.cover
+        );
+    }
+
+    /** These routes have no AuthGuard: an invalid or missing session is anonymous, never an error. */
+    private async findViewerUserId(req: Request): Promise<string | undefined> {
+        try {
+            return (await this.authService.getSession(req))?.user.id;
+        } catch {
+            return undefined;
+        }
     }
 }

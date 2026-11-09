@@ -19,6 +19,8 @@ export interface SyncEndpoint {
     route: "game" | "shared";
     compare: ComparedField[];
     fields: string[];
+    /** Extra source fields appended to the sweep query for cover option classification. */
+    sweepFields?: string[];
 }
 const entry = (
     endpoint: string,
@@ -57,10 +59,26 @@ const entry = (
 };
 
 export const IGDB_SYNC_ENDPOINTS: SyncEndpoint[] = [
-    entry("games", "", true, null, "game", Game),
-    entry("covers", "cover", false, "game", "game"),
+    {
+        ...entry("games", "", true, null, "game", Game),
+        // Backfills edition links without a separate job; a parent absent locally is not a difference.
+        compare: [
+            {
+                source: "version_parent",
+                column: "versionParentId",
+                target: Game,
+            },
+        ],
+    },
+    {
+        ...entry("covers", "cover", false, "game", "game"),
+        sweepFields: ["game_localization", "image_type"],
+    },
     entry("screenshots", "screenshots", false, "game", "game"),
-    entry("artworks", "artworks", false, "game", "game"),
+    {
+        ...entry("artworks", "artworks", false, "game", "game"),
+        sweepFields: ["artwork_type"],
+    },
     entry("game_videos", "videos", false, "game", "game"),
     entry(
         "alternative_names",

@@ -42,6 +42,7 @@ import { NotificationsLifecycleService } from "../../notifications/notifications
 import { deactivateStatisticsContent } from "../../statistics/statistics-target.repository";
 import { randomUUID } from "node:crypto";
 import { ImporterResponseItemDto } from "../../importer/dto/importer-response-item.dto";
+import { UserGameCover } from "../../game/game-cover/entities/user-game-cover.entity";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -63,6 +64,8 @@ export class CollectionsEntriesService {
         private levelService: LevelService,
         private collectionsService: CollectionsService,
         private gameRepositoryService: GameRepositoryService,
+        @InjectRepository(UserGameCover)
+        private userGameCoverRepository: Repository<UserGameCover>,
         @Optional()
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
@@ -190,15 +193,39 @@ export class CollectionsEntriesService {
         return this.collectionEntriesRepository.findBy(by);
     }
 
+    private async findGameIdsWithCustomCover(userId: string) {
+        // shortcut: loads all chosen IDs of the owner, replace with a join if a user reaches tens of thousands of choices.
+        const choices = await this.userGameCoverRepository.find({
+            select: { gameId: true },
+            where: { userId },
+        });
+        return choices.map((choice) => choice.gameId);
+    }
+
     async findAllByCollectionIdWithPermissions(
         userId: string | undefined,
         collectionId: string,
         dto?: FindCollectionEntriesForCollectionIdDto,
-    ) {
+    ): Promise<[CollectionEntry[], number]> {
         const baseFindOptions = buildBaseFindOptions<CollectionEntry>({
             ...dto,
             orderBy: undefined,
         });
+
+        let customCoverGameIds: number[] | undefined;
+        if (dto?.hasCustomCover) {
+            const collection =
+                await this.collectionsService.findOneById(collectionId);
+            if (!collection) {
+                return [[], 0];
+            }
+            customCoverGameIds = await this.findGameIdsWithCustomCover(
+                collection.libraryUserId,
+            );
+            if (customCoverGameIds.length === 0) {
+                return [[], 0];
+            }
+        }
 
         const findOptions: FindManyOptions<CollectionEntry> = {
             ...baseFindOptions,
@@ -215,6 +242,9 @@ export class CollectionsEntriesService {
                         },
                     ],
                 },
+                gameId: customCoverGameIds
+                    ? In(customCoverGameIds)
+                    : undefined,
                 game: buildGameFilterFindOptions(dto?.gameFilters),
             },
             order: {
@@ -236,12 +266,22 @@ export class CollectionsEntriesService {
         userId: string | undefined,
         targetUserId: string,
         dto: FindCollectionEntriesDto,
-    ) {
+    ): Promise<[CollectionEntry[], number]> {
         const isOwnQuery = userId === targetUserId;
         const findOptions = buildBaseFindOptions({
             ...dto,
             orderBy: undefined,
         });
+
+        let customCoverGameIds: number[] | undefined;
+        if (dto.hasCustomCover) {
+            customCoverGameIds = await this.findGameIdsWithCustomCover(
+                targetUserId,
+            );
+            if (customCoverGameIds.length === 0) {
+                return [[], 0];
+            }
+        }
 
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
@@ -253,6 +293,9 @@ export class CollectionsEntriesService {
                 },
                 libraryUserId: targetUserId,
                 status: dto.status,
+                gameId: customCoverGameIds
+                    ? In(customCoverGameIds)
+                    : undefined,
                 game: buildGameFilterFindOptions(dto.gameFilters),
             },
             order: {
@@ -287,13 +330,23 @@ export class CollectionsEntriesService {
         userId: string | undefined,
         targetUserId: string,
         dto: FindCollectionEntriesDto,
-    ) {
+    ): Promise<[CollectionEntry[], number]> {
         const findOptions = buildBaseFindOptions({
             ...dto,
             orderBy: undefined,
         });
 
         const isOwnQuery = userId != undefined && userId === targetUserId;
+
+        let customCoverGameIds: number[] | undefined;
+        if (dto.hasCustomCover) {
+            customCoverGameIds = await this.findGameIdsWithCustomCover(
+                targetUserId,
+            );
+            if (customCoverGameIds.length === 0) {
+                return [[], 0];
+            }
+        }
 
         return await this.collectionEntriesRepository.findAndCount({
             ...findOptions,
@@ -306,6 +359,9 @@ export class CollectionsEntriesService {
                 },
                 libraryUserId: targetUserId,
                 status: dto.status,
+                gameId: customCoverGameIds
+                    ? In(customCoverGameIds)
+                    : undefined,
             },
             order: {
                 createdAt: dto?.orderBy?.addedDate,

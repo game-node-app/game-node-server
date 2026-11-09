@@ -88,6 +88,7 @@ describe("ProfileController", () => {
         profileService.findOneByIdOrFail.mockResolvedValue({
             userId: "user-1",
             username: "me",
+            customCoverMode: "any",
         });
         profileVideoService.findForProfileRead.mockResolvedValue({
             avatarVideo: {
@@ -112,6 +113,7 @@ describe("ProfileController", () => {
         expect(response.body).toMatchObject({
             userId: "user-1",
             username: "me",
+            customCoverMode: "any",
             avatarVideo: { filename: "ab12", extension: "mp4" },
             bannerVideo: null,
             videoUploads: {

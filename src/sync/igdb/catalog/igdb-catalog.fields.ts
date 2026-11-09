@@ -63,6 +63,8 @@ export const IGDB_CATALOG_FIELDS = [
     "storyline",
     "url",
     "first_release_date",
+    "version_parent",
+    "version_title",
     "updated_at",
     ...["cover", "screenshots", "artworks"].flatMap((key) =>
         expand(key, image),
@@ -121,8 +123,6 @@ export const IGDB_CATALOG_FIELDS = [
 ] as const;
 
 export const IGDB_CATALOG_UNUSED_SOURCE_FIELDS = [
-    "version_parent",
-    "version_title",
     "parent_game",
     "collections.*",
     "language_supports.*",
