@@ -17,8 +17,7 @@ import { randomUUID } from "crypto";
 import { NotificationsService } from "./notifications.service";
 import { Profile } from "../profile/entities/profile.entity";
 import { ProfileService } from "../profile/profile.service";
-import { ProfileAvatar } from "../profile/entities/profile-avatar.entity";
-import { ProfileBanner } from "../profile/entities/profile-banner.entity";
+import { ProfileVideo } from "../profile/entities/profile-video.entity";
 
 describe("Notifications lifecycle and access protection (Section 6)", () => {
     let dataSource: DataSource;
@@ -268,8 +267,7 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
             });
         const profiles = new ProfileService(
             dataSource.getRepository(Profile),
-            dataSource.getRepository(ProfileAvatar),
-            dataSource.getRepository(ProfileBanner),
+            dataSource.getRepository(ProfileVideo),
             {} as any,
             {} as any,
             lifecycleService,

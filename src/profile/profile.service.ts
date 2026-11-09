@@ -15,10 +15,10 @@ import { ProfileAvatar } from "./entities/profile-avatar.entity";
 import { generateUsername } from "unique-username-generator";
 import {
     PROFILE_IMAGE_ALLOWED_IDENTIFIERS,
-    ProfileImageIdentifier,
     UpdateProfileImageDto,
 } from "./dto/update-profile-image.dto";
 import { ProfileBanner } from "./entities/profile-banner.entity";
+import { ProfileVideo } from "./entities/profile-video.entity";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { AuthService } from "../auth/auth.service";
 import { UploadService } from "../upload/upload.service";
@@ -31,10 +31,8 @@ export class ProfileService {
     constructor(
         @InjectRepository(Profile)
         private profileRepository: Repository<Profile>,
-        @InjectRepository(ProfileAvatar)
-        private profileAvatarRepository: Repository<ProfileAvatar>,
-        @InjectRepository(ProfileBanner)
-        private profileBannerRepository: Repository<ProfileBanner>,
+        @InjectRepository(ProfileVideo)
+        private profileVideoRepository: Repository<ProfileVideo>,
         // auth.service imports user-init.service, which imports this file.
         @Inject(forwardRef(() => AuthService))
         private readonly authService: AuthService,
@@ -62,72 +60,20 @@ export class ProfileService {
         await this.profileRepository.insert(profile);
     }
 
-    private async persistImage(
+    private async storeImage(
         userId: string,
-        type: ProfileImageIdentifier,
         file: Express.Multer.File,
-    ) {
-        let fileName: string;
-        let fileExt: string;
+    ): Promise<{ fileName: string; fileExt: string }> {
         try {
-            const imageData = await this.uploadService.save(userId, file);
-            fileName = imageData.fileName;
-            fileExt = imageData.fileExt;
+            const { fileName, fileExt } = await this.uploadService.save(
+                userId,
+                file,
+            );
+            return { fileName, fileExt };
         } catch (e) {
             this.logger.error(e);
             throw new HttpException("Error saving profile image.", 500);
         }
-
-        let targetRepository: Repository<ProfileAvatar | ProfileBanner>;
-        if (type === "avatar") {
-            targetRepository = this.profileAvatarRepository;
-        } else {
-            targetRepository = this.profileBannerRepository;
-        }
-
-        const profileImage = targetRepository.create({
-            encoding: file.encoding,
-            filename: fileName,
-            mimetype: file.mimetype,
-            extension: fileExt,
-            size: file.size,
-        });
-
-        return await targetRepository.save(profileImage);
-    }
-
-    private async detachImage(userId: string, type: ProfileImageIdentifier) {
-        let targetEntity: ProfileAvatar | ProfileBanner;
-        let targetRepository: Repository<ProfileAvatar | ProfileBanner>;
-        if (type === "avatar") {
-            const avatar = await this.profileAvatarRepository.findOneBy({
-                profile: {
-                    userId,
-                },
-            });
-            if (!avatar) return;
-            targetEntity = avatar;
-            targetRepository = this.profileAvatarRepository;
-        } else {
-            const banner = await this.profileBannerRepository.findOneBy({
-                profile: {
-                    userId,
-                },
-            });
-            if (!banner) return;
-            targetEntity = banner;
-            targetRepository = this.profileBannerRepository;
-        }
-
-        await this.profileRepository
-            .createQueryBuilder()
-            .relation(type === "avatar" ? "avatar" : "banner")
-            .of({
-                userId: userId,
-            })
-            .set(null);
-
-        await targetRepository.delete(targetEntity.id);
     }
 
     public async updateProfileImage(
@@ -135,35 +81,95 @@ export class ProfileService {
         dto: UpdateProfileImageDto,
         file: Express.Multer.File,
     ) {
-        const profile = await this.findOneByIdOrFail(userId);
+        await this.findOneByIdOrFail(userId);
 
-        if (file) {
-            if (!PROFILE_IMAGE_ALLOWED_IDENTIFIERS.includes(dto.type)) {
-                throw new HttpException(
-                    "Invalid image type.",
-                    HttpStatus.BAD_REQUEST,
-                    {
-                        cause: `Allowed values: ${PROFILE_IMAGE_ALLOWED_IDENTIFIERS}`,
-                    },
-                );
-            }
-            await this.detachImage(userId, dto.type);
-            if (dto.type === "avatar") {
-                profile.avatar = await this.persistImage(
-                    userId,
-                    dto.type,
-                    file,
-                );
-            } else {
-                profile.banner = await this.persistImage(
-                    userId,
-                    dto.type,
-                    file,
-                );
-            }
+        if (!file) return;
+        if (!PROFILE_IMAGE_ALLOWED_IDENTIFIERS.includes(dto.type)) {
+            throw new HttpException(
+                "Invalid image type.",
+                HttpStatus.BAD_REQUEST,
+                {
+                    cause: `Allowed values: ${PROFILE_IMAGE_ALLOWED_IDENTIFIERS}`,
+                },
+            );
         }
 
-        await this.profileRepository.save(profile);
+        const stored = await this.storeImage(userId, file);
+
+        let replaced: { image: string | null; video: string | null };
+        try {
+            replaced = await this.profileRepository.manager.transaction(
+                async (manager) => {
+                    // Lock the slot row first: this serializes with the worker's
+                    // publish transaction, which updates it before swapping images.
+                    const videos = manager.getRepository(ProfileVideo);
+                    const video = await videos.findOne({
+                        where: { profileUserId: userId, type: dto.type },
+                        lock: { mode: "pessimistic_write" },
+                    });
+
+                    const profiles = manager.getRepository(Profile);
+                    const profile = await profiles.findOne({
+                        where: { userId },
+                        relations: { avatar: true, banner: true },
+                    });
+                    if (!profile) {
+                        throw new HttpException(
+                            "Profile not found",
+                            HttpStatus.NOT_FOUND,
+                        );
+                    }
+
+                    const previous =
+                        dto.type === "avatar" ? profile.avatar : profile.banner;
+                    const imageDetails = {
+                        encoding: file.encoding,
+                        filename: stored.fileName,
+                        mimetype: file.mimetype,
+                        extension: stored.fileExt,
+                        size: file.size,
+                    };
+                    if (dto.type === "avatar") {
+                        const avatars = manager.getRepository(ProfileAvatar);
+                        profile.avatar = await avatars.save(
+                            avatars.create(imageDetails),
+                        );
+                    } else {
+                        const banners = manager.getRepository(ProfileBanner);
+                        profile.banner = await banners.save(
+                            banners.create(imageDetails),
+                        );
+                    }
+                    await profiles.save(profile);
+
+                    if (previous) {
+                        if (dto.type === "avatar") {
+                            await manager
+                                .getRepository(ProfileAvatar)
+                                .delete(previous.id);
+                        } else {
+                            await manager
+                                .getRepository(ProfileBanner)
+                                .delete(previous.id);
+                        }
+                    }
+                    if (video) await videos.delete(video.id);
+
+                    return {
+                        image: previous
+                            ? `${previous.filename}.${previous.extension}`
+                            : null,
+                        video: video?.filename ? `${video.filename}.mp4` : null,
+                    };
+                },
+            );
+        } catch (error) {
+            await this.deleteObject(`${stored.fileName}.${stored.fileExt}`);
+            throw error;
+        }
+
+        await this.deleteObject(replaced.image);
+        await this.deleteObject(replaced.video);
     }
 
     async findAll(): Promise<FindAllProfileResponseItemDto[]> {
@@ -248,13 +254,24 @@ export class ProfileService {
     }
 
     async deleteByUserId(userId: string) {
+        // Read the media before the transaction: the FK cascades remove these rows.
+        const profile = await this.profileRepository.findOne({
+            where: { userId },
+            relations: { avatar: true, banner: true },
+        });
+        const videos = await this.profileVideoRepository.find({
+            where: { profileUserId: userId },
+        });
+
+        let deleted = false;
         await this.profileRepository.manager.transaction(async (manager) => {
             const repository = manager.getRepository(Profile);
-            const profile = await repository.findOne({
+            const lockedProfile = await repository.findOne({
                 where: { userId },
                 lock: { mode: "pessimistic_write" },
             });
-            if (!profile) return;
+            if (!lockedProfile) return;
+            deleted = true;
             await this.notificationsLifecycleService?.invalidateProfile(
                 userId,
                 manager,
@@ -262,5 +279,31 @@ export class ProfileService {
             await cleanupStatisticsProfile(manager, userId);
             await repository.delete({ userId });
         });
+
+        if (!deleted || !profile) return;
+        await this.deleteObject(
+            profile.avatar
+                ? `${profile.avatar.filename}.${profile.avatar.extension}`
+                : null,
+        );
+        await this.deleteObject(
+            profile.banner
+                ? `${profile.banner.filename}.${profile.banner.extension}`
+                : null,
+        );
+        for (const video of videos) {
+            await this.deleteObject(
+                video.filename ? `${video.filename}.mp4` : null,
+            );
+        }
+    }
+
+    private async deleteObject(key: string | null): Promise<void> {
+        if (!key) return;
+        try {
+            await this.uploadService.delete(key);
+        } catch (error) {
+            this.logger.warn(`Could not delete profile media ${key}: ${error}`);
+        }
     }
 }
