@@ -42,11 +42,12 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - minio:/data
+      - minio:/bitnami/minio/data
     environment:
       - MINIO_ROOT_USER=gamenode
       - MINIO_ROOT_PASSWORD=gamenode
-      - MINIO_DEFAULT_BUCKETS=gamenode-user-uploads
+      # ':download' makes the bucket anonymously readable; the API has no read endpoint.
+      - MINIO_DEFAULT_BUCKETS=gamenode-user-uploads:download
 
   manticore:
     image: manticoresearch/manticore:29.9.0
