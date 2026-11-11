@@ -26,6 +26,7 @@ import { EUserRoles } from "../utils/constants";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { ProfileResponseDto } from "./dto/profile-response.dto";
 import { ProfileVideoService } from "./profile-video/profile-video.service";
+import { SupporterPreferencesService } from "./supporter-preferences/supporter-preferences.service";
 
 const PROFILE_IMAGE_MAX_BYTES = 10 * 1024 * 1000;
 
@@ -49,6 +50,7 @@ export class ProfileController {
     constructor(
         private readonly profileService: ProfileService,
         private readonly profileVideoService: ProfileVideoService,
+        private readonly supporterPreferencesService: SupporterPreferencesService,
     ) {}
 
     @Patch()
@@ -93,13 +95,26 @@ export class ProfileController {
     }
 
     private async findWithVideos(userId: string, includeUploads: boolean) {
-        const profile = await this.profileService.findOneByIdOrFail(userId);
-        return {
-            ...profile,
-            ...(await this.profileVideoService.findForProfileRead(
+        // Design 1: entitlement runs once, alongside the profile read.
+        const [profile, isSupporter] = await Promise.all([
+            this.profileService.findOneByIdOrFail(userId),
+            this.profileVideoService.isSupporter(userId),
+        ]);
+        const [videos, supporterPreferences] = await Promise.all([
+            this.profileVideoService.findForProfileRead(
                 userId,
                 includeUploads,
-            )),
+                isSupporter,
+            ),
+            isSupporter
+                ? this.supporterPreferencesService.findOrDefaults(userId)
+                : null,
+        ]);
+        return {
+            ...profile,
+            ...videos,
+            isSupporter,
+            supporterPreferences,
         };
     }
 

@@ -607,7 +607,7 @@ describe("ProfileVideoService", () => {
             ]);
 
             await expect(
-                service.findForProfileRead("user-1", true),
+                service.findForProfileRead("user-1", true, true),
             ).resolves.toEqual({
                 avatarVideo: {
                     filename: "video-file",
@@ -624,7 +624,7 @@ describe("ProfileVideoService", () => {
                     banner: { status: "processing", errorCode: null },
                 },
             });
-            expect(billing.isSupporter).toHaveBeenCalledTimes(1);
+            expect(billing.isSupporter).not.toHaveBeenCalled();
         });
 
         it("keeps the previous video visible while a replacement attempts", async () => {
@@ -636,7 +636,11 @@ describe("ProfileVideoService", () => {
                 }),
             ]);
 
-            const result = await service.findForProfileRead("user-1", true);
+            const result = await service.findForProfileRead(
+                "user-1",
+                true,
+                true,
+            );
 
             expect(result.avatarVideo?.filename).toBe("previous-video");
             expect(result.videoUploads?.avatar).toEqual({
@@ -646,10 +650,13 @@ describe("ProfileVideoService", () => {
         });
 
         it("hides published videos for a non-supporter but keeps owner statuses", async () => {
-            billing.isSupporter.mockResolvedValue(false);
             repository.find.mockResolvedValue([row()]);
 
-            const result = await service.findForProfileRead("user-1", true);
+            const result = await service.findForProfileRead(
+                "user-1",
+                true,
+                false,
+            );
 
             expect(result.avatarVideo).toBeNull();
             expect(result.bannerVideo).toBeNull();
@@ -659,23 +666,19 @@ describe("ProfileVideoService", () => {
             });
         });
 
-        it("returns null videos when the entitlement lookup fails", async () => {
-            billing.isSupporter.mockRejectedValue(new Error("billing down"));
-            repository.find.mockResolvedValue([row()]);
-
-            await expect(
-                service.findForProfileRead("user-1", false),
-            ).resolves.toEqual({ avatarVideo: null, bannerVideo: null });
-        });
-
         it("returns the same video when entitlement comes back without a write", async () => {
             repository.find.mockResolvedValue([row()]);
-            billing.isSupporter
-                .mockResolvedValueOnce(false)
-                .mockResolvedValueOnce(true);
 
-            const hidden = await service.findForProfileRead("user-1", false);
-            const restored = await service.findForProfileRead("user-1", false);
+            const hidden = await service.findForProfileRead(
+                "user-1",
+                false,
+                false,
+            );
+            const restored = await service.findForProfileRead(
+                "user-1",
+                false,
+                true,
+            );
 
             expect(hidden.avatarVideo).toBeNull();
             expect(restored.avatarVideo).toEqual({
@@ -701,7 +704,11 @@ describe("ProfileVideoService", () => {
                 }),
             ]);
 
-            const result = await service.findForProfileRead("user-1", true);
+            const result = await service.findForProfileRead(
+                "user-1",
+                true,
+                true,
+            );
 
             expect(result.avatarVideo?.filename).toBe("video-file");
             expect(result.videoUploads?.avatar).toEqual({
@@ -717,7 +724,11 @@ describe("ProfileVideoService", () => {
                 row({ status: null, filename: null }),
             ]);
 
-            const result = await service.findForProfileRead("user-1", true);
+            const result = await service.findForProfileRead(
+                "user-1",
+                true,
+                true,
+            );
 
             expect(result.videoUploads).toEqual({
                 avatar: null,
@@ -726,21 +737,28 @@ describe("ProfileVideoService", () => {
             expect(billing.isSupporter).not.toHaveBeenCalled();
         });
 
-        it("does not look up entitlement without a published video", async () => {
-            repository.find.mockResolvedValue([
-                row({ filename: null, status: "failed", errorCode: "timeout" }),
-            ]);
+        it("does not query videos for a public read of a non-supporter", async () => {
+            repository.find.mockResolvedValue([row()]);
 
-            const result = await service.findForProfileRead("user-1", true);
+            const result = await service.findForProfileRead(
+                "user-1",
+                false,
+                false,
+            );
 
-            expect(result.avatarVideo).toBeNull();
+            expect(result).toEqual({ avatarVideo: null, bannerVideo: null });
+            expect(repository.find).not.toHaveBeenCalled();
             expect(billing.isSupporter).not.toHaveBeenCalled();
         });
 
         it("omits upload statuses from the public read", async () => {
             repository.find.mockResolvedValue([row()]);
 
-            const result = await service.findForProfileRead("user-1", false);
+            const result = await service.findForProfileRead(
+                "user-1",
+                false,
+                true,
+            );
 
             expect(result).not.toHaveProperty("videoUploads");
         });

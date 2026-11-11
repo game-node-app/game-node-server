@@ -48,6 +48,8 @@ import { PlayerDataWorkerModule } from "./sync/player-data/player-data-worker.mo
 import { bullmqTelemetry } from "./tracing";
 import { DailyModule } from "./daily/daily.module";
 import { BillingModule } from "./billing/billing.module";
+import { SupportersModule } from "./supporters/supporters.module";
+import { ProfilePresenceModule } from "./profile/profile-presence/profile-presence.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -197,6 +199,8 @@ import { BillingModule } from "./billing/billing.module";
         McpModule,
         DailyModule,
         BillingModule,
+        SupportersModule,
+        ProfilePresenceModule,
     ],
 })
 export class AppModule implements NestModule {

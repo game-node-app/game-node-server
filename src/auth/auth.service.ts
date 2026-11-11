@@ -341,6 +341,7 @@ export class AuthService implements OnModuleDestroy {
         }>({
             model: "user",
             where: [{ field: "id", operator: "in", value: userIds }],
+            limit: userIds.length,
         });
         for (const user of users) {
             const active =
@@ -363,6 +364,23 @@ export class AuthService implements OnModuleDestroy {
         return ctx.adapter.findMany<SupporterSubscriptionRow>({
             model: "subscription",
             where: [{ field: "referenceId", value: userId }],
+        });
+    }
+
+    async listSubscriptionsByStatuses(
+        statuses: SupporterSubscriptionRow["status"][],
+    ): Promise<SupporterSubscriptionRow[]> {
+        if (!this.stripeEnabled) return [];
+        const ctx = await this.auth.$context;
+        const where = [
+            { field: "status", operator: "in" as const, value: statuses },
+        ];
+        // The adapter defaults to 100 rows; the wall needs every match.
+        const total = await ctx.adapter.count({ model: "subscription", where });
+        return ctx.adapter.findMany<SupporterSubscriptionRow>({
+            model: "subscription",
+            where,
+            limit: total,
         });
     }
 }

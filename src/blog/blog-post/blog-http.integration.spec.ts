@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { AuthService } from '../../auth/auth.service';
+import { SupporterSubscriptionStartService } from '../../billing/supporter-subscription-start.service';
 import { UserInitService } from '../../user/user-init/user-init.service';
 import { BlogCmsService } from './blog-cms.service';
 import { BlogDeliveryService } from './blog-delivery.service';
@@ -28,7 +29,7 @@ const fixture = (locale: string, status: string, article_id = 'article') => ({ i
     [mediaReference('/assets/' + cover + '?width=1', 'https://cms.example').name]: inlineName,
 } });
 
-@Module({ imports: [HttpModule, ConfigModule.forRoot()], controllers: [BlogPostController, BlogPreviewController, BlogMediaController], providers: [BlogCmsService, BlogDeliveryService, BlogPresentationService, AuthService, { provide: UserInitService, useValue: { init: async () => undefined } }] })
+@Module({ imports: [HttpModule, ConfigModule.forRoot()], controllers: [BlogPostController, BlogPreviewController, BlogMediaController], providers: [BlogCmsService, BlogDeliveryService, BlogPresentationService, AuthService, { provide: UserInitService, useValue: { init: async () => undefined } }, { provide: SupporterSubscriptionStartService, useValue: {} }] })
 class BlogTestModule {}
 
 describe('blog HTTP delivery and access', () => {

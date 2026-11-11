@@ -22,6 +22,7 @@ describe("BillingService", () => {
             subscriptions: { update: jest.fn(), retrieve: jest.fn() },
         },
         getSubscriptions: jest.fn(),
+        listSubscriptionsByStatuses: jest.fn(),
         auth: {
             api: {
                 upgradeSubscription: jest.fn(),
@@ -182,6 +183,95 @@ describe("BillingService", () => {
             authService.getSubscriptions.mockResolvedValue([]);
 
             await expect(service.isSupporter("user-1")).resolves.toBe(false);
+        });
+    });
+
+    describe("findSupporterUserIds", () => {
+        it("lists the statuses that can grant entitlement", async () => {
+            authService.listSubscriptionsByStatuses.mockResolvedValue([]);
+
+            await service.findSupporterUserIds();
+
+            expect(
+                authService.listSubscriptionsByStatuses,
+            ).toHaveBeenCalledWith([
+                "active",
+                "trialing",
+                "past_due",
+                "canceled",
+            ]);
+        });
+
+        const cases: Array<
+            [SupporterSubscriptionRow["status"], Date | undefined, boolean]
+        > = [
+            ["active", undefined, true],
+            ["trialing", undefined, true],
+            ["past_due", new Date(Date.now() - 2 * DAY_MS), true],
+            ["past_due", new Date(Date.now() - 4 * DAY_MS), false],
+            ["canceled", new Date(Date.now() + DAY_MS), true],
+            ["canceled", new Date(Date.now() - DAY_MS), false],
+        ];
+
+        it.each(cases)(
+            "%s with period end %s is included: %s",
+            async (status, periodEnd, expected) => {
+                authService.listSubscriptionsByStatuses.mockResolvedValue([
+                    row({ status, periodEnd }),
+                ]);
+
+                await expect(service.findSupporterUserIds()).resolves.toEqual(
+                    expected ? ["user-1"] : [],
+                );
+            },
+        );
+
+        it("returns one id for duplicate rows", async () => {
+            authService.listSubscriptionsByStatuses.mockResolvedValue([
+                row({ id: "first" }),
+                row({ id: "second" }),
+                row({ id: "third", referenceId: "user-2" }),
+            ]);
+
+            await expect(service.findSupporterUserIds()).resolves.toEqual([
+                "user-1",
+                "user-2",
+            ]);
+        });
+
+        it("evaluates every row when there are more than 100", async () => {
+            authService.listSubscriptionsByStatuses.mockResolvedValue(
+                Array.from({ length: 150 }, (_, index) =>
+                    row({
+                        id: `subscription-${index}`,
+                        referenceId: `user-${index}`,
+                        status: index < 120 ? "active" : "canceled",
+                        periodEnd:
+                            index < 120
+                                ? undefined
+                                : new Date(Date.now() - DAY_MS),
+                    }),
+                ),
+            );
+
+            const ids = await service.findSupporterUserIds();
+
+            expect(ids).toHaveLength(120);
+            expect(ids).toContain("user-119");
+            expect(ids).not.toContain("user-120");
+        });
+
+        it("returns [] without subscriptions", async () => {
+            authService.listSubscriptionsByStatuses.mockResolvedValue([]);
+
+            await expect(service.findSupporterUserIds()).resolves.toEqual([]);
+        });
+
+        it("returns [] when Stripe is not configured", async () => {
+            authService.stripeEnabled = false;
+            authService.listSubscriptionsByStatuses.mockResolvedValue([]);
+
+            await expect(service.findSupporterUserIds()).resolves.toEqual([]);
         });
     });
 

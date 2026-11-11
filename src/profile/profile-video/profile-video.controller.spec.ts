@@ -24,7 +24,7 @@ import {
 import { ProfileVideoController } from "./profile-video.controller";
 import { ProfileVideoQueueService } from "./profile-video-queue.service";
 import { ProfileVideoService } from "./profile-video.service";
-import { SupporterGuard } from "./supporter.guard";
+import { SupporterGuard } from "../../billing/supporter.guard";
 
 const probeMock = probe as jest.Mock;
 

@@ -8,6 +8,7 @@ import { ProfileBanner } from "./entities/profile-banner.entity";
 import { ProfileVideo } from "./entities/profile-video.entity";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { ProfileVideoModule } from "./profile-video/profile-video.module";
+import { SupporterPreferencesModule } from "./supporter-preferences/supporter-preferences.module";
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { ProfileVideoModule } from "./profile-video/profile-video.module";
         ]),
         NotificationsModule,
         ProfileVideoModule,
+        SupporterPreferencesModule,
     ],
     controllers: [ProfileController],
     providers: [ProfileService],

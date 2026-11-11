@@ -5,6 +5,8 @@ import sharp from "sharp";
 import { ProfileController } from "./profile.controller";
 import { ProfileService } from "./profile.service";
 import { ProfileVideoService } from "./profile-video/profile-video.service";
+import { SupporterPreferencesService } from "./supporter-preferences/supporter-preferences.service";
+import { SUPPORTER_PREFERENCES_DEFAULTS } from "./supporter-preferences/supporter-preferences.defaults";
 import { AuthService } from "../auth/auth.service";
 
 const GIF = Buffer.from(
@@ -36,14 +38,29 @@ describe("ProfileController", () => {
         findOneByIdOrFail: jest.Mock;
         updateProfileImage: jest.Mock;
     };
-    let profileVideoService: { findForProfileRead: jest.Mock };
+    let profileVideoService: {
+        isSupporter: jest.Mock;
+        findForProfileRead: jest.Mock;
+    };
+    let supporterPreferencesService: { findOrDefaults: jest.Mock };
 
     beforeEach(async () => {
         profileService = {
             findOneByIdOrFail: jest.fn(),
             updateProfileImage: jest.fn(async () => undefined),
         };
-        profileVideoService = { findForProfileRead: jest.fn() };
+        profileVideoService = {
+            isSupporter: jest.fn(async () => false),
+            findForProfileRead: jest.fn(async () => ({
+                avatarVideo: null,
+                bannerVideo: null,
+            })),
+        };
+        supporterPreferencesService = {
+            findOrDefaults: jest.fn(async () => ({
+                ...SUPPORTER_PREFERENCES_DEFAULTS,
+            })),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             controllers: [ProfileController],
@@ -60,6 +77,10 @@ describe("ProfileController", () => {
                 {
                     provide: ProfileVideoService,
                     useValue: profileVideoService,
+                },
+                {
+                    provide: SupporterPreferencesService,
+                    useValue: supporterPreferencesService,
                 },
             ],
         }).compile();
@@ -91,15 +112,7 @@ describe("ProfileController", () => {
             customCoverMode: "any",
         });
         profileVideoService.findForProfileRead.mockResolvedValue({
-            avatarVideo: {
-                filename: "ab12",
-                extension: "mp4",
-                mimetype: "video/mp4",
-                size: 812345,
-                durationMs: 8000,
-                width: 256,
-                height: 256,
-            },
+            avatarVideo: null,
             bannerVideo: null,
             videoUploads: {
                 avatar: { status: "ready", errorCode: null },
@@ -114,7 +127,9 @@ describe("ProfileController", () => {
             userId: "user-1",
             username: "me",
             customCoverMode: "any",
-            avatarVideo: { filename: "ab12", extension: "mp4" },
+            isSupporter: false,
+            supporterPreferences: null,
+            avatarVideo: null,
             bannerVideo: null,
             videoUploads: {
                 avatar: { status: "ready", errorCode: null },
@@ -124,6 +139,61 @@ describe("ProfileController", () => {
         expect(profileVideoService.findForProfileRead).toHaveBeenCalledWith(
             "user-1",
             true,
+            false,
+        );
+        expect(
+            supporterPreferencesService.findOrDefaults,
+        ).not.toHaveBeenCalled();
+    });
+
+    it("returns a supporter's preferences and published videos", async () => {
+        profileService.findOneByIdOrFail.mockResolvedValue({
+            userId: "user-2",
+            username: "them",
+        });
+        profileVideoService.isSupporter.mockResolvedValue(true);
+        profileVideoService.findForProfileRead.mockResolvedValue({
+            avatarVideo: {
+                filename: "ab12",
+                extension: "mp4",
+                mimetype: "video/mp4",
+                size: 812345,
+                durationMs: 8000,
+                width: 256,
+                height: 256,
+            },
+            bannerVideo: null,
+        });
+        const preferences = {
+            ...SUPPORTER_PREFERENCES_DEFAULTS,
+            showBadge: false,
+            titleKey: "founder",
+            accentColor: "#FF8800",
+        };
+        supporterPreferencesService.findOrDefaults.mockResolvedValue(
+            preferences,
+        );
+
+        const response = await request(app.getHttpServer()).get(
+            "/profile/user-2",
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({
+            userId: "user-2",
+            isSupporter: true,
+            supporterPreferences: preferences,
+            avatarVideo: { filename: "ab12", extension: "mp4" },
+            bannerVideo: null,
+        });
+        expect(profileVideoService.isSupporter).toHaveBeenCalledTimes(1);
+        expect(profileVideoService.findForProfileRead).toHaveBeenCalledWith(
+            "user-2",
+            false,
+            true,
+        );
+        expect(supporterPreferencesService.findOrDefaults).toHaveBeenCalledWith(
+            "user-2",
         );
     });
 
@@ -131,10 +201,6 @@ describe("ProfileController", () => {
         profileService.findOneByIdOrFail.mockResolvedValue({
             userId: "user-2",
             username: "them",
-        });
-        profileVideoService.findForProfileRead.mockResolvedValue({
-            avatarVideo: null,
-            bannerVideo: null,
         });
 
         const response = await request(app.getHttpServer()).get(
@@ -145,6 +211,8 @@ describe("ProfileController", () => {
         expect(response.body).toEqual({
             userId: "user-2",
             username: "them",
+            isSupporter: false,
+            supporterPreferences: null,
             avatarVideo: null,
             bannerVideo: null,
         });
@@ -152,7 +220,112 @@ describe("ProfileController", () => {
         expect(profileVideoService.findForProfileRead).toHaveBeenCalledWith(
             "user-2",
             false,
+            false,
         );
+    });
+
+    it("returns 200 with false and null when the entitlement lookup throws", async () => {
+        const billing = {
+            isSupporter: jest.fn(async () => {
+                throw new Error("billing down");
+            }),
+        };
+        const videoRepository = { find: jest.fn(async () => []) };
+        const videoService = new ProfileVideoService(
+            videoRepository as never,
+            {} as never,
+            billing as never,
+            {} as never,
+        );
+        profileService.findOneByIdOrFail.mockResolvedValue({
+            userId: "user-2",
+            username: "them",
+        });
+
+        const module = await Test.createTestingModule({
+            controllers: [ProfileController],
+            providers: [
+                {
+                    provide: AuthService,
+                    useValue: {
+                        getSession: jest.fn(async () => ({
+                            user: { id: "user-1", role: "user" },
+                        })),
+                    },
+                },
+                { provide: ProfileService, useValue: profileService },
+                { provide: ProfileVideoService, useValue: videoService },
+                {
+                    provide: SupporterPreferencesService,
+                    useValue: supporterPreferencesService,
+                },
+            ],
+        }).compile();
+        const isolatedApp = module.createNestApplication();
+        await isolatedApp.init();
+
+        try {
+            const response = await request(isolatedApp.getHttpServer()).get(
+                "/profile/user-2",
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body.isSupporter).toBe(false);
+            expect(response.body.supporterPreferences).toBeNull();
+            expect(videoRepository.find).not.toHaveBeenCalled();
+            expect(
+                supporterPreferencesService.findOrDefaults,
+            ).not.toHaveBeenCalled();
+        } finally {
+            await isolatedApp.close();
+        }
+    });
+
+    it("does not read stored preferences for a lapsed supporter", async () => {
+        profileService.findOneByIdOrFail.mockResolvedValue({
+            userId: "user-2",
+            username: "them",
+        });
+        supporterPreferencesService.findOrDefaults.mockResolvedValue({
+            ...SUPPORTER_PREFERENCES_DEFAULTS,
+            titleKey: "founder",
+        });
+
+        const response = await request(app.getHttpServer()).get(
+            "/profile/user-2",
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.body.supporterPreferences).toBeNull();
+        expect(
+            supporterPreferencesService.findOrDefaults,
+        ).not.toHaveBeenCalled();
+    });
+
+    it("touches only the profile and entitlement for a public non-supporter read", async () => {
+        profileService.findOneByIdOrFail.mockResolvedValue({
+            userId: "user-2",
+            username: "them",
+        });
+
+        const response = await request(app.getHttpServer()).get(
+            "/profile/user-2",
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.body.isSupporter).toBe(false);
+        expect(response.body.supporterPreferences).toBeNull();
+        expect(profileService.findOneByIdOrFail).toHaveBeenCalledTimes(1);
+        expect(profileVideoService.isSupporter).toHaveBeenCalledTimes(1);
+        // The video service skips its query when the third argument is false.
+        expect(profileVideoService.findForProfileRead).toHaveBeenCalledWith(
+            "user-2",
+            false,
+            false,
+        );
+        expect(
+            supporterPreferencesService.findOrDefaults,
+        ).not.toHaveBeenCalled();
     });
 
     it.each([

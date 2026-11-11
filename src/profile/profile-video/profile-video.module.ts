@@ -12,7 +12,6 @@ import { ProfileVideoProcessor } from "./profile-video.processor";
 import { ProfileVideoQueueService } from "./profile-video-queue.service";
 import { ProfileVideoService } from "./profile-video.service";
 import { ProfileVideoTempService } from "./profile-video-temp.service";
-import { SupporterGuard } from "./supporter.guard";
 
 @Module({
     imports: [
@@ -38,7 +37,6 @@ import { SupporterGuard } from "./supporter.guard";
         ProfileVideoQueueService,
         ProfileVideoProcessor,
         ProfileVideoTempService,
-        SupporterGuard,
     ],
     exports: [ProfileVideoService],
 })

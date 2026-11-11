@@ -6,7 +6,7 @@ import {
     DataSource,
     FindManyOptions,
     In,
-    MoreThan,
+    MoreThanOrEqual,
     Not,
     Repository,
 } from "typeorm";
@@ -224,13 +224,15 @@ export class GameRepositoryService {
         dto: FindGamesByCollectionTypeRequestDto,
     ) {
         const baseFindOptions = buildBaseFindOptions(dto);
+        // Release dates are UTC midnights; "upcoming" includes games launching today.
+        const startOfToday = dayjs().startOf("day").toDate();
         const findOptionsForType = match<
             GameRepositoryCollectionType,
             FindManyOptions<Game>
         >(dto.collectionType)
             .with(GameRepositoryCollectionType.UPCOMING, () => ({
                 where: {
-                    firstReleaseDate: MoreThan(new Date()),
+                    firstReleaseDate: MoreThanOrEqual(startOfToday),
                 },
                 order: {
                     firstReleaseDate: "ASC",
@@ -238,7 +240,10 @@ export class GameRepositoryService {
             }))
             .with(GameRepositoryCollectionType.RECENTLY_RELEASED, () => ({
                 where: {
-                    firstReleaseDate: Between(getPreviousDate(30), new Date()),
+                    firstReleaseDate: Between(
+                        getPreviousDate(30),
+                        dayjs().endOf("day").toDate(),
+                    ),
                 },
                 order: {
                     firstReleaseDate: "ASC",
