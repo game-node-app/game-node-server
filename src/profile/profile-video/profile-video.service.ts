@@ -137,20 +137,25 @@ export class ProfileVideoService {
     }
 
     /**
-     * Profile read fields (design 9). Entitlement runs once and only when a
-     * published video exists; stale attempts are reported without writing.
+     * Profile read fields (design 1). The caller resolves entitlement once;
+     * a public read of a non-supporter skips the query entirely.
      */
-    async findForProfileRead(userId: string, includeUploads: boolean) {
+    async findForProfileRead(
+        userId: string,
+        includeUploads: boolean,
+        isSupporter: boolean,
+    ) {
+        if (!isSupporter && !includeUploads) {
+            return { avatarVideo: null, bannerVideo: null };
+        }
+
         const rows = await this.findByUserId(userId);
         const slots = new Map(rows.map((row) => [row.type, row]));
         const avatar = slots.get("avatar");
         const banner = slots.get("banner");
-        const supporter = rows.some((row) => row.filename)
-            ? await this.isSupporter(userId)
-            : false;
 
         const published = (row: ProfileVideo | undefined) =>
-            row?.filename && supporter
+            row?.filename && isSupporter
                 ? {
                       filename: row.filename,
                       extension: "mp4",

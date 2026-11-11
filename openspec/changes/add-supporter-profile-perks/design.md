@@ -163,6 +163,43 @@ Alternatives rejected: a guard (it would need its own count and could not share 
 - [Free users lose something that was unlimited] -> Existing collections are untouched and only new ones past the limit are refused. The client copy promising otherwise must change in the same release (design 8).
 - [Entitlement lookup while holding the library row lock] -> One indexed read, only at or above the free limit, and the lock covers a single user's creates.
 
+## Measurements
+
+Task 8.2, measured on 2026-11-10 against a local MySQL 8.4 and Redis instance, comparing `HEAD` 7397578 (before) with the working tree containing waves 1–4 (after). Both builds were started with `node dist/src/main` and the repository `.env`.
+
+- **Dataset:** 10,536 `profile` rows (the 536 existing fixtures plus 10,000 seeded `bench_*` rows), 5 `subscription` rows and 2 `profile_video` rows. The existing rows were not modified.
+- **Target:** `00647243-01e3-496d-a6b9-e2aabb06f640`, a non-supporter with no `profile_video` rows and a static avatar.
+- **Method:** cold boot, 10 warm-up requests, then 100 sequential `GET /v1/profile/<target>` from a Node script using `fetch` and `performance.now`. Query counts came from MySQL `general_log`: one request per build, counting statements whose parameters contain the target id, so scheduler queries for other ids are excluded. Same dataset for both builds.
+- **Ports:** before on 5055, after on 5056.
+
+| Non-supporter public read | Before | After |
+| --- | --- | --- |
+| Statements per request | 3 | 3 |
+| Queries with the target id | profile relation (2 statements), video | profile relation (2 statements), entitlement |
+| Latency p50 / p95 / mean, first pass | 3.83 / 5.05 / 3.99 ms | 3.62 / 4.24 / 3.62 ms |
+| Latency p50 / p95 / mean, second pass | 4.07 / 6.20 / 4.67 ms | 3.59 / 4.21 / 3.65 ms |
+
+The design counts two reads, and that is what the endpoint issues: profile plus video before, profile plus entitlement after. TypeORM loads the `Profile` relation in two physical statements (a `SELECT DISTINCT` id query and the main select), so both sides log three statements. The after side issues no video and no preference query for a non-supporter. The after column's second pass was measured on the final build; the first pass differs only in Swagger annotations. A third after run reached p50 3.02 / p95 3.93 ms, which shows the run-to-run spread.
+
+Conclusion: query count is unchanged and latency is equal or slightly lower; no regression beyond noise. These are warm local numbers, not production latency.
+
+### Pending: production collection distribution (task 8.3)
+
+Not executed here: the production MySQL is not publicly reachable from this environment (`is_public: false`, no port mapping). Run this read-only query before deploying and record the result in this section:
+
+```sql
+SELECT collection_count, COUNT(*) AS libraries
+FROM (
+    SELECT libraryUserId, COUNT(*) AS collection_count
+    FROM collection
+    GROUP BY libraryUserId
+) per_library
+GROUP BY collection_count
+ORDER BY collection_count;
+```
+
+The sum of `libraries` for `collection_count >= 5` is the number of users who can no longer create a collection after the deploy.
+
 ## Migration Plan
 
 1. The `server_migration` service creates `profile_supporter_preferences` before the server starts.

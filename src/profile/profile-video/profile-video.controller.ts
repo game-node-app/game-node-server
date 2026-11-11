@@ -16,9 +16,9 @@ import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { rm } from "node:fs/promises";
 import { AuthGuard } from "../../auth/auth.guard";
 import { SessionContainer } from "../../auth/session.decorator";
+import { SupporterGuard } from "../../billing/supporter.guard";
 import { UploadProfileVideoResponseDto } from "../dto/upload-profile-video.dto";
 import { ProfileImageIdentifier } from "../dto/update-profile-image.dto";
-import { SupporterGuard } from "./supporter.guard";
 import {
     PROFILE_VIDEO_MAX_UPLOAD_BYTES,
     PROFILE_VIDEO_TEMP_ROOT,

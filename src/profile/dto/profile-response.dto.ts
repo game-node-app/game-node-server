@@ -45,7 +45,45 @@ export class ProfileVideoUploadsResponseDto {
     banner: ProfileVideoUploadResponseDto | null;
 }
 
+export class SupporterPreferencesResponseDto {
+    @ApiProperty({ example: true, default: true })
+    showBadge: boolean;
+    @ApiProperty({
+        type: String,
+        nullable: true,
+        example: "founder",
+        default: null,
+    })
+    titleKey: string | null;
+    @ApiProperty({ example: true, default: true })
+    showAnimatedAvatarBorder: boolean;
+    @ApiProperty({ example: true, default: true })
+    showSupporterTheme: boolean;
+    @ApiProperty({
+        type: String,
+        nullable: true,
+        example: "#FF8800",
+        default: null,
+    })
+    accentColor: string | null;
+    @ApiProperty({ example: true, default: true })
+    showOnSupportersWall: boolean;
+    @ApiProperty({ example: false, default: false })
+    showLiveProfile: boolean;
+}
+
 export class ProfileResponseDto extends Profile {
+    @ApiProperty({
+        description: "Whether the profile owner has supporter entitlement.",
+        example: false,
+    })
+    isSupporter: boolean;
+    @ApiProperty({
+        type: () => SupporterPreferencesResponseDto,
+        nullable: true,
+        description: "Null while isSupporter is false.",
+    })
+    supporterPreferences: SupporterPreferencesResponseDto | null;
     @ApiProperty({ type: () => ProfileVideoResponseDto, nullable: true })
     avatarVideo: ProfileVideoResponseDto | null;
     @ApiProperty({ type: () => ProfileVideoResponseDto, nullable: true })

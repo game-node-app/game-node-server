@@ -1,4 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import request from "supertest";
 import { CollectionsController } from "./collections.controller";
 import { CollectionsService } from "./collections.service";
 import { AuthGuard } from "../auth/auth.guard";
@@ -46,5 +48,45 @@ describe("CollectionsController", () => {
     it("should be defined", () => {
         expect(controller).toBeDefined();
         expect(service).toBeDefined();
+    });
+});
+
+describe("CollectionsController create failures", () => {
+    async function createApp(create: jest.Mock): Promise<INestApplication> {
+        const module = await Test.createTestingModule({
+            controllers: [CollectionsController],
+            providers: [
+                { provide: CollectionsService, useValue: { create } },
+                {
+                    provide: AuthService,
+                    useValue: {
+                        getSession: jest.fn(async () => ({
+                            user: { id: "user-1", role: "user" },
+                        })),
+                    },
+                },
+            ],
+        }).compile();
+        const app = module.createNestApplication();
+        await app.init();
+        return app;
+    }
+
+    it("returns 500 when the entitlement lookup fails at the limit", async () => {
+        const create = jest
+            .fn()
+            .mockRejectedValue(new Error("billing unavailable"));
+        const app = await createApp(create);
+
+        try {
+            const response = await request(app.getHttpServer())
+                .post("/collections")
+                .send({ name: "Favorites" });
+
+            expect(response.status).toBe(500);
+            expect(create).toHaveBeenCalledTimes(1);
+        } finally {
+            await app.close();
+        }
     });
 });

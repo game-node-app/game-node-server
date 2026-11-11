@@ -91,6 +91,22 @@ export class BillingService {
         return rows.some((row) => this.grantsEntitlement(row));
     }
 
+    async findSupporterUserIds(): Promise<string[]> {
+        const rows = await this.authService.listSubscriptionsByStatuses([
+            "active",
+            "trialing",
+            "past_due",
+            "canceled",
+        ]);
+        return [
+            ...new Set(
+                rows
+                    .filter((row) => this.grantsEntitlement(row))
+                    .map((row) => row.referenceId),
+            ),
+        ];
+    }
+
     async getMe(userId: string): Promise<BillingMeResponseDto> {
         this.requireStripe();
 

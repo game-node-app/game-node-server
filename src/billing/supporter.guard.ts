@@ -4,8 +4,8 @@ import {
     ForbiddenException,
     Injectable,
 } from "@nestjs/common";
-import { BillingService } from "../../billing/billing.service";
-import { SessionContainer } from "../../auth/session.decorator";
+import { BillingService } from "./billing.service";
+import { SessionContainer } from "../auth/session.decorator";
 
 /** Guards run before Multer, so a non-supporter never writes an upload to disk. */
 @Injectable()

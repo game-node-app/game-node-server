@@ -8,9 +8,12 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Collection } from "./entities/collection.entity";
 import { FindOptionsRelations, In, Repository } from "typeorm";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
-import { LibrariesService } from "../libraries/libraries.service";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import { BillingService } from "../billing/billing.service";
+import { Library } from "../libraries/entities/library.entity";
+
+const FREE_COLLECTION_LIMIT = 5;
 
 @Injectable()
 export class CollectionsService {
@@ -21,7 +24,7 @@ export class CollectionsService {
     constructor(
         @InjectRepository(Collection)
         private collectionsRepository: Repository<Collection>,
-        private readonly librariesService: LibrariesService,
+        private readonly billingService: BillingService,
         @Optional()
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
     ) {}
@@ -114,27 +117,62 @@ export class CollectionsService {
     }
 
     async create(userId: string, createCollectionDto: CreateCollectionDto) {
-        const userLibrary =
-            await this.librariesService.findOneByIdOrFail(userId);
+        await this.collectionsRepository.manager.transaction(
+            async (manager) => {
+                const userLibrary = await manager
+                    .getRepository(Library)
+                    .findOne({
+                        where: { userId },
+                        lock: { mode: "pessimistic_write" },
+                    });
+                if (!userLibrary)
+                    throw new HttpException(
+                        "No library found for the given ID.",
+                        HttpStatus.NOT_FOUND,
+                    );
 
-        if (createCollectionDto.isFeatured && !createCollectionDto.isPublic) {
-            throw new HttpException(
-                "Featured collections must be public",
-                HttpStatus.BAD_REQUEST,
-            );
-        }
+                if (
+                    createCollectionDto.isFeatured &&
+                    !createCollectionDto.isPublic
+                ) {
+                    throw new HttpException(
+                        "Featured collections must be public",
+                        HttpStatus.BAD_REQUEST,
+                    );
+                }
 
-        const collectionEntity = this.collectionsRepository.create({
-            name: createCollectionDto.name,
-            description: createCollectionDto.description,
-            library: userLibrary,
-            libraryUserId: userLibrary.userId,
-            isPublic: createCollectionDto.isPublic,
-            isFeatured: createCollectionDto.isFeatured,
-            defaultEntryStatus: createCollectionDto.defaultEntryStatus,
-        });
+                const repository = manager.getRepository(Collection);
+                const count = await repository.count({
+                    where: { libraryUserId: userId },
+                });
 
-        await this.collectionsRepository.save(collectionEntity);
+                if (
+                    count >= FREE_COLLECTION_LIMIT &&
+                    !(await this.billingService.isSupporter(userId))
+                ) {
+                    throw new HttpException(
+                        {
+                            message: "Collection limit reached.",
+                            code: "collection_limit_reached",
+                            limit: FREE_COLLECTION_LIMIT,
+                        },
+                        HttpStatus.FORBIDDEN,
+                    );
+                }
+
+                const collectionEntity = repository.create({
+                    name: createCollectionDto.name,
+                    description: createCollectionDto.description,
+                    library: userLibrary,
+                    libraryUserId: userLibrary.userId,
+                    isPublic: createCollectionDto.isPublic,
+                    isFeatured: createCollectionDto.isFeatured,
+                    defaultEntryStatus: createCollectionDto.defaultEntryStatus,
+                });
+
+                await repository.save(collectionEntity);
+            },
+        );
     }
 
     async update(

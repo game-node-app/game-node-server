@@ -7,6 +7,7 @@ import {
     VersioningType,
 } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { CacheModule } from "@nestjs/cache-manager";
 import { Test } from "@nestjs/testing";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
@@ -78,6 +79,7 @@ describe("Better Auth integration (dev MySQL)", () => {
         const moduleRef = await Test.createTestingModule({
             imports: [
                 ConfigModule.forRoot({ isGlobal: true }),
+                CacheModule.register({ isGlobal: true }),
                 TypeOrmModule.forRoot({
                     type: "mysql",
                     host: process.env.DB_HOST,
