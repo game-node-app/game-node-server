@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import { NotificationFilter } from "../notifications.types";
 
 export class FindNotificationsDto {
     @ApiPropertyOptional({
@@ -22,4 +23,13 @@ export class FindNotificationsDto {
     @Min(1)
     @Max(100)
     limit?: number = 20;
+
+    @ApiPropertyOptional({
+        description: "Filter notifications by read state",
+        enum: ["all", "unread"],
+        default: "all",
+    })
+    @IsOptional()
+    @IsIn(["all", "unread"])
+    filter?: NotificationFilter = "all";
 }

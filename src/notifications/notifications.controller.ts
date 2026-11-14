@@ -13,6 +13,10 @@ import { NotificationsService } from "./notifications.service";
 import { Session, SessionContainer } from "../auth/session.decorator";
 import { AuthGuard } from "../auth/auth.guard";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
+import {
+    NotificationReadAllRequestDto,
+    NotificationReadAllResponseDto,
+} from "./dto/notification-read-all.dto";
 import { NotificationReadRequestDto } from "./dto/notification-read.dto";
 import { NotificationsResponseDto } from "./dto/notifications-response.dto";
 
@@ -42,6 +46,21 @@ export class NotificationsController {
         return this.notificationsService.acknowledgeRead(
             session.getUserId(),
             dto,
+        );
+    }
+
+    @Patch("read-all")
+    @HttpCode(HttpStatus.OK)
+    @ApiOkResponse({
+        type: NotificationReadAllResponseDto,
+    })
+    async acknowledgeReadAll(
+        @Session() session: SessionContainer,
+        @Body() dto: NotificationReadAllRequestDto = {},
+    ): Promise<NotificationReadAllResponseDto> {
+        return this.notificationsService.acknowledgeReadAll(
+            session.getUserId(),
+            dto?.before,
         );
     }
 }

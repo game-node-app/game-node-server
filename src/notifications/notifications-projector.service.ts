@@ -87,7 +87,9 @@ export async function materializeNotificationTarget(
         }
         if (gameId) {
             const games = await manager.query(
-                "SELECT id, name, slug FROM game WHERE id = ?",
+                `SELECT g.id, g.name, g.slug, c.url AS coverUrl
+                FROM game g LEFT JOIN game_cover c ON c.gameId = g.id
+                WHERE g.id = ?`,
                 [gameId],
             );
             if (games[0])
@@ -95,6 +97,7 @@ export async function materializeNotificationTarget(
                     id: Number(games[0].id),
                     name: extractSafePlainText(games[0].name, "Game"),
                     slug: games[0].slug,
+                    coverUrl: games[0].coverUrl ?? null,
                 };
         }
     }

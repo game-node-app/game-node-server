@@ -1,8 +1,13 @@
 import { NotificationsController } from "./notifications.controller";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
+import { NotificationReadAllRequestDto } from "./dto/notification-read-all.dto";
 import { NotificationReadRequestDto } from "./dto/notification-read.dto";
 import { Test } from "@nestjs/testing";
-import { VersioningType } from "@nestjs/common";
+import {
+    BadRequestException,
+    ValidationPipe,
+    VersioningType,
+} from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AuthGuard } from "../auth/auth.guard";
 import { NotificationsService } from "./notifications.service";
@@ -29,6 +34,7 @@ describe("NotificationsController", () => {
             expect(Object.keys(document.paths)).toEqual([
                 "/v1/notifications",
                 "/v1/notifications/read",
+                "/v1/notifications/read-all",
             ]);
             const schemas = document.components!.schemas! as Record<
                 string,
@@ -108,5 +114,47 @@ describe("NotificationsController", () => {
 
         expect(acknowledgeRead).toHaveBeenCalledWith("owner-1", dto);
         expect(result.success).toBe(true);
+    });
+
+    it("delegates acknowledgeReadAll with the optional before timestamp", async () => {
+        const acknowledgeReadAll = jest
+            .fn()
+            .mockResolvedValue({ success: true, unreadCount: 0 });
+        const controller = new NotificationsController({
+            acknowledgeReadAll,
+        } as any);
+
+        const result = await controller.acknowledgeReadAll(
+            { getUserId: () => "owner-1" } as any,
+            { before: "2026-11-11T12:00:00.000Z" },
+        );
+
+        expect(acknowledgeReadAll).toHaveBeenCalledWith(
+            "owner-1",
+            "2026-11-11T12:00:00.000Z",
+        );
+        expect(result).toEqual({ success: true, unreadCount: 0 });
+
+        await controller.acknowledgeReadAll(
+            { getUserId: () => "owner-1" } as any,
+            undefined as any,
+        );
+        expect(acknowledgeReadAll).toHaveBeenLastCalledWith(
+            "owner-1",
+            undefined,
+        );
+    });
+
+    it("rejects invalid read-all before timestamps and allows an absent body", async () => {
+        const pipe = new ValidationPipe();
+        const metadata = {
+            type: "body" as const,
+            metatype: NotificationReadAllRequestDto,
+        };
+
+        await expect(
+            pipe.transform({ before: "not-a-date" }, metadata),
+        ).rejects.toThrow(BadRequestException);
+        await expect(pipe.transform({}, metadata)).resolves.toEqual({});
     });
 });

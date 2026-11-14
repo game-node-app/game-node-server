@@ -5,6 +5,7 @@ import { NOTIFICATION_ELIGIBILITY_SQL } from "./notifications-lifecycle.service"
 import { NotificationTarget } from "./notifications.types";
 import { NotificationInbox } from "./entity/notification-inbox.entity";
 import { Profile } from "../profile/entities/profile.entity";
+import { UserFollow } from "../follow/entity/user-follow.entity";
 import { FindNotificationsDto } from "./dto/find-notifications.dto";
 import { NotificationReadRequestDto } from "./dto/notification-read.dto";
 import {
@@ -37,9 +38,10 @@ export class NotificationsService {
         if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
             throw new BadRequestException("Invalid notification limit");
         }
+        const filter = dto.filter ?? "all";
         let cursorData: { lastEventAt: Date; id: number } | null = null;
         if (dto.cursor) {
-            cursorData = decodeNotificationCursor(dto.cursor, userId);
+            cursorData = decodeNotificationCursor(dto.cursor, userId, filter);
         }
 
         const pageItems: NotificationInbox[] = [];
@@ -53,6 +55,9 @@ export class NotificationsService {
                 .createQueryBuilder("inbox")
                 .where("inbox.recipientUserId = :userId", { userId })
                 .andWhere("inbox.isVisible = :isVisible", { isVisible: true });
+            if (filter === "unread") {
+                qb.andWhere("inbox.readVersion < inbox.version");
+            }
             if (cursorData) {
                 qb.andWhere(
                     "(inbox.lastEventAt < :cursorTime OR (inbox.lastEventAt = :cursorTime AND inbox.id < :cursorId))",
@@ -91,6 +96,7 @@ export class NotificationsService {
                       userId,
                       cursorData.lastEventAt,
                       cursorData.id,
+                      filter,
                   )
                 : null;
 
@@ -99,23 +105,39 @@ export class NotificationsService {
         ).filter(Boolean);
 
         const profileMap = new Map<string, NotificationActorDto>();
+        const followedActorIds = new Set<string>();
         if (allActorIds.length > 0) {
-            const profiles = await this.profileRepository.find({
-                where: { userId: In(allActorIds) },
-                select: {
-                    userId: true,
-                    username: true,
-                    avatar: { id: true, filename: true },
-                },
-                relations: { avatar: true },
-            });
+            const [profiles, follows] = await Promise.all([
+                this.profileRepository.find({
+                    where: { userId: In(allActorIds) },
+                    select: {
+                        userId: true,
+                        username: true,
+                        avatar: { id: true, filename: true, extension: true },
+                    },
+                    relations: { avatar: true },
+                }),
+                this.dataSource.getRepository(UserFollow).find({
+                    where: {
+                        followerUserId: userId,
+                        followedUserId: In(allActorIds),
+                    },
+                    select: { followedUserId: true },
+                }),
+            ]);
+            for (const f of follows) followedActorIds.add(f.followedUserId);
             for (const p of profiles) {
                 profileMap.set(p.userId, {
                     userId: p.userId,
                     username: p.username,
                     avatar: p.avatar
-                        ? { id: p.avatar.id, filename: p.avatar.filename }
+                        ? {
+                              id: p.avatar.id,
+                              filename: p.avatar.filename,
+                              extension: p.avatar.extension,
+                          }
                         : null,
+                    isFollowedByRecipient: followedActorIds.has(p.userId),
                 });
             }
         }
@@ -129,6 +151,7 @@ export class NotificationsService {
                         userId: actorId,
                         username: "[Deleted User]",
                         avatar: null,
+                        isFollowedByRecipient: false,
                     },
             ),
             preview: item.preview,
@@ -140,13 +163,7 @@ export class NotificationsService {
             readVersion: item.readVersion,
         }));
 
-        const unreadCount = await this.notificationInboxRepository
-            .createQueryBuilder("inbox")
-            .where("inbox.recipientUserId = :userId", { userId })
-            .andWhere("inbox.isVisible = :isVisible", { isVisible: true })
-            .andWhere("inbox.readVersion < inbox.version")
-            .andWhere(NOTIFICATION_ELIGIBILITY_SQL)
-            .getCount();
+        const unreadCount = await this.countUnread(userId);
 
         this.logger.debug({
             event: "notification-inbox-read",
@@ -224,5 +241,29 @@ export class NotificationsService {
         }
 
         return { success: true };
+    }
+
+    public async acknowledgeReadAll(
+        userId: string,
+        before?: string,
+    ): Promise<{ success: boolean; unreadCount: number }> {
+        await this.dataSource.query(
+            `UPDATE notification_inbox inbox SET readVersion = version
+             WHERE inbox.recipientUserId = ? AND inbox.isVisible = 1 AND inbox.readVersion < inbox.version
+               AND inbox.lastEventAt <= ? AND (${NOTIFICATION_ELIGIBILITY_SQL})`,
+            [userId, before ? new Date(before) : new Date()],
+        );
+
+        return { success: true, unreadCount: await this.countUnread(userId) };
+    }
+
+    private async countUnread(userId: string): Promise<number> {
+        return this.notificationInboxRepository
+            .createQueryBuilder("inbox")
+            .where("inbox.recipientUserId = :userId", { userId })
+            .andWhere("inbox.isVisible = :isVisible", { isVisible: true })
+            .andWhere("inbox.readVersion < inbox.version")
+            .andWhere(NOTIFICATION_ELIGIBILITY_SQL)
+            .getCount();
     }
 }

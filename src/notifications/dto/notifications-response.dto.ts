@@ -10,6 +10,7 @@ export class NotificationGameContextDto {
     @ApiProperty() id: number;
     @ApiProperty({ maxLength: 240 }) name: string;
     @ApiProperty({ nullable: true }) slug: string | null;
+    @ApiProperty({ type: String, nullable: true }) coverUrl: string | null;
 }
 
 export class NotificationActivityContentDto {
@@ -102,6 +103,7 @@ export class NotificationImportPreviewDto {
 export class NotificationAvatarDto {
     @ApiProperty() id: number;
     @ApiProperty() filename: string;
+    @ApiProperty() extension: string;
 }
 
 export class NotificationActorDto {
@@ -115,7 +117,11 @@ export class NotificationActorDto {
     avatar?: {
         id: number;
         filename: string;
+        extension: string;
     } | null;
+
+    @ApiPropertyOptional()
+    isFollowedByRecipient?: boolean;
 }
 
 @ApiExtraModels(

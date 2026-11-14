@@ -35,6 +35,9 @@ describe("NotificationsService", () => {
                     provide: DataSource,
                     useValue: {
                         query: jest.fn(),
+                        getRepository: jest.fn().mockReturnValue({
+                            find: jest.fn().mockResolvedValue([]),
+                        }),
                     },
                 },
             ],

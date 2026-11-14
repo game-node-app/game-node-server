@@ -1,3 +1,5 @@
+export type NotificationFilter = "all" | "unread";
+
 export type NotificationEventType =
     | "content.liked"
     | "comment.created"
@@ -113,6 +115,7 @@ export interface NotificationGameContext {
     id: number;
     name: string;
     slug: string | null;
+    coverUrl: string | null;
 }
 
 export interface NotificationActivityContent {

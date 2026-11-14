@@ -55,10 +55,7 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
             lifecycleService,
         );
 
-        commentService = new CommentService(
-            dataSource,
-            lifecycleService,
-        );
+        commentService = new CommentService(dataSource, lifecycleService);
 
         collectionsService = new CollectionsService(
             dataSource.getRepository(Collection),
@@ -426,7 +423,9 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
                 expect(JSON.stringify(response)).not.toContain(
                     "Removed during projection",
                 );
-                expect(response.data[0]?.target).not.toEqual(expect.objectContaining({ focusId: comment.id }));
+                expect(response.data[0]?.target).not.toEqual(
+                    expect.objectContaining({ focusId: comment.id }),
+                );
                 expect(
                     await repo.findOneByOrFail({ id: event.id }),
                 ).toMatchObject({
@@ -730,6 +729,51 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
             readVersion: 1,
             preview: { text: "A new safe comment" },
             target: { focusId: replacement.id },
+        });
+    });
+
+    it("materializes the game cover url, or null when the game has no cover", async () => {
+        const coverId = 987654321012;
+        const coverUrl =
+            "//images.igdb.com/igdb/image/upload/t_thumb/notification-cover.jpg";
+        await dataSource.query(
+            "DELETE FROM game_cover WHERE id = ? OR gameId = 1",
+            [coverId],
+        );
+        await dataSource.query(
+            "INSERT INTO game_cover (id, gameId, imageId, url) VALUES (?, 1, ?, ?)",
+            [coverId, "notification-cover", coverUrl],
+        );
+        try {
+            const withCover = await activityFixture();
+            expect(
+                await projectorService.projectEvent(
+                    withCover.event.id,
+                    "activity-fixture",
+                ),
+            ).toBe(true);
+            const covered = await withCover.inbox.findAll(withCover.owner, {
+                limit: 20,
+            });
+            expect(covered.data[0].target).toMatchObject({
+                game: { id: 1, coverUrl },
+            });
+        } finally {
+            await dataSource.query("DELETE FROM game_cover WHERE gameId = 1");
+        }
+
+        const withoutCover = await activityFixture();
+        expect(
+            await projectorService.projectEvent(
+                withoutCover.event.id,
+                "activity-fixture",
+            ),
+        ).toBe(true);
+        const uncovered = await withoutCover.inbox.findAll(withoutCover.owner, {
+            limit: 20,
+        });
+        expect(uncovered.data[0].target).toMatchObject({
+            game: { id: 1, coverUrl: null },
         });
     });
 });

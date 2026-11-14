@@ -1,10 +1,11 @@
-import { DataSource } from "typeorm";
+import { DataSource, In } from "typeorm";
 import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
 import { randomUUID } from "crypto";
 import { BadRequestException } from "@nestjs/common";
 import { NotificationsService } from "./notifications.service";
 import { NotificationInbox } from "./entity/notification-inbox.entity";
 import { Profile } from "../profile/entities/profile.entity";
+import { UserFollow } from "../follow/entity/user-follow.entity";
 import { encodeNotificationCursor } from "./notifications.utils";
 
 describe("Sole notifications inbox API and read state (Section 7)", () => {
@@ -150,7 +151,12 @@ describe("Sole notifications inbox API and read state (Section 7)", () => {
         const userA = randomUUID();
         const userB = randomUUID();
 
-        const foreignCursor = encodeNotificationCursor(userB, new Date(), 10);
+        const foreignCursor = encodeNotificationCursor(
+            userB,
+            new Date(),
+            10,
+            "all",
+        );
         await expect(
             service.findAll(userA, { cursor: foreignCursor }),
         ).rejects.toThrow(BadRequestException);
@@ -158,6 +164,91 @@ describe("Sole notifications inbox API and read state (Section 7)", () => {
         await expect(
             service.findAll(userA, { cursor: "not-a-valid-cursor" }),
         ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejects cursors issued for a different filter and treats legacy cursors as all", async () => {
+        const userId = randomUUID();
+        const at = new Date("2026-10-25T12:00:00.000Z");
+
+        const allCursor = encodeNotificationCursor(userId, at, 10, "all");
+        await expect(
+            service.findAll(userId, { cursor: allCursor, filter: "unread" }),
+        ).rejects.toThrow(BadRequestException);
+
+        const unreadCursor = encodeNotificationCursor(userId, at, 10, "unread");
+        await expect(
+            service.findAll(userId, { cursor: unreadCursor, filter: "all" }),
+        ).rejects.toThrow(BadRequestException);
+        await expect(
+            service.findAll(userId, { cursor: unreadCursor }),
+        ).rejects.toThrow(BadRequestException);
+
+        const legacyCursor = Buffer.from(
+            JSON.stringify({ u: userId, t: at.getTime(), i: 10 }),
+        ).toString("base64url");
+        const legacyPage = await service.findAll(userId, {
+            cursor: legacyCursor,
+        });
+        expect(legacyPage.data).toEqual([]);
+        await expect(
+            service.findAll(userId, { cursor: legacyCursor, filter: "unread" }),
+        ).rejects.toThrow(BadRequestException);
+    });
+
+    it("filters unread items in order and advances the cursor without gaps or repeats", async () => {
+        const recipient = randomUUID();
+        await createProfile(recipient, `unread_${recipient.slice(0, 6)}`);
+        const repo = dataSource.getRepository(NotificationInbox);
+        const items: NotificationInbox[] = [];
+        for (let index = 0; index < 5; index++) {
+            items.push(
+                await repo.save({
+                    recipientUserId: recipient,
+                    groupKey: randomUUID(),
+                    type: "profile.followed",
+                    rootType: "profile",
+                    rootId: randomUUID(),
+                    actorIds: [],
+                    eventCount: 1,
+                    actorCount: 0,
+                    lastEventAt: new Date(
+                        Date.UTC(2026, 9, 25, 12, 0, 5 - index),
+                    ),
+                    version: 1,
+                    readVersion: index === 0 || index === 2 ? 1 : 0,
+                }),
+            );
+        }
+        try {
+            const all = await service.findAll(recipient, { limit: 10 });
+            expect(all.data.map((item) => item.id)).toEqual(
+                items.map((item) => item.id),
+            );
+            expect(all.unreadCount).toBe(3);
+
+            const page1 = await service.findAll(recipient, {
+                limit: 2,
+                filter: "unread",
+            });
+            expect(page1.data.map((item) => item.id)).toEqual([
+                items[1].id,
+                items[3].id,
+            ]);
+            expect(page1.pagination.hasMore).toBe(true);
+            expect(page1.unreadCount).toBe(3);
+
+            const page2 = await service.findAll(recipient, {
+                limit: 2,
+                filter: "unread",
+                cursor: page1.pagination.nextCursor!,
+            });
+            expect(page2.data.map((item) => item.id)).toEqual([items[4].id]);
+            expect(page2.pagination.hasMore).toBe(false);
+            expect(page2.pagination.nextCursor).toBeNull();
+            expect(page2.unreadCount).toBe(3);
+        } finally {
+            await repo.delete({ recipientUserId: recipient });
+        }
     });
 
     it("paginates groups with deterministic tie-breakers and batch actor hydration", async () => {
@@ -254,6 +345,95 @@ describe("Sole notifications inbox API and read state (Section 7)", () => {
         expect(page2.data[0].id).toBe(item1.id);
         expect(page2.pagination.hasMore).toBe(false);
         expect(page2.pagination.nextCursor).toBeNull();
+    });
+
+    it("hydrates avatar extension and batched recipient follow state per page", async () => {
+        const recipient = randomUUID();
+        const followedActor = randomUUID();
+        const strangerActor = randomUUID();
+        const deletedActor = randomUUID();
+        await createProfile(recipient, `rec_${recipient.slice(0, 8)}`);
+        await createProfile(followedActor, `fol_${followedActor.slice(0, 8)}`);
+        await createProfile(strangerActor, `str_${strangerActor.slice(0, 8)}`);
+
+        await dataSource.query(
+            "INSERT INTO profile_avatar (filename, mimetype, extension, size, encoding, createdAt, updatedAt) VALUES (?, 'image/png', 'png', 1234, '7bit', NOW(), NOW())",
+            [`avatar_${followedActor.slice(0, 8)}`],
+        );
+        const [avatar] = await dataSource.query(
+            "SELECT LAST_INSERT_ID() AS id",
+        );
+        await dataSource.query(
+            "UPDATE profile SET avatarId = ? WHERE userId = ?",
+            [avatar.id, followedActor],
+        );
+        await dataSource.query(
+            "INSERT INTO user_follow (followerUserId, followedUserId) VALUES (?, ?)",
+            [recipient, followedActor],
+        );
+
+        const inboxRepo = dataSource.getRepository(NotificationInbox);
+        const item = await inboxRepo.save(
+            inboxRepo.create({
+                recipientUserId: recipient,
+                groupKey: `like:${randomUUID()}`,
+                type: "content.liked",
+                actorIds: [followedActor, strangerActor, deletedActor],
+                actorCount: 3,
+                eventCount: 3,
+                lastEventAt: new Date("2026-10-25T12:00:00.000Z"),
+                version: 1,
+                readVersion: 0,
+                isVisible: true,
+                isRedacted: false,
+            }),
+        );
+
+        const followRepo = dataSource.getRepository(UserFollow);
+        const followFindSpy = jest.spyOn(followRepo, "find");
+        try {
+            const page = await service.findAll(recipient, { limit: 10 });
+            expect(page.data).toHaveLength(1);
+            expect(page.data[0].id).toBe(item.id);
+
+            const [followed, stranger, deleted] = page.data[0].actors;
+            expect(followed).toMatchObject({
+                userId: followedActor,
+                isFollowedByRecipient: true,
+                avatar: {
+                    filename: `avatar_${followedActor.slice(0, 8)}`,
+                    extension: "png",
+                },
+            });
+            expect(stranger).toMatchObject({
+                userId: strangerActor,
+                isFollowedByRecipient: false,
+                avatar: null,
+            });
+            expect(deleted).toMatchObject({
+                userId: deletedActor,
+                username: "[Deleted User]",
+                isFollowedByRecipient: false,
+            });
+
+            // One batched follow lookup for the whole page, not one per actor.
+            expect(followFindSpy).toHaveBeenCalledTimes(1);
+            expect(followFindSpy.mock.calls[0]![0]!.where).toEqual({
+                followerUserId: recipient,
+                followedUserId: In([
+                    followedActor,
+                    strangerActor,
+                    deletedActor,
+                ]),
+            });
+        } finally {
+            followFindSpy.mockRestore();
+            await inboxRepo.delete({ recipientUserId: recipient });
+            await dataSource.query(
+                "DELETE FROM user_follow WHERE followerUserId = ?",
+                [recipient],
+            );
+        }
     });
 
     it("verifies read acknowledgements: monotonic, session-scoped, future-rejection, concurrent unread", async () => {
