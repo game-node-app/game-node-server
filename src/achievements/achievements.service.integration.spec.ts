@@ -226,12 +226,38 @@ describe("achievement reads (integration)", () => {
             expiresAt: new Date(Date.now() + 60_000),
             isSingleUse: true,
         });
-        await codes.consume(user, code);
+        await expect(codes.consume(user, code)).resolves.toEqual({
+            achievementId: other.id,
+            tier: 1,
+        });
         expect(
             await ds
                 .getRepository(ObtainedAchievement)
                 .findBy({ profileUserId: user, achievementId: other.id }),
         ).toEqual([expect.objectContaining({ tier: 1 })]);
+
+        // Redeeming a second code for an already obtained tier answers the same
+        const again = await codes.create(admin, {
+            achievementId: other.id,
+            expiresAt: new Date(Date.now() + 60_000),
+            isSingleUse: true,
+        });
+        await expect(codes.consume(user, again.code)).resolves.toEqual({
+            achievementId: other.id,
+            tier: 1,
+        });
+
+        await ds.getRepository(AchievementCode).save({
+            id: "EXPIRED",
+            achievementId: other.id,
+            expiresAt: new Date(Date.now() - 1_000),
+            isForceExpired: false,
+            isSingleUse: true,
+            issuedByUserId: admin,
+        });
+        await expect(codes.consume(user, "EXPIRED")).rejects.toMatchObject({
+            status: 400,
+        });
     });
 
     it("v2 catalog exposes tiers, icon, event, window and cached rarity, masking unobtained hidden definitions", async () => {
@@ -337,14 +363,41 @@ describe("achievement reads (integration)", () => {
             value: 37,
             tier: 1,
             nextThreshold: 50,
+            obtainedTiers: [{ level: 1, obtainedAt: expect.any(Date) }],
         });
         expect(rows.find((row) => row.achievementId === never.id)).toEqual({
             achievementId: never.id,
             value: 0,
             tier: 0,
             nextThreshold: 1_000_000,
+            obtainedTiers: [],
         });
         expect(rows.map((row) => row.achievementId)).not.toContain(secret.id);
+    });
+
+    it("v2 progress lists every obtained tier with its date, ordered by level", async () => {
+        const user = await f.user();
+        const tiered = await f.definition("manual", {}, [
+            [1, 0],
+            [2, 0],
+            [3, 0],
+        ]);
+        const never = await f.definition("manual", {}, [[1, 0]]);
+        // Inserted out of order on purpose
+        await progress.grantTiers(user, tiered, [2], "backfill");
+        await progress.grantTiers(user, tiered, [1], "backfill");
+
+        const rows = await v2.getProgress(user);
+        const obtained = rows.find((row) => row.achievementId === tiered.id)!;
+
+        expect(obtained.tier).toBe(2);
+        expect(obtained.obtainedTiers).toEqual([
+            { level: 1, obtainedAt: expect.any(Date) },
+            { level: 2, obtainedAt: expect.any(Date) },
+        ]);
+        expect(
+            rows.find((row) => row.achievementId === never.id)!.obtainedTiers,
+        ).toEqual([]);
     });
 
     it("v2 events splits published events into active, upcoming and past", async () => {

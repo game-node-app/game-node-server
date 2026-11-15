@@ -31,6 +31,7 @@ import {
 import { AchievementDto } from "./dto/achievement.dto";
 import {
     AchievementEventsResponseDto,
+    AchievementObtainedTierDto,
     AchievementProgressDto,
     AchievementV2Dto,
 } from "./dto/achievement-v2.dto";
@@ -231,6 +232,17 @@ export class AchievementsService {
     }
 
     /**
+     * Whether the profile already obtained a tier of the definition.
+     */
+    hasObtainedTier(userId: string, achievementId: string, tier: number) {
+        return this.obtainedAchievementsRepository.existsBy({
+            profileUserId: userId,
+            achievementId,
+            tier,
+        });
+    }
+
+    /**
      * Manually grants the first tier of a published definition.
      */
     async grantAchievement(targetUserId: string, achievementId: string) {
@@ -335,10 +347,17 @@ export class AchievementsService {
             this.achievementsProgressService.findEvaluable(),
             this.progressRepository.find({ where: { profileUserId: userId } }),
             this.obtainedAchievementsRepository.find({
-                select: { achievementId: true, tier: true },
+                select: { achievementId: true, tier: true, createdAt: true },
                 where: { profileUserId: userId },
             }),
         ]);
+        const obtainedTiers = new Map<string, AchievementObtainedTierDto[]>();
+        for (const row of obtained.sort((a, b) => a.tier - b.tier)) {
+            obtainedTiers.set(row.achievementId, [
+                ...(obtainedTiers.get(row.achievementId) ?? []),
+                { level: row.tier, obtainedAt: row.createdAt },
+            ]);
+        }
         return definitions
             .filter(
                 (definition) =>
@@ -362,6 +381,7 @@ export class AchievementsService {
                     nextThreshold:
                         definition.tiers.find((next) => next.level > tier)
                             ?.threshold ?? null,
+                    obtainedTiers: obtainedTiers.get(definition.id) ?? [],
                 };
             });
     }

@@ -1,8 +1,11 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { AchievementsCodeService } from "./achievements-code.service";
 import { AuthGuard } from "../auth/auth.guard";
-import { CreateAchievementCodeRequestDto } from "./dto/create-achievement-code.dto";
+import {
+    CreateAchievementCodeRequestDto,
+    RedeemAchievementCodeResponseDto,
+} from "./dto/create-achievement-code.dto";
 import { Roles } from "../auth/roles.decorator";
 import { EUserRoles } from "../utils/constants";
 import { Session, SessionContainer } from "../auth/session.decorator";
@@ -18,6 +21,7 @@ export class AchievementsCodeController {
     ) {}
 
     @Get("consume/:code")
+    @ApiOkResponse({ type: RedeemAchievementCodeResponseDto })
     async consume(
         @Session() session: SessionContainer,
         @Param("code") code: string,

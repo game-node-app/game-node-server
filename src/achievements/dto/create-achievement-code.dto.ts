@@ -24,3 +24,11 @@ export class CreateAchievementCodeResponseDto {
     code: string;
     expiresAt: Date;
 }
+
+export class RedeemAchievementCodeResponseDto {
+    achievementId: string;
+    /**
+     * Tier obtained by redeeming the code
+     */
+    tier: number;
+}
