@@ -49,6 +49,22 @@ export class ProfileMetricsReportService {
         };
     }
 
+    /**
+     * Reviews, finished games and started games since `sinceDate`, for callers
+     * that choose their own window instead of the calendar week or month.
+     */
+    public async getActivityCountsSince(
+        userId: string,
+        sinceDate: dayjs.Dayjs,
+    ): Promise<{ reviewed: number; finished: number; played: number }> {
+        const [reviewed, { finished, played }] = await Promise.all([
+            this.getReviewedInPeriod(userId, sinceDate),
+            this.getGamesStatusInPeriod(userId, sinceDate),
+        ]);
+
+        return { reviewed, finished, played };
+    }
+
     private async getReviewedInPeriod(
         userId: string,
         sinceDate: dayjs.Dayjs,

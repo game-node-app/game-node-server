@@ -8,6 +8,7 @@ import { ProfileMetricsDistributionService } from "./profile-metrics-distributio
 import { ReviewsModule } from "../../reviews/reviews.module";
 import { PlaytimeModule } from "../../playtime/playtime.module";
 import { ProfileMetricsReportService } from "./profile-metrics-report.service";
+import { ProfileMetricsSummaryService } from "./profile-metrics-summary.service";
 
 @Module({
     imports: [
@@ -22,11 +23,13 @@ import { ProfileMetricsReportService } from "./profile-metrics-report.service";
         ProfileMetricsService,
         ProfileMetricsDistributionService,
         ProfileMetricsReportService,
+        ProfileMetricsSummaryService,
     ],
     exports: [
         ProfileMetricsService,
         ProfileMetricsDistributionService,
         ProfileMetricsReportService,
+        ProfileMetricsSummaryService,
     ],
 })
 export class ProfileMetricsModule {}
