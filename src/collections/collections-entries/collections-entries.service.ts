@@ -193,6 +193,37 @@ export class CollectionsEntriesService {
         return this.collectionEntriesRepository.findBy(by);
     }
 
+    /**
+     * Strictly after `sinceDate`, for entries updated in the window: an entry
+     * started and finished in the same window counts in both.
+     */
+    async countStartedAndFinishedAfter(
+        userId: string,
+        sinceDate: Date,
+    ): Promise<{ started: number; finished: number }> {
+        const row = await this.collectionEntriesRepository
+            .createQueryBuilder("ce")
+            .select(
+                "COUNT(CASE WHEN ce.startedAt > :sinceDate THEN 1 END)",
+                "started",
+            )
+            .addSelect(
+                "COUNT(CASE WHEN ce.finishedAt > :sinceDate THEN 1 END)",
+                "finished",
+            )
+            .where("ce.libraryUserId = :userId", { userId })
+            .andWhere("ce.updatedAt >= :sinceDate", { sinceDate })
+            .getRawOne<{
+                started: number | string;
+                finished: number | string;
+            }>();
+
+        return {
+            started: Number(row?.started ?? 0),
+            finished: Number(row?.finished ?? 0),
+        };
+    }
+
     private async findGameIdsWithCustomCover(userId: string) {
         // shortcut: loads all chosen IDs of the owner, replace with a join if a user reaches tens of thousands of choices.
         const choices = await this.userGameCoverRepository.find({

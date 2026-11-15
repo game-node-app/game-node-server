@@ -116,6 +116,32 @@ export class GameRepositoryService {
         return this.reOrderByIds(dto.gameIds, games);
     }
 
+    /**
+     * Genres of the given games without loading the game rows.
+     * Uncached on purpose: callers pass user-specific sets of game ids.
+     */
+    public async findGameGenresByIds(gameIds: number[]) {
+        const rows = await this.gameRepository
+            .createQueryBuilder("game")
+            .innerJoin("game.genres", "genre")
+            .select("game.id", "gameId")
+            .addSelect("genre.id", "genreId")
+            .addSelect("genre.name", "genreName")
+            .where("game.id IN (:...gameIds)", { gameIds })
+            .getRawMany<{
+                gameId: string | number;
+                genreId: string | number;
+                genreName: string | null;
+            }>();
+
+        // MySQL returns bigint columns as strings.
+        return rows.map((row) => ({
+            gameId: Number(row.gameId),
+            genreId: Number(row.genreId),
+            genreName: row.genreName,
+        }));
+    }
+
     async findAll(dto: BaseFindDto<Game>): Promise<TPaginationData<Game>> {
         const findOptions = buildBaseFindOptions(dto);
         return this.gameRepository.findAndCount(findOptions);

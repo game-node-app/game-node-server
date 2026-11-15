@@ -18,4 +18,5 @@ import { UserPlaytimeBase } from "./user-playtime-base.entity";
     "createdAt",
     "id",
 ])
+@Index("IDX_playtime_history_profile_period", ["profileUserId", "createdAt"])
 export class UserPlaytimeHistory extends UserPlaytimeBase {}

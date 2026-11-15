@@ -25,6 +25,11 @@ import { ProfileMetricsReportResponseDto } from "./dto/profile-metrics-report.dt
 import { Period } from "../../utils/period";
 import { ProfileMetricsReportService } from "./profile-metrics-report.service";
 import { IsEnum } from "class-validator";
+import {
+    ProfileMetricsSummaryPeriod,
+    ProfileMetricsSummaryResponseDto,
+} from "./dto/profile-metrics-summary.dto";
+import { ProfileMetricsSummaryService } from "./profile-metrics-summary.service";
 
 @Controller("profile/metrics")
 @ApiTags("profile-metrics")
@@ -34,6 +39,7 @@ export class ProfileMetricsController {
         private readonly profileMetricsService: ProfileMetricsService,
         private readonly profileMetricsDistributionService: ProfileMetricsDistributionService,
         private readonly profileMetricsReportService: ProfileMetricsReportService,
+        private readonly profileMetricsSummaryService: ProfileMetricsSummaryService,
     ) {}
 
     /**
@@ -74,6 +80,25 @@ export class ProfileMetricsController {
         @Param("period") period: Period.WEEK | Period.MONTH,
     ) {
         return this.profileMetricsReportService.generateReport(userId, period);
+    }
+
+    /**
+     * Playtime summary for the recap share card over a rolling week, month or
+     * year, with the previous window of the same length for comparison.
+     */
+    @Get("summary/:userId/:period")
+    @ApiOkResponse({
+        type: ProfileMetricsSummaryResponseDto,
+    })
+    @Public()
+    async getPeriodSummary(
+        @Param("userId") userId: string,
+        @Param("period") period: ProfileMetricsSummaryPeriod,
+    ) {
+        return this.profileMetricsSummaryService.generateSummary(
+            userId,
+            period,
+        );
     }
 
     @Get("distribution/type/:userId")

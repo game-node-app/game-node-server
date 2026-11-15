@@ -4,7 +4,6 @@ import { Period, PeriodToMinusDays } from "../../utils/period";
 import { ReviewsService } from "../../reviews/reviews.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import dayjs from "dayjs";
-import { MoreThanOrEqual } from "typeorm";
 import { Cacheable } from "../../utils/cacheable";
 import { hours } from "@nestjs/throttler";
 import { ProfileMetricsReportResponseDto } from "./dto/profile-metrics-report.dto";
@@ -49,21 +48,30 @@ export class ProfileMetricsReportService {
         };
     }
 
+    /**
+     * Reviews, finished games and started games since `sinceDate`, for callers
+     * that choose their own window instead of the calendar week or month.
+     */
+    public async getActivityCountsSince(
+        userId: string,
+        sinceDate: dayjs.Dayjs,
+    ): Promise<{ reviewed: number; finished: number; played: number }> {
+        const [reviewed, { finished, played }] = await Promise.all([
+            this.getReviewedInPeriod(userId, sinceDate),
+            this.getGamesStatusInPeriod(userId, sinceDate),
+        ]);
+
+        return { reviewed, finished, played };
+    }
+
     private async getReviewedInPeriod(
         userId: string,
         sinceDate: dayjs.Dayjs,
     ): Promise<number> {
-        const [userReviews] = await this.reviewsService.findAllByUserId(
+        return await this.reviewsService.countCreatedAfter(
             userId,
-            {
-                limit: 9999999,
-            },
+            sinceDate.toDate(),
         );
-        const reviewsInPeriod = userReviews.filter((review) =>
-            dayjs(review.createdAt).isAfter(sinceDate),
-        );
-
-        return reviewsInPeriod.length;
     }
 
     private async getGamesStatusInPeriod(
@@ -73,24 +81,15 @@ export class ProfileMetricsReportService {
         finished: number;
         played: number;
     }> {
-        const collectionEntriesInPeriod =
-            await this.collectionsEntriesService.findAllBy({
-                libraryUserId: userId,
-                updatedAt: MoreThanOrEqual(sinceDate.toDate()),
-            });
-
-        const finishedInPeriod = collectionEntriesInPeriod.filter((entry) =>
-            entry.finishedAt
-                ? dayjs(entry.finishedAt).isAfter(sinceDate)
-                : false,
-        ).length;
-        const playedInPeriod = collectionEntriesInPeriod.filter((entry) =>
-            entry.startedAt ? dayjs(entry.startedAt).isAfter(sinceDate) : false,
-        ).length;
+        const { started, finished } =
+            await this.collectionsEntriesService.countStartedAndFinishedAfter(
+                userId,
+                sinceDate.toDate(),
+            );
 
         return {
-            finished: finishedInPeriod,
-            played: playedInPeriod,
+            finished,
+            played: started,
         };
     }
 
