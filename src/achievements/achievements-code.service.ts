@@ -3,6 +3,7 @@ import * as crypto from "node:crypto";
 import {
     CreateAchievementCodeRequestDto,
     CreateAchievementCodeResponseDto,
+    RedeemAchievementCodeResponseDto,
 } from "./dto/create-achievement-code.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { AchievementCode } from "./entities/achievement-code.entity";
@@ -74,7 +75,10 @@ export class AchievementsCodeService {
         };
     }
 
-    async consume(userId: string, code: string) {
+    async consume(
+        userId: string,
+        code: string,
+    ): Promise<RedeemAchievementCodeResponseDto> {
         const possibleCode = await this.findOneById(code);
         if (!possibleCode) {
             throw new HttpException("Code not found", HttpStatus.NOT_FOUND);
@@ -93,7 +97,18 @@ export class AchievementsCodeService {
             );
         }
 
-        await this.achievementsService.grantAchievement(userId, achievementId);
+        if (
+            !(await this.achievementsService.hasObtainedTier(
+                userId,
+                achievementId,
+                1,
+            ))
+        ) {
+            await this.achievementsService.grantAchievement(
+                userId,
+                achievementId,
+            );
+        }
 
         if (possibleCode.isSingleUse) {
             await this.achievementCodeRepository.update(possibleCode.id, {
@@ -101,5 +116,7 @@ export class AchievementsCodeService {
                 isForceExpired: true,
             });
         }
+
+        return { achievementId, tier: 1 };
     }
 }

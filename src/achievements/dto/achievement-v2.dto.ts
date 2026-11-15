@@ -51,6 +51,11 @@ export class PaginatedAchievementsV2ResponseDto {
     pagination: PaginationInfo;
 }
 
+export class AchievementObtainedTierDto {
+    level: number;
+    obtainedAt: Date;
+}
+
 export class AchievementProgressDto {
     achievementId: string;
     value: number;
@@ -62,6 +67,10 @@ export class AchievementProgressDto {
      * Threshold of the next tier, null when every tier is obtained
      */
     nextThreshold: number | null;
+    /**
+     * Obtained tiers of the user, ordered by level. Empty when tier is 0.
+     */
+    obtainedTiers: AchievementObtainedTierDto[];
 }
 
 export class AchievementEventsResponseDto {
