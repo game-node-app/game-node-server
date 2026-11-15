@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from "@nestjs/common";
+import { HttpStatus } from "@nestjs/common";
 import { Period } from "../../utils/period";
 import { ProfileMetricsSummaryService } from "./profile-metrics-summary.service";
 
@@ -38,21 +38,22 @@ const row = (gameId: number, platformId: number, seconds: number): Row => ({
     totalPlaytimeInPeriodSeconds: seconds,
 });
 
+type GenreRow = {
+    gameId: number;
+    genreId: number;
+    genreName: string | null;
+};
+
 function fixture(options: {
     current: Row[];
     previous?: Row[];
-    games?: unknown[] | "not-found";
+    genres?: GenreRow[];
 }) {
     const getTotalPlaytimeForPeriod = jest
         .fn()
         .mockResolvedValueOnce(options.current)
         .mockResolvedValueOnce(options.previous ?? []);
-    const findAllByIds = jest.fn(async () => {
-        if (options.games === "not-found") {
-            throw new HttpException("No games", HttpStatus.NOT_FOUND);
-        }
-        return options.games ?? [];
-    });
+    const findGameGenresByIds = jest.fn(async () => options.genres ?? []);
     const getGamePlatformsMap = jest.fn(
         async () =>
             new Map([
@@ -68,21 +69,21 @@ function fixture(options: {
 
     const service = new ProfileMetricsSummaryService(
         { getTotalPlaytimeForPeriod } as never,
-        { findAllByIds, getGamePlatformsMap } as never,
+        { findGameGenresByIds, getGamePlatformsMap } as never,
         { getActivityCountsSince } as never,
     );
 
     return {
         service,
         getTotalPlaytimeForPeriod,
-        findAllByIds,
+        findGameGenresByIds,
         getActivityCountsSince,
     };
 }
 
 describe("ProfileMetricsSummaryService", () => {
     it("sums the windows and ranks games, platform and genre", async () => {
-        const { service } = fixture({
+        const { service, findGameGenresByIds } = fixture({
             current: [
                 row(1, 6, 7200),
                 row(1, 48, 3600),
@@ -90,21 +91,17 @@ describe("ProfileMetricsSummaryService", () => {
                 row(3, 48, 600),
             ],
             previous: [row(1, 6, 3600)],
-            games: [
-                { id: 1, genres: [{ id: 10, name: "RPG" }] },
-                {
-                    id: 2,
-                    genres: [
-                        { id: 10, name: "RPG" },
-                        { id: 11, name: "Puzzle" },
-                    ],
-                },
-                { id: 3, genres: [{ id: 11, name: "Puzzle" }] },
+            genres: [
+                { gameId: 1, genreId: 10, genreName: "RPG" },
+                { gameId: 2, genreId: 10, genreName: "RPG" },
+                { gameId: 2, genreId: 11, genreName: "Puzzle" },
+                { gameId: 3, genreId: 11, genreName: "Puzzle" },
             ],
         });
 
         const summary = await service.generateSummary("user-1", Period.WEEK);
 
+        expect(findGameGenresByIds).toHaveBeenCalledWith([1, 2, 3]);
         expect(summary.current).toEqual({
             totalPlaytimeSeconds: 13200,
             totalGames: 3,
@@ -142,7 +139,7 @@ describe("ProfileMetricsSummaryService", () => {
         const rows = Array.from({ length: 8 }, (_, index) =>
             row(index + 1, 6, (index + 1) * 100),
         );
-        const { service } = fixture({ current: rows, games: [] });
+        const { service } = fixture({ current: rows, genres: [] });
 
         const summary = await service.generateSummary("user-1", Period.MONTH);
 
@@ -152,7 +149,7 @@ describe("ProfileMetricsSummaryService", () => {
     });
 
     it("returns empty figures when nothing was played", async () => {
-        const { service, findAllByIds } = fixture({ current: [] });
+        const { service, findGameGenresByIds } = fixture({ current: [] });
 
         const summary = await service.generateSummary("user-1", Period.YEAR);
 
@@ -163,19 +160,52 @@ describe("ProfileMetricsSummaryService", () => {
         expect(summary.topGames).toEqual([]);
         expect(summary.topGenre).toBeNull();
         expect(summary.topPlatform).toBeNull();
-        expect(findAllByIds).not.toHaveBeenCalled();
+        expect(findGameGenresByIds).not.toHaveBeenCalled();
     });
 
     it("has no top genre when none of the games is in the catalog", async () => {
         const { service } = fixture({
             current: [row(1, 6, 100)],
-            games: "not-found",
+            genres: [],
         });
 
         const summary = await service.generateSummary("user-1", Period.WEEK);
 
         expect(summary.topGenre).toBeNull();
         expect(summary.topPlatform?.id).toBe(6);
+    });
+
+    it("only counts the genres of played games present in the catalog", async () => {
+        const { service } = fixture({
+            current: [row(1, 6, 100), row(2, 6, 50)],
+            genres: [{ gameId: 2, genreId: 10, genreName: "RPG" }],
+        });
+
+        const summary = await service.generateSummary("user-1", Period.WEEK);
+
+        expect(summary.topGenre).toEqual({
+            id: 10,
+            name: "RPG",
+            totalPlaytimeSeconds: 50,
+        });
+    });
+
+    it("breaks genre ties by id", async () => {
+        const { service } = fixture({
+            current: [row(1, 6, 100), row(2, 6, 100)],
+            genres: [
+                { gameId: 1, genreId: 11, genreName: "Puzzle" },
+                { gameId: 2, genreId: 10, genreName: "RPG" },
+            ],
+        });
+
+        const summary = await service.generateSummary("user-1", Period.WEEK);
+
+        expect(summary.topGenre).toEqual({
+            id: 10,
+            name: "RPG",
+            totalPlaytimeSeconds: 100,
+        });
     });
 
     it("uses rolling windows with the previous one ending where the current starts", async () => {

@@ -109,34 +109,19 @@ export class ProfileMetricsSummaryService {
             .map(([gameId]) => gameId);
         if (playedGameIds.length === 0) return null;
 
-        let games;
-        try {
-            games = await this.gameRepositoryService.findAllByIds({
-                gameIds: playedGameIds,
-                relations: { genres: true },
-            });
-        } catch (error) {
-            // None of the played games is in the catalog (yet).
-            if (
-                error instanceof HttpException &&
-                error.getStatus() === HttpStatus.NOT_FOUND
-            ) {
-                return null;
-            }
-            throw error;
-        }
+        // Games missing from the catalog (or without genres) simply contribute nothing.
+        const gameGenres =
+            await this.gameRepositoryService.findGameGenresByIds(playedGameIds);
 
         const secondsByGenre = new Map<number, number>();
         const genreNames = new Map<number, string>();
-        for (const game of games) {
-            const seconds = secondsByGame.get(game.id) ?? 0;
-            for (const genre of game.genres ?? []) {
-                genreNames.set(genre.id, genre.name ?? "");
-                secondsByGenre.set(
-                    genre.id,
-                    (secondsByGenre.get(genre.id) ?? 0) + seconds,
-                );
-            }
+        for (const { gameId, genreId, genreName } of gameGenres) {
+            const seconds = secondsByGame.get(gameId) ?? 0;
+            genreNames.set(genreId, genreName ?? "");
+            secondsByGenre.set(
+                genreId,
+                (secondsByGenre.get(genreId) ?? 0) + seconds,
+            );
         }
 
         const [top] = topEntries(secondsByGenre, 1);

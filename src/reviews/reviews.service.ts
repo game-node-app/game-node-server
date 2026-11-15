@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Logger, Optional } from "@nestjs/common";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Review } from "./entities/review.entity";
-import { FindOptionsRelations, In, Repository } from "typeorm";
+import { FindOptionsRelations, In, MoreThan, Repository } from "typeorm";
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
 import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 import { FindReviewDto } from "./dto/find-review.dto";
@@ -79,6 +79,15 @@ export class ReviewsService {
                 },
             },
             relations: this.relations,
+        });
+    }
+
+    async countCreatedAfter(userId: string, sinceDate: Date): Promise<number> {
+        return await this.reviewsRepository.count({
+            where: {
+                profileUserId: userId,
+                createdAt: MoreThan(sinceDate),
+            },
         });
     }
 
