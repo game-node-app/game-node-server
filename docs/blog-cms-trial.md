@@ -30,7 +30,7 @@ From the repository root:
 
 1. Set `CMS_SECRET` and `CMS_ADMIN_PASSWORD` in the root `.env` and restrict that
    file to mode 600. Never commit credentials.
-2. `yarn start:dev:docker` starts the API and all local dependencies, including
+2. `pnpm start:dev:docker` starts the API and all local dependencies, including
    the CMS on http://localhost:8055, after their health checks pass.
 3. `python3 docker/cms/trial.py`
 4. Open http://localhost:8055 using `CMS_ADMIN_EMAIL` and `CMS_ADMIN_PASSWORD`

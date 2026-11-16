@@ -6,9 +6,9 @@ Baseline captured on 2026-10-26 from integrated commit `76bf0a4d8ec6676344e1589e
 
 | Command | Result |
 | --- | --- |
-| `yarn test:igdb:services:up` | Passed; disposable `igdb-sync-test` MySQL and Redis became healthy. |
-| `yarn test:notifications` | Failed: 20/21 suites passed, 159/161 tests passed. Reaction, inbox, transport, delivery, and lifecycle suites passed. `notifications-cutover.integration.spec.ts` had two failures: an expected-absent `legacy-notification-<id>` event was already present, and a repeated conversion found two events for that legacy ID. The failure is recorded as baseline evidence and is not attributed to this change. |
-| `yarn build` | Passed (`nest build`). |
+| `pnpm test:igdb:services:up` | Passed; disposable `igdb-sync-test` MySQL and Redis became healthy. |
+| `pnpm test:notifications` | Failed: 20/21 suites passed, 159/161 tests passed. Reaction, inbox, transport, delivery, and lifecycle suites passed. `notifications-cutover.integration.spec.ts` had two failures: an expected-absent `legacy-notification-<id>` event was already present, and a repeated conversion found two events for that legacy ID. The failure is recorded as baseline evidence and is not attributed to this change. |
+| `pnpm build` | Passed (`nest build`). |
 
 The predecessor's recorded 21-suite/161-test result is not used as this fresh run. The cutover baseline failure is historical; the replacement-schema notification check below now passes.
 
@@ -85,7 +85,7 @@ platform/genre filters. Review filters use `gameId`, `authorId`, `excludeOwn` an
 
 The BullMQ `statistics-projection` queue contains only a recurring five-second `drain` tick, not one job per fact. Each tick admits at most 200 due facts using `FOR UPDATE SKIP LOCKED`, with one short transaction per fact so a persistence failure cannot block later facts. Metric effects and the fact's `done` state commit together. The projector never changes `likes_current`. Events remain uniquely keyed, so a lost tick or duplicate tick cannot duplicate effects.
 
-Projection failures use durable attempt counts, next-attempt times, and a bounded error string. Five retries follow the initial attempt; poison facts then become `failed` without blocking later facts. `yarn statistics:projection diagnostics` reports pending/failed counts and oldest pending age. To retry one reviewed failed event, run `yarn statistics:projection rearm --event-id=<numeric-event-id>`; the command only re-arms a currently failed fact. Queue repeat-job history is bounded to the latest 100 completed and failed tick records; statistics facts and their projection state live in MySQL.
+Projection failures use durable attempt counts, next-attempt times, and a bounded error string. Five retries follow the initial attempt; poison facts then become `failed` without blocking later facts. `pnpm statistics:projection diagnostics` reports pending/failed counts and oldest pending age. To retry one reviewed failed event, run `pnpm statistics:projection rearm --event-id=<numeric-event-id>`; the command only re-arms a currently failed fact. Queue repeat-job history is bounded to the latest 100 completed and failed tick records; statistics facts and their projection state live in MySQL.
 
 ## Lifecycle and account cleanup
 
@@ -109,7 +109,7 @@ owner or deletion endpoint; catalog updates preserve their targets.
 
 ## Fresh installation
 
-The statistics tables come with the `InitialSchema` baseline (`yarn migration:run`). No statistics conversion or rebuild command is required: source creation initializes targets, the projector processes new facts automatically, and the ranking scheduler refreshes prepared scores. The optional `yarn statistics:projection diagnostics` and `rearm` commands are for inspecting or retrying failed runtime projection work; `--local` selects the disposable `igdb_sync_test` fixture.
+The statistics tables come with the `InitialSchema` baseline (`pnpm migration:run`). No statistics conversion or rebuild command is required: source creation initializes targets, the projector processes new facts automatically, and the ranking scheduler refreshes prepared scores. The optional `pnpm statistics:projection diagnostics` and `rearm` commands are for inspecting or retrying failed runtime projection work; `--local` selects the disposable `igdb_sync_test` fixture.
 
 ## Ranking performance correction (2026-10-26)
 
@@ -125,7 +125,7 @@ Local measurements with approximately 302,000 eligible games, 20 items per page 
 
 Four concurrent ranking requests completed in 453 ms; twelve completed in 1.11 s. Combined genre/platform filters at offset 1,000 took 1.28 s. These are individual local measurements, not production latency percentiles. Exact eligible counts still scale with the filtered catalog size.
 
-Validation passed: 10 statistics suites / 48 tests, 3 frontend consumer suites / 4 tests, `yarn build` and `git diff --check`. Coverage includes native-ID ties, positive-to-zero pagination, missing prepared scores, duplicate genre memberships, privacy, cache fallback and applying/reversing/reapplying the covering-index migration. The index was applied to the local application database; no production migration or benchmark was run.
+Validation passed: 10 statistics suites / 48 tests, 3 frontend consumer suites / 4 tests, `pnpm build` and `git diff --check`. Coverage includes native-ID ties, positive-to-zero pagination, missing prepared scores, duplicate genre memberships, privacy, cache fallback and applying/reversing/reapplying the covering-index migration. The index was applied to the local application database; no production migration or benchmark was run.
 
 ## Trending game ranking performance (2026-11-05)
 
@@ -143,17 +143,17 @@ below cover those changes; overlapping results are not added together.
 
 | Command / selection | Result | Scope |
 | --- | --- | --- |
-| `yarn test:statistics` | Passed: 12 suites / 46 tests, 32.26 seconds. | Historical run covering storage/targets, capture, projection rollback/replay/poison handling, source APIs, rankings, conversion, rebuild and required-FK content creation. |
-| `yarn test:notifications` | Passed: 23 suites / 162 tests, 35.54 seconds. | Notification cutover, delivery, inbox/read state, transport, lifecycle, reactions, comments, reports and importer producers on replacement storage. The prior cutover baseline failure did not recur. |
+| `pnpm test:statistics` | Passed: 12 suites / 46 tests, 32.26 seconds. | Historical run covering storage/targets, capture, projection rollback/replay/poison handling, source APIs, rankings, conversion, rebuild and required-FK content creation. |
+| `pnpm test:notifications` | Passed: 23 suites / 162 tests, 35.54 seconds. | Notification cutover, delivery, inbox/read state, transport, lifecycle, reactions, comments, reports and importer producers on replacement storage. The prior cutover baseline failure did not recur. |
 | Focused consumers/contracts command below | Passed: 8 suites / 48 tests, 40.64 seconds. | Final reads/ranking snapshot/cache behavior, concurrent duplicate reactions, analytics rollback, strict/retired API contracts, recap half-open history, activity creation/idempotence, collection callers and game-create units. |
-| `yarn test --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts` | Passed: 1 suite / 5 tests, 16.92 seconds. | Required-FK game/reference creation, reference races, transaction rollback, replay and counter preservation. |
+| `pnpm test --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts` | Passed: 1 suite / 5 tests, 16.92 seconds. | Required-FK game/reference creation, reference races, transaction rollback, replay and counter preservation. |
 | Focused Manticore command below | Passed: 1 suite / 3 selected tests, 17.67 seconds. | Real Manticore indexing/popularity, sparse zero defaults, native IDs, HTTP contracts and timestamp preservation. Six unrelated campaign cases were intentionally not selected. |
-| `yarn build` | Passed. | Final Nest/TypeScript build. |
+| `pnpm build` | Passed. | Final Nest/TypeScript build. |
 | `git diff --check` | Passed. | Final whitespace/conflict check. |
 | `openspec validate rebuild-statistics-system --strict` | Passed. | Final planning/schema consistency. |
 
 ```bash
-yarn test --runInBand --testTimeout=120000 --runTestsByPath \
+pnpm test --runInBand --testTimeout=120000 --runTestsByPath \
   src/statistics/statistics-ranking.integration.spec.ts \
   src/statistics/statistics-source-api.integration.spec.ts \
   src/statistics/statistics-reaction.integration.spec.ts \
@@ -165,7 +165,7 @@ yarn test --runInBand --testTimeout=120000 --runTestsByPath \
 ```
 
 ```bash
-yarn test --config test/search/jest-integration.json --runInBand \
+pnpm test --config test/search/jest-integration.json --runInBand \
   --runTestsByPath test/search/search-harness.integration-spec.ts \
   --testNamePattern='3\.2 |3\.3 |4\.1 '
 ```

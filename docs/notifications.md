@@ -2,23 +2,23 @@
 
 ## Isolated verification
 
-Run `yarn test:igdb:services:up` to start the existing disposable MySQL/Redis stack,
-then `yarn test:notifications` for notification, reaction, and affected producer suites.
+Run `pnpm test:igdb:services:up` to start the existing disposable MySQL/Redis stack,
+then `pnpm test:notifications` for notification, reaction, and affected producer suites.
 These suites never load `.env` or use application `DB_*` settings. They accept only
 the fixture's loopback hosts and `igdb_sync_test` database, with its fixed test credentials.
 The helper creates the domain fixture schema and seeds game 1; test rows stay inside
 that disposable database. The unused connection credential table is omitted because
 its decorator's timestamp precision differs from its checked-in migration.
-Run `yarn test:igdb:services:down` to remove the test services and their data.
+Run `pnpm test:igdb:services:down` to remove the test services and their data.
 
 Only use the services-down command after other IGDB tests using this stack finish.
 
-The 2026-10-25 correction log records a passing `yarn test:notifications` run with
+The 2026-10-25 correction log records a passing `pnpm test:notifications` run with
 21 suites / 161 tests. The 2026-10-26 relay correction passed its three focused
 suites/tests (claim query count, processor dispatch, and real Redis scheduling)
-and `yarn build`. A real MySQL temporary-table check also verified the reduced
+and `pnpm build`. A real MySQL temporary-table check also verified the reduced
 claim queries and persisted ownership fields. A subsequent 2026-10-26 statistics
-integration run passed `yarn test:notifications`: 23 suites / 162 tests, including
+integration run passed `pnpm test:notifications`: 23 suites / 162 tests, including
 cutover, reaction, producer, lifecycle and transport behavior on the replacement
 schema. Earlier caller/schema, throttling and fixture failures remain historical
 in `openspec/changes/rebuild-notification-system/tasks.md`.
@@ -137,7 +137,7 @@ Materialized ready-to-render inbox items aggregated by recipient and group key.
    - Outbox records and delivered event records are preserved across the supported operational retry and migration horizon.
    - Purging transport jobs in BullMQ Redis does not affect database deduplication records, preventing re-delivery of delivered events.
 
-Schema verification: `yarn test --runInBand --testTimeout=120000
+Schema verification: `pnpm test --runInBand --testTimeout=120000
 src/notifications/notification-entities.integration.spec.ts` runs the checked-in
 notification migration on disposable MySQL, compares every column/index with the
 registered entities, checks all three unique identities, and exercises the importer

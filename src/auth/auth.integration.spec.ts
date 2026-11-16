@@ -29,7 +29,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
 import { ProfileVideoProcessor } from "../profile/profile-video/profile-video.processor";
 
 /**
- * Runs Better Auth against the dev MySQL (yarn migration:run first). Provider HTTP calls are stubbed on the
+ * Runs Better Auth against the dev MySQL (pnpm migration:run first). Provider HTTP calls are stubbed on the
  * provider objects, so each sign-in goes through the real /sign-in/social -> /callback/:provider flow.
  */
 

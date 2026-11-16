@@ -47,10 +47,10 @@ Run from the candidate repository checkout. These commands use only the
 `search-api-test` MySQL and Manticore volumes:
 
 ```bash
-yarn test:search:services:up
+pnpm test:search:services:up
 docker compose -p search-api-test -f test/search/docker-compose.yml \
   up -d --wait --force-recreate manticore
-yarn test:search:integration --testNamePattern='preserves searchable last-good indexes|passes engine-backed HTTP contract checks|returns exact filtered totals and deep pages'
+pnpm test:search:integration --testNamePattern='preserves searchable last-good indexes|passes engine-backed HTTP contract checks|returns exact filtered totals and deep pages'
 
 # The integration cases create the fixture schema and data. Exercise the same
 # manual rebuild command used for a staged index refresh, then reject incomplete
@@ -126,10 +126,10 @@ Before retiring the separate Go search deployment, combined ordinary API/MySQL t
 
 ```bash
 # 1. Start the disposable MySQL 8.4.13 + Manticore 29.9.0 harness
-npm run test:search:services:up
+pnpm run test:search:services:up
 
 # 2. Run the integration suite (includes test 4.3 combined load + live rotation rebuild)
-npm run test:search:integration
+pnpm run test:search:integration
 
 # 3. Inspect container CPU and memory usage
 docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}" \

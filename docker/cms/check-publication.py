@@ -167,7 +167,7 @@ try:
         env = os.environ.copy()
         env['CMS_TEST_ARTICLE_ID'] = article
         env['CMS_TEST_MEDIA_NAMES'] = json.dumps([public_name, inline_name])
-        result = subprocess.run(['yarn', 'ts-node', 'docker/cms/check-delivery.ts'], env=env, text=True, capture_output=True, timeout=60)
+        result = subprocess.run(['pnpm', 'exec', 'ts-node', 'docker/cms/check-delivery.ts'], env=env, text=True, capture_output=True, timeout=60)
         assert result.returncode == 0, result.stderr
         assert 'PASS: real CMS published fallback, cover and inline media through the public API' in result.stdout
         print('PASS: real CMS published fallback, cover and inline media through the public API')

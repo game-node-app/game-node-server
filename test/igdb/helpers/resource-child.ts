@@ -213,7 +213,7 @@ async function main() {
 }
 main().catch((error) => {
     process.stderr.write(
-        `Local IGDB resource check failed: ${error.message}\nStart services with corepack yarn test:igdb:services:up.\n`,
+        `Local IGDB resource check failed: ${error.message}\nStart services with corepack pnpm test:igdb:services:up.\n`,
     );
     process.exitCode = 1;
 });
