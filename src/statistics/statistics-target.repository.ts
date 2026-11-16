@@ -105,6 +105,65 @@ export async function ensureStatisticsTarget(
     return targetId;
 }
 
+export type LikeSummary = {
+    likesCount: number;
+    isLiked: boolean;
+};
+
+/** Reads like totals and optional viewer like state without locks, transactions, or writes. */
+export async function findLikeSummaries(
+    manager: EntityManager,
+    targetIds: ReadonlyArray<number | string>,
+    userId?: string,
+): Promise<Map<string, LikeSummary>> {
+    const summaries = new Map<string, LikeSummary>();
+    const uniqueIds = [
+        ...new Set(
+            targetIds
+                .filter((id) => id !== null && id !== undefined && id !== "")
+                .map((id) => String(id)),
+        ),
+    ];
+    if (uniqueIds.length === 0) return summaries;
+
+    for (const id of uniqueIds) {
+        summaries.set(id, { likesCount: 0, isLiked: false });
+    }
+
+    const queryIds = uniqueIds.map((id) => {
+        const numeric = Number(id);
+        return /^\d+$/.test(id) && Number.isSafeInteger(numeric) ? numeric : id;
+    });
+    const metricTotalTable = getTableName(manager, "metric_total");
+    const totals = await manager.query(
+        `SELECT targetId, metricValue FROM ${metricTotalTable} WHERE metricCode = 'likes_current' AND targetId IN (?)`,
+        [queryIds],
+    );
+    for (const row of totals) {
+        const summary = summaries.get(String(row.targetId));
+        if (!summary) continue;
+        const likesCount = Number(row.metricValue);
+        if (!Number.isSafeInteger(likesCount) || likesCount < 0) {
+            throw new Error("Statistics count is outside the safe numeric range");
+        }
+        summary.likesCount = likesCount;
+    }
+
+    if (userId) {
+        const stateTable = getTableName(manager, "engagement_state");
+        const states = await manager.query(
+            `SELECT targetId FROM ${stateTable} WHERE profileUserId = ? AND likedAt IS NOT NULL AND targetId IN (?)`,
+            [userId, queryIds],
+        );
+        for (const row of states) {
+            const summary = summaries.get(String(row.targetId));
+            if (summary) summary.isLiked = true;
+        }
+    }
+
+    return summaries;
+}
+
 export async function deactivateStatisticsTargets(
     manager: EntityManager,
     sourceType: StatisticsSourceType,

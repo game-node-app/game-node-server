@@ -29,6 +29,7 @@ import { ObtainedAchievement } from "../../../achievements/entities/obtained-ach
 @Unique(["profile", "obtainedGameAchievementActivity"])
 @Unique(["profile", "obtainedAchievement"])
 @Index(["createdAt", "id"])
+@Index("IDX_activity_profile_created", ["profileUserId", "createdAt"])
 @Index("UQ_activity_statistics_target", ["statisticsTargetId"], { unique: true })
 export class Activity {
     @PrimaryGeneratedColumn("uuid")

@@ -3,13 +3,19 @@ import { randomUUID } from "node:crypto";
 import { DataSource } from "typeorm";
 import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
 import { StatisticsSourceType } from "./statistics.constants";
-import { ensureStatisticsTarget } from "./statistics-target.repository";
+import { StatisticsService } from "./statistics.service";
+import {
+    ensureStatisticsTarget,
+    findLikeSummaries,
+} from "./statistics-target.repository";
 
 describe("statistics target initialization", () => {
     let dataSource: DataSource;
+    let statisticsService: StatisticsService;
 
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
+        statisticsService = new StatisticsService(dataSource);
     });
 
     afterAll(async () => {
@@ -123,5 +129,130 @@ describe("statistics target initialization", () => {
         } finally {
             await dataSource.query("UPDATE statistics_target SET sourceType = 'post' WHERE id = ?", [targetId]);
         }
+    });
+
+    it("reads batched like summaries without locks, writes, or extra queries", async () => {
+        const owner = randomUUID();
+        const viewer = randomUUID();
+        const otherUser = randomUUID();
+        for (const userId of [owner, viewer, otherUser]) {
+            await dataSource.query(
+                "INSERT IGNORE INTO profile (userId, username) VALUES (?, ?)",
+                [userId, `u_${userId.slice(0, 12)}`],
+            );
+        }
+
+        const likedPostId = randomUUID();
+        const unlikedPostId = randomUUID();
+        const zeroPostId = randomUUID();
+        for (const postId of [likedPostId, unlikedPostId, zeroPostId]) {
+            await dataSource.query(
+                "INSERT INTO post (id, profileUserId, gameId, content) VALUES (?, ?, 1, 'Batch summary fixture')",
+                [postId, owner],
+            );
+        }
+
+        await statisticsService.applyReaction(
+            viewer,
+            { sourceType: StatisticsSourceType.POST, sourceId: likedPostId },
+            true,
+        );
+        await statisticsService.applyReaction(
+            otherUser,
+            { sourceType: StatisticsSourceType.POST, sourceId: likedPostId },
+            true,
+        );
+        await statisticsService.applyReaction(
+            otherUser,
+            { sourceType: StatisticsSourceType.POST, sourceId: unlikedPostId },
+            true,
+        );
+        await statisticsService.recordView(viewer, {
+            sourceType: StatisticsSourceType.POST,
+            sourceId: unlikedPostId,
+            viewId: randomUUID(),
+        });
+        const zeroTargetId = await dataSource.transaction((manager) =>
+            ensureStatisticsTarget(manager, StatisticsSourceType.POST, zeroPostId),
+        );
+
+        const targetRows = await dataSource.query(
+            "SELECT id, statisticsTargetId FROM post WHERE id IN (?, ?)",
+            [likedPostId, unlikedPostId],
+        );
+        const byPost = new Map<string, number>(
+            targetRows.map((row: any) => [row.id, Number(row.statisticsTargetId)]),
+        );
+        const likedTargetId = byPost.get(likedPostId)!;
+        const unlikedTargetId = byPost.get(unlikedPostId)!;
+
+        const [{ count: targetsBefore }] = await dataSource.query(
+            "SELECT COUNT(*) AS count FROM statistics_target",
+        );
+        const [{ count: statesBefore }] = await dataSource.query(
+            "SELECT COUNT(*) AS count FROM engagement_state",
+        );
+
+        const querySpy = jest.spyOn(dataSource.manager, "query");
+        try {
+            const authenticated = await findLikeSummaries(
+                dataSource.manager,
+                [likedTargetId, unlikedTargetId, zeroTargetId!, 999_999_999],
+                viewer,
+            );
+            expect(querySpy).toHaveBeenCalledTimes(2);
+            for (const [sql] of querySpy.mock.calls) {
+                expect(String(sql).toUpperCase()).not.toContain("FOR UPDATE");
+                expect(String(sql).toUpperCase()).not.toMatch(/\b(INSERT|UPDATE|DELETE)\b/);
+            }
+            expect(authenticated.get(String(likedTargetId))).toEqual({
+                likesCount: 2,
+                isLiked: true,
+            });
+            expect(authenticated.get(String(unlikedTargetId))).toEqual({
+                likesCount: 1,
+                isLiked: false,
+            });
+            expect(authenticated.get(String(zeroTargetId))).toEqual({
+                likesCount: 0,
+                isLiked: false,
+            });
+            expect(authenticated.get("999999999")).toEqual({
+                likesCount: 0,
+                isLiked: false,
+            });
+
+            querySpy.mockClear();
+            const anonymous = await findLikeSummaries(
+                dataSource.manager,
+                [likedTargetId, unlikedTargetId],
+            );
+            expect(querySpy).toHaveBeenCalledTimes(1);
+            expect(String(querySpy.mock.calls[0][0])).not.toContain("engagement_state");
+            expect(anonymous.get(String(likedTargetId))).toEqual({
+                likesCount: 2,
+                isLiked: false,
+            });
+            expect(anonymous.get(String(unlikedTargetId))).toEqual({
+                likesCount: 1,
+                isLiked: false,
+            });
+
+            querySpy.mockClear();
+            const empty = await findLikeSummaries(dataSource.manager, [], viewer);
+            expect(querySpy).not.toHaveBeenCalled();
+            expect(empty.size).toBe(0);
+        } finally {
+            querySpy.mockRestore();
+        }
+
+        const [{ count: targetsAfter }] = await dataSource.query(
+            "SELECT COUNT(*) AS count FROM statistics_target",
+        );
+        const [{ count: statesAfter }] = await dataSource.query(
+            "SELECT COUNT(*) AS count FROM engagement_state",
+        );
+        expect(targetsAfter).toBe(targetsBefore);
+        expect(statesAfter).toBe(statesBefore);
     });
 });
