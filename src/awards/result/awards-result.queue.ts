@@ -3,6 +3,9 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { AWARDS_RESULT_QUEUE_NAME } from "./constants";
 import { Queue } from "bullmq";
 
+export const AWARDS_RESULT_SCHEDULER_ID = "awards-result-scheduler";
+export const AWARDS_RESULT_SCHEDULER_PATTERN = "0 * * * *";
+
 @Injectable()
 export class AwardsResultQueue {
     private logger = new Logger(AwardsResultQueue.name);
@@ -15,8 +18,9 @@ export class AwardsResultQueue {
 
     private registerResultJob() {
         this.queue
-            .upsertJobScheduler("awards-result-scheduler", {
-                pattern: "0 0,6,12,18 * * *",
+            .upsertJobScheduler(AWARDS_RESULT_SCHEDULER_ID, {
+                // Hourly lifecycle tick; same id replaces the old 6-hourly job.
+                pattern: AWARDS_RESULT_SCHEDULER_PATTERN,
             })
             .then(() => {
                 this.logger.log("Awards result scheduler registered.");

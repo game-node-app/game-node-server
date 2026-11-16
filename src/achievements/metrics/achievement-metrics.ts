@@ -237,6 +237,26 @@ const metrics: AchievementMetric[] = [
             ],
         },
     ),
+    countMetric(
+        {
+            key: "awards_ballot_completed",
+            description:
+                "1 if the user voted in every category of the GameNode Awards event of the given year.",
+            criteria: AwardsCriteria,
+            filters: ["year"],
+        },
+        {
+            from: `awards_vote v JOIN awards_category ac ON ac.id = v.categoryId
+                JOIN awards_event ae ON ae.id = ac.eventId`,
+            user: "v.profileUserId",
+            value: `LEAST((SELECT COUNT(*) FROM awards_category ballot_category WHERE ballot_category.eventId = ae.id) > 0
+                AND COUNT(DISTINCT v.categoryId) = (SELECT COUNT(*) FROM awards_category ballot_category WHERE ballot_category.eventId = ae.id), 1)`,
+            where: (criteria: AwardsCriteria) => [
+                " AND ae.year = ? AND v.deletedAt IS NULL",
+                [criteria.year],
+            ],
+        },
+    ),
     {
         key: "manual",
         description:

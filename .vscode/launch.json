@@ -5,14 +5,14 @@
             "name": "Dev: Server",
             "type": "node-terminal",
             "request": "launch",
-            "command": "yarn start:dev",
+            "command": "pnpm start:dev",
             "cwd": "${workspaceFolder}"
         },
         {
             "name": "Dev: Server with Docker",
             "type": "node-terminal",
             "request": "launch",
-            "command": "yarn start:dev:docker",
+            "command": "pnpm start:dev:docker",
             "cwd": "${workspaceFolder}"
         }
     ]

@@ -32,6 +32,27 @@ export class AwardsEvent extends BaseEntity {
         nullable: false,
     })
     resultsDate: Date;
+    /**
+     * Optional community nominations phase. When null, the event keeps the legacy vote rules.
+     */
+    @Column({
+        nullable: true,
+        type: "datetime",
+    })
+    nominationStartDate: Date | null;
+    @Column({
+        nullable: true,
+        type: "datetime",
+    })
+    nominationEndDate: Date | null;
+    /**
+     * Optional release cutoff. Games released after it are not eligible for the event.
+     */
+    @Column({
+        nullable: true,
+        type: "datetime",
+    })
+    eligibilityCutoffDate: Date | null;
     @OneToMany(() => AwardsCategory, (category) => category.event)
     categories: AwardsCategory[];
 }

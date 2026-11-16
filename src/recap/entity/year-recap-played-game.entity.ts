@@ -50,4 +50,19 @@ export class YearRecapPlayedGame extends BaseEntity {
         default: "0.00",
     })
     percentOfTotalPlaytimeFormatted: string;
+    /**
+     * First day the game was played in the year; falls back to the library start date.
+     */
+    @Column({ type: "date", nullable: true })
+    firstPlayedAt: string | null;
+    /**
+     * Day the game was finished in the year, if any.
+     */
+    @Column({ type: "datetime", nullable: true })
+    finishedAt: Date | null;
+    /**
+     * The user's review rating (0-5), if any.
+     */
+    @Column({ type: "float", nullable: true })
+    rating: number | null;
 }

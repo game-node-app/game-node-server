@@ -69,9 +69,9 @@ a merchant of record would be required for fully hands-off tax.
 
 ```bash
 docker compose up -d db redis
-yarn migration:run
+pnpm migration:run
 # add the four STRIPE_* values to .env
-yarn start
+pnpm start
 ```
 
 Signed webhook test without the Stripe CLI: build the event JSON, sign it with
@@ -79,7 +79,7 @@ Signed webhook test without the Stripe CLI: build the event JSON, sign it with
 `http://localhost:5000/v1/auth/stripe/webhook` with the `stripe-signature` header. Invalid and
 missing signatures return 400 and change no state.
 
-`yarn test src/billing --runInBand` covers offer selection, entitlement, checkout guards and the
+`pnpm test src/billing --runInBand` covers offer selection, entitlement, checkout guards and the
 cancel/restore errors.
 
 ## Production deployment order
@@ -88,7 +88,7 @@ cancel/restore errors.
    live IDs ready.
 2. Add the four secrets to the deployment. Compose passes them through; without them the API boots
    with billing disabled.
-3. Run the migration (`server_migration` runs `yarn migration:run`). It only adds
+3. Run the migration (`server_migration` runs `pnpm migration:run`). It only adds
    `user.stripeCustomerId` and the `subscription` table with its indexes.
 4. Deploy the API. Verify boot, `GET /v1/billing/offers`, one Checkout Session and webhook delivery.
 5. Smoke test monthly/yearly in BRL and USD, `GET /v1/billing/me`, cancel at period end, restore and

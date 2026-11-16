@@ -34,7 +34,7 @@ jobs:
           context: .
           push: true
           tags: ${{ env.IMAGE }}:${{ github.sha }}
-          # Layer cache in the GitHub Actions cache: unchanged yarn.lock skips the install layer.
+          # Layer cache in the GitHub Actions cache: unchanged pnpm-lock.yaml skips the install layer.
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

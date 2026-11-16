@@ -62,14 +62,14 @@ retention before the fix and now verify retention plus attempts/backoff.
 Run unit tests from the repository root:
 
 ```sh
-yarn test --runInBand --testPathPatterns='(importer-watch|game-achievement-sync|playtime-watch|connections.service|player-data-queue.service).*spec.ts$'
+pnpm test --runInBand --testPathPatterns='(importer-watch|game-achievement-sync|playtime-watch|connections.service|player-data-queue.service).*spec.ts$'
 ```
 
 For lifecycle integration, use a disposable local Redis instance:
 
 ```sh
 docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
-PLAYER_IMPORT_TEST_REDIS_PORT=17379 yarn test --runInBand --runTestsByPath src/sync/player-data/player-data-queue.lifecycle.spec.ts
+PLAYER_IMPORT_TEST_REDIS_PORT=17379 pnpm test --runInBand --runTestsByPath src/sync/player-data/player-data-queue.lifecycle.spec.ts
 docker stop player-import-test-redis
 ```
 
@@ -164,7 +164,7 @@ methods; no additional provider maximum is asserted.
 Run the provider and propagation fixture suites with:
 
 ```sh
-yarn test --runInBand --runTestsByPath src/sync/xbox/xbox-sync.service.spec.ts src/sync/psn/psn-sync.service.spec.ts src/sync/steam/steam-sync.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts src/playtime/watch/playtime-watch.processor.spec.ts
+pnpm test --runInBand --runTestsByPath src/sync/xbox/xbox-sync.service.spec.ts src/sync/psn/psn-sync.service.spec.ts src/sync/steam/steam-sync.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts src/playtime/watch/playtime-watch.processor.spec.ts
 ```
 
 These checks use provider fixtures, not live accounts. The installed PSN client
@@ -239,14 +239,14 @@ move that legacy HTTP compatibility to the controller boundary.
 Run the added failure/cache/deadline suites without provider credentials:
 
 ```sh
-yarn test --runInBand --testPathPatterns='(sync/(provider-sync.error|player-sync-attempt|steam/|psn/|xbox/)|utils/cacheable|game-achievement.service|game-achievement-sync.processor|importer-watch.processor|playtime-watch.processor).*spec.ts$'
+pnpm test --runInBand --testPathPatterns='(sync/(provider-sync.error|player-sync-attempt|steam/|psn/|xbox/)|utils/cacheable|game-achievement.service|game-achievement-sync.processor|importer-watch.processor|playtime-watch.processor).*spec.ts$'
 ```
 
 To test shared admission and actual queue retry counts, use disposable Redis:
 
 ```sh
 docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
-PLAYER_IMPORT_TEST_REDIS_PORT=17379 yarn test --runInBand --runTestsByPath src/sync/player-provider-budget.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts
+PLAYER_IMPORT_TEST_REDIS_PORT=17379 pnpm test --runInBand --runTestsByPath src/sync/player-provider-budget.service.spec.ts src/game/game-achievement/sync/game-achievement-sync.processor.spec.ts
 docker stop player-import-test-redis
 ```
 
@@ -324,7 +324,7 @@ Run the isolated MySQL/Redis state checks with:
 docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
 docker run --rm -d --name player-import-test-redis -p 127.0.0.1:17379:6379 redis:8.10.3-alpine3.23
 docker exec player-import-test-mysql mysqladmin ping --silent
-PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=17379 yarn test --runInBand --runTestsByPath src/sync/player-data/player-sync-state.integration.spec.ts src/sync/player-data/player-sync-state.service.spec.ts src/sync/player-data/player-sync-policy.spec.ts
+PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=17379 pnpm test --runInBand --runTestsByPath src/sync/player-data/player-sync-state.integration.spec.ts src/sync/player-data/player-sync-state.service.spec.ts src/sync/player-data/player-sync-policy.spec.ts
 docker stop player-import-test-mysql player-import-test-redis
 ```
 
@@ -335,15 +335,15 @@ competing owners, lease expiry, rollback, queue rejection/lost acknowledgement,
 replacement/deletion, independent empty-game success, and bootstrap stability.
 
 Before deployment, inspect pending migrations with
-`yarn typeorm migration:show -d data-source.ts`, review the intended environment,
-and run the existing `yarn migration:run` workflow before starting code that uses
+`pnpm typeorm migration:show -d data-source.ts`, review the intended environment,
+and run the existing `pnpm migration:run` workflow before starting code that uses
 these entities. Existing unrelated pending migrations require their own rollout
 review. Daily scheduler activation remains gated on the remaining acceptance work.
 
 Before rollback, stop scheduling/manual admissions and drain or safely reject all
 owner-bearing jobs. Stop every binary that uses the new tables, including targeted
 achievement reads/workers. Only then revert the two player-state migrations in
-reverse order using `yarn typeorm migration:revert -d data-source.ts`, checking the
+reverse order using `pnpm typeorm migration:revert -d data-source.ts`, checking the
 last migration name before each revert. Do not revert unrelated migrations. This
 removes freshness/admission markers and requires a conservative bootstrap if the
 new version is deployed again. Retain imported/history tables throughout; do not
@@ -508,7 +508,7 @@ Run these fixtures with disposable MySQL:
 ```sh
 docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
 docker exec player-import-test-mysql mysqladmin ping --silent
-PLAYER_IMPORT_TEST_MYSQL_PORT=14306 yarn test --runInBand --runTestsByPath src/game/game-achievement/sync/game-achievement-sync.transaction.integration.spec.ts
+PLAYER_IMPORT_TEST_MYSQL_PORT=14306 pnpm test --runInBand --runTestsByPath src/game/game-achievement/sync/game-achievement-sync.transaction.integration.spec.ts
 docker stop player-import-test-mysql
 ```
 
@@ -736,11 +736,11 @@ notified row's `autoImportRetryable` flag. Let the next eligible daily attempt
 perform the import; never update all legacy markers or delete history. Confirm
 the destination and current account before this opt-in repair. The MySQL recovery
 suite runs on the existing `igdb_sync_test` MySQL/Redis fixture through
-`yarn test:notifications`, without dotenv or application database settings. It
+`pnpm test:notifications`, without dotenv or application database settings. It
 verifies outbox and page rollback, mixed-outcome retry, preserved manual/ignored
 choices, ownership/deletion fallback, idempotent projection/read versions, and
 real queued full/manual/read races across a second daily cycle. Run migrations
-for the application with `yarn migration:run`; never point these fixture suites
+for the application with `pnpm migration:run`; never point these fixture suites
 at the application database.
 
 ## Operational summaries and health checks
@@ -812,11 +812,11 @@ success. These checks require no provider secrets or raw response bodies.
 ## Staged deployment, mixed versions, and rollback
 
 1. Keep `PLAYER_DATA_SYNC_ENABLED=false` in deployment configuration. Build with
-   `yarn build` and run the queue option/lifecycle suites above. Verify new run IDs
+   `pnpm build` and run the queue option/lifecycle suites above. Verify new run IDs
    execute despite retained completion and all queue writes are awaited. Ship the
    queue fixes before activating daily scheduling.
 2. Stop affected workers and manual refresh ingress for the migration window.
-   Apply `yarn migration:run` using the deployment's database configuration.
+   Apply `pnpm migration:run` using the deployment's database configuration.
    `SHOW TABLES LIKE 'player_%_sync'` and `SHOW INDEX FROM user_playtime_history`
    must show the additive sync tables and observation indexes. Check that the
    importer entry retry state remains intact. Domain import history is retained.
@@ -872,8 +872,8 @@ truncate the application database or flush Redis.
 docker run --rm -d --name player-import-test-mysql -p 127.0.0.1:14306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:8.4.13
 docker exec player-import-test-mysql mysqladmin ping --silent
 docker run --rm -d --name player-import-test-redis -p 127.0.0.1:14379:6379 redis:8.10.3-alpine3.23
-PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=14379 yarn test --runInBand --testPathPatterns='(playtime/|importer/|connection/|sync/(player|provider|steam/|psn/|xbox/)|game/(game-achievement/|external-game/)|activities/activities-(queue|repository)/|journal/|notifications/|collections/collections-entries/).*spec.ts$'
-yarn build
+PLAYER_IMPORT_TEST_MYSQL_PORT=14306 PLAYER_IMPORT_TEST_REDIS_PORT=14379 pnpm test --runInBand --testPathPatterns='(playtime/|importer/|connection/|sync/(player|provider|steam/|psn/|xbox/)|game/(game-achievement/|external-game/)|activities/activities-(queue|repository)/|journal/|notifications/|collections/collections-entries/).*spec.ts$'
+pnpm build
 openspec validate optimize-player-data-imports --strict
 docker stop player-import-test-redis player-import-test-mysql
 ```
@@ -900,7 +900,7 @@ PSN, or Xbox account/quota/cancellation checks were performed. Frontend review
 and deployment observation remain prerequisites, with daily activation disabled
 in the example configuration.
 
-Swagger uses the existing `yarn build` and `SwaggerModule.createDocument` flow from
+Swagger uses the existing `pnpm build` and `SwaggerModule.createDocument` flow from
 `src/main.ts`. For verification it was generated by constructing the app against
 an isolated empty MySQL database/Redis, creating the document **before** app
 initialization/listen, then closing the app. This resolves the full module graph
@@ -908,7 +908,7 @@ without starting workers, bootstrap, or schedulers. Review the manual DTO's
 integer ranges/optional dates and notification outcome fields; private delivery
 markers/identities are excluded from public response schemas.
 
-Verification after the four earlier review fixes: `yarn build` passed; the scoped player
+Verification after the four earlier review fixes: `pnpm build` passed; the scoped player
 import/controller/journal/collection/activity/notification/provider run passed
 333 tests in 52 suites with both disposable services enabled and no skipped
 integration checks. Strict OpenSpec validation and whitespace checks passed.

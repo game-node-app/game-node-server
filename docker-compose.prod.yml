@@ -190,7 +190,7 @@ services:
 
 
     healthcheck:
-      test: [ "CMD-SHELL", "yarn run healthcheck" ]
+      test: [ "CMD-SHELL", "pnpm run healthcheck" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -200,7 +200,7 @@ services:
     deploy:
       replicas: 1
 
-    command: "yarn start:prod"
+    command: "pnpm start:prod"
 
     volumes:
       - blog-cms-public:/app/blog-public-media:ro
@@ -223,7 +223,7 @@ services:
 
     # Coolify leaves restart "no" services out of the application status, so the exited container is not "degraded".
     restart: "no"
-    command: "yarn migration:run"
+    command: "pnpm migration:run"
 
     networks:
       - game_node_app

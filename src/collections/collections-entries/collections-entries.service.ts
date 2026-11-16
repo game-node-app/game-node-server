@@ -340,7 +340,7 @@ export class CollectionsEntriesService {
     }
 
     /**
-     * Find all entries that have been <strong>created/modified</strong> in period.
+     * Find all entries created or played in the period, even if edited later.
      * @param userId
      * @param period
      */
@@ -349,10 +349,28 @@ export class CollectionsEntriesService {
         period: { startDate: Date; endDate: Date },
     ) {
         return this.collectionEntriesRepository.find({
-            where: {
-                libraryUserId: userId,
-                updatedAt: Between(period.startDate, period.endDate),
-            },
+            where: [
+                {
+                    libraryUserId: userId,
+                    createdAt: Between(period.startDate, period.endDate),
+                },
+                {
+                    libraryUserId: userId,
+                    startedAt: Between(period.startDate, period.endDate),
+                },
+                {
+                    libraryUserId: userId,
+                    finishedAt: Between(period.startDate, period.endDate),
+                },
+                {
+                    libraryUserId: userId,
+                    droppedAt: Between(period.startDate, period.endDate),
+                },
+                {
+                    libraryUserId: userId,
+                    plannedAt: Between(period.startDate, period.endDate),
+                },
+            ],
             relations: this.relations,
         });
     }

@@ -258,20 +258,20 @@ Fluxo proposto:
 
 1. No desenvolvimento, alterar as entidades e gerar a migration contra um banco descartável no estado da última release. Para a baseline inicial, usar banco vazio. Revisar SQL, nomes, índices e qualquer operação destrutiva antes de commitar.
 2. No CI, aplicar as migrations em MySQL descartável na mesma versão de produção. Após a primeira release, testar também a atualização do esquema anterior com dados de teste. Publicar uma imagem imutável contendo o código e as migrations aprovadas.
-3. No deploy, a migration roda **automaticamente**: o serviço `server_migration` do `docker-compose.prod.yml` executa `yarn migration:run` uma vez e termina (`restart: "no"`), e o `server` depende dele com `service_completed_successfully`. Assim existe **um único executor de migrations** por deploy, mesmo com várias réplicas da API; migrations nunca rodam no startup das réplicas. Sem migrations pendentes, o serviço termina na hora. A tag da imagem de `server_migration` é independente da do `server`. Com `restart: "no"`, o Coolify deixa o container encerrado fora do status da aplicação, que não fica "degradada".
+3. No deploy, a migration roda **automaticamente**: o serviço `server_migration` do `docker-compose.prod.yml` executa `pnpm migration:run` uma vez e termina (`restart: "no"`), e o `server` depende dele com `service_completed_successfully`. Assim existe **um único executor de migrations** por deploy, mesmo com várias réplicas da API; migrations nunca rodam no startup das réplicas. Sem migrations pendentes, o serviço termina na hora. A tag da imagem de `server_migration` é independente da do `server`. Com `restart: "no"`, o Coolify deixa o container encerrado fora do status da aplicação, que não fica "degradada".
 4. Se a migration falhar, a API não sobe e o deploy aparece como falho no Coolify: inspecionar os logs do `server_migration` e o esquema antes de tentar de novo. Na primeira instalação, o mesmo deploy cria o esquema pela baseline e só então sobe a API. Depois que houver dados de produção, executar **Backup now** no MySQL antes de todo deploy que traga migration nova, porque ela roda sem intervenção.
 
 Comandos já disponíveis para desenvolvimento, com `DB_*` apontando somente para o banco descartável:
 
 ```bash
-yarn typeorm migration:generate ./src/migrations/DescribeChange -d ./data-source.ts
-yarn migration:run
-yarn typeorm migration:show -d ./data-source.ts
+pnpm typeorm migration:generate ./src/migrations/DescribeChange -d ./data-source.ts
+pnpm migration:run
+pnpm typeorm migration:show -d ./data-source.ts
 ```
 
 `InitialSchema` é a baseline; migrations seguintes devem descrever sua alteração.
 
-O runner atual (`yarn migration:run`) usa TypeScript e o DataSource procura em `src/`; por isso o `server_migration` usa a imagem completa do backend, com o layout e as dependências do Dockerfile atual. Para uma imagem futura contendo somente o build, ajustar o DataSource para carregar entidades/migrations compiladas e executar a CLI JavaScript; apenas trocar o comando para `dist/` não basta. Ver [execução de migrations TypeORM](https://orkhan.gitbook.io/typeorm/docs/docs/migrations/05-executing).
+O runner atual (`pnpm migration:run`) usa TypeScript e o DataSource procura em `src/`; por isso o `server_migration` usa a imagem completa do backend, com o layout e as dependências do Dockerfile atual. Para uma imagem futura contendo somente o build, ajustar o DataSource para carregar entidades/migrations compiladas e executar a CLI JavaScript; apenas trocar o comando para `dist/` não basta. Ver [execução de migrations TypeORM](https://orkhan.gitbook.io/typeorm/docs/docs/migrations/05-executing).
 
 Após haver dados em produção, manter migrations já aplicadas imutáveis. Para escalar com deploys graduais, adicionar primeiro tabelas/colunas compatíveis, publicar o código que as usa, preencher dados em lotes quando necessário e remover o esquema antigo somente em outra release, após retirar todos os consumidores antigos. Não há necessidade de preencher dados na instalação vazia.
 
@@ -388,7 +388,7 @@ Criar ou configurar os aplicativos OAuth para esta instalação; não há identi
 
 ### 7.4. Autenticação (Better Auth)
 
-A autenticação roda dentro da API (Better Auth), com usuários, sessões e contas de provedor nas tabelas `user`, `session`, `account` e `verification` do database `gamenode`, criadas pelas migrations versionadas (`yarn migration:run`, executado pelo `server_migration`). Não há serviço nem database de autenticação separado.
+A autenticação roda dentro da API (Better Auth), com usuários, sessões e contas de provedor nas tabelas `user`, `session`, `account` e `verification` do database `gamenode`, criadas pelas migrations versionadas (`pnpm migration:run`, executado pelo `server_migration`). Não há serviço nem database de autenticação separado.
 
 - **`BETTER_AUTH_SECRET`:** obrigatório no `server`; o Compose não sobe sem ele. Gerar com `openssl rand -base64 32` e guardar como secret no Coolify. Trocar o valor invalida as sessões e os tokens OAuth cifrados.
 - **Primeiro admin:** a API administrativa (`/v1/auth/admin/*`) exige um admin existente. Depois do primeiro login da conta, promovê-la uma única vez por SQL no database `gamenode`:
@@ -436,7 +436,7 @@ Após o provisionamento, produzir um backup com dados de teste, baixá-lo do R2 
 4. **Criar recursos privados no Coolify.** Criar o MySQL gerenciado, executar o provisionamento e configurar o backup (seção 6.3). Depois, implantar pelo Compose Redis cache/filas vazios, Directus, redes e volumes novos. Manter a API parada até a baseline estar pronta. Configurar limites, healthchecks e backups recorrentes. Somente serviços que recebem HTTP público entram no proxy; não publicar portas de banco.
 5. **Criar o esquema no primeiro deploy do Compose.** O `server_migration` aplica a baseline e a API só sobe depois que ele termina com sucesso (seção 6.2). Conferir nos logs dele o sucesso e a ausência de migrations pendentes. Não executar cutover de notificações, importar dumps ou fornecer referências fictícias de backup.
 6. **Provisionar o Directus.** Criar modelo/contas com `setup.py`, `model-constraints.sql` e `provision-readers.py`. Validar licença na URL definitiva, políticas editoriais e tokens distintos. O Compose gerencia o volume público compartilhado com a API. Ver [deploy CMS](blog-cms.md) e [licenciamento Directus](https://directus.io/docs/licensing/overview).
-7. **Subir Manticore, API e clientes em validação controlada.** Uma réplica inicial, refreshes de jogadores pausados quando aplicável. Conferir o início automático do IGDB interno com `yarn igdb:catalog status`. Após a carga inicial, executar e validar a indexação sem esperar pelo cron; conferir jogos às 03:00 UTC e usuários a cada hora. Busca vazia antes de importar o catálogo não indica perda de dados.
+7. **Subir Manticore, API e clientes em validação controlada.** Uma réplica inicial, refreshes de jogadores pausados quando aplicável. Conferir o início automático do IGDB interno com `pnpm igdb:catalog status`. Após a carga inicial, executar e validar a indexação sem esperar pelo cron; conferir jogos às 03:00 UTC e usuários a cada hora. Busca vazia antes de importar o catálogo não indica perda de dados.
 8. **Configurar hosts e TLS no proxy.** Web em 3000, API/busca em 5000, admin em 3000, CMS em 8055. Configurar pelo campo **Domains** de cada serviço; nenhum serviço publica porta no host. Confirmar no primeiro domínio que o proxy do Coolify alcança serviços no destino `gamenode`. Manter o MySQL compartilhado apenas na rede privada, com isolamento de permissões entre databases.
 9. **Publicar os demais serviços e abrir o acesso.** Completar a tabela de registros, certificados, proxy laranja, Full (strict), proteção editorial e bypass de cache, preservando o acesso ao Coolify já configurado. `search` deve encaminhar POST e corpo diretamente para a API, sem 301/302 de migração. Validar criação de contas, login, conteúdo, uploads e busca no web/admin/mobile e nos dois domínios da API/busca.
 10. **Ativar rotinas e observar.** Liberar refreshes de jogadores após os smokes e confirmar jobs, backups externos e alertas. Registrar a release inicial e agendar o ensaio de recuperação com dados de teste como rotina operacional, sem depender de backups anteriores.

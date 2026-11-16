@@ -78,7 +78,7 @@ image for local development; production uploads use external S3/R2 storage.
 If you are developing locally, you can use this command to spin up your containers and start the server:
 
 ```bash
-$ yarn start:dev:docker # docker compose up --build -d --wait && yarn start:dev
+$ pnpm start:dev:docker # docker compose up --build -d --wait && pnpm start:dev
 ```
 
 You can also attach your editor to the Docker container if it supports remote development (like VS Code, IntelliJ IDEA,
@@ -92,8 +92,18 @@ the [TypeORM team](https://github.com/typeorm/typeorm).
 ## Installation
 
 ```bash
-$ yarn
+$ corepack enable
+$ pnpm install --frozen-lockfile
 ```
+
+When migrating an existing Yarn checkout, delete its `node_modules` before installing.
+Use Node.js 24 (see `.nvmrc`). The pnpm version is pinned in `package.json`.
+
+For each Git worktree, run `pnpm install --frozen-lockfile` in its directory.
+The [global virtual store](https://pnpm.io/10.x/settings#enableglobalvirtualstore)
+shares dependency files across worktrees while each
+worktree keeps its own dependency links and lockfile. Do not copy `node_modules`
+from another checkout. CI and Docker use a local virtual store.
 
 Use the `.env.example` file as an example for your own `.env` file.  
 All parameters are required.  
@@ -120,7 +130,7 @@ SUPERTOKENS_CORE_URI=https://try.supertokens.io
 After setting up your database credentials in `.env`, run the migrations:
 
 ```bash
-$ yarn migration:run
+$ pnpm migration:run
 ```
 
 Apply committed migrations on first setup and whenever a release includes pending
@@ -130,7 +140,7 @@ When developing a schema change, first bring a disposable database to the previo
 release's schema, edit the entities, then generate and review a new migration:
 
 ```bash
-$ yarn typeorm migration:generate ./src/migrations/DescribeChange -d ./data-source.ts
+$ pnpm typeorm migration:generate ./src/migrations/DescribeChange -d ./data-source.ts
 ```
 
 Test and commit the migration before deployment. Keep applied migrations unchanged
@@ -220,13 +230,13 @@ under `/v1/achievements/admin`.
 
 ```bash
 # development
-$ yarn start
+$ pnpm start
 
 # watch mode
-$ yarn start:dev
+$ pnpm start:dev
 
 # production mode
-$ yarn start:prod
+$ pnpm start:prod
 ```
 
 ## MCP server
@@ -269,7 +279,7 @@ pending authorization after sign-in. The consent page must show the client name,
 URI, verified CIMD domain and requested scopes, and submit accept/deny through
 Better Auth's OAuth client. Discovery works before that companion change ships,
 but users cannot finish connecting. Local end-to-end checks need a stub consent
-page. Run `yarn migration:run` before starting the updated API.
+page. Run `pnpm migration:run` before starting the updated API.
 
 For a [Claude.ai custom connector](https://support.claude.com/en/articles/11176164-use-connectors-to-extend-claude-s-capabilities),
 open Customize → Connectors → **+** → **Add custom connector**, name it GameNode
@@ -297,23 +307,23 @@ curl http://localhost:5000/.well-known/oauth-authorization-server/v1/auth
 
 ```bash
 # TypeScript checks for source and tests
-$ yarn test:typecheck
+$ pnpm test:typecheck
 
 # unit tests
-$ yarn test
+$ pnpm test
 
 # e2e tests
-$ yarn test:e2e
+$ pnpm test:e2e
 
 # test coverage
-$ yarn test:cov
+$ pnpm test:cov
 ```
 
 Jest compiles TypeScript files individually, uses at most two workers, and recycles
 workers whose heap exceeds 512 MB after a suite. This is not a hard process memory
 limit, and recycling does not apply to `--runInBand`.
-Run `yarn test:typecheck` for full type checking; CI runs it
-before Jest. Use `yarn test --maxWorkers=N` to override the worker limit.
+Run `pnpm test:typecheck` for full type checking; CI runs it
+before Jest. Use `pnpm test --maxWorkers=N` to override the worker limit.
 
 Keep in mind that it's not possible to test Supertokens' routes (nor should we have to).
 

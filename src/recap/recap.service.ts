@@ -8,10 +8,16 @@ import { RecapStatusDto } from "./dto/recap-status.dto";
 import { minutes } from "@nestjs/throttler";
 import { YearRecapDto } from "./dto/year-recap.dto";
 import {
+    deriveBacklogGrowth,
+    deriveCalendarHighlights,
+    derivePlaytimeByPlatform,
+    deriveTopGames,
+    recapCacheId,
     transformRecapDistributions,
     transformRecapPlatforms,
 } from "./recap.utils";
 import { YearRecapPlatformCountDto } from "./dto/year-recap-platform.dto";
+import { RecapWindowService } from "./recap-window.service";
 
 @Injectable()
 export class RecapService {
@@ -37,12 +43,14 @@ export class RecapService {
         @InjectRepository(YearRecap)
         private readonly recapRepository: Repository<YearRecap>,
         private readonly profileService: ProfileService,
+        private readonly recapWindowService: RecapWindowService,
     ) {}
 
     public async getRecapStatus(
         userId: string,
         targetYear: number,
     ): Promise<RecapStatusDto> {
+        const phase = await this.recapWindowService.getRecapPhase(targetYear);
         const profile = await this.profileService.findOneByIdOrFail(userId);
         const isEligible = profile.createdAt.getFullYear() <= targetYear;
 
@@ -50,6 +58,7 @@ export class RecapService {
             return {
                 isRecapCreated: false,
                 isRecapEligible: false,
+                phase,
             };
         }
 
@@ -61,6 +70,7 @@ export class RecapService {
         return {
             isRecapCreated: isAvailable,
             isRecapEligible: isEligible,
+            phase,
         };
     }
 
@@ -84,7 +94,7 @@ export class RecapService {
             relations: this.relations,
             relationLoadStrategy: "query",
             cache: {
-                id: `recap_by_user_${userId}_year_${targetYear}`,
+                id: recapCacheId(userId, targetYear),
                 milliseconds: minutes(15),
             },
         })) as YearRecapDto;
@@ -115,6 +125,17 @@ export class RecapService {
         return {
             ...result,
             playedGamesByPlatform: sortedPlayedPlatformsCountArray,
+            backlogGrowth: deriveBacklogGrowth(
+                result.totalAddedGames,
+                result.totalFinishedGames,
+                result.totalDroppedGames,
+            ),
+            calendar: deriveCalendarHighlights(
+                result.dailyPlaytimeSeconds,
+                result.year,
+            ),
+            topGames: deriveTopGames(result.playedGames),
+            playtimeByPlatform: derivePlaytimeByPlatform(result.playedGames),
         };
     }
 }

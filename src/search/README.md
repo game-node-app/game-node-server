@@ -45,16 +45,16 @@ The disposable integration test stack (`test/search/docker-compose.yml`) uses Co
 
 ```bash
 # Start disposable MySQL + Manticore 29.9.0 fixture services
-npm run test:search:services:up
+pnpm run test:search:services:up
 
 # Run search unit tests
-npm run test:search:unit
+pnpm run test:search:unit
 
 # Run engine-backed search integration tests
-npm run test:search:integration
+pnpm run test:search:integration
 
 # Stop and remove only the disposable search-api-test containers and volumes
-npm run test:search:services:down
+pnpm run test:search:services:down
 ```
 
 ## Manticore Indexing, Schedules, & Operational Commands

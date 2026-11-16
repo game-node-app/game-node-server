@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { EntityManager } from "typeorm";
 import { randomUUID } from "node:crypto";
 import {
+    AWARDS_MILESTONES,
     MAX_PAYLOAD_BYTES,
     NotificationEventIntent,
     SUPPORTED_EVENT_TYPES,
@@ -201,6 +202,26 @@ export function validateNotificationIntent(
                 positiveId(payload.obtainedAchievementId) &&
                 identity(payload.achievementId) &&
                 positiveId(payload.tier);
+            break;
+        case "awards.milestone":
+            allowed = ["eventId", "year", "milestone"];
+            valid =
+                positiveId(payload.eventId) &&
+                positiveId(payload.year) &&
+                AWARDS_MILESTONES.includes(payload.milestone);
+            break;
+        case "recap.milestone":
+            allowed = ["year", "milestone"];
+            valid =
+                positiveId(payload.year) &&
+                ["available", "closed"].includes(payload.milestone);
+            break;
+        case "goal.reminder":
+            allowed = ["year", "target", "finished"];
+            valid =
+                positiveId(payload.year) &&
+                positiveId(payload.target) &&
+                count(payload.finished);
             break;
     }
     if (

@@ -11,7 +11,7 @@ async function main() {
     );
     if (docker.status !== 0)
         throw new Error(
-            "Docker Engine is unavailable. Start Docker, then run corepack yarn test:igdb:services:up",
+            "Docker Engine is unavailable. Start Docker, then run corepack pnpm test:igdb:services:up",
         );
     await Promise.all(
         [settings.mysql, settings.redis].map(
@@ -27,7 +27,7 @@ async function main() {
                         socket.destroy();
                         reject(
                             new Error(
-                                `Local service on ${host}:${port} is unavailable; run corepack yarn test:igdb:services:up`,
+                                `Local service on ${host}:${port} is unavailable; run corepack pnpm test:igdb:services:up`,
                             ),
                         );
                     });
@@ -35,7 +35,7 @@ async function main() {
                         socket.destroy();
                         reject(
                             new Error(
-                                "Local service connection timed out; run corepack yarn test:igdb:services:up",
+                                "Local service connection timed out; run corepack pnpm test:igdb:services:up",
                             ),
                         );
                     });

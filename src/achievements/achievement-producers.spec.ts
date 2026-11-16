@@ -38,19 +38,27 @@ describe("achievement producers", () => {
         });
     });
 
-    it("voting in the awards evaluates awards_participation", async () => {
+    it("voting in the awards evaluates participation and ballot completion", async () => {
         const achievements = { addTrackingJob: jest.fn() };
         const service = new AwardsVoteService(
             { findOneBy: async () => null, save: async () => ({}) } as any,
             {
-                getEventByCategoryId: async () => ({
+                getCategoryByIdOrFail: async () => ({
+                    id: 1,
+                    eventId: 1,
+                    name: "GOTY",
+                    isPersonalGOTY: false,
+                }),
+                getEventByIdOrFail: async () => ({
                     year: 2025,
                     votingStartDate: new Date(Date.now() - 60_000),
                     votingEndDate: new Date(Date.now() + 60_000),
+                    resultsDate: new Date(Date.now() + 120_000),
                 }),
             } as any,
-            { findOneByIdOrFail: async () => ({ name: "Game" }) } as any,
+            { findOneByIdOrFail: async () => ({ id: 1, name: "Game" }) } as any,
             achievements as any,
+            { existsBy: async () => true } as any,
         );
 
         await service.registerVote("user", { categoryId: 1, gameId: 1 });
@@ -58,6 +66,10 @@ describe("achievement producers", () => {
         expect(achievements.addTrackingJob).toHaveBeenCalledWith({
             userId: "user",
             metric: "awards_participation",
+        });
+        expect(achievements.addTrackingJob).toHaveBeenCalledWith({
+            userId: "user",
+            metric: "awards_ballot_completed",
         });
     });
 });

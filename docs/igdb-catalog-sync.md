@@ -2,15 +2,15 @@
 
 ## Local verification
 
-Use Node.js, Yarn Classic (or `corepack yarn`), Docker Engine and Docker Compose.
+Use Node.js, pnpm (or `corepack pnpm`), Docker Engine and Docker Compose.
 The disposable harness runs only MySQL 8 and Redis 8, without application `.env`,
 external authentication or live IGDB credentials.
 
 ```sh
-yarn test:igdb:services:up
-yarn test:igdb:unit
-yarn test:igdb:integration
-yarn test:igdb:services:down
+pnpm test:igdb:services:up
+pnpm test:igdb:unit
+pnpm test:igdb:integration
+pnpm test:igdb:services:down
 ```
 
 Startup waits for healthy services. Cleanup removes only the `igdb-sync-test`
@@ -104,7 +104,7 @@ See [the fresh statistics installation](statistics.md#fresh-installation) for
 schema ordering. Focused verification:
 
 ```bash
-yarn test --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts
+pnpm test --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts
 ```
 
 That fixture uses and cleans its own `gi_` tables in the existing
@@ -131,10 +131,10 @@ batch size 25, game concurrency 1 and relationship concurrency 2. Reports live a
 `.tmp/igdb-sync/resources-100.json` and `.tmp/igdb-sync/resources-1000.json`.
 Verified commands/results:
 
-- `corepack yarn test:igdb:unit`: 14 suites, 88 tests passed.
-- `corepack yarn test:igdb:integration`: 9 suites, 30 tests passed, including
+- `corepack pnpm test:igdb:unit`: 14 suites, 88 tests passed.
+- `corepack pnpm test:igdb:integration`: 9 suites, 30 tests passed, including
   the five two-process recovery cases.
-- `corepack yarn test:igdb:resources`: both fresh child runs passed. The
+- `corepack pnpm test:igdb:resources`: both fresh child runs passed. The
   100-page/2,500-game fixture completed in 127213 ms; the
   1,000-page/25,000-game fixture completed in 1200468 ms. Both observed one live
   page, one active game, two relationship operations and zero statistics jobs.
@@ -142,11 +142,11 @@ Verified commands/results:
 - Both JSON reports passed field/redaction checks and are ignored by Git.
   Source cursors were 7542 and 75042. Minimal forward references produced 2501
   and 25001 game/statistics rows, as expected, without increasing committed counts.
-- `corepack yarn build`, direct ESLint without `--fix`, `git diff --check`, and
+- `corepack pnpm build`, direct ESLint without `--fix`, `git diff --check`, and
   `openspec validate migrate-igdb-sync-with-bounded-batches --strict`: passed.
 
 Elapsed times and sampled memory are local diagnostics, not server-capacity
-acceptance thresholds. `corepack yarn test:igdb:services:down` completed successfully, removing both
+acceptance thresholds. `corepack pnpm test:igdb:services:down` completed successfully, removing both
 disposable containers, their network and volumes. No test worker processes remain;
 the ignored JSON reports are retained.
 
@@ -299,11 +299,11 @@ database settings for the operator command; it intentionally does not load
 `status` opens only MySQL. `resume` also requires queue Redis.
 
 ```sh
-yarn igdb:catalog status
-yarn igdb:catalog resume
+pnpm igdb:catalog status
+pnpm igdb:catalog resume
 # Disposable local fixtures use test-only connection defaults:
-yarn igdb:catalog status --local
-yarn igdb:catalog resume --local
+pnpm igdb:catalog status --local
+pnpm igdb:catalog resume --local
 ```
 
 Paused runs resume automatically after a one-hour cooldown; `resume` only skips
@@ -357,7 +357,7 @@ and complete game payloads are excluded from operational summaries.
 
 ## Resource and recovery checks
 
-For the internal-only follow-up, `corepack yarn build`, direct ESLint on changed
+For the internal-only follow-up, `corepack pnpm build`, direct ESLint on changed
 TypeScript files without `--fix`, strict OpenSpec validation, and
 `git diff --check` passed. The unit, integration, and resource suites have not
 yet been rerun against the follow-up; task 10.5 remains open. The ignored reports
@@ -372,13 +372,13 @@ a shared genre and a forward DLC reference; the final reference is above the
 scan boundary. Query-aware source responses are generated one page at a time.
 
 ```sh
-corepack yarn test:igdb:services:up
-corepack yarn test:igdb:unit
-corepack yarn test:igdb:integration
-corepack yarn test:igdb:resources
+corepack pnpm test:igdb:services:up
+corepack pnpm test:igdb:unit
+corepack pnpm test:igdb:integration
+corepack pnpm test:igdb:resources
 cat .tmp/igdb-sync/resources-100.json
 cat .tmp/igdb-sync/resources-1000.json
-corepack yarn test:igdb:services:down
+corepack pnpm test:igdb:services:down
 ```
 
 The resource run resets only the guarded `igdb_sync_test` import tables. Its

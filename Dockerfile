@@ -6,10 +6,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies; dropping the yarn cache keeps it out of the image layer.
-COPY package.json .
-COPY yarn.lock .
-RUN yarn install --frozen-lockfile && yarn cache clean
+# Keep dependencies inside the image instead of linking to the global worktree store.
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+RUN pnpm install --frozen-lockfile --config.enable-global-virtual-store=false --store-dir=/tmp/pnpm-store \
+    && rm -rf /tmp/pnpm-store
 
 # Copy source code
 COPY . .
@@ -18,4 +19,4 @@ COPY . .
 RUN rm -f .env
 
 # Build app
-RUN yarn build
+RUN pnpm build
