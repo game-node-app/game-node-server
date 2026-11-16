@@ -17,16 +17,36 @@ The system SHALL persist a changed playtime observation and its current aggregat
 - **WHEN** the same unchanged cumulative values are observed repeatedly
 - **THEN** no redundant changed-history entry is created
 
-### Requirement: Period estimates include a baseline
-Period playtime SHALL use the latest trusted observation at or before the period start and non-negative increments through its end. An increment SHALL be attributed to its ending observation for existing period responses and documented as an estimate; a first-ever cumulative sample SHALL NOT be invented as historical playtime.
+### Requirement: Period estimates include a baseline and first Steam recent window
+Period playtime SHALL use the latest trusted observation at or before the period start and non-negative increments through its end. An increment SHALL be attributed to its ending observation for existing period responses and documented as an estimate. A first-ever cumulative sample SHALL NOT be invented as historical playtime. As the only exception, when the first persisted observation for a playtime identity is Steam and carries a provider recent total, that recent total SHALL be spread uniformly over the 14 days before the observation and only its overlap with the period SHALL be counted. Overlap SHALL round the cumulative weight at both period edges so adjacent windows conserve the estimate. Negative or invalid recent time SHALL contribute zero, and recent time SHALL be capped to the non-negative lifetime total. Read-time estimates SHALL NOT create synthetic history, sessions, migrations, or daily calendars, and SHALL disclose that the uniform spread is a provider-window approximation rather than exact play dates. Summary period responses SHALL expose the first-observation part additively while keeping it included in the window total.
 
 #### Scenario: One observation inside the period
 - **WHEN** the baseline is 100 seconds before the period and one later observation is 160 seconds inside it
 - **THEN** the period contains an estimated 60 seconds rather than zero
 
 #### Scenario: First-ever lifetime sample
-- **WHEN** the first known observation reports 160 lifetime seconds without a trusted prior baseline
+- **WHEN** the first known observation reports 160 lifetime seconds without a trusted prior baseline and no provider recent total
 - **THEN** that sample establishes a baseline without asserting that all 160 seconds were played during the period
+
+#### Scenario: First Steam observation inside a rolling window
+- **WHEN** the first Steam observation reports 50,400 recent seconds 2 days before the end of a 7-day window
+- **THEN** the window includes 18,000 seconds, the 5 of 14 recent days that overlap it
+
+#### Scenario: First Steam observation after the window end
+- **WHEN** the first Steam observation ends after a previous window's end but its 14-day recent interval still overlaps that window
+- **THEN** the previous window includes its rounded overlap instead of losing the estimate because the observation itself is outside the window
+
+#### Scenario: First non-Steam sample
+- **WHEN** the first observation for a PSN, Xbox or other non-Steam identity has no trusted prior baseline
+- **THEN** it contributes zero period playtime
+
+#### Scenario: Invalid or inflated first Steam recent total
+- **WHEN** the first Steam observation reports negative recent time or more recent time than its non-negative lifetime total
+- **THEN** negative recent contributes zero and recent is capped to the lifetime total
+
+#### Scenario: Adjacent windows conserve the estimate
+- **WHEN** one first Steam observation overlaps two adjacent windows
+- **THEN** their rounded contributions sum to the rounded contribution of the combined window without double counting
 
 #### Scenario: Provider cumulative correction
 - **WHEN** cumulative totals change from 100 to 80 and later to 90

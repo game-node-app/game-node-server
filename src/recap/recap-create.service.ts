@@ -122,6 +122,7 @@ export class RecapCreateService {
         );
 
         const playedGamesParsed: Partial<YearRecapPlayedGame>[] = totalPerGame
+            .filter((playtime) => playtime.totalPlaytimeInPeriodSeconds > 0)
             .toSorted((a, b) => {
                 return (
                     b.totalPlaytimeInPeriodSeconds -

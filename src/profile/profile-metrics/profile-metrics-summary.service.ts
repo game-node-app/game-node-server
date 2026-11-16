@@ -21,12 +21,14 @@ type PlaytimeRow = {
     gameId: number;
     platformId: number;
     totalPlaytimeInPeriodSeconds: number;
+    estimatedPlaytimeSeconds?: number;
 };
 
 /**
- * Period summary behind the recap share card: real playtime deltas from the
- * playtime history, with the same figures for the previous window so clients
- * can show the change.
+ * Period summary behind the recap share card: playtime deltas from the
+ * playtime history plus the first Steam observation's recent-time estimate,
+ * with the same figures for the previous window so clients can show the
+ * change.
  */
 @Injectable()
 export class ProfileMetricsSummaryService {
@@ -183,6 +185,10 @@ function toWindow(rows: PlaytimeRow[]): ProfileMetricsSummaryWindowDto {
     return {
         totalPlaytimeSeconds: rows.reduce(
             (total, row) => total + row.totalPlaytimeInPeriodSeconds,
+            0,
+        ),
+        estimatedPlaytimeSeconds: rows.reduce(
+            (total, row) => total + (row.estimatedPlaytimeSeconds ?? 0),
             0,
         ),
         totalGames: [...secondsByGame.values()].filter((s) => s > 0).length,
