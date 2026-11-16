@@ -44,7 +44,9 @@ export class AwardsResultService {
                 },
             },
             relations: {
-                category: true,
+                category: {
+                    translations: true,
+                },
                 winners: true,
             },
             order: { category: { id: "ASC" }, winners: { position: "ASC" } },

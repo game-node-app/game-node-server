@@ -1,5 +1,7 @@
+import { ApiProperty } from "@nestjs/swagger";
 import type { AwardsPhase } from "../awards.utils";
 import type { AwardsPlayStatus } from "../play-context/awards-play-context.service";
+import { AwardsCategoryTranslationDto } from "./awards-category-translation.dto";
 
 export class AwardsBallotNomineeDto {
     gameId: number;
@@ -14,6 +16,8 @@ export class AwardsBallotCategoryDto {
     id: number;
     name: string;
     description: string;
+    @ApiProperty({ type: [AwardsCategoryTranslationDto] })
+    translations: AwardsCategoryTranslationDto[];
     order: number;
     isPersonalGOTY: boolean;
     /** The game the user voted for in this category, or null. */

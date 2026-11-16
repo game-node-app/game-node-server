@@ -1,4 +1,13 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import {
+    IsArray,
+    IsNotEmpty,
+    IsNumber,
+    IsOptional,
+    IsString,
+    ValidateNested,
+} from "class-validator";
+import { Type } from "class-transformer";
+import { AwardsCategoryTranslationInputDto } from "./awards-category-translation.dto";
 
 export class CreateUpdateAwardsCategoryDto {
     @IsOptional()
@@ -19,4 +28,9 @@ export class CreateUpdateAwardsCategoryDto {
     @IsOptional()
     @IsNumber()
     nomineeCount?: number;
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => AwardsCategoryTranslationInputDto)
+    translations?: AwardsCategoryTranslationInputDto[];
 }

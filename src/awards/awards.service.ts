@@ -146,6 +146,7 @@ export class AwardsService {
             },
             relations: {
                 suggestions: true,
+                translations: true,
             },
         });
         const now = dayjs();

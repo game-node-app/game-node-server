@@ -5,9 +5,12 @@ import {
     OneToMany,
     PrimaryGeneratedColumn,
 } from "typeorm";
+import { ApiProperty } from "@nestjs/swagger";
 import { BaseEntity } from "../../utils/db/base.entity";
+import { AwardsCategoryTranslationDto } from "../dto/awards-category-translation.dto";
 import { AwardsEvent } from "./awards-event.entity";
 import { AwardsCategorySuggestion } from "./awards-category-suggestion.entity";
+import { AwardsCategoryTranslation } from "./awards-category-translation.entity";
 
 /**
  * Defines a category to be voted in the Awards events.
@@ -73,4 +76,10 @@ export class AwardsCategory extends BaseEntity {
         (suggestion) => suggestion.category,
     )
     suggestions: AwardsCategorySuggestion[];
+    @OneToMany(
+        () => AwardsCategoryTranslation,
+        (translation) => translation.category,
+    )
+    @ApiProperty({ type: [AwardsCategoryTranslationDto] })
+    translations: AwardsCategoryTranslation[];
 }

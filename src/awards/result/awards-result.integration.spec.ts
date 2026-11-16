@@ -17,6 +17,7 @@ import { AwardsNominationService } from "../nomination/awards-nomination.service
 import { NotificationCampaignService } from "../../notifications/notification-campaign.service";
 import { AwardsEvent } from "../entity/awards-event.entity";
 import { AwardsCategory } from "../entity/awards-category.entity";
+import { AwardsCategoryTranslation } from "../entity/awards-category-translation.entity";
 import { AwardsCategoryResult } from "../entity/awards-category-result.entity";
 import { AwardsVote } from "../entity/awards-vote.entity";
 import { AwardsNomination } from "../entity/awards-nomination.entity";
@@ -212,6 +213,12 @@ describe("Awards results and scoreboard", () => {
             description: "Personal GOTY",
             order: 0,
             isPersonalGOTY: true,
+        });
+        await source.getRepository(AwardsCategoryTranslation).save({
+            categoryId: playedCategory.id,
+            locale: "en",
+            name: "Played (EN)",
+            description: "Played-only share (EN)",
         });
 
         // 1000 votes, 600 of them from voters who played the game they voted for:
@@ -514,6 +521,32 @@ describe("Awards results and scoreboard", () => {
                 gameId: GAME_B,
                 playedVotes: 426,
             });
+        });
+
+        it("returns each result's category translations, and [] when there are none", async () => {
+            const response = await request(server())
+                .get(`/v1/awards/${resultEvent.id}/results`)
+                .expect(200);
+
+            const played = response.body.find(
+                (row: { categoryId: number }) =>
+                    row.categoryId === playedCategory.id,
+            );
+            expect(played.category.name).toBe("Played");
+            expect(played.category.description).toBe("Played-only share");
+            expect(played.category.translations).toMatchObject([
+                {
+                    locale: "en",
+                    name: "Played (EN)",
+                    description: "Played-only share (EN)",
+                },
+            ]);
+
+            const tie = response.body.find(
+                (row: { categoryId: number }) =>
+                    row.categoryId === tieCategory.id,
+            );
+            expect(tie.category.translations).toEqual([]);
         });
 
         it("returns an empty list before results are computed", async () => {

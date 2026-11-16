@@ -9,6 +9,8 @@ import { HttpException } from "@nestjs/common";
 import { AwardsAdminService } from "./awards-admin.service";
 import { CreateUpdateAwardsEventDto } from "../dto/create-update-awards-event.dto";
 import { CreateUpdateAwardsCategoryDto } from "../dto/create-update-awards-category.dto";
+import { AwardsCategoryTranslation } from "../entity/awards-category-translation.entity";
+import { AwardsCategory } from "../entity/awards-category.entity";
 
 function fixture() {
     const events = {
@@ -18,6 +20,19 @@ function fixture() {
         save: jest.fn(async (entity) => ({ id: 1, ...entity })),
     };
     const suggestions = { save: jest.fn(), findOneByOrFail: jest.fn() };
+    const manager = {
+        save: jest.fn(async (_target, entity) => ({
+            ...entity,
+            id: entity.id ?? 1,
+        })),
+        delete: jest.fn(),
+        insert: jest.fn(),
+    };
+    const dataSource = {
+        transaction: jest.fn(async (run: (manager: any) => void) =>
+            run(manager),
+        ),
+    };
     const awardsService = {
         getEventByYear: jest.fn().mockResolvedValue(undefined),
         getEventById: jest.fn().mockResolvedValue(undefined),
@@ -27,8 +42,17 @@ function fixture() {
         categories as any,
         suggestions as any,
         awardsService as any,
+        dataSource as any,
     );
-    return { service, events, categories, awardsService };
+    return {
+        service,
+        events,
+        categories,
+        suggestions,
+        manager,
+        dataSource,
+        awardsService,
+    };
 }
 
 const calendar: CreateUpdateAwardsEventDto = {
@@ -180,11 +204,11 @@ describe("AwardsAdminService event dates", () => {
 
 describe("AwardsAdminService category nomineeCount", () => {
     it("preserves the GOTY flags when editing a special category", async () => {
-        const { service, categories, awardsService } = fixture();
+        const { service, manager, awardsService } = fixture();
         awardsService.getEventByYear.mockResolvedValue({ id: 10, year: 2026 });
         await service.createOrUpdateAwardsCategory({ ...dto, categoryId: 1 });
-        expect(categories.save.mock.calls[0][0]).not.toHaveProperty("isGOTY");
-        expect(categories.save.mock.calls[0][0]).not.toHaveProperty(
+        expect(manager.save.mock.calls[0][1]).not.toHaveProperty("isGOTY");
+        expect(manager.save.mock.calls[0][1]).not.toHaveProperty(
             "isPersonalGOTY",
         );
     });
@@ -198,13 +222,93 @@ describe("AwardsAdminService category nomineeCount", () => {
     };
 
     it("stores nomineeCount with the category", async () => {
-        const { service, categories, awardsService } = fixture();
+        const { service, manager, awardsService } = fixture();
         awardsService.getEventByYear.mockResolvedValue({ id: 10, year: 2026 });
 
         await service.createOrUpdateAwardsCategory(dto);
 
-        expect(categories.save).toHaveBeenCalledWith(
+        expect(manager.save).toHaveBeenCalledWith(
+            AwardsCategory,
             expect.objectContaining({ nomineeCount: 4, eventId: 10 }),
         );
+    });
+});
+
+describe("AwardsAdminService category translations", () => {
+    const category: CreateUpdateAwardsCategoryDto = {
+        year: 2026,
+        name: "Narrativa",
+        description: "Story",
+        order: 2,
+    };
+
+    it("rejects duplicate locales with 400 before writing", async () => {
+        const { service, dataSource } = fixture();
+
+        await expect(
+            service.createOrUpdateAwardsCategory({
+                ...category,
+                translations: [
+                    { locale: "en", name: "Narrative", description: "Story" },
+                    { locale: "en", name: "Narrative 2", description: "Story" },
+                ],
+            }),
+        ).rejects.toMatchObject({ status: 400 });
+        expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it("leaves translations untouched when the field is omitted", async () => {
+        const { service, manager, awardsService } = fixture();
+        awardsService.getEventByYear.mockResolvedValue({ id: 10, year: 2026 });
+
+        await service.createOrUpdateAwardsCategory(category);
+
+        expect(manager.delete).not.toHaveBeenCalled();
+        expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it("replaces the set with the submitted translations", async () => {
+        const { service, manager, awardsService } = fixture();
+        awardsService.getEventByYear.mockResolvedValue({ id: 10, year: 2026 });
+
+        await service.createOrUpdateAwardsCategory({
+            ...category,
+            categoryId: 3,
+            translations: [
+                {
+                    locale: "pt-BR",
+                    name: "Narrativa",
+                    description: "História",
+                },
+            ],
+        });
+
+        expect(manager.delete).toHaveBeenCalledWith(AwardsCategoryTranslation, {
+            categoryId: 3,
+        });
+        expect(manager.insert).toHaveBeenCalledWith(AwardsCategoryTranslation, [
+            {
+                categoryId: 3,
+                locale: "pt-BR",
+                name: "Narrativa",
+                description: "História",
+            },
+        ]);
+    });
+
+    it("clears translations for an empty array", async () => {
+        const { service, manager, awardsService } = fixture();
+        awardsService.getEventByYear.mockResolvedValue({ id: 10, year: 2026 });
+
+        await service.createOrUpdateAwardsCategory({
+            ...category,
+            categoryId: 3,
+            translations: [],
+        });
+
+        expect(manager.delete).toHaveBeenCalledWith(AwardsCategoryTranslation, {
+            categoryId: 3,
+        });
+        expect(manager.insert).not.toHaveBeenCalled();
     });
 });

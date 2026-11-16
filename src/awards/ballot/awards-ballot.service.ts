@@ -44,7 +44,7 @@ export class AwardsBallotService {
             this.awardsCategoryRepository.find({
                 where: { eventId },
                 order: { order: "ASC" },
-                relations: { suggestions: true },
+                relations: { suggestions: true, translations: true },
             }),
             this.awardsVoteRepository.find({
                 where: {
@@ -102,6 +102,11 @@ export class AwardsBallotService {
                     id: category.id,
                     name: category.name,
                     description: category.description,
+                    translations: category.translations.map((translation) => ({
+                        locale: translation.locale,
+                        name: translation.name,
+                        description: translation.description,
+                    })),
                     order: category.order,
                     isPersonalGOTY: category.isPersonalGOTY,
                     voteGameId: votesByCategory.get(category.id) ?? null,

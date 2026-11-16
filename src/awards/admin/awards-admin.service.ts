@@ -1,5 +1,5 @@
 import { HttpException, Injectable } from "@nestjs/common";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 import { AwardsEvent } from "../entity/awards-event.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { CreateUpdateAwardsEventDto } from "../dto/create-update-awards-event.dto";
@@ -9,6 +9,8 @@ import { AwardsCategory } from "../entity/awards-category.entity";
 import { AwardsService } from "../awards.service";
 import { AddCategorySuggestionDto } from "../dto/add-category-suggestion.dto";
 import { AwardsCategorySuggestion } from "../entity/awards-category-suggestion.entity";
+import { AwardsCategoryTranslation } from "../entity/awards-category-translation.entity";
+import { AwardsCategoryTranslationInputDto } from "../dto/awards-category-translation.dto";
 
 @Injectable()
 export class AwardsAdminService {
@@ -20,6 +22,7 @@ export class AwardsAdminService {
         @InjectRepository(AwardsCategorySuggestion)
         private readonly awardsCategorySuggestionRepository: Repository<AwardsCategorySuggestion>,
         private readonly awardsService: AwardsService,
+        private readonly dataSource: DataSource,
     ) {}
 
     @Transactional()
@@ -116,6 +119,8 @@ export class AwardsAdminService {
     public async createOrUpdateAwardsCategory(
         dto: CreateUpdateAwardsCategoryDto,
     ) {
+        this.assertUniqueTranslationLocales(dto.translations);
+
         const targetEvent = await this.awardsService.getEventByYear(dto.year);
         if (targetEvent == undefined) {
             throw new HttpException(
@@ -124,14 +129,46 @@ export class AwardsAdminService {
             );
         }
 
-        await this.awardsCategoryRepository.save({
-            id: dto.categoryId,
-            eventId: targetEvent.id,
-            name: dto.name,
-            description: dto.description,
-            order: dto.order,
-            nomineeCount: dto.nomineeCount,
+        await this.dataSource.transaction(async (manager) => {
+            const category = await manager.save(AwardsCategory, {
+                id: dto.categoryId,
+                eventId: targetEvent.id,
+                name: dto.name,
+                description: dto.description,
+                order: dto.order,
+                nomineeCount: dto.nomineeCount,
+            });
+            // Null behaves like omitted: only an explicit array replaces the set.
+            if (dto.translations == null) return;
+
+            await manager.delete(AwardsCategoryTranslation, {
+                categoryId: category.id,
+            });
+            if (dto.translations.length === 0) return;
+
+            await manager.insert(
+                AwardsCategoryTranslation,
+                dto.translations.map(({ locale, name, description }) => ({
+                    categoryId: category.id,
+                    locale,
+                    name,
+                    description,
+                })),
+            );
         });
+    }
+
+    private assertUniqueTranslationLocales(
+        translations?: AwardsCategoryTranslationInputDto[],
+    ) {
+        if (translations == null) return;
+        const locales = new Set(translations.map(({ locale }) => locale));
+        if (locales.size !== translations.length) {
+            throw new HttpException(
+                "Duplicate translation locales are not allowed.",
+                400,
+            );
+        }
     }
 
     public async addCategorySuggestion({
