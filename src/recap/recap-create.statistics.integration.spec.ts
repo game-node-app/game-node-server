@@ -42,4 +42,49 @@ describe("recap likes from retained statistics facts", () => {
         expect(result).toMatchObject({ total: 1, historyComplete: true });
         expect(result.completeSince).toBeNull();
     });
+
+    it("excludes zero-contribution playtime rows from recap games", async () => {
+        const recap = new RecapCreateService(
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {
+                getTotalPlaytimeForPeriod: jest.fn().mockResolvedValue([
+                    {
+                        gameId: 1,
+                        platformId: 6,
+                        source: "steam",
+                        totalPlaytimeInPeriodSeconds: 0,
+                    },
+                    {
+                        gameId: 2,
+                        platformId: 6,
+                        source: "steam",
+                        totalPlaytimeInPeriodSeconds: 60,
+                        estimatedPlaytimeSeconds: 36,
+                    },
+                ]),
+            } as any,
+            {} as any,
+            {} as any,
+            dataSource,
+        );
+
+        const result = await (recap as any).getPlayedGamesInPeriod(
+            randomUUID(),
+            {
+                startDate: dayjs("2026-01-01T00:00:00.000Z"),
+                endDate: dayjs("2027-01-01T00:00:00.000Z"),
+            },
+            [],
+        );
+
+        expect(result.totalPlaytimeInPeriodSeconds).toBe(60);
+        expect(result.playedGames).toHaveLength(1);
+        expect(result.playedGames[0]).toMatchObject({
+            gameId: 2,
+            totalPlaytimeSeconds: 60,
+        });
+    });
 });

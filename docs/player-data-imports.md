@@ -568,7 +568,14 @@ For a period `(start, end]`, each sample is compared with its predecessor in
 `createdAt, id` order. Samples at start establish the baseline; samples at end
 are included. A positive increment belongs to its ending observation. For
 example, 100 seconds before start and 160 inside the period contribute 60.
-The first-ever sample establishes an unknown baseline and contributes zero.
+The first-ever sample establishes an unknown lifetime baseline and contributes
+zero. For Steam, a first observation may also carry a provider recent total;
+that recent total is spread uniformly over the 14 days before the observation
+and only the part overlapping the requested window is counted. The lifetime
+total itself is still never treated as period playtime. Windows round the
+cumulative overlap at both edges, so adjacent windows conserve the estimated
+total. This is a provider-window estimate, not inferred sessions or daily play
+dates.
 A decrease establishes a corrected baseline: 100→80→90 contributes 10, while
 100→160→120→150 contributes 90. These are endpoint estimates, not exact play dates
 or reconstructed sessions. Equal timestamps are ordered by history ID.
@@ -576,6 +583,9 @@ or reconstructed sessions. Equal timestamps are ordered by history ID.
 PSN/Xbox recent time derives from the rolling 14-day observation window and
 expires on refresh even when lifetime totals do not change. Steam retains its
 provider-supplied recent total, including that provider's window semantics.
+The profile metrics summary reports the first-observation part separately as
+`estimatedPlaytimeSeconds` on each window; it is included in
+`totalPlaytimeSeconds` and is an estimate, not exact play dates.
 For mapped Xbox games still present in a complete library, missing or valueless
 MinutesPlayed statistics reuse known cumulative values, dates, and counts while
 recalculating recent time. No zero lifetime sample or new history is invented.

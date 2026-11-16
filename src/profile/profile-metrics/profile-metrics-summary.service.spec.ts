@@ -29,13 +29,20 @@ type Row = {
     source: string;
     platformId: number;
     totalPlaytimeInPeriodSeconds: number;
+    estimatedPlaytimeSeconds?: number;
 };
 
-const row = (gameId: number, platformId: number, seconds: number): Row => ({
+const row = (
+    gameId: number,
+    platformId: number,
+    seconds: number,
+    estimatedPlaytimeSeconds?: number,
+): Row => ({
     gameId,
     source: "steam",
     platformId,
     totalPlaytimeInPeriodSeconds: seconds,
+    estimatedPlaytimeSeconds,
 });
 
 type GenreRow = {
@@ -104,10 +111,12 @@ describe("ProfileMetricsSummaryService", () => {
         expect(findGameGenresByIds).toHaveBeenCalledWith([1, 2, 3]);
         expect(summary.current).toEqual({
             totalPlaytimeSeconds: 13200,
+            estimatedPlaytimeSeconds: 0,
             totalGames: 3,
         });
         expect(summary.previous).toEqual({
             totalPlaytimeSeconds: 3600,
+            estimatedPlaytimeSeconds: 0,
             totalGames: 1,
         });
         // Game 1 is played on two platforms, and the seconds are summed.
@@ -135,6 +144,26 @@ describe("ProfileMetricsSummaryService", () => {
         });
     });
 
+    it("separates the first Steam observation estimate per window", async () => {
+        const { service } = fixture({
+            current: [row(1, 6, 1200, 200)],
+            previous: [row(1, 6, 900, 700)],
+        });
+
+        const summary = await service.generateSummary("user-1", Period.WEEK);
+
+        expect(summary.current).toEqual({
+            totalPlaytimeSeconds: 1200,
+            estimatedPlaytimeSeconds: 200,
+            totalGames: 1,
+        });
+        expect(summary.previous).toEqual({
+            totalPlaytimeSeconds: 900,
+            estimatedPlaytimeSeconds: 700,
+            totalGames: 1,
+        });
+    });
+
     it("limits the top games to five", async () => {
         const rows = Array.from({ length: 8 }, (_, index) =>
             row(index + 1, 6, (index + 1) * 100),
@@ -155,6 +184,7 @@ describe("ProfileMetricsSummaryService", () => {
 
         expect(summary.current).toEqual({
             totalPlaytimeSeconds: 0,
+            estimatedPlaytimeSeconds: 0,
             totalGames: 0,
         });
         expect(summary.topGames).toEqual([]);
