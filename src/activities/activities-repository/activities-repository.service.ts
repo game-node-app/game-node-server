@@ -1,9 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Activity } from "./entities/activity.entity";
 import {
     FindManyOptions,
     FindOneOptions,
+    FindOptionsRelations,
     In,
     Not,
     Repository,
@@ -14,7 +15,11 @@ import {
     ActivityType,
 } from "../activities-queue/activities-queue.constants";
 import { StatisticsSourceType } from "../../statistics/statistics.constants";
-import { createStatisticsTarget, ensureStatisticsTarget } from "../../statistics/statistics-target.repository";
+import {
+    createStatisticsTarget,
+    ensureStatisticsTarget,
+    findLikeSummaries,
+} from "../../statistics/statistics-target.repository";
 import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
 import { GameFilterService } from "../../game/game-filter/game-filter.service";
@@ -24,6 +29,28 @@ import { CollectionsEntriesService } from "../../collections/collections-entries
 import { UnrecoverableError } from "bullmq";
 import { PostsService } from "../../posts/posts.service";
 import { GameAchievementActivityService } from "../../game/game-achievement/game-achievement-activity.service";
+import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
+import { Game } from "../../game/game-repository/entities/game.entity";
+import { ObtainedGameAchievementActivity } from "../../game/game-achievement/entity/obtained-game-achievement-activity.entity";
+import {
+    ActivityResponseDto,
+    ActivityStatisticsSummaryDto,
+} from "./dto/activity-response.dto";
+import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
+
+const ACTIVITY_HYDRATION_RELATIONS: FindOptionsRelations<Activity> = {
+    profile: {
+        avatar: true,
+    },
+    collectionEntry: true,
+    collection: true,
+    review: true,
+    userFollow: true,
+    post: true,
+    obtainedAchievement: {
+        definition: true,
+    },
+};
 
 @Injectable()
 export class ActivitiesRepositoryService {
@@ -38,6 +65,7 @@ export class ActivitiesRepositoryService {
         private readonly authService: AuthService,
         private readonly postsService: PostsService,
         private readonly obtainedGameAchievementActivityService: GameAchievementActivityService,
+        private readonly gameRepositoryService: GameRepositoryService,
     ) {}
 
     /**
@@ -222,14 +250,151 @@ export class ActivitiesRepositoryService {
         return persistedActivity;
     }
 
-    async findLatestBy(by: FindManyOptions<Activity>) {
-        return await this.activitiesRepository.findAndCount({
+    private getTargetGameId(activity: Activity): number | null {
+        const rawGameId =
+            activity.collectionEntry?.gameId ??
+            activity.review?.gameId ??
+            activity.post?.gameId ??
+            activity.obtainedGameAchievementActivity?.externalGame?.gameId;
+        if (rawGameId == null) {
+            return null;
+        }
+        return Number(rawGameId);
+    }
+
+    private async hydrate(
+        activities: Activity[],
+        viewerUserId?: string,
+    ): Promise<ActivityResponseDto[]> {
+        if (activities.length === 0) {
+            return [];
+        }
+
+        // TypeORM 0.3 RelationIdLoader drops 64+ char aliases when every row matches (single-row / filtered pages).
+        const ogActivityIds = Array.from(
+            new Set(
+                activities
+                    .map((activity) => activity.obtainedGameAchievementActivityId)
+                    .filter((id): id is number => id != null),
+            ),
+        );
+        if (ogActivityIds.length > 0) {
+            const ogActivities = await this.activitiesRepository.manager
+                .getRepository(ObtainedGameAchievementActivity)
+                .find({
+                    where: { id: In(ogActivityIds) },
+                    relations: { externalGame: true },
+                });
+            const ogById = new Map<number, ObtainedGameAchievementActivity>(
+                ogActivities.map((item) => [Number(item.id), item]),
+            );
+            for (const activity of activities) {
+                activity.obtainedGameAchievementActivity =
+                    activity.obtainedGameAchievementActivityId != null
+                        ? (ogById.get(
+                              Number(activity.obtainedGameAchievementActivityId),
+                          ) ?? null)
+                        : null;
+            }
+        } else {
+            for (const activity of activities) {
+                activity.obtainedGameAchievementActivity = null;
+            }
+        }
+
+        const gameIds = Array.from(
+            new Set(
+                activities
+                    .map((activity) => this.getTargetGameId(activity))
+                    .filter(
+                        (gameId): gameId is number =>
+                            gameId != null && Number.isSafeInteger(gameId),
+                    ),
+            ),
+        );
+
+        let games: Game[] = [];
+        if (gameIds.length > 0) {
+            try {
+                games = await this.gameRepositoryService.findAllByIds({
+                    gameIds,
+                    relations: { cover: true },
+                });
+            } catch (error) {
+                if (
+                    error instanceof HttpException &&
+                    error.getStatus() === HttpStatus.NOT_FOUND
+                ) {
+                    games = [];
+                } else {
+                    throw error;
+                }
+            }
+        }
+        const gamesById = new Map<number, Game>(
+            games.map((game) => [Number(game.id), game]),
+        );
+
+        const targetIds = Array.from(
+            new Set(
+                activities
+                    .map((activity) => activity.statisticsTargetId)
+                    .filter((id): id is number => id != null),
+            ),
+        );
+
+        const likeSummaries =
+            targetIds.length > 0
+                ? await findLikeSummaries(
+                      this.activitiesRepository.manager,
+                      targetIds,
+                      viewerUserId,
+                  )
+                : new Map<string, ActivityStatisticsSummaryDto>();
+
+        return activities.map((activity) => {
+            if (
+                activity.collection &&
+                !activity.collection.isPublic &&
+                activity.collection.libraryUserId !== viewerUserId
+            ) {
+                activity.collection = null;
+            }
+            if (activity.obtainedGameAchievementActivity) {
+                delete (
+                    activity.obtainedGameAchievementActivity as Partial<ObtainedGameAchievementActivity>
+                ).pendingDelivery;
+            }
+
+            const gameId = this.getTargetGameId(activity);
+            const game =
+                gameId != null ? (gamesById.get(gameId) ?? null) : null;
+            const statistics: ActivityStatisticsSummaryDto =
+                activity.statisticsTargetId != null
+                    ? (likeSummaries.get(String(activity.statisticsTargetId)) ?? {
+                          likesCount: 0,
+                          isLiked: false,
+                      })
+                    : { likesCount: 0, isLiked: false };
+
+            return Object.assign(activity, { game, statistics });
+        });
+    }
+
+    async findLatestBy(
+        by: FindManyOptions<Activity>,
+        viewerUserId?: string,
+    ): Promise<TPaginationData<ActivityResponseDto>> {
+        const [activities, count] = await this.activitiesRepository.findAndCount({
             ...by,
-            relations: { obtainedAchievement: true },
+            relations: ACTIVITY_HYDRATION_RELATIONS,
+            relationLoadStrategy: "query",
             order: {
                 createdAt: "DESC",
             },
         });
+        const hydrated = await this.hydrate(activities, viewerUserId);
+        return [hydrated, count];
     }
 
     async findAllBy(by: FindManyOptions<Activity>) {
@@ -240,41 +405,54 @@ export class ActivitiesRepositoryService {
         return await this.activitiesRepository.findOne(by);
     }
 
-    async findOneByOrFail(by: FindOneOptions<Activity>) {
-        return await this.activitiesRepository.findOneOrFail({
+    async findOneByOrFail(
+        by: FindOneOptions<Activity>,
+        viewerUserId?: string,
+    ): Promise<ActivityResponseDto> {
+        const activity = await this.activitiesRepository.findOneOrFail({
             ...by,
-            relations: { obtainedAchievement: true },
+            relations: ACTIVITY_HYDRATION_RELATIONS,
+            relationLoadStrategy: "query",
         });
+        const [hydrated] = await this.hydrate([activity], viewerUserId);
+        return hydrated;
     }
 
     async findLatestExcludingTypes(
         dto: FindLatestActivitiesDto,
         excludedTypes: ActivityType[],
+        viewerUserId?: string,
     ) {
         const baseFindOptions = buildBaseFindOptions(dto);
-        return await this.findLatestBy({
-            ...baseFindOptions,
-            where: [
-                {
+        return await this.findLatestBy(
+            {
+                ...baseFindOptions,
+                where: [
+                    {
+                        profileUserId: dto.userId,
+                        type: dto.type,
+                    },
+                    {
+                        profileUserId: dto.userId,
+                        type: Not(In(excludedTypes)),
+                    },
+                ],
+            },
+            viewerUserId,
+        );
+    }
+
+    async findLatest(dto: FindLatestActivitiesDto, viewerUserId?: string) {
+        const baseFindOptions = buildBaseFindOptions(dto);
+        return await this.findLatestBy(
+            {
+                ...baseFindOptions,
+                where: {
                     profileUserId: dto.userId,
                     type: dto.type,
                 },
-                {
-                    profileUserId: dto.userId,
-                    type: Not(In(excludedTypes)),
-                },
-            ],
-        });
-    }
-
-    async findLatest(dto: FindLatestActivitiesDto) {
-        const baseFindOptions = buildBaseFindOptions(dto);
-        return await this.findLatestBy({
-            ...baseFindOptions,
-            where: {
-                profileUserId: dto.userId,
-                type: dto.type,
             },
-        });
+            viewerUserId,
+        );
     }
 }

@@ -624,6 +624,7 @@ describe("import and notification recovery on disposable MySQL", () => {
                 } as any,
                 {} as any,
                 localActivity,
+                {} as any,
             );
             const notifications = new NotificationsService(
                 source.getRepository(NotificationInbox),

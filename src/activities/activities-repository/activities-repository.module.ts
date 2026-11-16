@@ -9,11 +9,13 @@ import { CollectionsEntriesModule } from "../../collections/collections-entries/
 import { PostsModule } from "../../posts/posts.module";
 import { GameAchievementModule } from "../../game/game-achievement/game-achievement.module";
 import { ActivitiesRepositoryV2Controller } from "./activities-repository-v2.controller";
+import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Activity]),
         GameFilterModule,
+        GameRepositoryModule,
         forwardRef(() => ReviewsModule),
         forwardRef(() => CollectionsEntriesModule),
         forwardRef(() => PostsModule),

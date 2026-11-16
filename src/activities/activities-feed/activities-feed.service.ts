@@ -1,10 +1,10 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { Activity } from "../activities-repository/entities/activity.entity";
 import {
     ActivitiesFeedRequestDto,
     ActivityFeedCriteria,
 } from "./dto/activities-feed-request.dto";
 import { ActivitiesRepositoryService } from "../activities-repository/activities-repository.service";
+import { ActivityResponseDto } from "../activities-repository/dto/activity-response.dto";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { FollowService } from "../../follow/follow.service";
 import { In } from "typeorm";
@@ -26,17 +26,22 @@ export class ActivitiesFeedService {
         return `${userCacheKey}-${JSON.stringify(dto)}`;
     }
 
-    private async buildGeneralActivitiesFeed(dto: ActivitiesFeedRequestDto) {
+    private async buildGeneralActivitiesFeed(
+        dto: ActivitiesFeedRequestDto,
+        userId?: string,
+    ): Promise<TPaginationData<ActivityResponseDto>> {
         const findOptions = buildBaseFindOptions(dto);
-        const results =
-            await this.activitiesRepositoryService.findLatestBy(findOptions);
+        const results = await this.activitiesRepositoryService.findLatestBy(
+            findOptions,
+            userId,
+        );
         return results;
     }
 
     private async buildFollowingActivitiesFeed(
         userId: string,
         dto: ActivitiesFeedRequestDto,
-    ): Promise<TPaginationData<Activity>> {
+    ): Promise<TPaginationData<ActivityResponseDto>> {
         const [followedUsersIds] = await this.followService.getFollowerInfo({
             targetUserId: userId,
             criteria: "following",
@@ -46,22 +51,25 @@ export class ActivitiesFeedService {
 
         const baseFindOptions = buildBaseFindOptions(dto);
 
-        return await this.activitiesRepositoryService.findLatestBy({
-            ...baseFindOptions,
-            where: {
-                profileUserId: In(followedUsersIds),
+        return await this.activitiesRepositoryService.findLatestBy(
+            {
+                ...baseFindOptions,
+                where: {
+                    profileUserId: In(followedUsersIds),
+                },
+                cache: {
+                    id: this.getCacheKey(userId, dto),
+                    milliseconds: minutes(5),
+                },
             },
-            cache: {
-                id: this.getCacheKey(userId, dto),
-                milliseconds: minutes(5),
-            },
-        });
+            userId,
+        );
     }
 
     async buildActivitiesFeed(
         userId: string | undefined,
         dto: ActivitiesFeedRequestDto,
-    ): Promise<TPaginationData<Activity>> {
+    ): Promise<TPaginationData<ActivityResponseDto>> {
         switch (dto.criteria) {
             case ActivityFeedCriteria.FOLLOWING:
                 if (userId == undefined) {
@@ -72,7 +80,7 @@ export class ActivitiesFeedService {
                 }
                 return this.buildFollowingActivitiesFeed(userId, dto);
             case ActivityFeedCriteria.ALL:
-                return this.buildGeneralActivitiesFeed(dto);
+                return this.buildGeneralActivitiesFeed(dto, userId);
             default:
                 throw new HttpException(
                     "Activity Feed criteria not supported.",
