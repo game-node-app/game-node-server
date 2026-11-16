@@ -14,6 +14,7 @@ function fixture(existing?: any, collections: any[] = []) {
     const achievements = { addTrackingJob: jest.fn() };
     const repository = {
         findOne: jest.fn().mockResolvedValue(existing),
+        find: jest.fn().mockResolvedValue([]),
         save: jest.fn(async (row) => ({ ...row, id: "entry" })),
         update: jest.fn(),
         findAndCount: jest.fn().mockResolvedValue([[], 0]),
@@ -256,5 +257,37 @@ describe("custom cover filter", () => {
                 }),
             }),
         );
+    });
+
+    test("selects period entries by creation and activity dates, not by last edit", async () => {
+        const { service, repository } = fixture();
+        const startDate = new Date("2026-01-01T00:00:00Z");
+        const endDate = new Date("2026-12-31T23:59:59Z");
+
+        await service.findAllByUserIdInPeriod("owner", {
+            startDate,
+            endDate,
+        });
+
+        const [{ where }] = repository.find.mock.calls[0] as [
+            { where: Record<string, unknown>[] },
+        ];
+        expect(
+            where.map((condition) =>
+                Object.keys(condition).find((key) => key !== "libraryUserId"),
+            ),
+        ).toEqual([
+            "createdAt",
+            "startedAt",
+            "finishedAt",
+            "droppedAt",
+            "plannedAt",
+        ]);
+        expect(
+            where.every((condition) => condition.libraryUserId === "owner"),
+        ).toBe(true);
+        expect(
+            where.every((condition) => !("updatedAt" in condition)),
+        ).toBe(true);
     });
 });
