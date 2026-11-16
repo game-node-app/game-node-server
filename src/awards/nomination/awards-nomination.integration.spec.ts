@@ -715,6 +715,7 @@ describe("Awards nominations", () => {
             categoryRepository,
             suggestionRepository,
             awardsService,
+            source,
         );
         await awardsAdminService.addCategorySuggestion({
             categoryId: catTop.id,

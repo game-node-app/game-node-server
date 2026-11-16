@@ -5,6 +5,7 @@ import { AwardsService } from "./awards.service";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AwardsEvent } from "./entity/awards-event.entity";
 import { AwardsCategory } from "./entity/awards-category.entity";
+import { AwardsCategoryTranslation } from "./entity/awards-category-translation.entity";
 import { AwardsCategorySuggestion } from "./entity/awards-category-suggestion.entity";
 import { AwardsVoteService } from "./vote/awards-vote.service";
 import { AwardsVoteController } from "./vote/awards-vote.controller";
@@ -37,6 +38,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
         TypeOrmModule.forFeature([
             AwardsEvent,
             AwardsCategory,
+            AwardsCategoryTranslation,
             AwardsCategorySuggestion,
             AwardsVote,
             AwardsCategoryResult,

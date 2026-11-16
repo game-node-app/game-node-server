@@ -23,6 +23,7 @@ import { AwardsAdminService } from "./admin/awards-admin.service";
 import { AwardsEvent } from "./entity/awards-event.entity";
 import { AwardsCategory } from "./entity/awards-category.entity";
 import { AwardsCategorySuggestion } from "./entity/awards-category-suggestion.entity";
+import { AwardsCategoryTranslation } from "./entity/awards-category-translation.entity";
 import { AwardsResultService } from "./result/awards-result.service";
 import { AuthService } from "../auth/auth.service";
 
@@ -52,6 +53,7 @@ describe("Awards events calendar and current event", () => {
             providers: [
                 AwardsService,
                 AwardsAdminService,
+                { provide: DataSource, useValue: source },
                 {
                     provide: AwardsResultService,
                     useValue: { getCategoryResultsByEventId: jest.fn() },
@@ -123,7 +125,7 @@ describe("Awards events calendar and current event", () => {
             resultsDate: new Date("2027-12-27T00:00:00Z"),
         });
         const categoryRepository = source.getRepository(AwardsCategory);
-        await categoryRepository.save([
+        const [gotyCategory] = await categoryRepository.save([
             {
                 eventId: event2026.id,
                 name: "Game of the Year",
@@ -137,6 +139,12 @@ describe("Awards events calendar and current event", () => {
                 order: 2,
             },
         ]);
+        await source.getRepository(AwardsCategoryTranslation).save({
+            categoryId: gotyCategory.id,
+            locale: "en",
+            name: "Game of the Year (EN)",
+            description: "GOTY (EN)",
+        });
         seeded = { event2026, event2027 };
     };
 
@@ -206,6 +214,31 @@ describe("Awards events calendar and current event", () => {
         expect(events.every((event) => event.phase != null)).toBe(true);
         expect(byId.phase).toBeDefined();
         expect(byYear.phase).toBeDefined();
+    });
+
+    it("returns saved category translations, and [] for categories without any", async () => {
+        const response = await request(server())
+            .get(`/v1/awards/${seeded.event2026.id}/categories`)
+            .expect(200);
+
+        const goty = response.body.find(
+            (category: { name: string }) =>
+                category.name === "Game of the Year",
+        );
+        expect(goty.name).toBe("Game of the Year");
+        expect(goty.description).toBe("GOTY");
+        expect(goty.translations).toMatchObject([
+            {
+                locale: "en",
+                name: "Game of the Year (EN)",
+                description: "GOTY (EN)",
+            },
+        ]);
+
+        const narrative = response.body.find(
+            (category: { name: string }) => category.name === "Narrativa",
+        );
+        expect(narrative.translations).toEqual([]);
     });
 
     it("rejects an admin save with out-of-order dates over HTTP and stores nothing", async () => {
