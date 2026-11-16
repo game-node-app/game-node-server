@@ -7,6 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
     FindManyOptions,
     In,
+    MoreThanOrEqual,
     FindOptionsRelations,
     OrderByCondition,
     Repository,
@@ -94,6 +95,28 @@ export class PlaytimeService {
                 platformId,
             },
             relations: this.relations,
+        });
+    }
+
+    /**
+     * Cumulative playtime rows (the ones the profile shows) last played on or
+     * after `since`, whatever the platform or source.
+     */
+    public async findPlayedSince(userId: string, since: Date) {
+        return await this.userPlaytimeRepository.find({
+            select: {
+                id: true,
+                gameId: true,
+                platformId: true,
+                source: true,
+                totalPlaytimeSeconds: true,
+                recentPlaytimeSeconds: true,
+                lastPlayedDate: true,
+            },
+            where: {
+                profileUserId: userId,
+                lastPlayedDate: MoreThanOrEqual(since),
+            },
         });
     }
 

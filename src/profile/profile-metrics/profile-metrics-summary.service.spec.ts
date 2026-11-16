@@ -14,6 +14,10 @@ jest.mock("../../playtime/playtime-history.service", () => ({
     PlaytimeHistoryService: class PlaytimeHistoryService {},
 }));
 
+jest.mock("../../playtime/playtime.service", () => ({
+    PlaytimeService: class PlaytimeService {},
+}));
+
 import { setCacheManager } from "../../utils/cacheable";
 
 // Every call is a cache miss, so the decorator runs the real method.
@@ -48,6 +52,7 @@ function fixture(options: {
     current: Row[];
     previous?: Row[];
     genres?: GenreRow[];
+    played?: unknown[];
 }) {
     const getTotalPlaytimeForPeriod = jest
         .fn()
@@ -71,6 +76,7 @@ function fixture(options: {
         { getTotalPlaytimeForPeriod } as never,
         { findGameGenresByIds, getGamePlatformsMap } as never,
         { getActivityCountsSince } as never,
+        { findPlayedSince: jest.fn(async () => options.played ?? []) } as never,
     );
 
     return {
@@ -133,6 +139,50 @@ describe("ProfileMetricsSummaryService", () => {
             finishedInPeriod: 1,
             reviewedInPeriod: 2,
         });
+    });
+
+    it("tops up games imported before the history from the cumulative rows", async () => {
+        const played = (
+            gameId: number,
+            source: string,
+            platformId: number,
+            total: number,
+            recent: number,
+        ) => ({
+            gameId,
+            source,
+            platformId,
+            totalPlaytimeSeconds: total,
+            recentPlaytimeSeconds: recent,
+        });
+        // Game 1 (Switch) only has 60s of history growth.
+        const options = {
+            current: [{ ...row(1, 130, 60), source: "nswitch" }],
+            played: [
+                played(1, "nswitch", 130, 44 * 3600, 60),
+                played(2, "steam", 6, 100 * 3600, 3600),
+            ],
+        };
+
+        const year = await fixture(options).service.generateSummary(
+            "user-1",
+            Period.YEAR,
+        );
+        expect(year.topGames).toEqual([
+            { gameId: 2, totalPlaytimeSeconds: 100 * 3600 },
+            { gameId: 1, totalPlaytimeSeconds: 44 * 3600 },
+        ]);
+        expect(year.current.totalGames).toBe(2);
+
+        const month = await fixture(options).service.generateSummary(
+            "user-2",
+            Period.MONTH,
+        );
+        // A month only gets the recent playtime, never the lifetime total.
+        expect(month.topGames).toEqual([
+            { gameId: 2, totalPlaytimeSeconds: 3600 },
+            { gameId: 1, totalPlaytimeSeconds: 60 },
+        ]);
     });
 
     it("limits the top games to five", async () => {

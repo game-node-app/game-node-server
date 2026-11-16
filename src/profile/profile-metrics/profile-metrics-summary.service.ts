@@ -3,6 +3,7 @@ import { minutes } from "@nestjs/throttler";
 import dayjs from "dayjs";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import { PlaytimeHistoryService } from "../../playtime/playtime-history.service";
+import { PlaytimeService } from "../../playtime/playtime.service";
 import { Period, PeriodToMinusDays } from "../../utils/period";
 import { Cacheable } from "../../utils/cacheable";
 import {
@@ -23,6 +24,16 @@ type PlaytimeRow = {
     totalPlaytimeInPeriodSeconds: number;
 };
 
+type HistoryRow = PlaytimeRow & { source?: string };
+
+type CumulativeRow = {
+    gameId: number | string;
+    platformId: number | string;
+    source: string;
+    totalPlaytimeSeconds: number | string;
+    recentPlaytimeSeconds: number | string;
+};
+
 /**
  * Period summary behind the recap share card: real playtime deltas from the
  * playtime history, with the same figures for the previous window so clients
@@ -34,6 +45,7 @@ export class ProfileMetricsSummaryService {
         private readonly playtimeHistoryService: PlaytimeHistoryService,
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly profileMetricsReportService: ProfileMetricsReportService,
+        private readonly playtimeService: PlaytimeService,
     ) {}
 
     @Cacheable(ProfileMetricsSummaryService.name, minutes(10))
@@ -52,22 +64,32 @@ export class ProfileMetricsSummaryService {
             "day",
         );
 
-        const [currentRows, previousRows, counts] = await Promise.all([
-            this.playtimeHistoryService.getTotalPlaytimeForPeriod({
-                userId,
-                startDate: windowStart.toDate(),
-                endDate: now.toDate(),
-            }),
-            this.playtimeHistoryService.getTotalPlaytimeForPeriod({
-                userId,
-                startDate: previousStart.toDate(),
-                endDate: windowStart.toDate(),
-            }),
-            this.profileMetricsReportService.getActivityCountsSince(
-                userId,
-                windowStart,
-            ),
-        ]);
+        const [historyRows, previousRows, counts, playedRows] =
+            await Promise.all([
+                this.playtimeHistoryService.getTotalPlaytimeForPeriod({
+                    userId,
+                    startDate: windowStart.toDate(),
+                    endDate: now.toDate(),
+                }),
+                this.playtimeHistoryService.getTotalPlaytimeForPeriod({
+                    userId,
+                    startDate: previousStart.toDate(),
+                    endDate: windowStart.toDate(),
+                }),
+                this.profileMetricsReportService.getActivityCountsSince(
+                    userId,
+                    windowStart,
+                ),
+                this.playtimeService.findPlayedSince(
+                    userId,
+                    windowStart.toDate(),
+                ),
+            ]);
+        const currentRows = withCumulativeFallback(
+            historyRows,
+            playedRows,
+            period,
+        );
 
         const secondsByGame = sumBy(currentRows, (row) => row.gameId);
         const topGames = this.buildTopGames(secondsByGame);
@@ -151,6 +173,52 @@ export class ProfileMetricsSummaryService {
             totalPlaytimeSeconds: top[1],
         };
     }
+}
+
+/**
+ * The playtime history only records growth between two syncs, so playtime
+ * imported before the history existed (the first Steam or Switch sync) counts
+ * as zero. The profile shows the cumulative rows instead, so games played in
+ * the window but missing or short in the history are topped up from them:
+ * the cumulative total for the year, the recent playtime for a week or month.
+ */
+function withCumulativeFallback(
+    history: HistoryRow[],
+    played: CumulativeRow[],
+    period: ProfileMetricsSummaryPeriod,
+): PlaytimeRow[] {
+    const keyOf = (row: {
+        gameId: number | string;
+        platformId: number | string;
+        source?: string;
+    }) => `${row.source}:${Number(row.gameId)}:${Number(row.platformId)}`;
+
+    const fromHistory = new Map<string, number>();
+    for (const row of history) {
+        fromHistory.set(
+            keyOf(row),
+            (fromHistory.get(keyOf(row)) ?? 0) +
+                row.totalPlaytimeInPeriodSeconds,
+        );
+    }
+
+    const extra: PlaytimeRow[] = [];
+    for (const row of played) {
+        const total = Number(row.totalPlaytimeSeconds);
+        const known =
+            period === Period.YEAR
+                ? total
+                : Math.min(Number(row.recentPlaytimeSeconds), total);
+        const missing = known - (fromHistory.get(keyOf(row)) ?? 0);
+        if (missing > 0) {
+            extra.push({
+                gameId: Number(row.gameId),
+                platformId: Number(row.platformId),
+                totalPlaytimeInPeriodSeconds: missing,
+            });
+        }
+    }
+    return [...history, ...extra];
 }
 
 function sumBy(
