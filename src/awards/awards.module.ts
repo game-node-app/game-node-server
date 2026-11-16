@@ -42,6 +42,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
             AwardsCategoryResult,
             AwardsCategoryResultWinner,
             AwardsNomination,
+            Game,
             UserPlaytime,
             CollectionEntry,
             Review,

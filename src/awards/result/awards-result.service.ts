@@ -3,6 +3,7 @@ import { AwardsCategoryResult } from "../entity/awards-category-result.entity";
 import { Not, Repository } from "typeorm";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AwardsVote } from "../entity/awards-vote.entity";
+import { AwardsCategory } from "../entity/awards-category.entity";
 
 export type AwardsScoreboardOutcome = "hit" | "miss" | "not_voted";
 
@@ -31,6 +32,8 @@ export class AwardsResultService {
         private readonly awardsCategoryResultRepository: Repository<AwardsCategoryResult>,
         @InjectRepository(AwardsVote)
         private readonly awardsVoteRepository: Repository<AwardsVote>,
+        @InjectRepository(AwardsCategory)
+        private readonly awardsCategoryRepository: Repository<AwardsCategory>,
     ) {}
 
     public async getCategoryResultsByEventId(eventId: number) {
@@ -48,11 +51,18 @@ export class AwardsResultService {
         });
     }
 
+    /**
+     * Results are complete only when every category of the event has a row, so a
+     * partially computed legacy event is repaired instead of being published.
+     */
     public async eventHasResults(eventId: number): Promise<boolean> {
-        const count = await this.awardsCategoryResultRepository.count({
-            where: { category: { eventId } },
-        });
-        return count > 0;
+        const [categories, results] = await Promise.all([
+            this.awardsCategoryRepository.countBy({ eventId }),
+            this.awardsCategoryResultRepository.count({
+                where: { category: { eventId } },
+            }),
+        ]);
+        return categories > 0 && results >= categories;
     }
 
     /**

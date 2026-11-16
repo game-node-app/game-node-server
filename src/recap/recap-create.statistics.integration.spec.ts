@@ -98,6 +98,8 @@ describe("recap likes from retained statistics facts", () => {
                 endDate: dayjs("2027-01-01T00:00:00.000Z"),
             },
             [],
+            [],
+            [],
         );
 
         expect(result.totalPlaytimeInPeriodSeconds).toBe(60);
@@ -422,6 +424,42 @@ describe("recap generation from seeded statistics", () => {
                 payload: { year, milestone: "available" },
             },
         ]);
+    });
+
+    it("stamps updatedAt with the generation watermark so later activity is selected again", async () => {
+        const raceUser = randomUUID();
+        await addUser(raceUser);
+        await addHistory(raceUser, gameA, 100, `${year}-02-01`);
+
+        const repository = dataSource.getRepository(YearRecap);
+        const save = repository.save.bind(repository);
+        let activityCreatedAt = new Date(0);
+        const spy = jest
+            .spyOn(repository, "save")
+            .mockImplementationOnce(async (entity: any) => {
+                // Committed after the snapshot reads but before the Recap insert.
+                await dataSource.query(
+                    `INSERT INTO user_playtime_history
+                        (source, profileUserId, gameId, totalPlaytimeSeconds, recentPlaytimeSeconds,
+                         totalPlayCount, platformId, createdAt)
+                     VALUES ('steam', ?, ?, 60, 0, 0, ?, NOW(6))`,
+                    [raceUser, gameB, platformId],
+                );
+                const [row] = await dataSource.query(
+                    "SELECT createdAt FROM user_playtime_history WHERE profileUserId = ? AND gameId = ?",
+                    [raceUser, gameB],
+                );
+                activityCreatedAt = new Date(row.createdAt);
+                return save(entity);
+            });
+
+        await service.createRecap(raceUser, year, { final: false });
+        spy.mockRestore();
+
+        const recap = await loadRecap(raceUser);
+        expect(recap.updatedAt.getTime()).toBeLessThan(
+            activityCreatedAt.getTime(),
+        );
     });
 
     it("regenerates without a unique-index error and clears the read cache", async () => {

@@ -95,6 +95,20 @@ export class AwardsNominationService {
         }
 
         await this.dataSource.transaction(async (manager) => {
+            // Serialize with finalizeNominees, which locks the same category row.
+            const lockedCategory = await manager.findOne(AwardsCategory, {
+                where: { id: categoryId },
+                lock: { mode: "pessimistic_write" },
+            });
+            if (
+                lockedCategory?.nomineesFinalizedAt != null ||
+                getAwardsPhase(event, now) !== "nominations"
+            ) {
+                throw new HttpException(
+                    "Nominations are not open for this event.",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
             await manager.delete(AwardsNomination, {
                 categoryId,
                 profileUserId: userId,

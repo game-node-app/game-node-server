@@ -599,6 +599,10 @@ export class RecapCreateService {
         year: number,
         { final }: { final: boolean },
     ) {
+        // Watermark taken before the first read, so activity committed while this
+        // Recap is generated stays newer than it and is selected for regeneration.
+        // shortcut: an import that stamps an older observedAt and commits mid-generation is missed; upgrade if imports can outlive a generation.
+        const snapshotStartedAt = new Date();
         // Lock before the first snapshot read so a waiting job sees any committed final Recap.
         await this.dataSource.manager.query(
             "SELECT userId FROM profile WHERE userId = ? FOR UPDATE",
@@ -687,6 +691,7 @@ export class RecapCreateService {
             totalFinishedGames: libraryCounts.finished,
             totalDroppedGames: libraryCounts.dropped,
             isFinal: final,
+            updatedAt: snapshotStartedAt,
             totalPlaytimeSeconds:
                 playedGamesInPeriod.totalPlaytimeInPeriodSeconds,
             totalPlayedGames: playedGamesInPeriod.playedGames.length,

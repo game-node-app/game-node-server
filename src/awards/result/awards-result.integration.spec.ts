@@ -133,6 +133,7 @@ describe("Awards results and scoreboard", () => {
         resultService = new AwardsResultService(
             resultRepository,
             voteRepository,
+            categoryRepository,
         );
         processor = new AwardsResultProcessor(
             awardsService,

@@ -25,7 +25,12 @@ export class AwardsAdminService {
     @Transactional()
     public async createAwardsEvent(dto: CreateUpdateAwardsEventDto) {
         const eventInYear = await this.awardsService.getEventByYear(dto.year);
-        this.assertValidEventDates(dto, eventInYear);
+        // An update may move the event to an unused year, so validate against the stored event.
+        const existingEvent =
+            dto.eventId == undefined
+                ? eventInYear
+                : await this.awardsService.getEventById(dto.eventId);
+        this.assertValidEventDates(dto, existingEvent);
         if (dto.eventId == undefined && eventInYear != undefined) {
             throw new HttpException(
                 `An event with id ${dto.eventId} already exists for year ${dto.year}.`,

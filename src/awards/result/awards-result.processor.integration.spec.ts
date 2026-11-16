@@ -86,6 +86,7 @@ describe("Awards lifecycle tick", () => {
         resultService = new AwardsResultService(
             source.getRepository(AwardsCategoryResult),
             source.getRepository(AwardsVote),
+            source.getRepository(AwardsCategory),
         );
         awardsService = new AwardsService(eventRepository, categoryRepository);
         awardsService = new AwardsService(eventRepository, categoryRepository);
@@ -416,6 +417,47 @@ describe("Awards lifecycle tick", () => {
         ).toBe(true);
         expect(
             (await campaignRow("goal:2027:july"))?.completedAt,
+        ).not.toBeNull();
+    });
+
+    it("repairs a partially computed legacy event before publishing", async () => {
+        const event = await source.getRepository(AwardsEvent).save({
+            year: 2030,
+            votingStartDate: new Date("2029-12-01T00:00:00Z"),
+            votingEndDate: new Date("2029-12-20T00:00:00Z"),
+            resultsDate: new Date("2030-01-10T00:00:00Z"),
+        });
+        const categories = await source.getRepository(AwardsCategory).save([
+            { eventId: event.id, name: "Legacy A", description: "A", order: 1 },
+            { eventId: event.id, name: "Legacy B", description: "B", order: 2 },
+        ]);
+        await source.query(
+            "INSERT INTO awards_vote (categoryId, gameId, profileUserId) VALUES (?, ?, ?), (?, ?, ?)",
+            [
+                categories[0].id,
+                NOM_GAME_1,
+                NOM_USER_A,
+                categories[1].id,
+                NOM_GAME_2,
+                NOM_USER_B,
+            ],
+        );
+        // The former per-category processor committed A and failed before B.
+        await source.query(
+            "INSERT INTO awards_category_result (categoryId, totalUniqueGamesSubmitted, totalUsersParticipating, totalVotesCount) VALUES (?, 1, 1, 1)",
+            [categories[0].id],
+        );
+
+        expect(await resultService.eventHasResults(event.id)).toBe(false);
+
+        await processor.runTick(new Date("2030-01-11T12:00:00Z"));
+
+        expect(await resultService.eventHasResults(event.id)).toBe(true);
+        expect(
+            await resultService.getCategoryResultsByEventId(event.id),
+        ).toHaveLength(2);
+        expect(
+            (await campaignRow("awards:2030:results_published"))?.completedAt,
         ).not.toBeNull();
     });
 });

@@ -20,6 +20,7 @@ function fixture() {
     const suggestions = { save: jest.fn(), findOneByOrFail: jest.fn() };
     const awardsService = {
         getEventByYear: jest.fn().mockResolvedValue(undefined),
+        getEventById: jest.fn().mockResolvedValue(undefined),
     };
     const service = new AwardsAdminService(
         events as any,
@@ -111,7 +112,7 @@ describe("AwardsAdminService event dates", () => {
 
     it("rejects an update whose new voting start falls before the stored nomination end", async () => {
         const { service, events, awardsService } = fixture();
-        awardsService.getEventByYear.mockResolvedValue({
+        awardsService.getEventById.mockResolvedValue({
             id: 5,
             year: 2026,
             nominationStartDate: new Date("2026-11-03T00:00:00Z"),
@@ -122,6 +123,28 @@ describe("AwardsAdminService event dates", () => {
             service.createAwardsEvent({
                 eventId: 5,
                 year: 2026,
+                votingStartDate: new Date("2026-12-01T00:00:00Z"),
+                votingEndDate: new Date("2026-12-20T00:00:00Z"),
+                resultsDate: new Date("2026-12-27T00:00:00Z"),
+            }),
+        ).rejects.toThrow(HttpException);
+        expect(events.save).not.toHaveBeenCalled();
+    });
+
+    it("validates a year change against the stored event, not the target year", async () => {
+        const { service, events, awardsService } = fixture();
+        awardsService.getEventByYear.mockResolvedValue(undefined);
+        awardsService.getEventById.mockResolvedValue({
+            id: 5,
+            year: 2026,
+            nominationStartDate: new Date("2026-11-03T00:00:00Z"),
+            nominationEndDate: new Date("2026-12-05T00:00:00Z"),
+        });
+
+        await expect(
+            service.createAwardsEvent({
+                eventId: 5,
+                year: 2027,
                 votingStartDate: new Date("2026-12-01T00:00:00Z"),
                 votingEndDate: new Date("2026-12-20T00:00:00Z"),
                 resultsDate: new Date("2026-12-27T00:00:00Z"),

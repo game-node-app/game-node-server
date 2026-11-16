@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { DataSource, In } from "typeorm";
 import { randomInt, randomUUID } from "node:crypto";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import { createAwardsTestDatabase } from "../../test/awards/awards-test-database";
 import {
     NOTIFICATION_CAMPAIGN_MAX_BATCHES_PER_TICK,
     NotificationCampaignRequest,
@@ -10,6 +10,8 @@ import {
 import { NotificationOutbox } from "./entity/notification-outbox.entity";
 
 describe("NotificationCampaignService (integration)", () => {
+    const database = "notification_campaign_test";
+    let cleanup: () => Promise<void>;
     let dataSource: DataSource;
     let campaigns: NotificationCampaignService;
     const created: string[] = [];
@@ -23,7 +25,10 @@ describe("NotificationCampaignService (integration)", () => {
         });
 
     beforeAll(async () => {
-        dataSource = await createNotificationTestDataSource();
+        // Dedicated database: other notification suites wipe the shared one in parallel.
+        const disposable = await createAwardsTestDatabase(database);
+        cleanup = disposable.destroy;
+        dataSource = disposable.source;
         campaigns = new NotificationCampaignService(dataSource);
         await dataSource.query(`CREATE TABLE IF NOT EXISTS \`user\` (
             \`id\` varchar(36) NOT NULL PRIMARY KEY,
@@ -66,7 +71,9 @@ describe("NotificationCampaignService (integration)", () => {
         }
     });
 
-    afterAll(() => dataSource?.destroy());
+    afterAll(async () => {
+        await cleanup?.();
+    });
 
     async function deleteRecipients(userIds: string[]) {
         if (userIds.length === 0) return;

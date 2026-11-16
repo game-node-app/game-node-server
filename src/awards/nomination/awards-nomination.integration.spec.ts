@@ -343,6 +343,38 @@ describe("Awards nominations", () => {
         );
     });
 
+    it("rejects nominations after the category nominees were finalized", async () => {
+        await nominationService.replaceNominations(
+            USER_A,
+            openEvent.id,
+            openCategories[0].id,
+            [GAME_A],
+            nowInNominations,
+        );
+        await categoryRepository.update(openCategories[0].id, {
+            nomineesFinalizedAt: new Date(),
+        });
+
+        try {
+            await expectBadRequest(
+                nominationService.replaceNominations(
+                    USER_A,
+                    openEvent.id,
+                    openCategories[0].id,
+                    [GAME_B],
+                    nowInNominations,
+                ),
+            );
+            expect(await gameIdsFor(USER_A, openCategories[0].id)).toEqual([
+                GAME_A,
+            ]);
+        } finally {
+            await categoryRepository.update(openCategories[0].id, {
+                nomineesFinalizedAt: null,
+            });
+        }
+    });
+
     it("keeps legacy events without a nominations phase", async () => {
         await expectBadRequest(
             nominationService.replaceNominations(

@@ -132,7 +132,8 @@ export class AwardsResultProcessor extends WorkerHostProcessor {
 
     /**
      * One transaction per event, guarded by UNIQUE(awards_category_result.categoryId).
-     * A concurrent tick loses the race and its transaction rolls back.
+     * Categories that already have a result are kept, so a partially computed
+     * legacy event is repaired without retrying their inserts.
      */
     async processEventResults(event: Pick<AwardsEvent, "id">) {
         const categories = await this.awardsService.getCategoriesByEventId(
@@ -143,11 +144,17 @@ export class AwardsResultProcessor extends WorkerHostProcessor {
         try {
             await this.dataSource.transaction(async (manager) => {
                 for (const category of categories) {
+                    const existing = await manager.countBy(
+                        AwardsCategoryResult,
+                        { categoryId: category.id },
+                    );
+                    if (existing > 0) continue;
                     await this.processCategoryResult(manager, category);
                 }
             });
         } catch (error) {
             if ((error as { code?: string }).code === "ER_DUP_ENTRY") {
+                // A concurrent tick computed the same missing categories first.
                 this.logger.warn(
                     `Results for event ${event.id} were already computed.`,
                 );

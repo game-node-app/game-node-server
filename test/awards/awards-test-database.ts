@@ -8,7 +8,7 @@ import { testEnvironment } from "../igdb/helpers/test-environment";
 const ADMIN = { user: "root", password: "igdb-test-root" };
 
 /**
- * Dedicated database per Awards spec, so these suites never synchronize or clean the shared igdb_sync_test schema.
+ * Dedicated database per integration spec, so suites never synchronize or clean the shared igdb_sync_test schema.
  */
 export async function createAwardsTestDatabase(database: string) {
     const mysql = testEnvironment(process.env).mysql;
