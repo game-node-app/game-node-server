@@ -105,6 +105,11 @@ export class NotificationTextPreviewDto {
         description: "Finished games so far, for goal reminders",
     })
     finished?: number;
+    @ApiPropertyOptional({
+        description:
+            "Milestone identifier, for awards.milestone and recap.milestone",
+    })
+    milestone?: string;
 }
 
 export class NotificationImportGameDto {

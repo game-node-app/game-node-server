@@ -660,6 +660,55 @@ describe("NotificationsProjectorService", () => {
             await outboxRepo.delete({ id: eventId });
         });
 
+        it.each([
+            [
+                "awards.milestone",
+                { eventId: 7, year: 2026, milestone: "voting_open" },
+                { text: "Awards voting is open.", milestone: "voting_open" },
+            ],
+            [
+                "recap.milestone",
+                { year: 2026, milestone: "closed" },
+                { text: "Your year recap is final.", milestone: "closed" },
+            ],
+        ] as const)(
+            "keeps the milestone in the projected %s preview",
+            async (eventType, payload, preview) => {
+                const outboxRepo = dataSource.getRepository(NotificationOutbox);
+                const inboxRepo = dataSource.getRepository(NotificationInbox);
+                const recipient = `milestone-user-${randomUUID()}`;
+                const eventId = `milestone-ev-${randomUUID()}`;
+                const token = randomUUID();
+
+                await outboxRepo.save(
+                    outboxRepo.create({
+                        id: eventId,
+                        eventType,
+                        eventVersion: 1,
+                        occurredAt: new Date(),
+                        recipientUserId: recipient,
+                        payload,
+                        state: "processing",
+                        ownerToken: token,
+                        ownerExpiresAt: new Date(Date.now() + 30000),
+                        attempts: 1,
+                        nextAttemptAt: new Date(),
+                    }),
+                );
+
+                expect(await projector.projectEvent(eventId, token)).toBe(true);
+
+                const inbox = await inboxRepo.findOneByOrFail({
+                    recipientUserId: recipient,
+                    type: eventType,
+                });
+                expect(inbox.preview).toMatchObject(preview);
+
+                await inboxRepo.delete({ id: inbox.id });
+                await outboxRepo.delete({ id: eventId });
+            },
+        );
+
         it("aggregates events on the same UTC day, caps actorIds at 3, and distinguishes distinct actors", async () => {
             const outboxRepo = dataSource.getRepository(NotificationOutbox);
             const inboxRepo = dataSource.getRepository(NotificationInbox);

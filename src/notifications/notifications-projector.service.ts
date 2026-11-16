@@ -737,7 +737,7 @@ export class NotificationsProjectorService {
                     subjectId: String(eventId),
                     rootType: "awards",
                     rootId: String(eventId),
-                    preview: { text },
+                    preview: { text, milestone: key },
                     target: {
                         type: "awards",
                         eventId: Number(eventId),
@@ -768,6 +768,7 @@ export class NotificationsProjectorService {
                             milestone === "closed"
                                 ? "Your year recap is final."
                                 : "Your year recap is here.",
+                        milestone,
                     },
                     target: {
                         type: "recap",
