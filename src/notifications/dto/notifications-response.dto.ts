@@ -75,11 +75,36 @@ export class NotificationConnectionTargetDto {
     provider: string;
 }
 
+export class NotificationAwardsTargetDto {
+    @ApiProperty({ enum: ["awards"] }) type: "awards";
+    @ApiProperty() eventId: number;
+    @ApiProperty() year: number;
+    @ApiProperty({ enum: ["nominations", "voting", "results"] })
+    phase: string;
+}
+
+export class NotificationRecapTargetDto {
+    @ApiProperty({ enum: ["recap"] }) type: "recap";
+    @ApiProperty() userId: string;
+    @ApiProperty() year: number;
+}
+
+export class NotificationGoalTargetDto {
+    @ApiProperty({ enum: ["goal"] }) type: "goal";
+    @ApiProperty() year: number;
+}
+
 export class NotificationTextPreviewDto {
     @ApiProperty({ maxLength: 240 }) text: string;
     @ApiPropertyOptional({ enum: ["alert", "suspension", "ban"] })
     action?: string;
     @ApiPropertyOptional({ maxLength: 240 }) reason?: string;
+    @ApiPropertyOptional({ description: "Goal target, for goal reminders" })
+    target?: number;
+    @ApiPropertyOptional({
+        description: "Finished games so far, for goal reminders",
+    })
+    finished?: number;
 }
 
 export class NotificationImportGameDto {
@@ -131,6 +156,9 @@ export class NotificationActorDto {
     NotificationImporterTargetDto,
     NotificationAchievementTargetDto,
     NotificationConnectionTargetDto,
+    NotificationAwardsTargetDto,
+    NotificationRecapTargetDto,
+    NotificationGoalTargetDto,
     NotificationTextPreviewDto,
     NotificationImportPreviewDto,
 )
@@ -161,6 +189,9 @@ export class NotificationInboxItemDto {
             NotificationImporterTargetDto,
             NotificationAchievementTargetDto,
             NotificationConnectionTargetDto,
+            NotificationAwardsTargetDto,
+            NotificationRecapTargetDto,
+            NotificationGoalTargetDto,
         ].map((type) => ({ $ref: getSchemaPath(type) })),
     })
     target: NotificationTarget | null;

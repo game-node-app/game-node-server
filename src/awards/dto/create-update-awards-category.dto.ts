@@ -16,4 +16,7 @@ export class CreateUpdateAwardsCategoryDto {
     @IsNotEmpty()
     @IsNumber()
     order: number;
+    @IsOptional()
+    @IsNumber()
+    nomineeCount?: number;
 }

@@ -1,3 +1,5 @@
+import { RecapPhase } from "./recap-window.dto";
+
 export class RecapStatusDto {
     /**
      * If the recap data for this user is already created.
@@ -9,4 +11,8 @@ export class RecapStatusDto {
      * This is determined by the user's account creation date and the target year.
      */
     isRecapEligible: boolean;
+    /**
+     * Phase of the requested year: upcoming, live or closed.
+     */
+    phase: RecapPhase;
 }

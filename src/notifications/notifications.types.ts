@@ -8,7 +8,10 @@ export type NotificationEventType =
     | "import.discovery-completed"
     | "connection.reauth-required"
     | "moderation.applied"
-    | "achievement.unlocked";
+    | "achievement.unlocked"
+    | "awards.milestone"
+    | "recap.milestone"
+    | "goal.reminder";
 
 export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "content.liked",
@@ -19,6 +22,9 @@ export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "connection.reauth-required",
     "moderation.applied",
     "achievement.unlocked",
+    "awards.milestone",
+    "recap.milestone",
+    "goal.reminder",
 ] as const;
 
 export const SUPPORTED_EVENT_VERSION = 1;
@@ -89,6 +95,35 @@ export interface AchievementUnlockedPayload {
     tier: number;
 }
 
+export const AWARDS_MILESTONES = [
+    "nominations_open",
+    "nominations_close_reminder",
+    "voting_open",
+    "voting_close_reminder",
+    "results_published",
+] as const;
+
+export type AwardsMilestone = (typeof AWARDS_MILESTONES)[number];
+
+export type NotificationAwardsPhase = "nominations" | "voting" | "results";
+
+export interface AwardsMilestonePayload {
+    eventId: number;
+    year: number;
+    milestone: AwardsMilestone;
+}
+
+export interface RecapMilestonePayload {
+    year: number;
+    milestone: "available" | "closed";
+}
+
+export interface GoalReminderPayload {
+    year: number;
+    target: number;
+    finished: number;
+}
+
 export type NotificationEventIntent =
     | BaseNotificationEventIntent<"content.liked", ContentLikedPayload>
     | BaseNotificationEventIntent<"comment.created", CommentCreatedPayload>
@@ -109,7 +144,10 @@ export type NotificationEventIntent =
     | BaseNotificationEventIntent<
           "achievement.unlocked",
           AchievementUnlockedPayload
-      >;
+      >
+    | BaseNotificationEventIntent<"awards.milestone", AwardsMilestonePayload>
+    | BaseNotificationEventIntent<"recap.milestone", RecapMilestonePayload>
+    | BaseNotificationEventIntent<"goal.reminder", GoalReminderPayload>;
 
 export interface NotificationGameContext {
     id: number;
@@ -143,4 +181,12 @@ export type NotificationTarget =
     | { type: "profile"; id: string }
     | { type: "importer"; id: string; provider: string }
     | { type: "connection"; id: string; provider: string }
-    | { type: "achievement"; id: string; tier: number };
+    | { type: "achievement"; id: string; tier: number }
+    | {
+          type: "awards";
+          eventId: number;
+          year: number;
+          phase: NotificationAwardsPhase;
+      }
+    | { type: "recap"; userId: string; year: number }
+    | { type: "goal"; year: number };

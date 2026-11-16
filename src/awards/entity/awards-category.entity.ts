@@ -51,6 +51,23 @@ export class AwardsCategory extends BaseEntity {
      * If this category corresponds to the 'personal goty' award.
      */
     isPersonalGOTY: boolean;
+    /**
+     * How many nominees finalization keeps for this category.
+     */
+    @Column({
+        nullable: false,
+        type: "smallint",
+        default: 6,
+    })
+    nomineeCount: number;
+    /**
+     * Set once finalization ran, so a later tick never rewrites admin edits.
+     */
+    @Column({
+        nullable: true,
+        type: "datetime",
+    })
+    nomineesFinalizedAt: Date | null;
     @OneToMany(
         () => AwardsCategorySuggestion,
         (suggestion) => suggestion.category,

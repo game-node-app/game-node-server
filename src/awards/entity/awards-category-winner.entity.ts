@@ -48,4 +48,22 @@ export class AwardsCategoryResultWinner {
         type: "float",
     })
     votesPercentage: number;
+    /**
+     * Votes cast by users who had played this game when results were computed.
+     */
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    playedVotes: number;
+    /**
+     * Percentage of the category's played-only votes.
+     * @example 0.29
+     */
+    @Column({
+        nullable: false,
+        type: "float",
+        default: 0,
+    })
+    playedVotesPercentage: number;
 }

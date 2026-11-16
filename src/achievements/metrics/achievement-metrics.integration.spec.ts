@@ -149,10 +149,53 @@ describe("achievement metrics (integration)", () => {
         ).toEqual([]);
     });
 
+    it("awards_ballot_completed counts only complete ballots", async () => {
+        const complete = await f.user();
+        const completeYear = await f.awardsBallot(complete, 12, 12);
+        const incomplete = await f.user();
+        const incompleteYear = await f.awardsBallot(incomplete, 12, 11);
+        const noCategories = await f.user();
+        const noCategoriesYear = await f.awardsBallot(noCategories, 0, 0);
+
+        expect(
+            await compute("awards_ballot_completed", complete, {
+                year: completeYear,
+            }),
+        ).toBe(1);
+        expect(
+            await compute("awards_ballot_completed", incomplete, {
+                year: incompleteYear,
+            }),
+        ).toBe(0);
+        expect(
+            await compute("awards_ballot_completed", noCategories, {
+                year: noCategoriesYear,
+            }),
+        ).toBe(0);
+        expect(
+            await compute("awards_ballot_completed", complete, {
+                year: completeYear + 1,
+            }),
+        ).toBe(0);
+        expect(
+            await compute("awards_ballot_completed", incomplete, {
+                year: completeYear,
+            }),
+        ).toBe(0);
+        expect(
+            await compute("awards_participation", complete, {
+                year: completeYear,
+            }),
+        ).toBe(1);
+    });
+
     it("validates criteria against the metric filters", () => {
         const followers = ACHIEVEMENT_METRICS.get("followers")!;
         const reviews = ACHIEVEMENT_METRICS.get("reviews_written")!;
         const awards = ACHIEVEMENT_METRICS.get("awards_participation")!;
+        const ballotCompleted = ACHIEVEMENT_METRICS.get(
+            "awards_ballot_completed",
+        )!;
         expect(validateMetricCriteria(followers, {})).toEqual([]);
         expect(
             validateMetricCriteria(followers, { themeIds: [1] }).join(),
@@ -165,6 +208,12 @@ describe("achievement metrics (integration)", () => {
         ).not.toEqual([]);
         expect(validateMetricCriteria(awards, {})).not.toEqual([]);
         expect(validateMetricCriteria(reviews, [])).not.toEqual([]);
+        expect(validateMetricCriteria(ballotCompleted, {})).not.toEqual([]);
+        expect(validateMetricCriteria(ballotCompleted, { year: 2026 })).toEqual(
+            [],
+        );
+        expect(ballotCompleted.filters).toEqual(["year"]);
+        expect(ballotCompleted.supportsWindow).toBe(false);
         expect(awards.supportsWindow).toBe(false);
         expect(reviews.supportsWindow).toBe(true);
     });

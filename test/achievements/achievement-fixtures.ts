@@ -152,5 +152,47 @@ export function achievementFixtures(ds: DataSource) {
                 [result.insertId, gameId, userId],
             );
         },
+        /** An event with `categoryCount` categories and votes in the first `votesCast`. */
+        async awardsBallot(
+            userId: string,
+            categoryCount: number,
+            votesCast: number,
+        ) {
+            // A fresh year per call keeps repeated runs on a shared test database
+            // from reusing an event that already has categories.
+            let year: number;
+            let eventId: number;
+            for (;;) {
+                year = 2000 + randomInt(0, 1000);
+                const existing = await ds.query(
+                    "SELECT id FROM awards_event WHERE year = ?",
+                    [year],
+                );
+                if (existing.length > 0) continue;
+                const result = await ds.query(
+                    "INSERT INTO awards_event (year, votingStartDate, votingEndDate, resultsDate) VALUES (?, NOW(), NOW(), NOW())",
+                    [year],
+                );
+                eventId = Number(result.insertId);
+                break;
+            }
+
+            const gameId = await this.game();
+            const categoryIds: number[] = [];
+            for (let index = 0; index < categoryCount; index++) {
+                const result = await ds.query(
+                    "INSERT INTO awards_category (eventId, name, description) VALUES (?, ?, ?)",
+                    [eventId, `Category ${index}`, `Category ${index}`],
+                );
+                categoryIds.push(Number(result.insertId));
+            }
+            for (const categoryId of categoryIds.slice(0, votesCast)) {
+                await ds.query(
+                    "INSERT INTO awards_vote (categoryId, gameId, profileUserId) VALUES (?, ?, ?)",
+                    [categoryId, gameId, userId],
+                );
+            }
+            return year;
+        },
     };
 }

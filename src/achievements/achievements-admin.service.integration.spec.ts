@@ -69,6 +69,7 @@ describe("AchievementsAdminService (integration)", () => {
             "followers",
             "comments_written",
             "awards_participation",
+            "awards_ballot_completed",
             "manual",
         ]);
         expect(
@@ -77,6 +78,14 @@ describe("AchievementsAdminService (integration)", () => {
             expect.objectContaining({
                 filters: ["gameIds", "themeIds", "genreIds"],
                 supportsWindow: true,
+            }),
+        );
+        expect(
+            metrics.find((metric) => metric.key === "awards_ballot_completed"),
+        ).toEqual(
+            expect.objectContaining({
+                filters: ["year"],
+                supportsWindow: false,
             }),
         );
         expect(metrics.every((metric) => metric.description.length > 0)).toBe(

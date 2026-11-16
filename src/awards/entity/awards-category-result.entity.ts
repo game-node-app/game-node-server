@@ -30,6 +30,14 @@ export class AwardsCategoryResult {
         nullable: false,
     })
     totalUsersParticipating: number;
+    /**
+     * Votes cast by users who had played the game they voted for.
+     */
+    @Column({
+        nullable: false,
+        default: 0,
+    })
+    totalPlayedVotesCount: number;
     @Column({
         nullable: false,
     })

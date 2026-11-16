@@ -13,6 +13,9 @@ import { AwardsController } from "./awards.controller";
 import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
 import { AwardsCategoryResult } from "./entity/awards-category-result.entity";
 import { AwardsCategoryResultWinner } from "./entity/awards-category-winner.entity";
+import { AwardsNomination } from "./entity/awards-nomination.entity";
+import { AwardsNominationService } from "./nomination/awards-nomination.service";
+import { AwardsNominationController } from "./nomination/awards-nomination.controller";
 import { Game } from "../game/game-repository/entities/game.entity";
 import { BullModule } from "@nestjs/bullmq";
 import { AWARDS_RESULT_QUEUE_NAME } from "./result/constants";
@@ -20,6 +23,14 @@ import { AwardsResultQueue } from "./result/awards-result.queue";
 import { AwardsResultProcessor } from "./result/awards-result.processor";
 import { AwardsResultService } from "./result/awards-result.service";
 import { AchievementsModule } from "../achievements/achievements.module";
+import { AwardsPlayContextService } from "./play-context/awards-play-context.service";
+import { AwardsBallotService } from "./ballot/awards-ballot.service";
+import { AwardsBallotController } from "./ballot/awards-ballot.controller";
+import { UserPlaytime } from "../playtime/entity/user-playtime.entity";
+import { CollectionEntry } from "../collections/collections-entries/entities/collection-entry.entity";
+import { Review } from "../reviews/entities/review.entity";
+import { PlaytimeModule } from "../playtime/playtime.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
     imports: [
@@ -30,8 +41,14 @@ import { AchievementsModule } from "../achievements/achievements.module";
             AwardsVote,
             AwardsCategoryResult,
             AwardsCategoryResultWinner,
+            AwardsNomination,
+            UserPlaytime,
+            CollectionEntry,
+            Review,
         ]),
         GameRepositoryModule,
+        PlaytimeModule,
+        NotificationsModule,
         BullModule.registerQueue({
             name: AWARDS_RESULT_QUEUE_NAME,
         }),
@@ -44,11 +61,17 @@ import { AchievementsModule } from "../achievements/achievements.module";
         AwardsResultQueue,
         AwardsResultProcessor,
         AwardsResultService,
+        AwardsNominationService,
+        AwardsPlayContextService,
+        AwardsBallotService,
     ],
     controllers: [
         AwardsAdminController,
         AwardsVoteController,
         AwardsController,
+        AwardsNominationController,
+        AwardsBallotController,
     ],
+    exports: [AwardsPlayContextService],
 })
 export class AwardsModule {}

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
-import { Repository } from "typeorm";
+import { Repository, SelectQueryBuilder } from "typeorm";
 import { CreateUserPlaytimeDto } from "./dto/create-user-playtime.dto";
 import { UserPlaytimeSource } from "./playtime.constants";
 import { GetTotalPlaytimePeriodDto } from "./dto/get-total-playtime-period.dto";
@@ -51,6 +51,13 @@ type FirstSteamObservation = {
     totalPlaytimeSeconds: number;
 };
 
+export interface DailyPlaytime {
+    day: string;
+    gameId: number;
+    platformId: number;
+    seconds: number;
+}
+
 @Injectable()
 export class PlaytimeHistoryService {
     constructor(
@@ -89,10 +96,10 @@ export class PlaytimeHistoryService {
         });
     }
 
-    public async getTotalPlaytimeForPeriod(dto: GetTotalPlaytimePeriodDto) {
-        const { userId, source, platformId, startDate, endDate } = dto;
-        const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
-        const previous = qb
+    private previousPlaytimeSubQuery(
+        qb: SelectQueryBuilder<UserPlaytimeHistory>,
+    ) {
+        return qb
             .subQuery()
             .select("previous.totalPlaytimeSeconds")
             .from(UserPlaytimeHistory, "previous")
@@ -107,6 +114,12 @@ export class PlaytimeHistoryService {
             .addOrderBy("previous.id", "DESC")
             .limit(1)
             .getQuery();
+    }
+
+    public async getTotalPlaytimeForPeriod(dto: GetTotalPlaytimePeriodDto) {
+        const { userId, source, platformId, startDate, endDate } = dto;
+        const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
+        const previous = this.previousPlaytimeSubQuery(qb);
 
         qb.select("ph.gameId", "gameId")
             .addSelect("ph.source", "source")
@@ -219,6 +232,41 @@ export class PlaytimeHistoryService {
             qb.andWhere("ph.platformId = :platformId", { platformId });
         }
         return await qb.getRawMany<FirstSteamObservation>();
+    }
+
+    public async getDailyPlaytimeForPeriod(
+        userId: string,
+        start: Date,
+        end: Date,
+    ): Promise<DailyPlaytime[]> {
+        const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
+        const previous = this.previousPlaytimeSubQuery(qb);
+
+        qb.select("DATE_FORMAT(ph.createdAt, '%Y-%m-%d')", "day")
+            .addSelect("ph.gameId", "gameId")
+            .addSelect("ph.platformId", "platformId")
+            .addSelect(
+                // Same attribution rule as getTotalPlaytimeForPeriod, split per observed UTC day.
+                `COALESCE(SUM(GREATEST(ph.totalPlaytimeSeconds - ${previous}, 0)), 0)`,
+                "seconds",
+            )
+            .groupBy(
+                "DATE_FORMAT(ph.createdAt, '%Y-%m-%d'), ph.gameId, ph.platformId",
+            )
+            .where("ph.createdAt > :start AND ph.createdAt <= :end", {
+                start,
+                end,
+            })
+            .andWhere("ph.profileUserId = :userId", { userId });
+
+        const rows = await qb.getRawMany<DailyPlaytime>();
+        // MySQL returns SUM as a decimal string, while callers add numeric seconds.
+        return rows.map((row) => ({
+            ...row,
+            gameId: Number(row.gameId),
+            platformId: Number(row.platformId),
+            seconds: Number(row.seconds),
+        }));
     }
 
     public async save(playtime: CreateUserPlaytimeDto, observedAt: Date) {

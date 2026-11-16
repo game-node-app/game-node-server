@@ -476,7 +476,7 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
             limit: 20,
         });
         const reviewLikeBefore = inboxBeforePrivacy.data.find(
-            (d) => d.target?.id === reviewId,
+            (d) => d.target?.type === "review" && d.target.id === reviewId,
         );
         expect(reviewLikeBefore).toBeDefined();
 
@@ -490,7 +490,7 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
             limit: 20,
         });
         const reviewLikeAfter = inboxAfterPrivacy.data.find(
-            (d) => d.target?.id === reviewId,
+            (d) => d.target?.type === "review" && d.target.id === reviewId,
         );
         expect(reviewLikeAfter).toBeUndefined();
     });

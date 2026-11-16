@@ -5,6 +5,8 @@ import { LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
 import dayjs from "dayjs";
 import { AwardsCategory } from "./entity/awards-category.entity";
 import { VotableAwardsCategoryDto } from "./dto/votable-awards-category.dto";
+import { AwardsEventDto, CurrentAwardsEventDto } from "./dto/awards-event.dto";
+import { getAwardsPhase } from "./awards.utils";
 
 @Injectable()
 export class AwardsService {
@@ -23,8 +25,9 @@ export class AwardsService {
         return this.awardsCategoryRepository.createQueryBuilder("c");
     }
 
-    public async getEvents() {
-        return this.awardsEventRepository.find();
+    public async getEvents(): Promise<AwardsEventDto[]> {
+        const events = await this.awardsEventRepository.find();
+        return events.map((event) => this.toEventDto(event));
     }
 
     public async getRunningEvent() {
@@ -39,10 +42,11 @@ export class AwardsService {
         });
     }
 
-    public async getEventByIdOrFail(eventId: number) {
-        return this.awardsEventRepository.findOneByOrFail({
+    public async getEventByIdOrFail(eventId: number): Promise<AwardsEventDto> {
+        const event = await this.awardsEventRepository.findOneByOrFail({
             id: eventId,
         });
+        return this.toEventDto(event);
     }
 
     public async getEventByYear(year: number) {
@@ -51,10 +55,60 @@ export class AwardsService {
         });
     }
 
-    public async getEventByYearOrFail(year: number) {
-        return this.awardsEventRepository.findOneByOrFail({
+    public async getEventByYearOrFail(year: number): Promise<AwardsEventDto> {
+        const event = await this.awardsEventRepository.findOneByOrFail({
             year,
         });
+        return this.toEventDto(event);
+    }
+
+    /**
+     * Latest event by year whose first phase (nominations when set, voting otherwise) has started.
+     */
+    public async getCurrentEvent(
+        now: Date = new Date(),
+    ): Promise<CurrentAwardsEventDto | null> {
+        const event = await this.awardsEventRepository
+            .createQueryBuilder("e")
+            .where(
+                "COALESCE(e.nominationStartDate, e.votingStartDate) <= :now",
+                { now },
+            )
+            .orderBy("e.year", "DESC")
+            .getOne();
+        if (event == null) return null;
+
+        return {
+            ...this.toEventDto(event, now),
+            categoriesCount: await this.awardsCategoryRepository.countBy({
+                eventId: event.id,
+            }),
+        };
+    }
+
+    /**
+     * Events the hourly lifecycle tick must look at: started, and no more than
+     * 40 days past their results date (design 4).
+     */
+    public async getEventsInLifecycleWindow(
+        now: Date = new Date(),
+    ): Promise<AwardsEvent[]> {
+        return this.awardsEventRepository
+            .createQueryBuilder("e")
+            .where(
+                "COALESCE(e.nominationStartDate, e.votingStartDate) <= :now",
+                { now },
+            )
+            .andWhere("e.resultsDate + INTERVAL 40 DAY >= :now", { now })
+            .orderBy("e.year", "ASC")
+            .getMany();
+    }
+
+    private toEventDto(
+        event: AwardsEvent,
+        now: Date = new Date(),
+    ): AwardsEventDto {
+        return { ...event, phase: getAwardsPhase(event, now) };
     }
 
     public async getEventByCategoryId(categoryId: number) {
@@ -62,6 +116,12 @@ export class AwardsService {
             categories: {
                 id: categoryId,
             },
+        });
+    }
+
+    public async getCategoryByIdOrFail(categoryId: number) {
+        return this.awardsCategoryRepository.findOneByOrFail({
+            id: categoryId,
         });
     }
 

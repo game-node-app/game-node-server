@@ -10,6 +10,8 @@ import { toMap } from "../../utils/toMap";
 import { Cacheable } from "../../utils/cacheable";
 import { minutes } from "@nestjs/throttler";
 import { AchievementsQueueService } from "../../achievements/achievements-queue/achievements-queue.service";
+import { AwardsCategorySuggestion } from "../entity/awards-category-suggestion.entity";
+import { assertGameEligible, getAwardsPhase } from "../awards.utils";
 
 @Injectable()
 export class AwardsVoteService {
@@ -19,6 +21,8 @@ export class AwardsVoteService {
         private readonly awardsService: AwardsService,
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly achievementsQueueService: AchievementsQueueService,
+        @InjectRepository(AwardsCategorySuggestion)
+        private readonly awardsCategorySuggestionRepository: Repository<AwardsCategorySuggestion>,
     ) {}
 
     /**
@@ -27,39 +31,51 @@ export class AwardsVoteService {
      * @param dto
      */
     public async registerVote(userId: string, dto: RegisterAwardsVoteDto) {
-        const targetEvent = await this.awardsService.getEventByCategoryId(
+        const category = await this.awardsService.getCategoryByIdOrFail(
             dto.categoryId,
         );
-        if (!targetEvent) {
-            throw new HttpException("No running event", HttpStatus.BAD_REQUEST);
-        }
+        const targetEvent = await this.awardsService.getEventByIdOrFail(
+            category.eventId,
+        );
         const now = dayjs();
 
-        if (now.isAfter(targetEvent.votingEndDate, "second")) {
-            throw new HttpException(
-                "Voting period has ended",
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-        if (now.isBefore(targetEvent.votingStartDate, "second")) {
-            throw new HttpException(
-                "Voting period has ended",
-                HttpStatus.BAD_REQUEST,
-            );
+        switch (getAwardsPhase(targetEvent, now.toDate())) {
+            case "upcoming":
+            case "nominations":
+            case "nominations_closed":
+                throw new HttpException(
+                    "Voting period has not started yet.",
+                    HttpStatus.BAD_REQUEST,
+                );
+            case "voting_closed":
+            case "results":
+                throw new HttpException(
+                    "Voting period has ended.",
+                    HttpStatus.BAD_REQUEST,
+                );
         }
 
         const targetGame = await this.gameRepositoryService.findOneByIdOrFail(
             dto.gameId,
         );
+        assertGameEligible(targetEvent, targetGame);
 
-        if (
-            targetGame.firstReleaseDate != undefined &&
-            targetGame.firstReleaseDate.getFullYear() !== targetEvent.year
-        ) {
-            throw new HttpException(
-                `Game ${targetGame.name} was released in ${targetGame.firstReleaseDate.getFullYear()} and is not part of the ${targetEvent.year} awards event.`,
-                HttpStatus.BAD_REQUEST,
-            );
+        // Events with a nominations phase only accept the category's nominees.
+        const hasNominations =
+            targetEvent.nominationStartDate != null &&
+            targetEvent.nominationEndDate != null;
+        if (hasNominations && !category.isPersonalGOTY) {
+            const isNominee =
+                await this.awardsCategorySuggestionRepository.existsBy({
+                    categoryId: category.id,
+                    gameId: targetGame.id,
+                });
+            if (!isNominee) {
+                throw new HttpException(
+                    `Game ${targetGame.name} is not a nominee in the ${category.name} category.`,
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
         }
 
         // If a vote for this category is already in place, it will be updated instead.
@@ -75,10 +91,12 @@ export class AwardsVoteService {
             gameId: dto.gameId,
         });
 
-        this.achievementsQueueService.addTrackingJob({
-            userId,
-            metric: "awards_participation",
-        });
+        for (const metric of [
+            "awards_participation",
+            "awards_ballot_completed",
+        ] as const) {
+            this.achievementsQueueService.addTrackingJob({ userId, metric });
+        }
     }
 
     public async getVoteByUserId(userId: string, categoryId: number) {

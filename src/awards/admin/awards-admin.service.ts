@@ -25,6 +25,7 @@ export class AwardsAdminService {
     @Transactional()
     public async createAwardsEvent(dto: CreateUpdateAwardsEventDto) {
         const eventInYear = await this.awardsService.getEventByYear(dto.year);
+        this.assertValidEventDates(dto, eventInYear);
         if (dto.eventId == undefined && eventInYear != undefined) {
             throw new HttpException(
                 `An event with id ${dto.eventId} already exists for year ${dto.year}.`,
@@ -38,6 +39,53 @@ export class AwardsAdminService {
 
         if (eventInYear == undefined) {
             await this.onAwardEventCreated(event);
+        }
+    }
+
+    private assertValidEventDates(
+        dto: CreateUpdateAwardsEventDto,
+        existingEvent?: AwardsEvent | null,
+    ) {
+        if (dto.votingEndDate <= dto.votingStartDate) {
+            throw new HttpException(
+                "Voting end must be after voting start.",
+                400,
+            );
+        }
+        if (dto.resultsDate < dto.votingEndDate) {
+            throw new HttpException(
+                "Results must not precede voting end.",
+                400,
+            );
+        }
+        // Omitted fields keep their stored value, so an update is validated against the resulting calendar.
+        const nominationStartDate =
+            dto.nominationStartDate === undefined
+                ? (existingEvent?.nominationStartDate ?? null)
+                : dto.nominationStartDate;
+        const nominationEndDate =
+            dto.nominationEndDate === undefined
+                ? (existingEvent?.nominationEndDate ?? null)
+                : dto.nominationEndDate;
+        if ((nominationStartDate == null) !== (nominationEndDate == null)) {
+            throw new HttpException(
+                "Nomination start and end dates must be informed together.",
+                400,
+            );
+        }
+        if (nominationStartDate == null || nominationEndDate == null) return;
+
+        if (nominationEndDate <= nominationStartDate) {
+            throw new HttpException(
+                "Nomination start date must be before the nomination end date.",
+                400,
+            );
+        }
+        if (nominationEndDate > dto.votingStartDate) {
+            throw new HttpException(
+                "Nomination end date must not be after the voting start date.",
+                400,
+            );
         }
     }
 
@@ -77,8 +125,7 @@ export class AwardsAdminService {
             name: dto.name,
             description: dto.description,
             order: dto.order,
-            // Already created
-            isGOTY: false,
+            nomineeCount: dto.nomineeCount,
         });
     }
 

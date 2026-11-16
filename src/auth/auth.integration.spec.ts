@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { CacheModule } from "@nestjs/cache-manager";
+import { seconds, ThrottlerModule } from "@nestjs/throttler";
 import { Test } from "@nestjs/testing";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
@@ -25,6 +26,7 @@ import { Session, SessionContainer } from "./session.decorator";
 import { EUserRoles } from "../utils/constants";
 import { UploadModule } from "../upload/upload.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { ProfileVideoProcessor } from "../profile/profile-video/profile-video.processor";
 
 /**
  * Runs Better Auth against the dev MySQL (yarn migration:run first). Provider HTTP calls are stubbed on the
@@ -80,6 +82,8 @@ describe("Better Auth integration (dev MySQL)", () => {
             imports: [
                 ConfigModule.forRoot({ isGlobal: true }),
                 CacheModule.register({ isGlobal: true }),
+                // ThrottlerGuard is pulled in by ProfileVideoModule; the app config lives in AppModule.
+                ThrottlerModule.forRoot([{ limit: 10, ttl: seconds(60) }]),
                 TypeOrmModule.forRoot({
                     type: "mysql",
                     host: process.env.DB_HOST,
@@ -98,6 +102,9 @@ describe("Better Auth integration (dev MySQL)", () => {
         })
             .overrideModule(NotificationsModule)
             .useModule(NoNotificationsModule)
+            // ProfileVideoModule arrives through AuthModule; its Bull worker has no connection here.
+            .overrideProvider(ProfileVideoProcessor)
+            .useValue({})
             .compile();
 
         app = moduleRef.createNestApplication({ bodyParser: false });

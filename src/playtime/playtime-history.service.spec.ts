@@ -214,3 +214,53 @@ test("the Steam estimate query includes first observations after the window end"
         },
     ]);
 });
+
+test("daily period grouping attributes increments to the observed UTC day", async () => {
+    const queryBuilder: any = {};
+    const chain = jest.fn(() => queryBuilder);
+    Object.assign(queryBuilder, {
+        select: chain,
+        addSelect: chain,
+        groupBy: chain,
+        addGroupBy: chain,
+        where: chain,
+        andWhere: chain,
+        subQuery: chain,
+        from: chain,
+        orderBy: chain,
+        addOrderBy: chain,
+        limit: chain,
+        getQuery: jest.fn(() => "(SELECT previous.totalPlaytimeSeconds)"),
+        getRawMany: jest.fn().mockResolvedValue([
+            {
+                day: "2026-11-15",
+                gameId: "3",
+                platformId: "7",
+                seconds: "120",
+            },
+        ]),
+    });
+    const service = new PlaytimeHistoryService(
+        { createQueryBuilder: jest.fn(() => queryBuilder) } as any,
+        {} as any,
+    );
+    const start = new Date("2026-11-01T00:00:00.000Z");
+    const end = new Date("2026-12-01T00:00:00.000Z");
+
+    await expect(
+        service.getDailyPlaytimeForPeriod("user", start, end),
+    ).resolves.toEqual([
+        { day: "2026-11-15", gameId: 3, platformId: 7, seconds: 120 },
+    ]);
+    expect(queryBuilder.groupBy).toHaveBeenCalledWith(
+        "DATE_FORMAT(ph.createdAt, '%Y-%m-%d'), ph.gameId, ph.platformId",
+    );
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+        "ph.createdAt > :start AND ph.createdAt <= :end",
+        { start, end },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        "ph.profileUserId = :userId",
+        { userId: "user" },
+    );
+});

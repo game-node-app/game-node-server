@@ -9,7 +9,11 @@ import {
     lockNotificationComment,
     NotificationRootType,
 } from "./notifications-lifecycle.service";
-import { NotificationEventIntent } from "./notifications.types";
+import {
+    AwardsMilestone,
+    NotificationAwardsPhase,
+    NotificationEventIntent,
+} from "./notifications.types";
 import { UserConnection } from "../connection/entity/user-connection.entity";
 import {
     NotificationIntentValidationError,
@@ -34,6 +38,26 @@ export function extractSafePlainText(
     }
     return content.trim().slice(0, 240);
 }
+
+/** The phase each Awards milestone announces. */
+const AWARDS_MILESTONE_PHASES: Record<
+    AwardsMilestone,
+    NotificationAwardsPhase
+> = {
+    nominations_open: "nominations",
+    nominations_close_reminder: "nominations",
+    voting_open: "voting",
+    voting_close_reminder: "voting",
+    results_published: "results",
+};
+
+const AWARDS_MILESTONE_TEXTS: Record<AwardsMilestone, string> = {
+    nominations_open: "Awards nominations are open.",
+    nominations_close_reminder: "Awards nominations close tomorrow.",
+    voting_open: "Awards voting is open.",
+    voting_close_reminder: "Awards voting closes in 2 days.",
+    results_published: "Awards results are out.",
+};
 
 export interface ResolvedEventDetails {
     recipientUserId: string;
@@ -685,6 +709,96 @@ export class NotificationsProjectorService {
                         text: extractSafePlainText(rows[0].name, "Achievement"),
                     },
                     target: { type: "achievement", id: achievementId, tier },
+                };
+            }
+
+            case "awards.milestone": {
+                const { eventId, year, milestone } = payload;
+                const recipientUserId = outbox.recipientUserId;
+                if (!recipientUserId) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason: "awards_milestone_no_recipient",
+                    } as ResolvedEventDetails;
+                }
+                const key = milestone as AwardsMilestone;
+                const phase = AWARDS_MILESTONE_PHASES[key];
+                const text = AWARDS_MILESTONE_TEXTS[key];
+                if (!phase || !text) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason: "unknown_awards_milestone",
+                    } as ResolvedEventDetails;
+                }
+                return {
+                    recipientUserId,
+                    actorUserId: null, // system actor
+                    subjectType: "awards",
+                    subjectId: String(eventId),
+                    rootType: "awards",
+                    rootId: String(eventId),
+                    preview: { text },
+                    target: {
+                        type: "awards",
+                        eventId: Number(eventId),
+                        year: Number(year),
+                        phase,
+                    },
+                };
+            }
+
+            case "recap.milestone": {
+                const { year, milestone } = payload;
+                const recipientUserId = outbox.recipientUserId;
+                if (!recipientUserId) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason: "recap_milestone_no_recipient",
+                    } as ResolvedEventDetails;
+                }
+                return {
+                    recipientUserId,
+                    actorUserId: null, // system actor
+                    subjectType: "recap",
+                    subjectId: String(year),
+                    rootType: "recap",
+                    rootId: String(year),
+                    preview: {
+                        text:
+                            milestone === "closed"
+                                ? "Your year recap is final."
+                                : "Your year recap is here.",
+                    },
+                    target: {
+                        type: "recap",
+                        userId: recipientUserId,
+                        year: Number(year),
+                    },
+                };
+            }
+
+            case "goal.reminder": {
+                const { year, target, finished } = payload;
+                const recipientUserId = outbox.recipientUserId;
+                if (!recipientUserId) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason: "goal_reminder_no_recipient",
+                    } as ResolvedEventDetails;
+                }
+                return {
+                    recipientUserId,
+                    actorUserId: null, // system actor
+                    subjectType: "goal",
+                    subjectId: String(year),
+                    rootType: "goal",
+                    rootId: String(year),
+                    preview: {
+                        text: `Your ${year} goal: ${finished} of ${target} games finished.`,
+                        target: Number(target),
+                        finished: Number(finished),
+                    },
+                    target: { type: "goal", year: Number(year) },
                 };
             }
 

@@ -9,8 +9,13 @@ import { YearRecapMode } from "./entity/year-recap-mode.entity";
 import { YearRecapPlatform } from "./entity/year-recap-platform.entity";
 import { YearRecapPlayedGame } from "./entity/year-recap-played-game.entity";
 import { YearRecapTheme } from "./entity/year-recap-theme.entity";
+import { YearRecapEdition } from "./entity/year-recap-edition.entity";
+import { YearGoal } from "./entity/year-goal.entity";
 import { RecapCreateService } from "./recap-create.service";
 import { RecapQueueService } from "./queue/recap-queue.service";
+import { RecapWindowService } from "./recap-window.service";
+import { RecapGoalsService } from "./recap-goals.service";
+import { RecapAdminController } from "./recap-admin.controller";
 import { ProfileMetricsModule } from "../profile/profile-metrics/profile-metrics.module";
 import { CollectionsModule } from "../collections/collections.module";
 import { CollectionsEntriesModule } from "../collections/collections-entries/collections-entries.module";
@@ -20,6 +25,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { RECAP_QUEUE_NAME } from "./recap.constants";
 import { RecapQueueProcessor } from "./queue/recap-queue.processor";
 import { ProfileModule } from "../profile/profile.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
     imports: [
@@ -30,6 +36,8 @@ import { ProfileModule } from "../profile/profile.module";
             YearRecapPlatform,
             YearRecapPlayedGame,
             YearRecapTheme,
+            YearRecapEdition,
+            YearGoal,
         ]),
         BullModule.registerQueue({
             name: RECAP_QUEUE_NAME,
@@ -44,13 +52,17 @@ import { ProfileModule } from "../profile/profile.module";
         ReviewsModule,
         FollowModule,
         ProfileModule,
+        NotificationsModule,
     ],
     providers: [
         RecapService,
         RecapCreateService,
         RecapQueueService,
         RecapQueueProcessor,
+        RecapWindowService,
+        RecapGoalsService,
     ],
-    controllers: [RecapController],
+    controllers: [RecapController, RecapAdminController],
+    exports: [RecapWindowService],
 })
 export class RecapModule {}
