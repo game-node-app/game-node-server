@@ -15,6 +15,6 @@ export const AppDataSource = new DataSource({
     synchronize: false,
     logging: false,
     entities: ["src/**/*.entity.{ts,js}"],
-    // Timestamped files only: the integration spec beside them calls describe() at load time.
+    // Digit-prefixed only: a spec file in this folder is loaded by `migration:run` and crashes it.
     migrations: ["src/migrations/[0-9]*.ts"],
 });
