@@ -1,3 +1,4 @@
+import { NotFoundException } from "@nestjs/common";
 import { RecapService } from "./recap.service";
 import { RecapWindowService } from "./recap-window.service";
 
@@ -12,14 +13,26 @@ describe("RecapService", () => {
     const recapWindowService = {
         getRecapPhase: jest.fn(),
     };
+    const libraryAccessService = {
+        resolve: jest.fn(),
+        hiddenGameIds: jest.fn(),
+    };
     let service: RecapService;
 
     beforeEach(() => {
         jest.clearAllMocks();
+        libraryAccessService.resolve.mockResolvedValue({
+            audience: "owner",
+            libraryVisibility: "public",
+            canViewLibrary: true,
+            visibleEntryLevels: ["public", "followers", "private"],
+        });
+        libraryAccessService.hiddenGameIds.mockResolvedValue([]);
         service = new RecapService(
             recapRepository as any,
             profileService as any,
             recapWindowService as any,
+            libraryAccessService as any,
         );
     });
 

@@ -7,6 +7,7 @@ import { ReviewsModule } from "../reviews/reviews.module";
 import { CollectionsEntriesModule } from "./collections-entries/collections-entries.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { BillingModule } from "../billing/billing.module";
+import { LibrariesModule } from "../libraries/libraries.module";
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { BillingModule } from "../billing/billing.module";
         forwardRef(() => CollectionsEntriesModule),
         NotificationsModule,
         BillingModule,
+        LibrariesModule,
     ],
     controllers: [CollectionsController],
     providers: [CollectionsService],

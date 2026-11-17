@@ -1,5 +1,8 @@
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { achievementFixtures } from "../../test/achievements/achievement-fixtures";
 import { NotificationsService } from "./notifications.service";
 import { NotificationsRelayService } from "./notifications-relay.service";
@@ -43,6 +46,7 @@ describe("achievement.unlocked notifications (integration)", () => {
                 ds.getRepository(NotificationOutbox),
                 { add: jest.fn() } as any,
             ),
+            createLibraryAccessService(ds),
         );
         notifications = new NotificationsService(
             ds.getRepository(NotificationInbox),

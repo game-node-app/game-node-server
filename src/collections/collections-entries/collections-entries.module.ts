@@ -14,6 +14,7 @@ import { CollectionsOrderingService } from "./order/collections-ordering.service
 import { CollectionsOrderingController } from "./order/collections-ordering.controller";
 import { NotificationsModule } from "../../notifications/notifications.module";
 import { UserGameCover } from "../../game/game-cover/entities/user-game-cover.entity";
+import { LibrariesModule } from "../../libraries/libraries.module";
 
 @Module({
     imports: [
@@ -29,6 +30,7 @@ import { UserGameCover } from "../../game/game-cover/entities/user-game-cover.en
         forwardRef(() => CollectionsModule),
         GameRepositoryModule,
         NotificationsModule,
+        LibrariesModule,
     ],
     controllers: [CollectionsEntriesController, CollectionsOrderingController],
     providers: [CollectionsEntriesService, CollectionsOrderingService],

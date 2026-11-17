@@ -16,6 +16,11 @@ import { lockoutAuthService } from "../../../test/mocks/lockout-auth-service.moc
 import { Game } from "../../game/game-repository/entities/game.entity";
 import { GameCover } from "../../game/game-repository/entities/game-cover.entity";
 import { GameRepositoryFindAllDto } from "../../game/game-repository/dto/game-repository-find-all.dto";
+import { LibraryAccessService } from "../../libraries/library-access.service";
+import { Profile } from "../../profile/entities/profile.entity";
+import { UserFollow } from "../../follow/entity/user-follow.entity";
+import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
+import { LibraryVisibility } from "../../libraries/library-visibility.constants";
 
 describe("ActivitiesRepositoryService (behavioral integration)", () => {
     let dataSource: DataSource;
@@ -63,6 +68,11 @@ describe("ActivitiesRepositoryService (behavioral integration)", () => {
                     .mockResolvedValue({ externalGame: { gameId: 1 } }),
             } as any,
             { findAllByIds } as any,
+            new LibraryAccessService(
+                dataSource.getRepository(Profile),
+                dataSource.getRepository(UserFollow),
+                dataSource.getRepository(CollectionEntry),
+            ),
         );
     });
 
@@ -489,6 +499,130 @@ describe("ActivitiesRepositoryService (behavioral integration)", () => {
                 }
             }
         }
+    });
+
+    it("filters collection entry activities by the viewer's access in listings and by id", async () => {
+        const ownerId = randomUUID();
+        const followerId = randomUUID();
+        const strangerId = randomUUID();
+        for (const id of [ownerId, followerId, strangerId]) {
+            await ensureProfile(id);
+        }
+        await dataSource.query(
+            "INSERT INTO user_follow (followerUserId, followedUserId) VALUES (?, ?)",
+            [followerId, ownerId],
+        );
+
+        const entryIds: Record<LibraryVisibility, string> = {
+            [LibraryVisibility.Public]: randomUUID(),
+            [LibraryVisibility.Followers]: randomUUID(),
+            [LibraryVisibility.Private]: randomUUID(),
+        };
+        for (const [visibility, entryId] of Object.entries(entryIds)) {
+            await dataSource.query(
+                "INSERT INTO collection_entry (id, gameId, libraryUserId, status, visibility) VALUES (?, 1, ?, 'playing', ?)",
+                [entryId, ownerId, visibility],
+            );
+        }
+
+        const activityRepo = dataSource.getRepository(Activity);
+        const privateActivity = await activityRepo.save(
+            activityRepo.create({
+                type: ActivityType.COLLECTION_ENTRY,
+                profileUserId: ownerId,
+                collectionEntryId: entryIds[LibraryVisibility.Private],
+            }),
+        );
+        const followersActivity = await activityRepo.save(
+            activityRepo.create({
+                type: ActivityType.COLLECTION_ENTRY,
+                profileUserId: ownerId,
+                collectionEntryId: entryIds[LibraryVisibility.Followers],
+            }),
+        );
+        const publicActivity = await activityRepo.save(
+            activityRepo.create({
+                type: ActivityType.COLLECTION_ENTRY,
+                profileUserId: ownerId,
+                collectionEntryId: entryIds[LibraryVisibility.Public],
+            }),
+        );
+
+        const visibleIds = async (viewerUserId?: string) => {
+            const [items] = await service.findLatestBy(
+                { where: { profileUserId: ownerId }, take: 20 },
+                viewerUserId,
+            );
+            return items.map((item) => item.id);
+        };
+
+        expect(await visibleIds(ownerId)).toEqual(
+            expect.arrayContaining([
+                privateActivity.id,
+                followersActivity.id,
+                publicActivity.id,
+            ]),
+        );
+        const followerIds = await visibleIds(followerId);
+        expect(followerIds).toEqual(
+            expect.arrayContaining([followersActivity.id, publicActivity.id]),
+        );
+        expect(followerIds).not.toContain(privateActivity.id);
+        for (const viewerUserId of [strangerId, undefined]) {
+            expect(await visibleIds(viewerUserId)).toEqual([
+                publicActivity.id,
+            ]);
+            const [general] = await service.findLatestBy(
+                { take: 50 },
+                viewerUserId,
+            );
+            const generalIds = general.map((item) => item.id);
+            expect(generalIds).not.toContain(privateActivity.id);
+            expect(generalIds).toContain(publicActivity.id);
+            const [latest] = await service.findLatest(
+                { userId: ownerId, limit: 20 },
+                viewerUserId,
+            );
+            expect(latest.map((item) => item.id)).toEqual([
+                publicActivity.id,
+            ]);
+            const [excluding] = await service.findLatestExcludingTypes(
+                { userId: ownerId, limit: 20 },
+                [ActivityType.POST],
+                viewerUserId,
+            );
+            expect(excluding.map((item) => item.id)).toEqual([
+                publicActivity.id,
+            ]);
+        }
+
+        await expect(
+            service.findOneByOrFail(
+                { where: { id: privateActivity.id } },
+                strangerId,
+            ),
+        ).rejects.toThrow("No activity found.");
+        await expect(
+            service.findOneByOrFail({ where: { id: privateActivity.id } }),
+        ).rejects.toThrow("No activity found.");
+        await expect(
+            service.findOneByOrFail(
+                { where: { id: followersActivity.id } },
+                strangerId,
+            ),
+        ).rejects.toThrow("No activity found.");
+        await expect(
+            service.findOneByOrFail(
+                { where: { id: followersActivity.id } },
+                followerId,
+            ),
+        ).resolves.toMatchObject({ id: followersActivity.id });
+        await expect(
+            service.findOneByOrFail(
+                { where: { id: privateActivity.id } },
+                ownerId,
+            ),
+        ).resolves.toMatchObject({ id: privateActivity.id });
     });
 
     it("executes the same number of queries for take: 2 and take: 10", async () => {

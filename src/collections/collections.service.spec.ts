@@ -35,6 +35,8 @@ function fixture(count: number, isSupporter = jest.fn(async () => false)) {
     const service = new CollectionsService(
         { manager } as any,
         { isSupporter } as any,
+        undefined,
+        {} as any,
     );
 
     return {

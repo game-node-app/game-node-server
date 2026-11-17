@@ -1,7 +1,10 @@
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { StatisticsSourceType } from "./statistics.constants";
 import { StatisticsService } from "./statistics.service";
 import {
@@ -15,7 +18,10 @@ describe("statistics target initialization", () => {
 
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
-        statisticsService = new StatisticsService(dataSource);
+        statisticsService = new StatisticsService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+        );
     });
 
     afterAll(async () => {

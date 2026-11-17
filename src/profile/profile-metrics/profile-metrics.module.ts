@@ -9,6 +9,7 @@ import { ReviewsModule } from "../../reviews/reviews.module";
 import { PlaytimeModule } from "../../playtime/playtime.module";
 import { ProfileMetricsReportService } from "./profile-metrics-report.service";
 import { ProfileMetricsSummaryService } from "./profile-metrics-summary.service";
+import { LibrariesModule } from "../../libraries/libraries.module";
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { ProfileMetricsSummaryService } from "./profile-metrics-summary.service"
         PlaytimeModule,
         GameRepositoryModule,
         ReviewsModule,
+        LibrariesModule,
     ],
     controllers: [ProfileMetricsController],
     providers: [

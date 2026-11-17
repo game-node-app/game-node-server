@@ -340,7 +340,7 @@ describe("statistics rankings", () => {
         await cache.disconnect();
     });
 
-    it("pins only eligible reviews and rejects unbounded recent/all rankings", async () => {
+    it("ranks reviews whatever their collection privacy and rejects unbounded recent/all rankings", async () => {
         const gameId = 2_000_000_000 - randomInt(100_000);
         await createGame(gameId);
         const publicOwner = randomUUID();
@@ -356,8 +356,9 @@ describe("statistics rankings", () => {
             limit: 10,
             offset: 0,
         });
-        expect(page.items.map((item: any) => item.sourceId)).toContain(publicReview);
-        expect(page.items.map((item: any) => item.sourceId)).not.toContain(privateReview);
+        expect(page.items.map((item: any) => item.sourceId)).toEqual(
+            expect.arrayContaining([publicReview, privateReview]),
+        );
         await expect(service.findRankings(undefined, {
             sourceType: StatisticsSourceType.GAME,
             mode: "recent" as any,
@@ -507,7 +508,7 @@ describe("statistics rankings", () => {
         await cache.disconnect();
     });
 
-    it("rechecks cached review visibility even when the eligible total is unchanged", async () => {
+    it("keeps both reviews cached and ranked when collection privacy changes", async () => {
         const gameId = 2_140_000_000 - randomInt(100_000);
         await createGame(gameId);
         const firstReview = await createReview(gameId, randomUUID(), true, 4);
@@ -516,7 +517,10 @@ describe("statistics rankings", () => {
         const rankings = new StatisticsRankingService(dataSource, cache);
         const request = { sourceType: StatisticsSourceType.REVIEW, mode: "popular", period: "all", gameId } as any;
         const first = await rankings.findRankings(randomUUID(), request);
-        expect(first.items.map((item: any) => item.sourceId)).toEqual([firstReview]);
+        expect(first.items.map((item: any) => item.sourceId)).toEqual(
+            expect.arrayContaining([firstReview, secondReview]),
+        );
+        expect(first.pagination.total).toBe(2);
         await dataSource.query(
             `UPDATE collection c JOIN collection_entry_collections_collection m ON m.collectionId = c.id
              JOIN review r ON r.collectionEntryId = m.collectionEntryId
@@ -524,8 +528,10 @@ describe("statistics rankings", () => {
             [firstReview, firstReview, secondReview],
         );
         const changed = await rankings.findRankings(undefined, request);
-        expect(changed.pagination.total).toBe(first.pagination.total);
-        expect(changed.items.map((item: any) => item.sourceId)).toEqual([secondReview]);
+        expect(changed.pagination.total).toBe(2);
+        expect(changed.items.map((item: any) => item.sourceId)).toEqual(
+            expect.arrayContaining([firstReview, secondReview]),
+        );
         await cache.disconnect();
     });
 

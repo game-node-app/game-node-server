@@ -12,6 +12,7 @@ import { RecapService } from "./recap.service";
 import { RecapWindowService } from "./recap-window.service";
 import { RecapGoalsService } from "./recap-goals.service";
 import { AuthGuard } from "../auth/auth.guard";
+import { Public } from "../auth/public.decorator";
 import { Session, SessionContainer } from "../auth/session.decorator";
 import { UpdateRecapGoalDto } from "./dto/update-recap-goal.dto";
 
@@ -71,11 +72,18 @@ export class RecapController {
      * @param year
      */
     @Get(":year/:userId/status")
+    @Public()
+    @UseGuards(AuthGuard)
     public async getRecapStatus(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Param("year") year: number,
     ) {
-        return this.recapService.getRecapStatus(userId, year);
+        return this.recapService.getRecapStatus(
+            userId,
+            year,
+            session?.getUserId(),
+        );
     }
 
     /**
@@ -84,10 +92,17 @@ export class RecapController {
      * @param year
      */
     @Get(":year/:userId")
+    @Public()
+    @UseGuards(AuthGuard)
     public async getRecapByYear(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Param("year") year: number,
     ) {
-        return this.recapService.getRecapByUserId(userId, year);
+        return this.recapService.getRecapByUserId(
+            userId,
+            year,
+            session?.getUserId(),
+        );
     }
 }

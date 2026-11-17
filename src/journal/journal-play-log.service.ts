@@ -27,10 +27,17 @@ export class JournalPlayLogService {
         viewerUserId?: string,
     ): Promise<JournalPlaylogGroupDto[]> {
         const collectionEntry =
-            await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
-                userId,
-                gameId,
-            );
+            viewerUserId === userId
+                ? // The owner sees their whole library: no access check needed.
+                  await this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
+                      userId,
+                      gameId,
+                  )
+                : await this.collectionsEntriesService.findOneByUserIdAndGameIdForViewer(
+                      viewerUserId,
+                      userId,
+                      gameId,
+                  );
 
         const associatedDates = getAssociatedStatusDates(collectionEntry);
         const statusRelatedEntries = associatedDates.map(

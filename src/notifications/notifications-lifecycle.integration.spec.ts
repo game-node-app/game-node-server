@@ -1,6 +1,9 @@
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
-import { NotificationsLifecycleService } from "./notifications-lifecycle.service";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
+import { NotificationsLifecycleService, lockNotificationRoot } from "./notifications-lifecycle.service";
 import { NotificationsProjectorService } from "./notifications-projector.service";
 import { NotificationsRelayService } from "./notifications-relay.service";
 import { NotificationInbox } from "./entity/notification-inbox.entity";
@@ -45,6 +48,7 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
         projectorService = new NotificationsProjectorService(
             dataSource,
             relayService,
+            createLibraryAccessService(dataSource),
         );
 
         const postRepo = new PostsRepository(dataSource.manager);
@@ -55,12 +59,17 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
             lifecycleService,
         );
 
-        commentService = new CommentService(dataSource, lifecycleService);
+        commentService = new CommentService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+            lifecycleService,
+        );
 
         collectionsService = new CollectionsService(
             dataSource.getRepository(Collection),
             { isSupporter: jest.fn() } as any,
             lifecycleService,
+            createLibraryAccessService(dataSource),
         );
     });
 
@@ -729,6 +738,167 @@ describe("Notifications lifecycle and access protection (Section 6)", () => {
             readVersion: 1,
             preview: { text: "A new safe comment" },
             target: { focusId: replacement.id },
+        });
+    });
+
+    it("hides an activity notification when its entry becomes private", async () => {
+        const owner = randomUUID();
+        const follower = randomUUID();
+        await createMockProfile(owner);
+        await createMockProfile(follower);
+        await dataSource.query("INSERT IGNORE INTO library (userId) VALUES (?)", [
+            owner,
+        ]);
+        await dataSource.query(
+            "INSERT INTO user_follow (followerUserId, followedUserId) VALUES (?, ?)",
+            [follower, owner],
+        );
+        const entryId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO collection_entry (id, gameId, libraryUserId, visibility) VALUES (?, 1, ?, 'followers')",
+            [entryId, owner],
+        );
+        const activityId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO activity (id, profileUserId, type, collectionEntryId) VALUES (?, ?, 'collection_entry', ?)",
+            [activityId, owner, entryId],
+        );
+        const inboxRepo = dataSource.getRepository(NotificationInbox);
+        const item = await inboxRepo.save({
+            recipientUserId: follower,
+            groupKey: `like:${randomUUID()}`,
+            type: "content.liked",
+            rootType: "activity",
+            rootId: activityId,
+            actorIds: [],
+            actorCount: 0,
+            eventCount: 1,
+            target: { type: "activity", id: activityId },
+            lastEventAt: new Date(),
+            version: 1,
+            readVersion: 0,
+        });
+        const inbox = new NotificationsService(
+            inboxRepo,
+            dataSource.getRepository(Profile),
+            dataSource,
+        );
+
+        expect(
+            (await inbox.findAll(follower, { limit: 10 })).data.map(
+                (row) => row.id,
+            ),
+        ).toEqual([item.id]);
+
+        await dataSource.query(
+            "UPDATE collection_entry SET visibility = 'private' WHERE id = ?",
+            [entryId],
+        );
+        await lifecycleService.invalidateLibraryContent(owner, entryId);
+
+        expect(await inboxRepo.findOneByOrFail({ id: item.id })).toMatchObject({
+            isVisible: false,
+        });
+        expect(
+            (await inbox.findAll(follower, { limit: 10 })).data,
+        ).toEqual([]);
+    });
+
+    it("invalidates every entry activity of the owner when no entry id is given", async () => {
+        const owner = randomUUID();
+        const follower = randomUUID();
+        await createMockProfile(owner);
+        await createMockProfile(follower);
+        await dataSource.query("INSERT IGNORE INTO library (userId) VALUES (?)", [
+            owner,
+        ]);
+        const inboxRepo = dataSource.getRepository(NotificationInbox);
+        const items: NotificationInbox[] = [];
+        for (let index = 0; index < 2; index++) {
+            const entryId = randomUUID();
+            await dataSource.query(
+                "INSERT INTO collection_entry (id, gameId, libraryUserId) VALUES (?, 1, ?)",
+                [entryId, owner],
+            );
+            const activityId = randomUUID();
+            await dataSource.query(
+                "INSERT INTO activity (id, profileUserId, type, collectionEntryId) VALUES (?, ?, 'collection_entry', ?)",
+                [activityId, owner, entryId],
+            );
+            items.push(
+                await inboxRepo.save({
+                    recipientUserId: follower,
+                    groupKey: `like:${randomUUID()}`,
+                    type: "content.liked",
+                    rootType: "activity",
+                    rootId: activityId,
+                    actorIds: [],
+                    actorCount: 0,
+                    eventCount: 1,
+                    target: { type: "activity", id: activityId },
+                    lastEventAt: new Date(),
+                    version: 1,
+                    readVersion: 0,
+                }),
+            );
+        }
+
+        await lifecycleService.invalidateLibraryContent(owner);
+
+        for (const item of items) {
+            expect(
+                await inboxRepo.findOneByOrFail({ id: item.id }),
+            ).toMatchObject({ isVisible: false });
+        }
+    });
+
+    it("keeps reviews eligible and visible when a collection becomes private", async () => {
+        const owner = randomUUID();
+        await createMockProfile(owner);
+        await dataSource.query("INSERT IGNORE INTO library (userId) VALUES (?)", [
+            owner,
+        ]);
+        const collectionId = randomUUID();
+        const entryId = randomUUID();
+        const reviewId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO collection (id, name, isPublic, libraryUserId) VALUES (?, 'Only private', 0, ?)",
+            [collectionId, owner],
+        );
+        await dataSource.query(
+            "INSERT INTO collection_entry (id, gameId, libraryUserId) VALUES (?, 1, ?)",
+            [entryId, owner],
+        );
+        await dataSource.query(
+            "INSERT INTO collection_entry_collections_collection (collectionEntryId, collectionId, `order`, createdAt) VALUES (?, ?, 0, NOW())",
+            [entryId, collectionId],
+        );
+        await dataSource.query(
+            "INSERT INTO review (id, content, rating, gameId, profileUserId, collectionEntryId) VALUES (?, 'Private collection review', 8, 1, ?, ?)",
+            [reviewId, owner, entryId],
+        );
+        const item = await dataSource.getRepository(NotificationInbox).save({
+            recipientUserId: owner,
+            groupKey: `like:${randomUUID()}`,
+            type: "content.liked",
+            rootType: "review",
+            rootId: reviewId,
+            actorIds: [],
+            actorCount: 0,
+            eventCount: 1,
+            target: { type: "review", id: reviewId },
+            lastEventAt: new Date(),
+            version: 1,
+            readVersion: 0,
+        });
+
+        await expect(
+            lockNotificationRoot(dataSource.manager, "review", reviewId),
+        ).resolves.toMatchObject({ id: reviewId });
+        await lifecycleService.invalidateCollection(collectionId);
+
+        expect(await dataSource.getRepository(NotificationInbox).findOneByOrFail({ id: item.id })).toMatchObject({
+            isVisible: true,
         });
     });
 

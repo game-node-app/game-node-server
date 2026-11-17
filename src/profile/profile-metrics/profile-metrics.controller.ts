@@ -30,6 +30,12 @@ import {
     ProfileMetricsSummaryResponseDto,
 } from "./dto/profile-metrics-summary.dto";
 import { ProfileMetricsSummaryService } from "./profile-metrics-summary.service";
+import { Session, SessionContainer } from "../../auth/session.decorator";
+import { LibraryAccessService } from "../../libraries/library-access.service";
+import {
+    LibraryAudienceKey,
+    resolveLibraryAudienceKey,
+} from "./library-audience-key";
 
 @Controller("profile/metrics")
 @ApiTags("profile-metrics")
@@ -40,6 +46,7 @@ export class ProfileMetricsController {
         private readonly profileMetricsDistributionService: ProfileMetricsDistributionService,
         private readonly profileMetricsReportService: ProfileMetricsReportService,
         private readonly profileMetricsSummaryService: ProfileMetricsSummaryService,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     /**
@@ -51,8 +58,14 @@ export class ProfileMetricsController {
         type: ProfileMetricsOverviewDto,
     })
     @Public()
-    async getStatsOverview(@Param("userId") userId: string) {
-        return this.profileMetricsService.getStatsOverview(userId);
+    async getStatsOverview(
+        @Session() session: SessionContainer | undefined,
+        @Param("userId") userId: string,
+    ) {
+        return this.profileMetricsService.getStatsOverview(
+            userId,
+            session?.getUserId(),
+        );
     }
 
     @Get("distribution/year/:userId")
@@ -61,12 +74,17 @@ export class ProfileMetricsController {
     })
     @Public()
     async getYearDistribution(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Query() dto: ProfileMetricsYearDistributionRequestDto,
     ) {
         return this.profileMetricsDistributionService.getYearDistribution(
             userId,
             dto,
+            await this.libraryAccessService.resolve(
+                session?.getUserId(),
+                userId,
+            ),
         );
     }
 
@@ -76,10 +94,15 @@ export class ProfileMetricsController {
     })
     @Public()
     async getPeriodReport(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Param("period") period: Period.WEEK | Period.MONTH,
     ) {
-        return this.profileMetricsReportService.generateReport(userId, period);
+        return this.profileMetricsReportService.generateReport(
+            userId,
+            period,
+            await this.resolveAudience(session?.getUserId(), userId),
+        );
     }
 
     /**
@@ -94,12 +117,14 @@ export class ProfileMetricsController {
     })
     @Public()
     async getPeriodSummary(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Param("period") period: ProfileMetricsSummaryPeriod,
     ) {
         return this.profileMetricsSummaryService.generateSummary(
             userId,
             period,
+            await this.resolveAudience(session?.getUserId(), userId),
         );
     }
 
@@ -109,12 +134,32 @@ export class ProfileMetricsController {
     })
     @Public()
     async getTypeDistribution(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Query() dto: ProfileMetricsTypeDistributionRequestDto,
     ) {
         return this.profileMetricsDistributionService.getTypeDistribution(
             userId,
             dto,
+            await this.libraryAccessService.resolve(
+                session?.getUserId(),
+                userId,
+            ),
+        );
+    }
+
+    private async resolveAudience(
+        viewerId: string | undefined,
+        userId: string,
+    ): Promise<LibraryAudienceKey> {
+        const access = await this.libraryAccessService.resolve(
+            viewerId,
+            userId,
+        );
+        return resolveLibraryAudienceKey(
+            this.libraryAccessService,
+            userId,
+            access,
         );
     }
 }

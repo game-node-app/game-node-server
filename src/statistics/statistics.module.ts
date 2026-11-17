@@ -11,6 +11,7 @@ import { RankingScore } from "./entity/ranking-score.entity";
 import { StatisticsProjectionModule } from "./statistics-projection.module";
 import { StatisticsRankingService } from "./statistics-ranking.service";
 import { StatisticsRankingScheduler } from "./statistics-ranking.scheduler";
+import { LibrariesModule } from "../libraries/libraries.module";
 
 @Module({
     imports: [
@@ -23,6 +24,7 @@ import { StatisticsRankingScheduler } from "./statistics-ranking.scheduler";
             RankingScore,
         ]),
         StatisticsProjectionModule,
+        LibrariesModule,
     ],
     providers: [
         StatisticsService,

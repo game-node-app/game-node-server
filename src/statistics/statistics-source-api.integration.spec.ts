@@ -1,8 +1,10 @@
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
-import { NotFoundException } from "@nestjs/common";
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { StatisticsGranularity, StatisticsMetricCode } from "./dto/statistics-api.dto";
 import { StatisticsSourceType } from "./statistics.constants";
 import { ensureStatisticsTarget } from "./statistics-target.repository";
@@ -15,7 +17,10 @@ describe("statistics source API coverage", () => {
 
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
-        service = new StatisticsService(dataSource);
+        service = new StatisticsService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+        );
     });
 
     afterAll(async () => {
@@ -139,7 +144,11 @@ describe("statistics source API coverage", () => {
             const pendingRead = service.findSummary({ sourceType: StatisticsSourceType.REVIEW, sourceId: reviewId });
             await runner.query("UPDATE collection SET isPublic = 0 WHERE id = ?", [collectionId]);
             await runner.commitTransaction();
-            await expect(pendingRead).rejects.toThrow(NotFoundException);
+            // Reviews are public: collection privacy no longer hides the review or its statistics.
+            await expect(pendingRead).resolves.toMatchObject({
+                sourceType: StatisticsSourceType.REVIEW,
+                sourceId: reviewId,
+            });
         } catch (error) {
             if (runner.isTransactionActive) await runner.rollbackTransaction();
             throw error;
@@ -147,8 +156,8 @@ describe("statistics source API coverage", () => {
             await runner.release();
         }
         const privatePage = await rankings.findRankings(owner, rankingRequest);
-        expect(privatePage.pagination.total).toBe(0);
-        expect(privatePage.items).toEqual([]);
+        expect(privatePage.pagination.total).toBe(1);
+        expect(privatePage.items.map((item: any) => item.sourceId)).toEqual([reviewId]);
         await dataSource.query("UPDATE collection SET isPublic = 1 WHERE id = ?", [collectionId]);
         expect((await rankings.findRankings(owner, rankingRequest)).pagination.total).toBe(1);
     });

@@ -9,7 +9,11 @@ import { StatisticsEvent } from "./entity/statistics-event.entity";
 import { StatisticsSourceType } from "./statistics.constants";
 import { StatisticsService } from "./statistics.service";
 import { cleanupStatisticsProfile } from "./statistics-target.repository";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
+import { LibraryVisibility } from "../libraries/library-visibility.constants";
 
 describe("StatisticsService reaction commands (PUT/DELETE like)", () => {
     let dataSource: DataSource;
@@ -17,7 +21,10 @@ describe("StatisticsService reaction commands (PUT/DELETE like)", () => {
 
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
-        service = new StatisticsService(dataSource);
+        service = new StatisticsService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+        );
     });
 
     afterAll(async () => {
@@ -67,6 +74,73 @@ describe("StatisticsService reaction commands (PUT/DELETE like)", () => {
         );
         return Number(rows[0]?.metricValue ?? 0);
     }
+
+    it("rejects reactions on an activity the actor cannot see and keeps followers allowed", async () => {
+        const owner = randomUUID();
+        const actor = randomUUID();
+        const follower = randomUUID();
+        await createProfile(owner);
+        await createProfile(actor);
+        await createProfile(follower);
+        await dataSource.query("INSERT IGNORE INTO library (userId) VALUES (?)", [
+            owner,
+        ]);
+        const entryId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO collection_entry (id, gameId, libraryUserId, visibility) VALUES (?, 1, ?, ?)",
+            [entryId, owner, LibraryVisibility.Followers],
+        );
+        const activityId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO activity (id, profileUserId, type, collectionEntryId) VALUES (?, ?, 'collection_entry', ?)",
+            [activityId, owner, entryId],
+        );
+        await dataSource.query(
+            "INSERT INTO user_follow (followerUserId, followedUserId) VALUES (?, ?)",
+            [follower, owner],
+        );
+
+        await expect(
+            service.applyReaction(
+                actor,
+                {
+                    sourceType: StatisticsSourceType.ACTIVITY,
+                    sourceId: activityId,
+                },
+                true,
+            ),
+        ).rejects.toThrow(NotFoundException);
+        expect(
+            await targetId(StatisticsSourceType.ACTIVITY, activityId),
+        ).toBeNull();
+        expect(
+            await dataSource.getRepository(StatisticsEvent).countBy({
+                actorUserId: actor,
+            }),
+        ).toBe(0);
+        expect(
+            await dataSource.getRepository(NotificationOutbox).countBy({
+                recipientUserId: owner,
+            }),
+        ).toBe(0);
+
+        await expect(
+            service.applyReaction(
+                follower,
+                {
+                    sourceType: StatisticsSourceType.ACTIVITY,
+                    sourceId: activityId,
+                },
+                true,
+            ),
+        ).resolves.toEqual({ isLiked: true, likesCount: 1 });
+        expect(
+            await dataSource.getRepository(NotificationOutbox).countBy({
+                recipientUserId: owner,
+                actorUserId: follower,
+            }),
+        ).toBe(1);
+    });
 
     it("rejects malformed, deleted, and inaccessible source identities before writes", async () => {
         const actor = randomUUID();

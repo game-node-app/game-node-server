@@ -2,12 +2,14 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Library } from "./entities/library.entity";
 import { FindOptionsRelations, Repository } from "typeorm";
+import { LibraryAccessService } from "./library-access.service";
 
 @Injectable()
 export class LibrariesService {
     constructor(
         @InjectRepository(Library)
         private libraryRepository: Repository<Library>,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     /**
@@ -46,12 +48,12 @@ export class LibrariesService {
     }
 
     /**
-     * Returns a Library with content that is accessible to the user (excludes non-public / non-own collections).
+     * Returns a Library with content that is accessible to the user: non-owners only get public
+     * collections, and none when the library itself is hidden.
      *
      * If trying to get a user's own library, internally, prefer the findOneById method.
      * @param userId
      * @param targetUserId
-     * @param handleUninitialized
      */
     async findOneByIdWithPermissions(
         userId: string | undefined,
@@ -67,10 +69,15 @@ export class LibrariesService {
             throw new HttpException("Library not found.", HttpStatus.NOT_FOUND);
         }
 
+        const access = await this.libraryAccessService.resolve(
+            userId,
+            targetUserId,
+        );
         if (library.collections) {
             library.collections = library.collections.filter((collection) => {
                 return (
-                    collection.isPublic || collection.library.userId === userId
+                    collection.libraryUserId === userId ||
+                    (collection.isPublic && access.canViewLibrary)
                 );
             });
         }

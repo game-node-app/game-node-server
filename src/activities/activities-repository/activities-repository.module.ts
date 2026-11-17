@@ -10,6 +10,7 @@ import { PostsModule } from "../../posts/posts.module";
 import { GameAchievementModule } from "../../game/game-achievement/game-achievement.module";
 import { ActivitiesRepositoryV2Controller } from "./activities-repository-v2.controller";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
+import { LibrariesModule } from "../../libraries/libraries.module";
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { GameRepositoryModule } from "../../game/game-repository/game-repository
         forwardRef(() => CollectionsEntriesModule),
         forwardRef(() => PostsModule),
         GameAchievementModule,
+        LibrariesModule,
     ],
     providers: [ActivitiesRepositoryService],
     exports: [ActivitiesRepositoryService],

@@ -2,6 +2,7 @@ import { Library } from "../../libraries/entities/library.entity";
 import {
     HttpException,
     HttpStatus,
+    Inject,
     Injectable,
     Optional,
 } from "@nestjs/common";
@@ -43,6 +44,12 @@ import { deactivateStatisticsContent } from "../../statistics/statistics-target.
 import { randomUUID } from "node:crypto";
 import { ImporterResponseItemDto } from "../../importer/dto/importer-response-item.dto";
 import { UserGameCover } from "../../game/game-cover/entities/user-game-cover.entity";
+import { LibraryAccessService } from "../../libraries/library-access.service";
+import {
+    LIBRARY_VISIBILITY_RANK,
+    LibraryAccess,
+    LibraryVisibility,
+} from "../../libraries/library-visibility.constants";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -67,7 +74,11 @@ export class CollectionsEntriesService {
         @InjectRepository(UserGameCover)
         private userGameCoverRepository: Repository<UserGameCover>,
         @Optional()
-        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
+        @Inject(NotificationsLifecycleService)
+        private readonly notificationsLifecycleService:
+            | NotificationsLifecycleService
+            | undefined,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     async findOneById(id: string) {
@@ -79,10 +90,41 @@ export class CollectionsEntriesService {
         });
     }
 
+    async findOneByIdForViewer(viewerId: string | undefined, id: string) {
+        const { entry, access } = await this.resolveEntryForViewer(
+            viewerId,
+            id,
+        );
+        return this.redactEntriesForViewer(
+            [entry],
+            viewerId,
+            access.canViewLibrary,
+        )[0];
+    }
+
     async findRelatedEntries(
         collectionEntryId: string,
     ): Promise<FindRelatedCollectionEntriesResponseDto> {
-        const entry = await this.findOneByIdOrFail(collectionEntryId);
+        return this.findRelatedEntriesOf(
+            await this.findOneByIdOrFail(collectionEntryId),
+        );
+    }
+
+    async findRelatedEntriesForViewer(
+        viewerId: string | undefined,
+        collectionEntryId: string,
+    ): Promise<FindRelatedCollectionEntriesResponseDto> {
+        const { entry, access } = await this.resolveEntryForViewer(
+            viewerId,
+            collectionEntryId,
+        );
+        return this.findRelatedEntriesOf(entry, access.visibleEntryLevels);
+    }
+
+    private async findRelatedEntriesOf(
+        entry: CollectionEntry,
+        visibleLevels?: LibraryVisibility[],
+    ): Promise<FindRelatedCollectionEntriesResponseDto> {
         const { dlcs, expansions } =
             await this.gameRepositoryService.findOneByIdOrFail(entry.gameId, {
                 relations: {
@@ -117,7 +159,12 @@ export class CollectionsEntriesService {
             );
         }
 
-        const mappedByGameId = toMap(entriesInGameIds, "gameId");
+        const visibleEntries = visibleLevels
+            ? entriesInGameIds.filter((related) =>
+                  visibleLevels.includes(related.visibility),
+              )
+            : entriesInGameIds;
+        const mappedByGameId = toMap(visibleEntries, "gameId");
 
         return {
             dlcs: dlcs
@@ -135,6 +182,25 @@ export class CollectionsEntriesService {
             throw new HttpException("No entry found.", HttpStatus.NOT_FOUND);
         }
         return entry;
+    }
+
+    /**
+     * Single-entry read for a possibly different viewer: the same 404 as a missing entry when the
+     * viewer may not see it.
+     */
+    private async resolveEntryForViewer(
+        viewerId: string | undefined,
+        id: string,
+    ): Promise<{ entry: CollectionEntry; access: LibraryAccess }> {
+        const entry = await this.findOneByIdOrFail(id);
+        const access = await this.libraryAccessService.resolve(
+            viewerId,
+            entry.libraryUserId,
+        );
+        if (!access.visibleEntryLevels.includes(entry.visibility)) {
+            throw new HttpException("No entry found.", HttpStatus.NOT_FOUND);
+        }
+        return { entry, access };
     }
 
     /**
@@ -163,6 +229,52 @@ export class CollectionsEntriesService {
             );
         }
         return entry;
+    }
+
+    async findOneByUserIdAndGameIdForViewer(
+        viewerId: string | undefined,
+        userId: string,
+        gameId: number,
+    ) {
+        const entry = await this.findOneByUserIdAndGameId(userId, gameId);
+        const access =
+            entry && (await this.libraryAccessService.resolve(viewerId, userId));
+        if (
+            !entry ||
+            !access ||
+            !access.visibleEntryLevels.includes(entry.visibility)
+        ) {
+            throw new HttpException(
+                "Collection entry not found.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+        return this.redactEntriesForViewer(
+            [entry],
+            viewerId,
+            access.canViewLibrary,
+        )[0];
+    }
+
+    /**
+     * Drops the collections a viewer may not see from entries returned to a non-owner.
+     * Returns nothing when the viewer may not see the library at all.
+     */
+    redactEntriesForViewer(
+        entries: CollectionEntry[],
+        viewerId: string | undefined,
+        canViewLibrary: boolean,
+    ): CollectionEntry[] {
+        if (!canViewLibrary) return [];
+        return entries.map((entry) => {
+            if (entry.libraryUserId === viewerId || !entry.collectionsMap) {
+                return entry;
+            }
+            entry.collectionsMap = entry.collectionsMap.filter(
+                (map) => map.collection?.isPublic,
+            );
+            return entry;
+        });
     }
 
     async findAllByIdIn(
@@ -243,13 +355,22 @@ export class CollectionsEntriesService {
             orderBy: undefined,
         });
 
+        const collection =
+            await this.collectionsService.findOneById(collectionId);
+        if (!collection) {
+            return [[], 0];
+        }
+        const access = await this.libraryAccessService.resolve(
+            userId,
+            collection.libraryUserId,
+        );
+        const isOwner = collection.libraryUserId === userId;
+        if (!isOwner && (!collection.isPublic || !access.canViewLibrary)) {
+            return [[], 0];
+        }
+
         let customCoverGameIds: number[] | undefined;
         if (dto?.hasCustomCover) {
-            const collection =
-                await this.collectionsService.findOneById(collectionId);
-            if (!collection) {
-                return [[], 0];
-            }
             customCoverGameIds = await this.findGameIdsWithCustomCover(
                 collection.libraryUserId,
             );
@@ -262,17 +383,11 @@ export class CollectionsEntriesService {
             ...baseFindOptions,
             where: {
                 collectionsMap: {
-                    collection: [
-                        {
-                            id: collectionId,
-                            isPublic: true,
-                        },
-                        {
-                            id: collectionId,
-                            libraryUserId: userId,
-                        },
-                    ],
+                    collection: {
+                        id: collectionId,
+                    },
                 },
+                visibility: In(access.visibleEntryLevels),
                 gameId: customCoverGameIds
                     ? In(customCoverGameIds)
                     : undefined,
@@ -290,7 +405,16 @@ export class CollectionsEntriesService {
             relations: this.relations,
         };
 
-        return await this.collectionEntriesRepository.findAndCount(findOptions);
+        const [entries, total] =
+            await this.collectionEntriesRepository.findAndCount(findOptions);
+        return [
+            this.redactEntriesForViewer(
+                entries,
+                userId,
+                access.canViewLibrary,
+            ),
+            total,
+        ];
     }
 
     async findAllByUserIdWithPermissions(
@@ -298,7 +422,12 @@ export class CollectionsEntriesService {
         targetUserId: string,
         dto: FindCollectionEntriesDto,
     ): Promise<[CollectionEntry[], number]> {
-        const isOwnQuery = userId === targetUserId;
+        const access = await this.libraryAccessService.resolve(
+            userId,
+            targetUserId,
+        );
+        if (!access.canViewLibrary) return [[], 0];
+
         const findOptions = buildBaseFindOptions({
             ...dto,
             orderBy: undefined,
@@ -314,29 +443,34 @@ export class CollectionsEntriesService {
             }
         }
 
-        return await this.collectionEntriesRepository.findAndCount({
-            ...findOptions,
-            where: {
-                collectionsMap: {
-                    collection: {
-                        isPublic: isOwnQuery ? undefined : true,
+        const [entries, total] =
+            await this.collectionEntriesRepository.findAndCount({
+                ...findOptions,
+                where: {
+                    libraryUserId: targetUserId,
+                    visibility: In(access.visibleEntryLevels),
+                    status: dto.status,
+                    gameId: customCoverGameIds
+                        ? In(customCoverGameIds)
+                        : undefined,
+                    game: buildGameFilterFindOptions(dto.gameFilters),
+                },
+                order: {
+                    createdAt: dto?.orderBy?.addedDate,
+                    game: {
+                        firstReleaseDate: dto?.orderBy?.releaseDate,
                     },
                 },
-                libraryUserId: targetUserId,
-                status: dto.status,
-                gameId: customCoverGameIds
-                    ? In(customCoverGameIds)
-                    : undefined,
-                game: buildGameFilterFindOptions(dto.gameFilters),
-            },
-            order: {
-                createdAt: dto?.orderBy?.addedDate,
-                game: {
-                    firstReleaseDate: dto?.orderBy?.releaseDate,
-                },
-            },
-            relations: this.relations,
-        });
+                relations: this.relations,
+            });
+        return [
+            this.redactEntriesForViewer(
+                entries,
+                userId,
+                access.canViewLibrary,
+            ),
+            total,
+        ];
     }
 
     /**
@@ -380,12 +514,16 @@ export class CollectionsEntriesService {
         targetUserId: string,
         dto: FindCollectionEntriesDto,
     ): Promise<[CollectionEntry[], number]> {
+        const access = await this.libraryAccessService.resolve(
+            userId,
+            targetUserId,
+        );
+        if (!access.canViewLibrary) return [[], 0];
+
         const findOptions = buildBaseFindOptions({
             ...dto,
             orderBy: undefined,
         });
-
-        const isOwnQuery = userId != undefined && userId === targetUserId;
 
         let customCoverGameIds: number[] | undefined;
         if (dto.hasCustomCover) {
@@ -397,29 +535,34 @@ export class CollectionsEntriesService {
             }
         }
 
-        return await this.collectionEntriesRepository.findAndCount({
-            ...findOptions,
-            where: {
-                isFavorite: true,
-                collectionsMap: {
-                    collection: {
-                        isPublic: isOwnQuery ? undefined : true,
+        const [entries, total] =
+            await this.collectionEntriesRepository.findAndCount({
+                ...findOptions,
+                where: {
+                    isFavorite: true,
+                    libraryUserId: targetUserId,
+                    visibility: In(access.visibleEntryLevels),
+                    status: dto.status,
+                    gameId: customCoverGameIds
+                        ? In(customCoverGameIds)
+                        : undefined,
+                },
+                order: {
+                    createdAt: dto?.orderBy?.addedDate,
+                    game: {
+                        firstReleaseDate: dto?.orderBy?.releaseDate,
                     },
                 },
-                libraryUserId: targetUserId,
-                status: dto.status,
-                gameId: customCoverGameIds
-                    ? In(customCoverGameIds)
-                    : undefined,
-            },
-            order: {
-                createdAt: dto?.orderBy?.addedDate,
-                game: {
-                    firstReleaseDate: dto?.orderBy?.releaseDate,
-                },
-            },
-            relations: this.relations,
-        });
+                relations: this.relations,
+            });
+        return [
+            this.redactEntriesForViewer(
+                entries,
+                userId,
+                access.canViewLibrary,
+            ),
+            total,
+        ];
     }
 
     /**
@@ -440,6 +583,7 @@ export class CollectionsEntriesService {
             finishedAt,
             status,
             relatedGameIds,
+            visibility,
         } = createEntryDto;
 
         const uniqueCollectionIds = Array.from(new Set(collectionIds));
@@ -487,11 +631,26 @@ export class CollectionsEntriesService {
             gameId,
             // Updated automatically with @ManyToMany
             ownedPlatforms,
+            visibility:
+                visibility ??
+                possibleExistingEntry?.visibility ??
+                LibraryVisibility.Public,
             ...inferredStatusAndDates,
         };
 
         const upsertedEntry =
             await this.collectionEntriesRepository.save(updatedPartialEntity);
+
+        if (
+            possibleExistingEntry &&
+            LIBRARY_VISIBILITY_RANK[updatedPartialEntity.visibility!] >
+                LIBRARY_VISIBILITY_RANK[possibleExistingEntry.visibility]
+        ) {
+            await this.notificationsLifecycleService?.invalidateLibraryContent(
+                userId,
+                upsertedEntry.id,
+            );
+        }
 
         await this.updateAssociatedCollections(
             upsertedEntry.id,
@@ -809,6 +968,7 @@ export class CollectionsEntriesService {
                 gameId: relatedGameId,
                 ownedPlatforms,
                 status: parentEntry.status,
+                visibility: parentEntry.visibility,
                 startedAt: parentEntry.startedAt,
                 finishedAt: parentEntry.finishedAt,
                 droppedAt: parentEntry.droppedAt,
@@ -837,6 +997,36 @@ export class CollectionsEntriesService {
                 isFavorite,
             },
         );
+    }
+
+    /**
+     * Changes the visibility of one entry. Touches no activity, level or achievement.
+     */
+    async changeVisibility(
+        userId: string,
+        gameId: number,
+        visibility: LibraryVisibility,
+    ) {
+        const entity = await this.findOneByUserIdAndGameIdOrFail(
+            userId,
+            gameId,
+        );
+        if (entity.visibility === visibility) return;
+
+        await this.collectionEntriesRepository.update(
+            { id: entity.id },
+            { visibility },
+        );
+
+        if (
+            LIBRARY_VISIBILITY_RANK[visibility] >
+            LIBRARY_VISIBILITY_RANK[entity.visibility]
+        ) {
+            await this.notificationsLifecycleService?.invalidateLibraryContent(
+                userId,
+                entity.id,
+            );
+        }
     }
 
     /**
@@ -886,7 +1076,18 @@ export class CollectionsEntriesService {
     }
 
     async findIconsForOwnedPlatforms(entryId: string) {
-        const entry = await this.findOneByIdOrFail(entryId);
+        return this.iconsForOwnedPlatforms(await this.findOneByIdOrFail(entryId));
+    }
+
+    async findIconsForOwnedPlatformsForViewer(
+        viewerId: string | undefined,
+        entryId: string,
+    ) {
+        const { entry } = await this.resolveEntryForViewer(viewerId, entryId);
+        return this.iconsForOwnedPlatforms(entry);
+    }
+
+    private iconsForOwnedPlatforms(entry: CollectionEntry) {
         const ownedPlatforms = entry.ownedPlatforms;
         if (ownedPlatforms.length === 0) return [];
         const abbreviations = ownedPlatforms.map(

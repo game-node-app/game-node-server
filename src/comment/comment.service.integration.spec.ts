@@ -1,14 +1,18 @@
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { CommentService } from "./comment.service";
 import { CommentSourceType } from "./comment.constants";
 import { NotificationOutbox } from "../notifications/entity/notification-outbox.entity";
 import { PostComment } from "./entity/post-comment.entity";
 import { Post } from "../posts/entity/post.entity";
-import { Profile } from "../profile/entities/profile.entity";
 import { randomUUID } from "crypto";
 import { HttpException, HttpStatus } from "@nestjs/common";
 import * as outboxModule from "../notifications/notifications-outbox.service";
+import { LibraryVisibility } from "../libraries/library-visibility.constants";
+import { ActivityComment } from "./entity/activity-comment.entity";
 
 
 describe("CommentService integration (Task 5.1)", () => {
@@ -17,7 +21,10 @@ describe("CommentService integration (Task 5.1)", () => {
 
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
-        service = new CommentService(dataSource);
+        service = new CommentService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+        );
     });
 
     afterAll(async () => {
@@ -225,6 +232,68 @@ describe("CommentService integration (Task 5.1)", () => {
         }
     });
 
+    it("rejects comments on an activity the commenter cannot see and allows followers", async () => {
+        const owner = randomUUID();
+        const actor = randomUUID();
+        const follower = randomUUID();
+        const usedService = new CommentService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+        );
+        for (const userId of [owner, actor, follower]) {
+            await createMockProfile(userId);
+        }
+        await dataSource.query("INSERT IGNORE INTO library (userId) VALUES (?)", [
+            owner,
+        ]);
+        const entryId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO collection_entry (id, gameId, libraryUserId, visibility) VALUES (?, 1, ?, ?)",
+            [entryId, owner, LibraryVisibility.Followers],
+        );
+        const activityId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO activity (id, profileUserId, type, collectionEntryId) VALUES (?, ?, 'collection_entry', ?)",
+            [activityId, owner, entryId],
+        );
+        await dataSource.query(
+            "INSERT INTO user_follow (followerUserId, followedUserId) VALUES (?, ?)",
+            [follower, owner],
+        );
+
+        await expect(
+            usedService.create(actor, {
+                sourceType: CommentSourceType.ACTIVITY,
+                sourceId: activityId,
+                content: "Comment on hidden activity",
+            }),
+        ).rejects.toThrow("Target activity not found");
+        expect(
+            await dataSource.getRepository(ActivityComment).countBy({
+                activityId,
+            }),
+        ).toBe(0);
+        expect(
+            await dataSource.getRepository(NotificationOutbox).countBy({
+                actorUserId: actor,
+            }),
+        ).toBe(0);
+
+        const comment = await usedService.create(follower, {
+            sourceType: CommentSourceType.ACTIVITY,
+            sourceId: activityId,
+            content: "Follower comment",
+        });
+        expect(comment.id).toBeDefined();
+        expect(
+            await dataSource.getRepository(NotificationOutbox).findOneBy({
+                actorUserId: follower,
+                eventType: "comment.created",
+                recipientUserId: owner,
+            }),
+        ).not.toBeNull();
+    });
+
     it("evaluates the author's comments_written achievements after commenting", async () => {
         const owner = randomUUID();
         const commenter = randomUUID();
@@ -237,7 +306,12 @@ describe("CommentService integration (Task 5.1)", () => {
         );
         const achievements = { addTrackingJob: jest.fn() };
 
-        await new CommentService(dataSource, undefined, achievements as any).create(commenter, {
+        await new CommentService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+            undefined,
+            achievements as any,
+        ).create(commenter, {
             sourceType: CommentSourceType.POST,
             sourceId: postId,
             content: "Nice",

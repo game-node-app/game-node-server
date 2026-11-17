@@ -12,6 +12,7 @@ import { ProfileVideo } from "./entities/profile-video.entity";
 import { UpdateProfileImageDto } from "./dto/update-profile-image.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { CustomCoverMode } from "../game/game-cover/game-cover.constants";
+import { LibraryVisibility } from "../libraries/library-visibility.constants";
 import { lockoutAuthService } from "../../test/mocks/lockout-auth-service.mock";
 
 function imageFile(): Express.Multer.File {
@@ -477,5 +478,135 @@ describe("ProfileService", () => {
                 customCoverMode: CustomCoverMode.None,
             });
         });
+    });
+
+    describe("libraryVisibility", () => {
+        function fixtureFor(profile: Record<string, unknown>) {
+            const profileRepository = {
+                findOne: jest.fn(async () => ({ ...profile })),
+                save: jest.fn(async (value) => value),
+            };
+            const notifications = {
+                invalidateLibraryContent: jest.fn(async () => undefined),
+            };
+            const service = new ProfileService(
+                profileRepository as never,
+                {} as never,
+                {} as never,
+                {} as never,
+                notifications as never,
+            );
+
+            return { service, profileRepository, notifications };
+        }
+
+        it("defaults to public", () => {
+            const column = getMetadataArgsStorage().columns.find(
+                (column) =>
+                    column.target === Profile &&
+                    column.propertyName === "libraryVisibility",
+            );
+
+            expect(column?.options.default).toBe(LibraryVisibility.Public);
+        });
+
+        it("stores a valid level, keeps other fields and invalidates notifications", async () => {
+            const profile = {
+                userId: "user-1",
+                username: "me",
+                bio: "old bio",
+                customCoverMode: CustomCoverMode.Any,
+                libraryVisibility: LibraryVisibility.Public,
+            };
+            const { service, profileRepository, notifications } =
+                fixtureFor(profile);
+
+            await service.update("user-1", {
+                libraryVisibility: LibraryVisibility.Followers,
+            });
+
+            expect(profileRepository.save).toHaveBeenCalledWith({
+                ...profile,
+                libraryVisibility: LibraryVisibility.Followers,
+            });
+            expect(notifications.invalidateLibraryContent).toHaveBeenCalledWith(
+                "user-1",
+            );
+        });
+
+        it("rejects an invalid level with 400 and accepts a valid one", async () => {
+            const pipe = new ValidationPipe({ transform: true });
+            const metadata: ArgumentMetadata = {
+                type: "body",
+                metatype: UpdateProfileDto,
+            };
+
+            await expect(
+                pipe.transform({ libraryVisibility: "friends" }, metadata),
+            ).rejects.toMatchObject({ status: 400 });
+            await expect(
+                pipe.transform(
+                    { libraryVisibility: LibraryVisibility.Private },
+                    metadata,
+                ),
+            ).resolves.toMatchObject({
+                libraryVisibility: LibraryVisibility.Private,
+            });
+        });
+
+        it.each([
+            [
+                "public to followers",
+                LibraryVisibility.Public,
+                LibraryVisibility.Followers,
+                1,
+            ],
+            [
+                "followers to private",
+                LibraryVisibility.Followers,
+                LibraryVisibility.Private,
+                1,
+            ],
+            [
+                "public to private",
+                LibraryVisibility.Public,
+                LibraryVisibility.Private,
+                1,
+            ],
+            [
+                "private to followers",
+                LibraryVisibility.Private,
+                LibraryVisibility.Followers,
+                0,
+            ],
+            [
+                "followers to followers",
+                LibraryVisibility.Followers,
+                LibraryVisibility.Followers,
+                0,
+            ],
+            [
+                "followers with the level omitted",
+                LibraryVisibility.Followers,
+                undefined,
+                0,
+            ],
+        ])(
+            "invalidates notifications only when the level becomes stricter: %s",
+            async (_case, stored, requested, expectedCalls) => {
+                const { service, notifications } = fixtureFor({
+                    userId: "user-1",
+                    libraryVisibility: stored,
+                });
+
+                await service.update("user-1", {
+                    libraryVisibility: requested,
+                });
+
+                expect(
+                    notifications.invalidateLibraryContent,
+                ).toHaveBeenCalledTimes(expectedCalls);
+            },
+        );
     });
 });

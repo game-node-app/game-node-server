@@ -23,10 +23,13 @@ import { PostComment } from "./entity/post-comment.entity";
 import { AnyComment } from "./comment.types";
 import { Review } from "../reviews/entities/review.entity";
 import { Post } from "../posts/entity/post.entity";
-import { Activity } from "../activities/activities-repository/entities/activity.entity";
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
-import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import {
+    lockNotificationRoot,
+    NotificationsLifecycleService,
+} from "../notifications/notifications-lifecycle.service";
 import { AchievementsQueueService } from "../achievements/achievements-queue/achievements-queue.service";
+import { LibraryAccessService } from "../libraries/library-access.service";
 
 @Injectable()
 export class CommentService {
@@ -34,6 +37,7 @@ export class CommentService {
 
     constructor(
         private readonly dataSource: DataSource,
+        private readonly libraryAccessService: LibraryAccessService,
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
         @Optional()
         private readonly achievementsQueueService?: AchievementsQueueService,
@@ -207,9 +211,15 @@ export class CommentService {
                     }
                     rootOwnerId = post.profileUserId;
                 } else if (sourceType === CommentSourceType.ACTIVITY) {
-                    const activity = await manager
-                        .getRepository(Activity)
-                        .findOneBy({ id: sourceId });
+                    const activity = await lockNotificationRoot(
+                        manager,
+                        "activity",
+                        sourceId,
+                        {
+                            viewerId: userId,
+                            libraryAccess: this.libraryAccessService,
+                        },
+                    );
                     if (!activity) {
                         throw new HttpException(
                             "Target activity not found",

@@ -5,11 +5,11 @@ import {
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
-    FindManyOptions,
     In,
     FindOptionsRelations,
     OrderByCondition,
     Repository,
+    SelectQueryBuilder,
 } from "typeorm";
 import { UserPlaytime } from "./entity/user-playtime.entity";
 import { TPaginationData } from "../utils/pagination/pagination-response.dto";
@@ -33,6 +33,7 @@ import { generateChecksum } from "../utils/checksum";
 import dayjs from "dayjs";
 import { currentPlayerSyncObservationAt } from "../sync/player-sync-attempt";
 import { Transactional } from "typeorm-transactional";
+import { LibraryAccess } from "../libraries/library-visibility.constants";
 
 const persistedDate = (date: Date | null | undefined) =>
     date == null
@@ -102,6 +103,7 @@ export class PlaytimeService {
         criteria: "totalPlaytimeSeconds" | "recentPlaytimeSeconds",
         source?: UserPlaytimeSource,
         platformId?: number,
+        access?: LibraryAccess,
     ): Promise<number> {
         const qb = this.userPlaytimeRepository.createQueryBuilder("up");
         qb.select(`SUM(up.${criteria})`, "total").where(
@@ -115,32 +117,46 @@ export class PlaytimeService {
             qb.andWhere("up.platformId = :platformId", { platformId });
         }
 
-        const result = await qb.getRawOne<{ total: number }>();
+        if (!this.applyLibraryVisibility(qb, userId, access)) return 0;
 
-        return result?.total ?? 0;
+        // SUM is a DECIMAL, which mysql2 returns as a string.
+        const result = await qb.getRawOne<{ total: number | string }>();
+
+        return Number(result?.total ?? 0);
     }
 
     /**
      * Since a user may have the same game imported from more than one source, this method is preferred.
      * @param userId
      * @param gameId
-     * @param options
+     * @param access Resolved viewer access; omitted for owner-only/internal callers.
      */
-    public async findAllByUserIdAndGameId(userId: string, gameId: number) {
-        return await this.userPlaytimeRepository.find({
-            where: {
-                profileUserId: userId,
-                gameId: gameId,
-            },
-            relations: this.relations,
-        });
+    public async findAllByUserIdAndGameId(
+        userId: string,
+        gameId: number,
+        access?: LibraryAccess,
+    ) {
+        const qb = this.userPlaytimeRepository
+            .createQueryBuilder("up")
+            .leftJoinAndSelect("up.platform", "platform")
+            .where("up.profileUserId = :userId", { userId })
+            .andWhere("up.gameId = :gameId", { gameId });
+
+        if (!this.applyLibraryVisibility(qb, userId, access)) return [];
+
+        return await qb.getMany();
     }
 
     public async findAccumulatedForUserIdAndGameId(
         userId: string,
         gameId: number,
+        access?: LibraryAccess,
     ) {
-        const playtimes = await this.findAllByUserIdAndGameId(userId, gameId);
+        const playtimes = await this.findAllByUserIdAndGameId(
+            userId,
+            gameId,
+            access,
+        );
 
         return toCumulativePlaytime(userId, gameId, playtimes);
     }
@@ -148,26 +164,27 @@ export class PlaytimeService {
     public async findAllByUserId(
         userId: string,
         dto?: FindPlaytimeOptionsDto,
+        access?: LibraryAccess,
     ): Promise<TPaginationData<UserPlaytimeDto>> {
         const baseFindOptions = buildBaseFindOptions(dto);
 
-        const options: FindManyOptions<UserPlaytime> = {
-            ...baseFindOptions,
-            where: {
-                profileUserId: userId,
-            },
-            relations: this.relations,
-            order: {
-                lastPlayedDate: "DESC",
-            },
-        };
+        const qb = this.userPlaytimeRepository
+            .createQueryBuilder("up")
+            .leftJoinAndSelect("up.platform", "platform")
+            .where("up.profileUserId = :userId", { userId })
+            .orderBy("up.lastPlayedDate", "DESC")
+            .skip(baseFindOptions.skip)
+            .take(baseFindOptions.take);
 
-        return await this.userPlaytimeRepository.findAndCount(options);
+        if (!this.applyLibraryVisibility(qb, userId, access)) return [[], 0];
+
+        return await qb.getManyAndCount();
     }
 
     public async findAllByUserIdWithFilters(
         userId: string,
         options: FindAllPlaytimeFiltersDto,
+        access?: LibraryAccess,
     ): Promise<TPaginationData<UserPlaytimeDto>> {
         const baseFindOptions = buildBaseFindOptions<UserPlaytime>(options);
 
@@ -183,6 +200,8 @@ export class PlaytimeService {
             .leftJoinAndSelect("up.platform", "platform")
             .skip(baseFindOptions.skip)
             .limit(baseFindOptions.take);
+
+        if (!this.applyLibraryVisibility(qb, userId, access)) return [[], 0];
 
         if (options.orderBy) {
             const orderObj: OrderByCondition = {};
@@ -202,6 +221,36 @@ export class PlaytimeService {
         });
 
         return await qb.getManyAndCount();
+    }
+
+    /**
+     * Restricts a playtime query to the games the viewer may see. An entry hides its game when its
+     * level is not in the viewer's levels; playtime without an entry stays visible. Returns false
+     * when the whole library is hidden.
+     */
+    private applyLibraryVisibility(
+        qb: SelectQueryBuilder<UserPlaytime>,
+        ownerId: string,
+        access?: LibraryAccess,
+    ): boolean {
+        if (!access) return true;
+        if (!access.canViewLibrary) return false;
+
+        qb.andWhere(
+            `NOT EXISTS (
+                SELECT 1
+                FROM collection_entry entry
+                WHERE entry.libraryUserId = :libraryOwnerId
+                AND entry.gameId = up.gameId
+                AND entry.visibility NOT IN (:...visibleEntryLevels)
+            )`,
+            {
+                libraryOwnerId: ownerId,
+                visibleEntryLevels: access.visibleEntryLevels,
+            },
+        );
+
+        return true;
     }
 
     /**

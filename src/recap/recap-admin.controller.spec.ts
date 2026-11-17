@@ -164,6 +164,7 @@ describe("Recap HTTP reads and admin edition", () => {
         expect(recapService.getRecapStatus).toHaveBeenCalledWith(
             "user-1",
             2026,
+            undefined,
         );
     });
 
@@ -176,6 +177,7 @@ describe("Recap HTTP reads and admin edition", () => {
         expect(recapService.getRecapByUserId).toHaveBeenCalledWith(
             "user-1",
             2026,
+            undefined,
         );
     });
 });

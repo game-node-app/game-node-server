@@ -4,28 +4,36 @@ import { DataSource, EntityManager, Repository } from "typeorm";
 import { NotificationInbox } from "./entity/notification-inbox.entity";
 import { NotificationEvent } from "./entity/notification-event.entity";
 import { NotificationOutbox } from "./entity/notification-outbox.entity";
+import { LibraryAccessService } from "../libraries/library-access.service";
+import { entryVisibilitySql } from "../libraries/library-visibility.constants";
 
 export type NotificationRootType = "post" | "review" | "activity";
 
+export type NotificationRootAccess = {
+    /** Who must be able to see the root. Undefined means an anonymous viewer. */
+    viewerId?: string;
+    libraryAccess: LibraryAccessService;
+};
+
+/** Entry visibility relative to the inbox recipient, for the raw eligibility query. */
+const recipientEntryVisibilitySql = (entryAlias: string) =>
+    entryVisibilitySql(entryAlias, "recipient").replaceAll(
+        ":recipient",
+        "inbox.recipientUserId",
+    );
+
 // Only existence/access metadata is consulted; presentation comes from the inbox.
+// Reviews are public. The collection activity check relies on the entry rule above it for the
+// library ceiling, since a collection activity and its entry share the owner.
 export const NOTIFICATION_ELIGIBILITY_SQL = `
     (COALESCE(inbox.rootType, '') NOT IN ('post', 'review', 'activity')
      OR (inbox.rootType = 'post' AND EXISTS (SELECT 1 FROM post p WHERE p.id = inbox.rootId AND p.deletedAt IS NULL))
-     OR (inbox.rootType = 'review' AND EXISTS (SELECT 1 FROM review r WHERE r.id = inbox.rootId
-        AND (NOT EXISTS (SELECT 1 FROM collection_entry_collections_collection m WHERE m.collectionEntryId = r.collectionEntryId)
-          OR EXISTS (SELECT 1 FROM collection_entry_collections_collection m JOIN collection c ON c.id = m.collectionId
-                     WHERE m.collectionEntryId = r.collectionEntryId AND c.isPublic = 1))))
+     OR (inbox.rootType = 'review' AND EXISTS (SELECT 1 FROM review r WHERE r.id = inbox.rootId))
      OR (inbox.rootType = 'activity' AND EXISTS (SELECT 1 FROM activity a WHERE a.id = inbox.rootId
         AND (a.postId IS NULL OR EXISTS (SELECT 1 FROM post p WHERE p.id = a.postId AND p.deletedAt IS NULL))
-        AND (a.reviewId IS NULL OR EXISTS (SELECT 1 FROM review r WHERE r.id = a.reviewId
-            AND (NOT EXISTS (SELECT 1 FROM collection_entry_collections_collection m WHERE m.collectionEntryId = r.collectionEntryId)
-              OR EXISTS (SELECT 1 FROM collection_entry_collections_collection m JOIN collection c ON c.id = m.collectionId
-                         WHERE m.collectionEntryId = r.collectionEntryId AND c.isPublic = 1))))
+        AND (a.reviewId IS NULL OR EXISTS (SELECT 1 FROM review r WHERE r.id = a.reviewId))
         AND (a.collectionId IS NULL OR EXISTS (SELECT 1 FROM collection c WHERE c.id = a.collectionId AND c.isPublic = 1))
-        AND (a.collectionEntryId IS NULL OR EXISTS (SELECT 1 FROM collection_entry e WHERE e.id = a.collectionEntryId
-            AND (NOT EXISTS (SELECT 1 FROM collection_entry_collections_collection m WHERE m.collectionEntryId = e.id)
-              OR EXISTS (SELECT 1 FROM collection_entry_collections_collection m JOIN collection c ON c.id = m.collectionId
-                         WHERE m.collectionEntryId = e.id AND c.isPublic = 1)))))))
+        AND (a.collectionEntryId IS NULL OR EXISTS (SELECT 1 FROM collection_entry e WHERE e.id = a.collectionEntryId AND ${recipientEntryVisibilitySql("e")})))))
     AND (COALESCE(inbox.subjectType, '') <> 'comment'
       OR (inbox.rootType = 'post' AND EXISTS (SELECT 1 FROM post_comment c WHERE c.id = inbox.subjectId AND c.postId = inbox.rootId))
       OR (inbox.rootType = 'review' AND EXISTS (SELECT 1 FROM review_comment c WHERE c.id = inbox.subjectId AND c.reviewId = inbox.rootId))
@@ -40,6 +48,7 @@ export async function lockNotificationRoot(
     manager: EntityManager,
     type: NotificationRootType,
     id: string,
+    access?: NotificationRootAccess,
 ): Promise<any | null> {
     if (type === "post") {
         const rows = await manager.query(
@@ -53,16 +62,7 @@ export async function lockNotificationRoot(
             "SELECT id, profileUserId, gameId, collectionEntryId FROM review WHERE id = ? FOR UPDATE",
             [id],
         );
-        if (!rows[0]) return null;
-        const collections = await manager.query(
-            `SELECT c.id, c.isPublic FROM collection c
-            JOIN collection_entry_collections_collection m ON m.collectionId = c.id
-            WHERE m.collectionEntryId = ? ORDER BY c.id FOR UPDATE`,
-            [rows[0].collectionEntryId],
-        );
-        return collections.length && !collections.some((c: any) => c.isPublic)
-            ? null
-            : rows[0];
+        return rows[0] || null;
     }
     if (type === "activity") {
         const candidates = await manager.query(
@@ -78,35 +78,48 @@ export async function lockNotificationRoot(
                 manager,
                 "post",
                 candidate.postId,
+                access,
             );
         else if (candidate.reviewId)
             context = await lockNotificationRoot(
                 manager,
                 "review",
                 candidate.reviewId,
+                access,
             );
         else if (candidate.collectionId) {
             const collections = await manager.query(
-                "SELECT id, isPublic FROM collection WHERE id = ? FOR UPDATE",
+                "SELECT id, isPublic, libraryUserId FROM collection WHERE id = ? FOR UPDATE",
                 [candidate.collectionId],
             );
             if (!collections[0]?.isPublic) return null;
+            if (
+                access?.libraryAccess &&
+                !(
+                    await access.libraryAccess.resolve(
+                        access.viewerId,
+                        collections[0].libraryUserId,
+                    )
+                ).canViewLibrary
+            )
+                return null;
         }
         if ((candidate.postId || candidate.reviewId) && !context) return null;
         if (candidate.collectionEntryId) {
             const entries = await manager.query(
-                "SELECT id, gameId FROM collection_entry WHERE id = ? FOR UPDATE",
+                "SELECT id, gameId, libraryUserId, visibility FROM collection_entry WHERE id = ? FOR UPDATE",
                 [candidate.collectionEntryId],
             );
             if (!entries[0]) return null;
-            const collections = await manager.query(
-                `SELECT c.id, c.isPublic FROM collection c
-                JOIN collection_entry_collections_collection m ON m.collectionId = c.id
-                WHERE m.collectionEntryId = ? ORDER BY c.id FOR UPDATE`,
-                [candidate.collectionEntryId],
-            );
-            if (collections.length && !collections.some((c: any) => c.isPublic))
-                return null;
+            if (access?.libraryAccess) {
+                const { visibleEntryLevels } =
+                    await access.libraryAccess.resolve(
+                        access.viewerId,
+                        entries[0].libraryUserId,
+                    );
+                if (!visibleEntryLevels.includes(entries[0].visibility))
+                    return null;
+            }
             context ||= entries[0];
         }
         const rows = await manager.query(
@@ -130,9 +143,10 @@ export async function lockNotificationComment(
     rootType: NotificationRootType,
     rootId: string,
     id: string,
+    access?: NotificationRootAccess,
 ) {
     if (!["post", "review", "activity"].includes(rootType)) return null;
-    const root = await lockNotificationRoot(manager, rootType, rootId);
+    const root = await lockNotificationRoot(manager, rootType, rootId, access);
     if (!root) return null;
     const rows = await manager.query(
         `SELECT id, profileUserId, content, childOfId FROM ${rootType}_comment WHERE id = ? AND ${rootType}Id = ? FOR UPDATE`,
@@ -278,6 +292,7 @@ export class NotificationsLifecycleService {
 
     /**
      * Invalidate all inbox items when a collection is made private.
+     * Reviews are public, so only the activities that reference the collection are affected.
      */
     async invalidateCollection(
         collectionId: string,
@@ -287,21 +302,31 @@ export class NotificationsLifecycleService {
             manager ||
             this.dataSource?.createEntityManager() ||
             this.inboxRepo.manager;
-        const reviews = await em.query(
-            `SELECT r.id FROM review r
-             JOIN collection_entry_collections_collection cecc ON cecc.collectionEntryId = r.collectionEntryId
-             WHERE cecc.collectionId = ?`,
-            [collectionId],
-        );
-
-        for (const row of reviews) {
-            await this.invalidateContent("review", row.id, em);
-        }
         const activities = await em.query(
             `SELECT DISTINCT a.id FROM activity a
             LEFT JOIN collection_entry_collections_collection m ON m.collectionEntryId = a.collectionEntryId
             WHERE a.collectionId = ? OR m.collectionId = ?`,
             [collectionId, collectionId],
+        );
+        for (const row of activities)
+            await this.invalidateContent("activity", row.id, em);
+    }
+
+    /**
+     * Invalidate the activities about one of the owner's entries, or about all of them.
+     * Called when an entry or the library becomes more restrictive.
+     */
+    async invalidateLibraryContent(
+        ownerId: string,
+        entryId?: string,
+    ): Promise<void> {
+        const em =
+            this.dataSource?.createEntityManager() || this.inboxRepo.manager;
+        const activities = await em.query(
+            `SELECT a.id FROM activity a
+            JOIN collection_entry e ON e.id = a.collectionEntryId
+            WHERE e.libraryUserId = ?${entryId ? " AND e.id = ?" : ""}`,
+            entryId ? [ownerId, entryId] : [ownerId],
         );
         for (const row of activities)
             await this.invalidateContent("activity", row.id, em);

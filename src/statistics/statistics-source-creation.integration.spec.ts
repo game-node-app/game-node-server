@@ -1,7 +1,10 @@
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { PostsService } from "../posts/posts.service";
 import { Post } from "../posts/entity/post.entity";
 import { ReviewsService } from "../reviews/reviews.service";
@@ -55,9 +58,13 @@ describe("source creation after statistics retirement", () => {
             await reviews.createOrUpdate(owner, { gameId: 1, rating: 4 } as any);
             const review = await dataSource.getRepository(Review).findOneByOrFail({ profileUserId: owner });
             const activities = new ActivitiesRepositoryService(dataSource.getRepository(Activity), reviews, {} as any,
-                { isMature: async () => false } as any, { getLockoutStates: async () => new Map() } as any, posts, {} as any, {} as any);
+                { isMature: async () => false } as any, { getLockoutStates: async () => new Map() } as any, posts, {} as any, {} as any, {} as any);
             const activity = await activities.create({ type: ActivityType.POST, sourceId: post.id, profileUserId: owner });
-            const comments = new CommentService(dataSource, lifecycle);
+            const comments = new CommentService(
+                dataSource,
+                createLibraryAccessService(dataSource),
+                lifecycle,
+            );
             const targetIds = [post.statisticsTargetId, review.statisticsTargetId, activity!.statisticsTargetId];
             for (const [type, id] of [[CommentSourceType.POST, post.id], [CommentSourceType.REVIEW, review.id], [CommentSourceType.ACTIVITY, activity!.id]] as const) {
                 const comment = await comments.create(owner, { sourceType: type, sourceId: id, content: "Required target" });
@@ -76,7 +83,7 @@ describe("source creation after statistics retirement", () => {
             expect(targetIds.every((id) => Number.isSafeInteger(id) && Number(id) > 0)).toBe(true);
             expect(await dataSource.query("SELECT COUNT(*) AS count FROM statistics_event WHERE targetId IN (?)", [targetIds])).toEqual([{ count: 0 }]);
             const entries = new CollectionsEntriesService(dataSource.getRepository(CollectionEntry), dataSource.getRepository(CollectionEntryToCollection),
-                {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, lifecycle);
+                {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, lifecycle, createLibraryAccessService(dataSource));
             await entries.delete(owner, entryId);
             await posts.delete(owner, post.id);
             expect(await dataSource.query("SELECT COUNT(*) AS count FROM statistics_target WHERE id IN (?) AND isActive = 1", [targetIds])).toEqual([{ count: 0 }]);

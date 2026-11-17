@@ -1,7 +1,10 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { randomUUID } from "node:crypto";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { NotificationsProjectorService } from "./notifications-projector.service";
 import { NotificationsRelayService } from "./notifications-relay.service";
 import { NotificationsService } from "./notifications.service";
@@ -28,6 +31,7 @@ describe("Awards, Recap and goal notifications (integration)", () => {
                 dataSource.getRepository(NotificationOutbox),
                 { add: jest.fn() } as any,
             ),
+            createLibraryAccessService(dataSource),
         );
         notifications = new NotificationsService(
             dataSource.getRepository(NotificationInbox),

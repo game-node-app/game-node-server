@@ -26,6 +26,7 @@ import { RECAP_QUEUE_NAME } from "./recap.constants";
 import { RecapQueueProcessor } from "./queue/recap-queue.processor";
 import { ProfileModule } from "../profile/profile.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { LibrariesModule } from "../libraries/libraries.module";
 
 @Module({
     imports: [
@@ -53,6 +54,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
         FollowModule,
         ProfileModule,
         NotificationsModule,
+        LibrariesModule,
     ],
     providers: [
         RecapService,

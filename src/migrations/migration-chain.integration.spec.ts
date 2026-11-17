@@ -86,8 +86,17 @@ describe("migration chain on an empty database", () => {
         ]);
     });
 
-    it("reverts and re-applies the newest migration", async () => {
-        await source.undoLastMigration();
+    it("reverts and re-applies every migration newer than the daily ranking schema", async () => {
+        // Later migrations sit above this one, so revert until its table is gone instead of
+        // assuming this is the newest migration in the chain.
+        for (let undone = 0; undone < files.length; undone++) {
+            if (
+                (await source.query("SHOW TABLES LIKE 'daily_ranking_entry'"))
+                    .length === 0
+            )
+                break;
+            await source.undoLastMigration();
+        }
         expect(await source.showMigrations()).toBe(true);
         expect(
             await source.query("SHOW TABLES LIKE 'daily_ranking_entry'"),

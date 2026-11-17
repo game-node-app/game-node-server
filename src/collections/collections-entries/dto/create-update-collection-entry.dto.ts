@@ -1,11 +1,13 @@
 import {
     IsArray,
+    IsEnum,
     IsNotEmpty,
     IsNumber,
     IsOptional,
     IsString,
 } from "class-validator";
 import { CollectionEntryStatus } from "../collections-entries.constants";
+import { LibraryVisibility } from "../../../libraries/library-visibility.constants";
 
 export class CreateUpdateCollectionEntryDto {
     @IsNotEmpty()
@@ -28,4 +30,7 @@ export class CreateUpdateCollectionEntryDto {
     @IsNotEmpty()
     @IsString()
     status: CollectionEntryStatus;
+    @IsOptional()
+    @IsEnum(LibraryVisibility)
+    visibility?: LibraryVisibility;
 }

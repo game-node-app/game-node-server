@@ -1,6 +1,7 @@
 import {
     HttpException,
     HttpStatus,
+    Inject,
     Injectable,
     Optional,
 } from "@nestjs/common";
@@ -12,6 +13,7 @@ import { UpdateCollectionDto } from "./dto/update-collection.dto";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 import { BillingService } from "../billing/billing.service";
 import { Library } from "../libraries/entities/library.entity";
+import { LibraryAccessService } from "../libraries/library-access.service";
 
 const FREE_COLLECTION_LIMIT = 5;
 
@@ -26,7 +28,11 @@ export class CollectionsService {
         private collectionsRepository: Repository<Collection>,
         private readonly billingService: BillingService,
         @Optional()
-        private readonly notificationsLifecycleService?: NotificationsLifecycleService,
+        @Inject(NotificationsLifecycleService)
+        private readonly notificationsLifecycleService:
+            | NotificationsLifecycleService
+            | undefined,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     async findOneById(id: string) {
@@ -38,23 +44,25 @@ export class CollectionsService {
         });
     }
 
-    async findOneByIdWithPermissions(userId: string, collectionId: string) {
-        const collection = await this.collectionsRepository.findOne({
-            where: [
-                {
-                    id: collectionId,
-                    isPublic: true,
-                },
-                {
-                    id: collectionId,
-                    library: {
-                        userId,
-                    },
-                },
-            ],
-            relations: this.relations,
-        });
+    async findOneByIdWithPermissions(
+        userId: string | undefined,
+        collectionId: string,
+    ) {
+        const collection = await this.findOneById(collectionId);
         if (!collection) {
+            throw new HttpException(
+                "Collection not found.",
+                HttpStatus.NOT_FOUND,
+            );
+        }
+        const access = await this.libraryAccessService.resolve(
+            userId,
+            collection.libraryUserId,
+        );
+        if (
+            collection.libraryUserId !== userId &&
+            (!collection.isPublic || !access.canViewLibrary)
+        ) {
             throw new HttpException(
                 "Collection not found.",
                 HttpStatus.NOT_FOUND,
@@ -67,6 +75,12 @@ export class CollectionsService {
         currentUserId: string | undefined,
         targetUserId: string,
     ) {
+        const access = await this.libraryAccessService.resolve(
+            currentUserId,
+            targetUserId,
+        );
+        if (!access.canViewLibrary) return [];
+
         const targetUserCollections = await this.collectionsRepository.find({
             where: {
                 library: {
@@ -78,8 +92,8 @@ export class CollectionsService {
 
         return targetUserCollections.filter((collection) => {
             return (
-                collection.isPublic ||
-                collection.library.userId === currentUserId
+                collection.libraryUserId === currentUserId ||
+                collection.isPublic
             );
         });
     }

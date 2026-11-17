@@ -2,6 +2,20 @@ import "reflect-metadata";
 import { resolve } from "node:path";
 import { DataSource } from "typeorm";
 import { testEnvironment } from "../igdb/helpers/test-environment";
+import { LibraryAccessService } from "../../src/libraries/library-access.service";
+import { Profile } from "../../src/profile/entities/profile.entity";
+import { UserFollow } from "../../src/follow/entity/user-follow.entity";
+import { CollectionEntry } from "../../src/collections/collections-entries/entities/collection-entry.entity";
+
+export function createLibraryAccessService(
+    source: DataSource,
+): LibraryAccessService {
+    return new LibraryAccessService(
+        source.getRepository(Profile),
+        source.getRepository(UserFollow),
+        source.getRepository(CollectionEntry),
+    );
+}
 
 export async function createNotificationTestDataSource(): Promise<DataSource> {
     const settings = testEnvironment(process.env);
