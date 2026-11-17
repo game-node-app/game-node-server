@@ -5,6 +5,8 @@ export const CORS_OPTIONS: CorsOptions = {
     credentials: true,
     origin: true,
     optionsSuccessStatus: 204,
+    // Without it Chrome re-sends the preflight after 5 s, doubling latency of most cross-origin calls. Chrome caps at 7200.
+    maxAge: 7200,
     allowedHeaders: [
         "mcp-protocol-version",
         "content-type",

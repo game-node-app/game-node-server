@@ -562,6 +562,7 @@ describe("Better Auth integration (dev MySQL)", () => {
             expect(response.headers["access-control-allow-headers"]).toContain(
                 "capacitor-origin",
             );
+            expect(response.headers["access-control-max-age"]).toBe("7200");
         });
     });
 
