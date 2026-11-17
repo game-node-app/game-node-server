@@ -46,4 +46,47 @@ describe("daily image tokens", () => {
             ),
         ).toBeNull();
     });
+
+    it("verifies a practice round source and keeps puzzle tokens working", () => {
+        const round = {
+            p: "b3f1c2d4-0000-4000-8000-000000000000",
+            k: "cover" as const,
+            l: 0,
+            s: "r" as const,
+        };
+        expect(
+            verifyDailyImageToken(signDailyImageToken(round, secret), secret),
+        ).toEqual(round);
+
+        const puzzle = { p: 42, k: "cover" as const, l: "full" as const };
+        expect(
+            verifyDailyImageToken(signDailyImageToken(puzzle, secret), secret),
+        ).toEqual(puzzle);
+
+        // The id type must match the source, and the source must be known.
+        expect(
+            verifyDailyImageToken(
+                signDailyImageToken({ p: round.p, k: "cover", l: 0 }, secret),
+                secret,
+            ),
+        ).toBeNull();
+        expect(
+            verifyDailyImageToken(
+                signDailyImageToken(
+                    { p: 42, k: "cover", l: 0, s: "r" },
+                    secret,
+                ),
+                secret,
+            ),
+        ).toBeNull();
+        expect(
+            verifyDailyImageToken(
+                signDailyImageToken(
+                    { p: 42, k: "cover", l: 0, s: "x" } as any,
+                    secret,
+                ),
+                secret,
+            ),
+        ).toBeNull();
+    });
 });

@@ -118,7 +118,17 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                 "--format",
                 "json",
             ],
-            { cwd: REPO_ROOT, encoding: "utf8" },
+            {
+                cwd: REPO_ROOT,
+                encoding: "utf8",
+                // The dev file requires these from the untracked root .env; a clean checkout has none.
+                env: {
+                    ...process.env,
+                    CMS_ADMIN_EMAIL: "editor@example.com",
+                    CMS_ADMIN_PASSWORD: "cms_test_password",
+                    CMS_SECRET: "cms_test_secret",
+                },
+            },
         );
         const devConfig = JSON.parse(devConfigJson);
         const devManticore = devConfig.services.manticore;
@@ -187,9 +197,9 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
         expect(prodConfig.services.redis_bullmq.volumes[0].target).toBe(
             "/data",
         );
-        expect(
-            prodConfig.services.server.environment.BETTER_AUTH_SECRET,
-        ).toBe("test_better_auth_secret");
+        expect(prodConfig.services.server.environment.BETTER_AUTH_SECRET).toBe(
+            "test_better_auth_secret",
+        );
         expect(prodConfig.services.server.deploy.replicas).toBe(1);
         expect(
             prodConfig.services.server.depends_on.server_migration.condition,
@@ -233,12 +243,7 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                 (service: any) => service.ports,
             ),
         ).toHaveLength(0);
-        for (const name of [
-            "server",
-            "server_migration",
-            "cms",
-            "manticore",
-        ]) {
+        for (const name of ["server", "server_migration", "cms", "manticore"]) {
             const service = prodConfig.services[name];
             expect(
                 service.environment.DB_HOST ?? service.environment.MYSQL_HOST,

@@ -1,4 +1,11 @@
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import {
+    Inject,
+    Injectable,
+    Logger,
+    OnModuleDestroy,
+    Optional,
+} from "@nestjs/common";
+import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 import { ConfigService } from "@nestjs/config";
 import { ModuleRef } from "@nestjs/core";
 import type { IncomingMessage } from "http";
@@ -20,6 +27,10 @@ import { EUserRoles } from "../utils/constants";
 import { MCP_PATH, MCP_SCOPES } from "../mcp/mcp.constants";
 
 const ac = createAccessControl(defaultStatements);
+
+/** The ranking excludes banned and suspended players; a 60 s cache matches its freshness rule. */
+const LOCKED_USERS_CACHE_KEY = "auth:locked-users";
+const LOCKED_USERS_CACHE_TTL_MS = 60 * 1000;
 
 const roles = {
     // Nobody may impersonate: admins get every default permission except impersonation.
@@ -86,6 +97,9 @@ export class AuthService implements OnModuleDestroy {
         configService: ConfigService,
         moduleRef: ModuleRef,
         supporterStarts: SupporterSubscriptionStartService,
+        @Optional()
+        @Inject(CACHE_MANAGER)
+        private readonly cache?: Cache,
     ) {
         const provider = (name: string) => ({
             clientId: configService.getOrThrow<string>(
@@ -354,6 +368,42 @@ export class AuthService implements OnModuleDestroy {
             });
         }
         return states;
+    }
+
+    /**
+     * Ids the ranking must hide. Cached for 60 s: the ranking allows that much staleness,
+     * and every non-cached read would pay for the whole banned list.
+     */
+    async getLockedUserIds(): Promise<string[]> {
+        const cached = await this.cache
+            ?.get<string[]>(LOCKED_USERS_CACHE_KEY)
+            .catch(() => undefined);
+        if (cached) return cached;
+
+        const ctx = await this.auth.$context;
+        const where = [{ field: "banned", value: true }];
+        const total = await ctx.adapter.count({ model: "user", where });
+        const users = total
+            ? await ctx.adapter.findMany<{
+                  id: string;
+                  banned?: boolean | null;
+                  banExpires?: Date | null;
+              }>({ model: "user", where, limit: total })
+            : [];
+        const now = Date.now();
+        // Same rule as getLockoutStates: an expired suspension is not a lockout.
+        const ids = users
+            .filter(
+                (user) =>
+                    !!user.banned &&
+                    (user.banExpires == null ||
+                        new Date(user.banExpires).getTime() > now),
+            )
+            .map((user) => user.id);
+        await this.cache
+            ?.set(LOCKED_USERS_CACHE_KEY, ids, LOCKED_USERS_CACHE_TTL_MS)
+            .catch(() => undefined);
+        return ids;
     }
 
     async getSubscriptions(

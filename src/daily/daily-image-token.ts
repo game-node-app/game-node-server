@@ -4,11 +4,13 @@ import { DAILY_IMAGE_WIDTHS } from "./daily.constants";
 export type DailyImageKind = "cover" | "artwork";
 
 export interface DailyImageTokenPayload {
-    /** Puzzle id. */
-    p: number;
+    /** Puzzle id, or the round id when `s` is "r". */
+    p: number | string;
     k: DailyImageKind;
     /** Pixelation level, or "full" (only issued once the puzzle is finished). */
     l: number | "full";
+    /** Source: absent for a puzzle, "r" for a practice round. */
+    s?: "r";
 }
 
 const sign = (body: string, secret: string) =>
@@ -40,7 +42,15 @@ export function verifyDailyImageToken(
             (Number.isInteger(payload.l) &&
                 payload.l >= 0 &&
                 payload.l < DAILY_IMAGE_WIDTHS.length);
-        return Number.isInteger(payload.p) &&
+        const validSource = payload.s === undefined || payload.s === "r";
+        const validId =
+            payload.s === "r"
+                ? typeof payload.p === "string" &&
+                  payload.p.length > 0 &&
+                  payload.p.length <= 36
+                : Number.isInteger(payload.p);
+        return validSource &&
+            validId &&
             ["cover", "artwork"].includes(payload.k) &&
             validLevel
             ? payload

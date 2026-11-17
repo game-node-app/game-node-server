@@ -10,7 +10,13 @@ import { DailyController } from "./daily.controller";
 import { DailyService } from "./daily.service";
 import { DailyPuzzle } from "./entity/daily-puzzle.entity";
 import { DailyResult } from "./entity/daily-result.entity";
-import { addDays, dailyToday, DailyMode, DailyStatus } from "./daily.constants";
+import {
+    addDays,
+    dailyToday,
+    DailyMode,
+    DailyPuzzleKind,
+    DailyStatus,
+} from "./daily.constants";
 import { SessionContainer } from "../auth/session.decorator";
 
 // Fixture puzzles use numbers from here up, so a rerun can clean them without touching anything else.
@@ -30,8 +36,13 @@ describe("DailyController on MySQL", () => {
             FIXTURE_NUMBER,
         ]);
 
-    const createPuzzle = (date: string, mode = DailyMode.COVER) =>
+    const createPuzzle = (
+        date: string,
+        mode = DailyMode.COVER,
+        kind: DailyPuzzleKind = "daily",
+    ) =>
         dataSource.getRepository(DailyPuzzle).save({
+            kind,
             mode,
             number: FIXTURE_NUMBER + ++fixtureCount,
             date,
@@ -60,8 +71,20 @@ describe("DailyController on MySQL", () => {
             dataSource,
             { get: async () => undefined, set: async () => undefined } as any,
             { getOrThrow: () => "integration-secret" } as any,
+            {
+                weeklyEntry: async () => null,
+                summaryAfterPlay: async () => undefined,
+                recompute: async () => undefined,
+            } as any,
         );
-        controller = new DailyController(service);
+        controller = new DailyController(
+            service,
+            {
+                read: async () => undefined,
+                weeklyRanking: async () => undefined,
+            } as any,
+            {} as any,
+        );
     });
 
     afterAll(async () => {
@@ -171,6 +194,44 @@ describe("DailyController on MySQL", () => {
         await expect(
             controller.play(puzzle.id, { guesses: [999_999_999] }),
         ).rejects.toThrow(BadRequestException);
+    });
+
+    it("lists weekly challenges only in results asked by kind", async () => {
+        const weekly = await createPuzzle(
+            dailyToday(),
+            DailyMode.SPECS,
+            "weekly",
+        );
+        const archiveWeekly = await createPuzzle(
+            "1970-01-07",
+            DailyMode.SPECS,
+            "weekly",
+        );
+
+        const todayResponse = await controller.findToday(session);
+        expect(todayResponse.puzzles.map((puzzle) => puzzle.id)).not.toContain(
+            weekly.id,
+        );
+
+        const archive = await controller.findArchive(
+            { offset: 0, limit: 100 },
+            session,
+        );
+        expect(archive.data.map((puzzle) => puzzle.id)).not.toContain(
+            archiveWeekly.id,
+        );
+
+        await controller.play(weekly.id, { guesses: [ANSWER_ID] }, session);
+        const dailyResults = await controller.findResults(session, {});
+        expect(
+            dailyResults.data.map((result) => result.puzzleId),
+        ).not.toContain(weekly.id);
+        const weeklyResults = await controller.findResults(session, {
+            kind: "weekly",
+        });
+        expect(weeklyResults.data.map((result) => result.puzzleId)).toEqual([
+            weekly.id,
+        ]);
     });
 
     it("refuses a tampered image token", async () => {

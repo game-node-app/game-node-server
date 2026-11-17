@@ -41,6 +41,12 @@ export class DailyResult {
     hintAt: number | null;
     @Column({ type: "varchar", length: 16 })
     status: DailyStatus;
+    /** Whether the result counts for the ranking; fixed when it finishes. */
+    @Column({ type: "boolean", default: false })
+    ranked: boolean;
+    /** Ranking points in tenths, only for ranked daily results. */
+    @Column({ type: "smallint", unsigned: true, default: 0 })
+    points: number;
     @Column({ type: "int" })
     attempts: number;
     @Column({ type: "datetime", nullable: true })

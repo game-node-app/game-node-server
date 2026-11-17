@@ -1,5 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
-import { DailyGameData, DailyNamed, evaluateDaily } from "./daily-evaluator";
+import {
+    DailyGameData,
+    DailyNamed,
+    assertProgressCanGrow,
+    evaluateDaily,
+} from "./daily-evaluator";
 import {
     DailyGuessResult,
     DailyMatch,
@@ -280,5 +285,44 @@ describe("evaluateDaily", () => {
         expect(() => play(DailyMode.SPECS, wrong(10), 5)).toThrow(
             BadRequestException,
         );
+    });
+});
+
+describe("assertProgressCanGrow", () => {
+    const saved = { guesses: [2, 3], hintAt: null };
+    const hinted = { guesses: [2, 3, 4, 5, 6], hintAt: 5 };
+
+    it("accepts appending guesses and placing a new hint at the saved length", () => {
+        expect(() =>
+            assertProgressCanGrow(saved, [2, 3, 4], null),
+        ).not.toThrow();
+        expect(() => assertProgressCanGrow(saved, [2, 3], 2)).not.toThrow();
+        expect(() =>
+            assertProgressCanGrow(hinted, [2, 3, 4, 5, 6, 7], 5),
+        ).not.toThrow();
+    });
+
+    it("rejects removing or rewriting guesses", () => {
+        expect(() => assertProgressCanGrow(saved, [], null)).toThrow(
+            BadRequestException,
+        );
+        expect(() => assertProgressCanGrow(saved, [2, 5], null)).toThrow(
+            BadRequestException,
+        );
+        expect(() => assertProgressCanGrow(saved, [5, 3, 4], null)).toThrow(
+            BadRequestException,
+        );
+    });
+
+    it("rejects moving, adding or dropping a saved hint", () => {
+        expect(() => assertProgressCanGrow(saved, [2, 3], 1)).toThrow(
+            BadRequestException,
+        );
+        expect(() =>
+            assertProgressCanGrow(hinted, [2, 3, 4, 5, 6], null),
+        ).toThrow(BadRequestException);
+        expect(() =>
+            assertProgressCanGrow(hinted, [2, 3, 4, 5, 6, 7], 6),
+        ).toThrow(BadRequestException);
     });
 });
