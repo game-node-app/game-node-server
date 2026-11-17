@@ -481,6 +481,32 @@ describe("statistics rankings", () => {
         await cache.disconnect();
     });
 
+    it("reuses a prepared game ranking response until the next refresh publishes new scores", async () => {
+        const firstId = 2_190_000_000 - randomInt(100_000);
+        const firstTarget = await createGame(firstId);
+        const secondTarget = await createGame(firstId + 1);
+        const key = "game:popular:week";
+        await dataSource.query(
+            `INSERT INTO ranking_score (rankingKey, targetId, score, definitionVersion, computedAt)
+             VALUES (?, ?, 1, 'engagement-v1', '2025-05-01 10:00:00'), (?, ?, 2, 'engagement-v1', '2025-05-01 10:00:00')`,
+            [key, firstTarget, key, secondTarget],
+        );
+        await dataSource.query("UPDATE ranking_score SET computedAt = '2025-05-01 10:00:00' WHERE rankingKey = ?", [key]);
+        const cache = createCache();
+        const rankings = new StatisticsRankingService(dataSource, cache);
+        const request = { sourceType: StatisticsSourceType.GAME, mode: "popular", period: "week",
+            criteria: { ids: [firstId, firstId + 1] }, limit: 2, offset: 0 } as any;
+        const first = await rankings.findRankings(undefined, request);
+        // A game leaving the ranking between refreshes is not re-checked: the response is served as published.
+        await dataSource.query("UPDATE statistics_target SET isActive = 0 WHERE id = ?", [secondTarget]);
+        const reused = await rankings.findRankings(undefined, request);
+        expect(reused).toEqual(first);
+        await dataSource.query("UPDATE ranking_score SET computedAt = '2025-05-01 16:00:00' WHERE rankingKey = ?", [key]);
+        const refreshed = await rankings.findRankings(undefined, request);
+        expect(refreshed.items.map((item: any) => item.sourceId)).toEqual([firstId]);
+        await cache.disconnect();
+    });
+
     it("rechecks cached review visibility even when the eligible total is unchanged", async () => {
         const gameId = 2_140_000_000 - randomInt(100_000);
         await createGame(gameId);
