@@ -13,6 +13,12 @@ import {
     ProfileMetricsSummaryWindowDto,
 } from "./dto/profile-metrics-summary.dto";
 import { ProfileMetricsReportService } from "./profile-metrics-report.service";
+import { LibraryAccessService } from "../../libraries/library-access.service";
+import { LibraryAudience } from "../../libraries/library-visibility.constants";
+import {
+    LibraryAudienceKey,
+    OWNER_LIBRARY_AUDIENCE_KEY,
+} from "./library-audience-key";
 
 const SUPPORTED_PERIODS: Period[] = [Period.WEEK, Period.MONTH, Period.YEAR];
 const TOP_GAMES_LIMIT = 5;
@@ -36,16 +42,33 @@ export class ProfileMetricsSummaryService {
         private readonly playtimeHistoryService: PlaytimeHistoryService,
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly profileMetricsReportService: ProfileMetricsReportService,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     @Cacheable(ProfileMetricsSummaryService.name, minutes(10))
     public async generateSummary(
         userId: string,
         period: ProfileMetricsSummaryPeriod,
+        audience: LibraryAudienceKey = OWNER_LIBRARY_AUDIENCE_KEY,
     ): Promise<ProfileMetricsSummaryResponseDto> {
         if (!SUPPORTED_PERIODS.includes(period)) {
             throw new HttpException("Invalid period", HttpStatus.BAD_REQUEST);
         }
+
+        if (audience.visibleEntryLevels.length === 0) {
+            return emptySummary(period);
+        }
+
+        // The owner has nothing hidden, so no extra query and no LibraryAccessService needed.
+        const hidden =
+            audience.audience === LibraryAudience.Owner
+                ? new Set<number>()
+                : new Set(
+                      await this.libraryAccessService.hiddenGameIds(
+                          userId,
+                          audience.visibleEntryLevels,
+                      ),
+                  );
 
         const now = dayjs();
         const windowStart = now.subtract(PeriodToMinusDays[period], "day");
@@ -68,21 +91,29 @@ export class ProfileMetricsSummaryService {
             this.profileMetricsReportService.getActivityCountsSince(
                 userId,
                 windowStart,
+                [...hidden],
             ),
         ]);
 
-        const secondsByGame = sumBy(currentRows, (row) => row.gameId);
+        const visibleCurrentRows = currentRows.filter(
+            (row) => !hidden.has(row.gameId),
+        );
+        const visiblePreviousRows = previousRows.filter(
+            (row) => !hidden.has(row.gameId),
+        );
+
+        const secondsByGame = sumBy(visibleCurrentRows, (row) => row.gameId);
         const topGames = this.buildTopGames(secondsByGame);
 
         const [topGenre, topPlatform] = await Promise.all([
             this.findTopGenre(secondsByGame),
-            this.findTopPlatform(currentRows),
+            this.findTopPlatform(visibleCurrentRows),
         ]);
 
         return {
             period,
-            current: toWindow(currentRows),
-            previous: toWindow(previousRows),
+            current: toWindow(visibleCurrentRows),
+            previous: toWindow(visiblePreviousRows),
             topGames,
             topGenre,
             topPlatform,
@@ -192,5 +223,27 @@ function toWindow(rows: PlaytimeRow[]): ProfileMetricsSummaryWindowDto {
             0,
         ),
         totalGames: [...secondsByGame.values()].filter((s) => s > 0).length,
+    };
+}
+
+/** A hidden library shows zeros: no playtime, no ranked games, no activity counts. */
+function emptySummary(
+    period: ProfileMetricsSummaryPeriod,
+): ProfileMetricsSummaryResponseDto {
+    const emptyWindow: ProfileMetricsSummaryWindowDto = {
+        totalPlaytimeSeconds: 0,
+        estimatedPlaytimeSeconds: 0,
+        totalGames: 0,
+    };
+    return {
+        period,
+        current: { ...emptyWindow },
+        previous: { ...emptyWindow },
+        topGames: [],
+        topGenre: null,
+        topPlatform: null,
+        playedInPeriod: 0,
+        finishedInPeriod: 0,
+        reviewedInPeriod: 0,
     };
 }

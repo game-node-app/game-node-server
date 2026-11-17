@@ -1,29 +1,134 @@
+import {
+    INestApplication,
+    HttpException,
+    ValidationPipe,
+} from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
+import request from "supertest";
 import { CollectionsEntriesController } from "./collections-entries.controller";
 import { CollectionsEntriesService } from "./collections-entries.service";
 import { AuthService } from "../../auth/auth.service";
 
 describe("CollectionsEntriesController", () => {
-    let controller: CollectionsEntriesController;
+    let app: INestApplication;
+    let service: {
+        changeVisibility: jest.Mock;
+        findOneByIdForViewer: jest.Mock;
+        findOneByUserIdAndGameIdForViewer: jest.Mock;
+        findRelatedEntriesForViewer: jest.Mock;
+        findIconsForOwnedPlatformsForViewer: jest.Mock;
+    };
+    let getSession: jest.Mock;
 
     beforeEach(async () => {
+        service = {
+            changeVisibility: jest.fn(),
+            findOneByIdForViewer: jest.fn().mockResolvedValue({ id: "entry" }),
+            findOneByUserIdAndGameIdForViewer: jest
+                .fn()
+                .mockResolvedValue({ id: "entry" }),
+            findRelatedEntriesForViewer: jest.fn(),
+            findIconsForOwnedPlatformsForViewer: jest.fn(),
+        };
+        getSession = jest.fn(async () => ({
+            user: { id: "user", role: "user" },
+        }));
         const module: TestingModule = await Test.createTestingModule({
             controllers: [CollectionsEntriesController],
             providers: [
-                { provide: AuthService, useValue: {} },
+                { provide: AuthService, useValue: { getSession } },
                 {
                     provide: CollectionsEntriesService,
-                    useValue: {},
+                    useValue: service,
                 },
             ],
         }).compile();
 
-        controller = module.get<CollectionsEntriesController>(
-            CollectionsEntriesController,
+        app = module.createNestApplication();
+        app.useGlobalPipes(
+            new ValidationPipe({
+                transform: true,
+                transformOptions: { enableImplicitConversion: true },
+            }),
+        );
+        await app.init();
+    });
+
+    afterEach(async () => {
+        await app.close();
+    });
+
+    it("changes the game's visibility for the session user with 204", async () => {
+        const response = await request(app.getHttpServer())
+            .post("/collections-entries/game/7/visibility")
+            .send({ visibility: "private" });
+
+        expect(response.status).toBe(204);
+        expect(service.changeVisibility).toHaveBeenCalledWith(
+            "user",
+            7,
+            "private",
         );
     });
 
-    it("should be defined", () => {
-        expect(controller).toBeDefined();
+    it("rejects an unknown visibility level with 400 without writing", async () => {
+        const response = await request(app.getHttpServer())
+            .post("/collections-entries/game/7/visibility")
+            .send({ visibility: "friends" });
+
+        expect(response.status).toBe(400);
+        expect(service.changeVisibility).not.toHaveBeenCalled();
+    });
+
+    it("rejects a missing visibility level with 400", async () => {
+        const response = await request(app.getHttpServer())
+            .post("/collections-entries/game/7/visibility")
+            .send({});
+
+        expect(response.status).toBe(400);
+        expect(service.changeVisibility).not.toHaveBeenCalled();
+    });
+
+    it("rejects a signed-out visibility change with 401", async () => {
+        getSession.mockResolvedValue(null);
+
+        const response = await request(app.getHttpServer())
+            .post("/collections-entries/game/7/visibility")
+            .send({ visibility: "private" });
+
+        expect(response.status).toBe(401);
+        expect(service.changeVisibility).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 when the game is not in the library", async () => {
+        service.changeVisibility.mockRejectedValue(
+            new HttpException("Collection entry not found.", 404),
+        );
+
+        const response = await request(app.getHttpServer())
+            .post("/collections-entries/game/7/visibility")
+            .send({ visibility: "private" });
+
+        expect(response.status).toBe(404);
+    });
+
+    it("passes the optional session to single-entry reads", async () => {
+        await request(app.getHttpServer())
+            .get("/collections-entries/entry")
+            .expect(200);
+        expect(service.findOneByIdForViewer).toHaveBeenCalledWith(
+            "user",
+            "entry",
+        );
+
+        getSession.mockResolvedValue(null);
+        await request(app.getHttpServer())
+            .get("/collections-entries/library/owner/game/7")
+            .expect(200);
+        expect(service.findOneByUserIdAndGameIdForViewer).toHaveBeenCalledWith(
+            undefined,
+            "owner",
+            7,
+        );
     });
 });

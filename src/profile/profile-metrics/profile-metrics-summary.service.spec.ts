@@ -1,6 +1,18 @@
 import { HttpStatus } from "@nestjs/common";
 import { Period } from "../../utils/period";
 import { ProfileMetricsSummaryService } from "./profile-metrics-summary.service";
+import {
+    LibraryAudience,
+    LIBRARY_VISIBILITY_LEVELS,
+    LibraryVisibility,
+} from "../../libraries/library-visibility.constants";
+import { LibraryAudienceKey } from "./library-audience-key";
+
+const OWNER_AUDIENCE: LibraryAudienceKey = {
+    audience: LibraryAudience.Owner,
+    visibleEntryLevels: [...LIBRARY_VISIBILITY_LEVELS],
+    hiddenFingerprint: "none",
+};
 
 // The real services pull in better-auth (ESM) through billing; they are only
 // used as injection tokens here, and every dependency is replaced below.
@@ -55,6 +67,7 @@ function fixture(options: {
     current: Row[];
     previous?: Row[];
     genres?: GenreRow[];
+    hiddenGameIds?: number[];
 }) {
     const getTotalPlaytimeForPeriod = jest
         .fn()
@@ -73,11 +86,13 @@ function fixture(options: {
         finished: 1,
         played: 4,
     }));
+    const hiddenGameIds = jest.fn(async () => options.hiddenGameIds ?? []);
 
     const service = new ProfileMetricsSummaryService(
         { getTotalPlaytimeForPeriod } as never,
         { findGameGenresByIds, getGamePlatformsMap } as never,
         { getActivityCountsSince } as never,
+        { hiddenGameIds } as never,
     );
 
     return {
@@ -85,6 +100,7 @@ function fixture(options: {
         getTotalPlaytimeForPeriod,
         findGameGenresByIds,
         getActivityCountsSince,
+        hiddenGameIds,
     };
 }
 
@@ -106,7 +122,11 @@ describe("ProfileMetricsSummaryService", () => {
             ],
         });
 
-        const summary = await service.generateSummary("user-1", Period.WEEK);
+        const summary = await service.generateSummary(
+            "user-1",
+            Period.WEEK,
+            OWNER_AUDIENCE,
+        );
 
         expect(findGameGenresByIds).toHaveBeenCalledWith([1, 2, 3]);
         expect(summary.current).toEqual({
@@ -150,7 +170,11 @@ describe("ProfileMetricsSummaryService", () => {
             previous: [row(1, 6, 900, 700)],
         });
 
-        const summary = await service.generateSummary("user-1", Period.WEEK);
+        const summary = await service.generateSummary(
+            "user-1",
+            Period.WEEK,
+            OWNER_AUDIENCE,
+        );
 
         expect(summary.current).toEqual({
             totalPlaytimeSeconds: 1200,
@@ -170,7 +194,11 @@ describe("ProfileMetricsSummaryService", () => {
         );
         const { service } = fixture({ current: rows, genres: [] });
 
-        const summary = await service.generateSummary("user-1", Period.MONTH);
+        const summary = await service.generateSummary(
+            "user-1",
+            Period.MONTH,
+            OWNER_AUDIENCE,
+        );
 
         expect(summary.topGames.map((game) => game.gameId)).toEqual([
             8, 7, 6, 5, 4,
@@ -180,7 +208,11 @@ describe("ProfileMetricsSummaryService", () => {
     it("returns empty figures when nothing was played", async () => {
         const { service, findGameGenresByIds } = fixture({ current: [] });
 
-        const summary = await service.generateSummary("user-1", Period.YEAR);
+        const summary = await service.generateSummary(
+            "user-1",
+            Period.YEAR,
+            OWNER_AUDIENCE,
+        );
 
         expect(summary.current).toEqual({
             totalPlaytimeSeconds: 0,
@@ -199,7 +231,11 @@ describe("ProfileMetricsSummaryService", () => {
             genres: [],
         });
 
-        const summary = await service.generateSummary("user-1", Period.WEEK);
+        const summary = await service.generateSummary(
+            "user-1",
+            Period.WEEK,
+            OWNER_AUDIENCE,
+        );
 
         expect(summary.topGenre).toBeNull();
         expect(summary.topPlatform?.id).toBe(6);
@@ -211,7 +247,11 @@ describe("ProfileMetricsSummaryService", () => {
             genres: [{ gameId: 2, genreId: 10, genreName: "RPG" }],
         });
 
-        const summary = await service.generateSummary("user-1", Period.WEEK);
+        const summary = await service.generateSummary(
+            "user-1",
+            Period.WEEK,
+            OWNER_AUDIENCE,
+        );
 
         expect(summary.topGenre).toEqual({
             id: 10,
@@ -229,7 +269,11 @@ describe("ProfileMetricsSummaryService", () => {
             ],
         });
 
-        const summary = await service.generateSummary("user-1", Period.WEEK);
+        const summary = await service.generateSummary(
+            "user-1",
+            Period.WEEK,
+            OWNER_AUDIENCE,
+        );
 
         expect(summary.topGenre).toEqual({
             id: 10,
@@ -243,7 +287,7 @@ describe("ProfileMetricsSummaryService", () => {
             current: [],
         });
 
-        await service.generateSummary("user-1", Period.MONTH);
+        await service.generateSummary("user-1", Period.MONTH, OWNER_AUDIENCE);
 
         const [current, previous] = getTotalPlaytimeForPeriod.mock.calls.map(
             ([dto]) => dto,
@@ -259,7 +303,137 @@ describe("ProfileMetricsSummaryService", () => {
         const { service } = fixture({ current: [] });
 
         await expect(
-            service.generateSummary("user-1", Period.DAY as never),
+            service.generateSummary(
+                "user-1",
+                Period.DAY as never,
+                OWNER_AUDIENCE,
+            ),
         ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+    });
+
+    it("excludes hidden games from the windows, rankings and activity counts", async () => {
+        const { service, getActivityCountsSince } = fixture({
+            current: [row(1, 6, 7200), row(2, 6, 1800)],
+            previous: [row(1, 6, 3600), row(2, 6, 900)],
+            genres: [
+                { gameId: 1, genreId: 10, genreName: "RPG" },
+                { gameId: 2, genreId: 11, genreName: "Puzzle" },
+            ],
+            hiddenGameIds: [1],
+        });
+
+        const summary = await service.generateSummary("user-1", Period.WEEK, {
+            audience: LibraryAudience.Everyone,
+            visibleEntryLevels: [LibraryVisibility.Public],
+            hiddenFingerprint: "hidden-game-1",
+        });
+
+        expect(summary.current).toEqual({
+            totalPlaytimeSeconds: 1800,
+            estimatedPlaytimeSeconds: 0,
+            totalGames: 1,
+        });
+        expect(summary.previous).toEqual({
+            totalPlaytimeSeconds: 900,
+            estimatedPlaytimeSeconds: 0,
+            totalGames: 1,
+        });
+        expect(summary.topGames).toEqual([
+            { gameId: 2, totalPlaytimeSeconds: 1800 },
+        ]);
+        expect(summary.topGenre).toEqual({
+            id: 11,
+            name: "Puzzle",
+            totalPlaytimeSeconds: 1800,
+        });
+        expect(summary.topPlatform).toEqual({
+            id: 6,
+            name: "PC (Microsoft Windows)",
+            totalPlaytimeSeconds: 1800,
+        });
+        expect(getActivityCountsSince).toHaveBeenCalledWith(
+            "user-1",
+            expect.anything(),
+            [1],
+        );
+    });
+
+    it("returns zeros when the library is hidden from the viewer", async () => {
+        const { service, getTotalPlaytimeForPeriod, getActivityCountsSince } =
+            fixture({ current: [row(1, 6, 7200)] });
+
+        const summary = await service.generateSummary("user-1", Period.WEEK, {
+            audience: LibraryAudience.Everyone,
+            visibleEntryLevels: [],
+            hiddenFingerprint: "all",
+        });
+
+        expect(summary).toEqual({
+            period: Period.WEEK,
+            current: {
+                totalPlaytimeSeconds: 0,
+                estimatedPlaytimeSeconds: 0,
+                totalGames: 0,
+            },
+            previous: {
+                totalPlaytimeSeconds: 0,
+                estimatedPlaytimeSeconds: 0,
+                totalGames: 0,
+            },
+            topGames: [],
+            topGenre: null,
+            topPlatform: null,
+            playedInPeriod: 0,
+            finishedInPeriod: 0,
+            reviewedInPeriod: 0,
+        });
+        expect(getTotalPlaytimeForPeriod).not.toHaveBeenCalled();
+        expect(getActivityCountsSince).not.toHaveBeenCalled();
+    });
+
+    it("recomputes when a game is hidden instead of waiting for the TTL", async () => {
+        const store = new Map<string, unknown>();
+        setCacheManager({
+            get: async (key: string) => store.get(key),
+            set: async (key: string, value: unknown) => {
+                store.set(key, value);
+            },
+        } as never);
+
+        const { service, getTotalPlaytimeForPeriod, hiddenGameIds } = fixture({
+            current: [row(1, 6, 7200), row(2, 6, 1800)],
+            previous: [],
+        });
+        const visibleGame1 = {
+            audience: LibraryAudience.Everyone,
+            visibleEntryLevels: [LibraryVisibility.Public],
+            hiddenFingerprint: "none",
+        };
+
+        const before = await service.generateSummary(
+            "user-1",
+            Period.WEEK,
+            visibleGame1,
+        );
+        expect(before.current.totalGames).toBe(2);
+
+        // The entry becomes private; only the fingerprint of the hidden ids changes.
+        hiddenGameIds.mockResolvedValue([1]);
+        getTotalPlaytimeForPeriod.mockImplementation(async () => [
+            row(2, 6, 1800),
+        ]);
+
+        const after = await service.generateSummary("user-1", Period.WEEK, {
+            ...visibleGame1,
+            hiddenFingerprint: "hidden-game-1",
+        });
+
+        expect(after.current).toEqual({
+            totalPlaytimeSeconds: 1800,
+            estimatedPlaytimeSeconds: 0,
+            totalGames: 1,
+        });
+        // A cache hit would have returned the first value without querying again.
+        expect(getTotalPlaytimeForPeriod).toHaveBeenCalledTimes(4);
     });
 });

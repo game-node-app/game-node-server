@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { YearRecap } from "./entity/year-recap.entity";
 import { In, Repository } from "typeorm";
@@ -18,6 +18,11 @@ import {
 } from "./recap.utils";
 import { YearRecapPlatformCountDto } from "./dto/year-recap-platform.dto";
 import { RecapWindowService } from "./recap-window.service";
+import { LibraryAccessService } from "../libraries/library-access.service";
+import {
+    LIBRARY_VISIBILITY_LEVELS,
+    LibraryAccess,
+} from "../libraries/library-visibility.constants";
 
 @Injectable()
 export class RecapService {
@@ -44,12 +49,16 @@ export class RecapService {
         private readonly recapRepository: Repository<YearRecap>,
         private readonly profileService: ProfileService,
         private readonly recapWindowService: RecapWindowService,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     public async getRecapStatus(
         userId: string,
         targetYear: number,
+        viewerId?: string,
     ): Promise<RecapStatusDto> {
+        await this.requireLibraryAccess(viewerId, userId);
+
         const phase = await this.recapWindowService.getRecapPhase(targetYear);
         const profile = await this.profileService.findOneByIdOrFail(userId);
         const isEligible = profile.createdAt.getFullYear() <= targetYear;
@@ -85,7 +94,10 @@ export class RecapService {
     public async getRecapByUserId(
         userId: string,
         targetYear: number,
+        viewerId?: string,
     ): Promise<YearRecapDto> {
+        const access = await this.requireLibraryAccess(viewerId, userId);
+
         const result = (await this.recapRepository.findOneOrFail({
             where: {
                 profileUserId: userId,
@@ -98,6 +110,20 @@ export class RecapService {
                 milliseconds: minutes(15),
             },
         })) as YearRecapDto;
+
+        if (
+            access.visibleEntryLevels.length < LIBRARY_VISIBILITY_LEVELS.length
+        ) {
+            const hiddenGameIds = new Set(
+                await this.libraryAccessService.hiddenGameIds(
+                    userId,
+                    access.visibleEntryLevels,
+                ),
+            );
+            result.playedGames = result.playedGames.filter(
+                (playedGame) => !hiddenGameIds.has(playedGame.gameId),
+            );
+        }
 
         transformRecapPlatforms(result);
         transformRecapDistributions(result);
@@ -137,5 +163,18 @@ export class RecapService {
             topGames: deriveTopGames(result.playedGames),
             playtimeByPlatform: derivePlaytimeByPlatform(result.playedGames),
         };
+    }
+
+    /** A hidden library is indistinguishable from a missing recap. */
+    private async requireLibraryAccess(
+        viewerId: string | undefined,
+        userId: string,
+    ): Promise<LibraryAccess> {
+        const access = await this.libraryAccessService.resolve(
+            viewerId,
+            userId,
+        );
+        if (!access.canViewLibrary) throw new NotFoundException();
+        return access;
     }
 }

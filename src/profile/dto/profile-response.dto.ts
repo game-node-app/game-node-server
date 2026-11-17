@@ -4,6 +4,7 @@ import type {
     ProfileVideoStatus,
 } from "../entities/profile-video.entity";
 import { Profile } from "../entities/profile.entity";
+import { LibraryVisibility } from "../../libraries/library-visibility.constants";
 
 export class ProfileVideoResponseDto {
     @ApiProperty()
@@ -73,6 +74,14 @@ export class SupporterPreferencesResponseDto {
 }
 
 export class ProfileResponseDto extends Profile {
+    @ApiProperty({ enum: LibraryVisibility })
+    declare libraryVisibility: LibraryVisibility;
+    @ApiProperty({
+        description:
+            "Whether the current viewer may see this profile's library games.",
+        example: true,
+    })
+    canViewLibrary: boolean;
     @ApiProperty({
         description: "Whether the profile owner has supporter entitlement.",
         example: false,

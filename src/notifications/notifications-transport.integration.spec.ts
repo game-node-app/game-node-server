@@ -3,7 +3,10 @@ import { Queue, QueueEvents, Worker } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { testEnvironment } from "../../test/igdb/helpers/test-environment";
 import { StatisticsService } from "../statistics/statistics.service";
 import { StatisticsSourceType } from "../statistics/statistics.constants";
@@ -67,7 +70,10 @@ describe("durable notification transport on disposable Redis", () => {
                 if (failure === "disconnected") await queue.disconnect();
 
                 expect(
-                    await new StatisticsService(source).applyReaction(
+                    await new StatisticsService(
+                        source,
+                        createLibraryAccessService(source),
+                    ).applyReaction(
                         actor,
                         {
                             sourceType: StatisticsSourceType.POST,
@@ -183,6 +189,7 @@ describe("durable notification transport on disposable Redis", () => {
                 const projector = new NotificationsProjectorService(
                     source,
                     new NotificationsRelayService(source, repository, queue),
+                    createLibraryAccessService(source),
                 );
                 for (let index = 0; index < 2; index++)
                     workers.push(

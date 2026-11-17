@@ -1,5 +1,8 @@
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { randomUUID } from "crypto";
 import { NotificationsService } from "./notifications.service";
 import { NotificationInbox } from "./entity/notification-inbox.entity";
@@ -45,9 +48,13 @@ describe("Notifications Operational Benchmarks (Task 9.3 & 15.4)", () => {
         projectorService = new NotificationsProjectorService(
             dataSource,
             relayService,
+            createLibraryAccessService(dataSource),
         );
 
-        statisticsService = new StatisticsService(dataSource);
+        statisticsService = new StatisticsService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+        );
     });
 
     afterAll(async () => {

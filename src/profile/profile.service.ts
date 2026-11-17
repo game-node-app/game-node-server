@@ -24,6 +24,7 @@ import { AuthService } from "../auth/auth.service";
 import { UploadService } from "../upload/upload.service";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
 import { cleanupStatisticsProfile } from "../statistics/statistics-target.repository";
+import { LIBRARY_VISIBILITY_RANK } from "../libraries/library-visibility.constants";
 
 @Injectable()
 export class ProfileService {
@@ -251,8 +252,22 @@ export class ProfileService {
         profile.bio = updateProfileDto.bio ?? profile.bio;
         profile.customCoverMode =
             updateProfileDto.customCoverMode ?? profile.customCoverMode;
+        const libraryVisibility = updateProfileDto.libraryVisibility;
+        const becomesStricter =
+            libraryVisibility !== undefined &&
+            LIBRARY_VISIBILITY_RANK[libraryVisibility] >
+                LIBRARY_VISIBILITY_RANK[profile.libraryVisibility];
+        profile.libraryVisibility =
+            libraryVisibility ?? profile.libraryVisibility;
 
         await this.profileRepository.save(profile);
+
+        // Notifications about the owner's entries can expose a level the new one hides.
+        if (becomesStricter) {
+            await this.notificationsLifecycleService?.invalidateLibraryContent(
+                userId,
+            );
+        }
     }
 
     async deleteByUserId(userId: string) {

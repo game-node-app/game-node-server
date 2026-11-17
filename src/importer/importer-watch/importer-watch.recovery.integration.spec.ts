@@ -1,4 +1,7 @@
-import { createNotificationTestDataSource } from "../../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../../test/notifications/notification-test-harness";
 import { testEnvironment } from "../../../test/igdb/helpers/test-environment";
 import { NotificationOutbox } from "../../notifications/entity/notification-outbox.entity";
 import { NotificationsRelayService } from "../../notifications/notifications-relay.service";
@@ -109,6 +112,8 @@ describe("import and notification recovery on disposable MySQL", () => {
             collectionLookup as any,
             {} as any,
             {} as any,
+            undefined,
+            createLibraryAccessService(source),
         );
         jest.spyOn(collections, "findOneByUserIdAndGameId").mockImplementation(
             (libraryUserId, gameId) =>
@@ -292,7 +297,11 @@ describe("import and notification recovery on disposable MySQL", () => {
             },
         );
         expect(
-            await new NotificationsProjectorService(source, relay).projectEvent(
+            await new NotificationsProjectorService(
+                source,
+                relay,
+                createLibraryAccessService(source),
+            ).projectEvent(
                 event.id,
                 "recovery",
             ),
@@ -352,7 +361,11 @@ describe("import and notification recovery on disposable MySQL", () => {
             repository,
             {} as any,
         );
-        const projector = new NotificationsProjectorService(source, relay);
+        const projector = new NotificationsProjectorService(
+            source,
+            relay,
+            createLibraryAccessService(source),
+        );
         for (const token of ["first", "duplicate"]) {
             await repository.update(
                 { id: event.id },
@@ -625,6 +638,7 @@ describe("import and notification recovery on disposable MySQL", () => {
                 {} as any,
                 localActivity,
                 {} as any,
+                {} as any,
             );
             const notifications = new NotificationsService(
                 source.getRepository(NotificationInbox),
@@ -646,7 +660,11 @@ describe("import and notification recovery on disposable MySQL", () => {
                 source.getRepository(NotificationOutbox),
                 notificationQueue,
             );
-            const projector = new NotificationsProjectorService(source, relay);
+            const projector = new NotificationsProjectorService(
+                source,
+                relay,
+                createLibraryAccessService(source),
+            );
             const event = await source
                 .getRepository(NotificationOutbox)
                 .findOneByOrFail({

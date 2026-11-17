@@ -8,6 +8,7 @@ import {
     In,
     Not,
     Repository,
+    SelectQueryBuilder,
     TypeORMError,
 } from "typeorm";
 import {
@@ -37,6 +38,8 @@ import {
     ActivityStatisticsSummaryDto,
 } from "./dto/activity-response.dto";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
+import { LibraryAccessService } from "../../libraries/library-access.service";
+import { entryVisibilitySql } from "../../libraries/library-visibility.constants";
 
 const ACTIVITY_HYDRATION_RELATIONS: FindOptionsRelations<Activity> = {
     profile: {
@@ -66,6 +69,7 @@ export class ActivitiesRepositoryService {
         private readonly postsService: PostsService,
         private readonly obtainedGameAchievementActivityService: GameAchievementActivityService,
         private readonly gameRepositoryService: GameRepositoryService,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     /**
@@ -250,6 +254,21 @@ export class ActivitiesRepositoryService {
         return persistedActivity;
     }
 
+    private applyViewerVisibility(
+        activityQuery: SelectQueryBuilder<Activity>,
+        viewerUserId?: string,
+    ) {
+        // Entry visibility is checked for every viewer; the owner short-circuit is inside the SQL.
+        activityQuery.leftJoin("activity.collectionEntry", "entry").andWhere(
+            `(activity.type <> :collectionEntryActivityType
+                OR ${entryVisibilitySql("entry", "viewerId")})`,
+            {
+                collectionEntryActivityType: ActivityType.COLLECTION_ENTRY,
+                viewerId: viewerUserId ?? null,
+            },
+        );
+    }
+
     private getTargetGameId(activity: Activity): number | null {
         const rawGameId =
             activity.collectionEntry?.gameId ??
@@ -352,11 +371,30 @@ export class ActivitiesRepositoryService {
                   )
                 : new Map<string, ActivityStatisticsSummaryDto>();
 
+        const collectionOwners = Array.from(
+            new Set(
+                activities
+                    .map((activity) => activity.collection?.libraryUserId)
+                    .filter((ownerId): ownerId is string => ownerId != null),
+            ),
+        );
+        const canViewLibraryByOwner = new Map<string, boolean>();
+        for (const ownerId of collectionOwners) {
+            canViewLibraryByOwner.set(
+                ownerId,
+                (await this.libraryAccessService.resolve(viewerUserId, ownerId))
+                    .canViewLibrary,
+            );
+        }
+
         return activities.map((activity) => {
             if (
                 activity.collection &&
-                !activity.collection.isPublic &&
-                activity.collection.libraryUserId !== viewerUserId
+                activity.collection.libraryUserId !== viewerUserId &&
+                (!activity.collection.isPublic ||
+                    !canViewLibraryByOwner.get(
+                        activity.collection.libraryUserId,
+                    ))
             ) {
                 activity.collection = null;
             }
@@ -385,14 +423,18 @@ export class ActivitiesRepositoryService {
         by: FindManyOptions<Activity>,
         viewerUserId?: string,
     ): Promise<TPaginationData<ActivityResponseDto>> {
-        const [activities, count] = await this.activitiesRepository.findAndCount({
-            ...by,
-            relations: ACTIVITY_HYDRATION_RELATIONS,
-            relationLoadStrategy: "query",
-            order: {
-                createdAt: "DESC",
-            },
-        });
+        const activityQuery = this.activitiesRepository
+            .createQueryBuilder("activity")
+            .setFindOptions({
+                ...by,
+                relations: ACTIVITY_HYDRATION_RELATIONS,
+                relationLoadStrategy: "query",
+                order: {
+                    createdAt: "DESC",
+                },
+            });
+        this.applyViewerVisibility(activityQuery, viewerUserId);
+        const [activities, count] = await activityQuery.getManyAndCount();
         const hydrated = await this.hydrate(activities, viewerUserId);
         return [hydrated, count];
     }
@@ -409,11 +451,18 @@ export class ActivitiesRepositoryService {
         by: FindOneOptions<Activity>,
         viewerUserId?: string,
     ): Promise<ActivityResponseDto> {
-        const activity = await this.activitiesRepository.findOneOrFail({
-            ...by,
-            relations: ACTIVITY_HYDRATION_RELATIONS,
-            relationLoadStrategy: "query",
-        });
+        const activityQuery = this.activitiesRepository
+            .createQueryBuilder("activity")
+            .setFindOptions({
+                ...by,
+                relations: ACTIVITY_HYDRATION_RELATIONS,
+                relationLoadStrategy: "query",
+            });
+        this.applyViewerVisibility(activityQuery, viewerUserId);
+        const activity = await activityQuery.getOne();
+        if (!activity) {
+            throw new HttpException("No activity found.", HttpStatus.NOT_FOUND);
+        }
         const [hydrated] = await this.hydrate([activity], viewerUserId);
         return hydrated;
     }

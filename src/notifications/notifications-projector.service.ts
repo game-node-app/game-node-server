@@ -15,6 +15,7 @@ import {
     NotificationEventIntent,
 } from "./notifications.types";
 import { UserConnection } from "../connection/entity/user-connection.entity";
+import { LibraryAccessService } from "../libraries/library-access.service";
 import {
     NotificationIntentValidationError,
     validateNotificationIntent,
@@ -135,6 +136,7 @@ export class NotificationsProjectorService {
     constructor(
         private readonly dataSource: DataSource,
         private readonly relayService: NotificationsRelayService,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     async projectEvent(
@@ -397,6 +399,10 @@ export class NotificationsProjectorService {
     ): Promise<ResolvedEventDetails> {
         const payload = outbox.payload || {};
         const actorUserId = outbox.actorUserId || null;
+        const access = {
+            viewerId: outbox.recipientUserId ?? undefined,
+            libraryAccess: this.libraryAccessService,
+        };
 
         switch (outbox.eventType) {
             case "content.liked": {
@@ -425,6 +431,7 @@ export class NotificationsProjectorService {
                             rootType,
                             rootId,
                             subjectId,
+                            access,
                         );
                         root = source?.root;
                     }
@@ -433,6 +440,7 @@ export class NotificationsProjectorService {
                         manager,
                         rootType,
                         rootId,
+                        access,
                     );
                 if (!source || !root)
                     return {
@@ -465,6 +473,7 @@ export class NotificationsProjectorService {
                     rootType,
                     rootId,
                     commentId,
+                    access,
                 );
                 if (!comment)
                     return {
@@ -484,6 +493,7 @@ export class NotificationsProjectorService {
                         rootType,
                         rootId,
                         parentCommentId,
+                        access,
                     );
                     if (!parent)
                         return {

@@ -1,7 +1,10 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { randomUUID } from "node:crypto";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import {
     NotificationsProjectorService,
     extractSafePlainText,
@@ -26,7 +29,11 @@ describe("NotificationsProjectorService", () => {
             dataSource.getRepository(NotificationOutbox),
             { add: jest.fn() } as any,
         );
-        projector = new NotificationsProjectorService(dataSource, relayService);
+        projector = new NotificationsProjectorService(
+            dataSource,
+            relayService,
+            createLibraryAccessService(dataSource),
+        );
     });
 
     async function createMockProfile(userId: string) {

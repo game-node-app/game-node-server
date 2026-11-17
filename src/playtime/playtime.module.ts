@@ -7,12 +7,14 @@ import { PlaytimeHistoryService } from "./playtime-history.service";
 import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
 import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
 import { TimeToBeatModule } from "./time-to-beat/time-to-beat.module";
+import { LibrariesModule } from "../libraries/libraries.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([UserPlaytime, UserPlaytimeHistory]),
         GameRepositoryModule,
         TimeToBeatModule,
+        LibrariesModule,
     ],
     providers: [PlaytimeService, PlaytimeHistoryService],
     controllers: [PlaytimeController],

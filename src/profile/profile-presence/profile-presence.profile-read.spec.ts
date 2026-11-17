@@ -9,6 +9,8 @@ import { ProfileService } from "../profile.service";
 import { ProfileVideoService } from "../profile-video/profile-video.service";
 import { SUPPORTER_PREFERENCES_DEFAULTS } from "../supporter-preferences/supporter-preferences.defaults";
 import { SupporterPreferencesService } from "../supporter-preferences/supporter-preferences.service";
+import { LibraryAccessService } from "../../libraries/library-access.service";
+import { LibraryVisibility } from "../../libraries/library-visibility.constants";
 
 describe("Profile reads and Steam", () => {
     let app: INestApplication;
@@ -57,6 +59,17 @@ describe("Profile reads and Steam", () => {
                 {
                     provide: SupporterPreferencesService,
                     useValue: preferences,
+                },
+                {
+                    provide: LibraryAccessService,
+                    useValue: {
+                        resolve: jest.fn(async () => ({
+                            audience: "everyone",
+                            libraryVisibility: LibraryVisibility.Public,
+                            canViewLibrary: true,
+                            visibleEntryLevels: [LibraryVisibility.Public],
+                        })),
+                    },
                 },
                 { provide: SteamSyncService, useValue: steam },
                 { provide: ConnectionsService, useValue: connections },

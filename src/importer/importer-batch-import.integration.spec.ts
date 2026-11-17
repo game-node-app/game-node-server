@@ -7,7 +7,10 @@ import {
     runInTransaction,
     StorageDriver,
 } from "typeorm-transactional";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { Profile } from "../profile/entities/profile.entity";
 import { Library } from "../libraries/entities/library.entity";
 import { UserConnection } from "../connection/entity/user-connection.entity";
@@ -33,6 +36,7 @@ import { ExternalGameService } from "../game/external-game/external-game.service
 import { ConnectionsSummaryService } from "../connection/connections-summary.service";
 import { PlayerConnectionSync } from "../sync/player-data/entity/player-connection-sync.entity";
 import { EImporterSource } from "./importer.constants";
+import { LibraryVisibility } from "../libraries/library-visibility.constants";
 
 const mysqlDescribe = process.env.IGDB_TEST_MYSQL_PORT
     ? describe
@@ -139,6 +143,8 @@ mysqlDescribe("batch import transactions", () => {
             collections as any,
             {} as any,
             {} as any,
+            undefined,
+            createLibraryAccessService(source),
         );
         const effects = new ImporterBatchEffectsService(
             source.getRepository(ImporterBatchEffect),
@@ -228,6 +234,51 @@ mysqlDescribe("batch import transactions", () => {
             [{ userId: f.userId, metric: "library_games" }],
             [{ userId: f.userId, metric: "games_finished" }],
         ]);
+    });
+    it("keeps the stored visibility of existing entries and imports new ones as public", async () => {
+        const f = await fixture();
+        const existing = await source.getRepository(CollectionEntry).save({
+            libraryUserId: f.userId,
+            gameId: 1,
+            visibility: LibraryVisibility.Private,
+        });
+
+        await f.batch.import(f.userId, EImporterSource.STEAM, {
+            importAll: true,
+        });
+
+        expect(
+            await source
+                .getRepository(CollectionEntry)
+                .findOneByOrFail({ id: existing.id }),
+        ).toMatchObject({ visibility: LibraryVisibility.Private });
+        expect(
+            await source
+                .getRepository(CollectionEntry)
+                .findOneByOrFail({ libraryUserId: f.userId, gameId: 2 }),
+        ).toMatchObject({ visibility: LibraryVisibility.Public });
+    });
+    it("keeps the stored visibility through an automatic import", async () => {
+        const f = await fixture();
+        const existing = await source.getRepository(CollectionEntry).save({
+            libraryUserId: f.userId,
+            gameId: 1,
+            visibility: LibraryVisibility.Private,
+        });
+
+        expect(await f.entries.createForImport(f.userId, 1, 6)).toBe("skipped");
+        expect(await f.entries.createForImport(f.userId, 2, 6)).toBe("imported");
+
+        expect(
+            await source
+                .getRepository(CollectionEntry)
+                .findOneByOrFail({ id: existing.id }),
+        ).toMatchObject({ visibility: LibraryVisibility.Private });
+        expect(
+            await source
+                .getRepository(CollectionEntry)
+                .findOneByOrFail({ libraryUserId: f.userId, gameId: 2 }),
+        ).toMatchObject({ visibility: LibraryVisibility.Public });
     });
     it("rejects another user's collection without changes", async () => {
         const f = await fixture();

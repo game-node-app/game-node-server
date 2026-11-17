@@ -2,7 +2,10 @@ import "reflect-metadata";
 import { randomUUID } from "node:crypto";
 import { ConflictException } from "@nestjs/common";
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { StatisticsProjectionService } from "./statistics-projection.service";
 import { StatisticsService } from "./statistics.service";
 import { StatisticsSourceType } from "./statistics.constants";
@@ -13,7 +16,10 @@ describe("statistics views and temporal reads", () => {
 
     beforeAll(async () => {
         dataSource = await createNotificationTestDataSource();
-        service = new StatisticsService(dataSource);
+        service = new StatisticsService(
+            dataSource,
+            createLibraryAccessService(dataSource),
+        );
     });
 
     afterAll(async () => {

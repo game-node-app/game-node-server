@@ -1,5 +1,8 @@
 import { DataSource } from "typeorm";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { randomUUID } from "crypto";
 import { NotificationsService } from "./notifications.service";
 import { NotificationsRelayService } from "./notifications-relay.service";
@@ -45,6 +48,7 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
         projectorService = new NotificationsProjectorService(
             dataSource,
             relayService,
+            createLibraryAccessService(dataSource),
         );
 
         notificationsService = new NotificationsService(
@@ -62,6 +66,7 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
 
         commentService = new CommentService(
             dataSource,
+            createLibraryAccessService(dataSource),
             lifecycleService,
         );
 
@@ -69,6 +74,7 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
             dataSource.getRepository(Collection),
             { isSupporter: jest.fn() } as any,
             lifecycleService,
+            createLibraryAccessService(dataSource),
         );
     });
 
@@ -421,7 +427,7 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
         expect(modItem!.actors).toHaveLength(0); // System actor
         expect(modItem!.preview?.reason).toBe("Spam behavior");
 
-        // 4. Privacy changes: collection made private hides review notifications
+        // 4. Privacy changes: reviews stay public, so collection privacy does not hide review notifications
         const collectionId = randomUUID();
         const entryId = randomUUID();
         const reviewId = randomUUID();
@@ -485,13 +491,13 @@ describe("Integrated end-to-end acceptance (Section 10)", () => {
             isPublic: false,
         });
 
-        // Review like notification is immediately hidden from list!
+        // Review like notification is still visible: reviews do not follow collection privacy.
         const inboxAfterPrivacy = await notificationsService.findAll(userA, {
             limit: 20,
         });
         const reviewLikeAfter = inboxAfterPrivacy.data.find(
             (d) => d.target?.type === "review" && d.target.id === reviewId,
         );
-        expect(reviewLikeAfter).toBeUndefined();
+        expect(reviewLikeAfter).toBeDefined();
     });
 });

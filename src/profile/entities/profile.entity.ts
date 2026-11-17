@@ -11,6 +11,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { ProfileAvatar } from "./profile-avatar.entity";
 import { ProfileBanner } from "./profile-banner.entity";
 import { CustomCoverMode } from "../../game/game-cover/game-cover.constants";
+import { LibraryVisibility } from "../../libraries/library-visibility.constants";
 
 /**
  * Profiles represent a user in the community scope. Unlike 'Library', they should be used by tables representing
@@ -62,6 +63,14 @@ export class Profile {
         default: CustomCoverMode.Any,
     })
     customCoverMode: CustomCoverMode;
+
+    @ApiProperty({ enum: LibraryVisibility })
+    @Column({
+        type: "varchar",
+        length: 16,
+        default: LibraryVisibility.Public,
+    })
+    libraryVisibility: LibraryVisibility;
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

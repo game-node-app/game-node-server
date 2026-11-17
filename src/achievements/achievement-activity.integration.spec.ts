@@ -1,6 +1,9 @@
 import { DataSource } from "typeorm";
 import { UnrecoverableError } from "bullmq";
-import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
+import {
+    createLibraryAccessService,
+    createNotificationTestDataSource,
+} from "../../test/notifications/notification-test-harness";
 import { achievementFixtures } from "../../test/achievements/achievement-fixtures";
 import { ActivitiesRepositoryService } from "../activities/activities-repository/activities-repository.service";
 import { Activity } from "../activities/activities-repository/entities/activity.entity";
@@ -30,6 +33,7 @@ describe("ACHIEVEMENT_UNLOCKED activities (integration)", () => {
             {} as any,
             {} as any,
             { getLockoutStates: async () => new Map() } as any,
+            {} as any,
             {} as any,
             {} as any,
             {} as any,
@@ -67,7 +71,10 @@ describe("ACHIEVEMENT_UNLOCKED activities (integration)", () => {
             await ds.getRepository(Activity).countBy({ profileUserId: owner }),
         ).toBe(1);
 
-        await new CommentService(ds).create(commenter, {
+        await new CommentService(
+            ds,
+            createLibraryAccessService(ds),
+        ).create(commenter, {
             sourceType: CommentSourceType.ACTIVITY,
             sourceId: activity.id,
             content: "Congrats!",

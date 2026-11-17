@@ -560,6 +560,50 @@ describe("Sole notifications inbox API and read state (Section 7)", () => {
         expect(read3.unreadCount).toBe(1);
     });
 
+    it("keeps a review eligible when its entry is only in private collections", async () => {
+        const recipient = randomUUID();
+        await createProfile(recipient, `review_${recipient.slice(0, 6)}`);
+        await dataSource.query("INSERT IGNORE INTO library (userId) VALUES (?)", [
+            recipient,
+        ]);
+        const collectionId = randomUUID();
+        const entryId = randomUUID();
+        const reviewId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO collection (id, name, isPublic, libraryUserId) VALUES (?, 'Private', 0, ?)",
+            [collectionId, recipient],
+        );
+        await dataSource.query(
+            "INSERT INTO collection_entry (id, gameId, libraryUserId) VALUES (?, 1, ?)",
+            [entryId, recipient],
+        );
+        await dataSource.query(
+            "INSERT INTO collection_entry_collections_collection (collectionEntryId, collectionId, `order`, createdAt) VALUES (?, ?, 0, NOW())",
+            [entryId, collectionId],
+        );
+        await dataSource.query(
+            "INSERT INTO review (id, content, rating, gameId, profileUserId, collectionEntryId) VALUES (?, 'Only in private collections', 8, 1, ?, ?)",
+            [reviewId, recipient, entryId],
+        );
+        const item = await dataSource.getRepository(NotificationInbox).save({
+            recipientUserId: recipient,
+            groupKey: `like:${randomUUID()}`,
+            type: "content.liked",
+            rootType: "review",
+            rootId: reviewId,
+            actorIds: [],
+            actorCount: 0,
+            eventCount: 1,
+            target: { type: "review", id: reviewId },
+            lastEventAt: new Date(),
+            version: 1,
+            readVersion: 0,
+        });
+
+        const response = await service.findAll(recipient, { limit: 10 });
+        expect(response.data.map((row) => row.id)).toEqual([item.id]);
+    });
+
     it("contract fixture: renders every supported notification item in a single response", async () => {
         const recipient = randomUUID();
         const actor = randomUUID();

@@ -3,6 +3,7 @@ import { CollectionsService } from "../../collections/collections.service";
 import { CollectionsEntriesService } from "../../collections/collections-entries/collections-entries.service";
 import { ProfileMetricsOverviewDto } from "./dto/profile-metrics-overview.dto";
 import { PlaytimeService } from "../../playtime/playtime.service";
+import { LibraryAccessService } from "../../libraries/library-access.service";
 
 @Injectable()
 export class ProfileMetricsService {
@@ -10,36 +11,48 @@ export class ProfileMetricsService {
         private readonly collectionsService: CollectionsService,
         private readonly collectionsEntriesService: CollectionsEntriesService,
         private readonly playtimeService: PlaytimeService,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
-    async getStatsOverview(userId: string): Promise<ProfileMetricsOverviewDto> {
+    async getStatsOverview(
+        userId: string,
+        viewerId?: string,
+    ): Promise<ProfileMetricsOverviewDto> {
+        const access = await this.libraryAccessService.resolve(
+            viewerId,
+            userId,
+        );
+
         const [
             collections,
             [collectionEntries, totalCollectionEntries],
-            totalPlaytimeSeconds,
+            totalEstimatedPlaytime,
         ] = await Promise.all([
             this.collectionsService.findAllByUserIdWithPermissions(
-                userId,
+                viewerId,
                 userId,
             ),
-            await this.collectionsEntriesService.findAllByUserIdWithPermissions(
-                userId,
+            this.collectionsEntriesService.findAllByUserIdWithPermissions(
+                viewerId,
                 userId,
                 {
                     limit: 9999999,
                     offset: 0,
                 },
             ),
-            await this.playtimeService.getTotalPlaytimeByUserId(
+            this.playtimeService.getTotalPlaytimeByUserId(
                 userId,
                 "totalPlaytimeSeconds",
+                undefined,
+                undefined,
+                access,
             ),
         ]);
 
         const statsOverview: ProfileMetricsOverviewDto = {
             totalGames: totalCollectionEntries,
             totalCollections: collections.length,
-            totalEstimatedPlaytime: totalPlaytimeSeconds,
+            totalEstimatedPlaytime,
             totalFinishedGames: 0,
             totalFinishedGamesInYear: 0,
             totalPlayedGames: 0,

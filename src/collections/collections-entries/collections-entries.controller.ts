@@ -26,6 +26,7 @@ import { PaginationInterceptor } from "../../interceptor/pagination.interceptor"
 import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-paginated-response.dto";
 import { Public } from "../../auth/public.decorator";
 import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-entries-for-collection-id.dto";
+import { CollectionEntryVisibilityDto } from "./dto/collection-entry-visibility.dto";
 
 @Controller("collections-entries")
 @ApiTags("collections-entries")
@@ -48,16 +49,24 @@ export class CollectionsEntriesController {
 
     @Get(":id")
     @Public()
-    async findEntryById(@Param("id") collectionEntryId: string) {
-        return await this.collectionsEntriesService.findOneByIdOrFail(
+    async findEntryById(
+        @Session() session: SessionContainer | undefined,
+        @Param("id") collectionEntryId: string,
+    ) {
+        return await this.collectionsEntriesService.findOneByIdForViewer(
+            session?.getUserId(),
             collectionEntryId,
         );
     }
 
     @Get(":id/related")
     @Public()
-    async findRelatedEntries(@Param("id") collectionEntryId: string) {
-        return await this.collectionsEntriesService.findRelatedEntries(
+    async findRelatedEntries(
+        @Session() session: SessionContainer | undefined,
+        @Param("id") collectionEntryId: string,
+    ) {
+        return await this.collectionsEntriesService.findRelatedEntriesForViewer(
+            session?.getUserId(),
             collectionEntryId,
         );
     }
@@ -92,10 +101,12 @@ export class CollectionsEntriesController {
     @HttpCode(200)
     @Public()
     async findOneByLibraryIdAndGameId(
+        @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
         @Param("gameId") gameId: number,
     ): Promise<CollectionEntry> {
-        return this.collectionsEntriesService.findOneByUserIdAndGameIdOrFail(
+        return this.collectionsEntriesService.findOneByUserIdAndGameIdForViewer(
+            session?.getUserId(),
             userId,
             gameId,
         );
@@ -103,8 +114,12 @@ export class CollectionsEntriesController {
 
     @Get(":id/platforms/icons")
     @Public()
-    async getIconsForOwnedPlatforms(@Param("id") collectionEntryId: string) {
-        return this.collectionsEntriesService.findIconsForOwnedPlatforms(
+    async getIconsForOwnedPlatforms(
+        @Session() session: SessionContainer | undefined,
+        @Param("id") collectionEntryId: string,
+    ) {
+        return this.collectionsEntriesService.findIconsForOwnedPlatformsForViewer(
+            session?.getUserId(),
             collectionEntryId,
         );
     }
@@ -131,6 +146,20 @@ export class CollectionsEntriesController {
             userId,
             gameId,
             dto.isFavorite,
+        );
+    }
+
+    @Post("/game/:id/visibility")
+    @HttpCode(HttpStatus.NO_CONTENT)
+    async changeVisibility(
+        @Session() session: SessionContainer,
+        @Param("id") gameId: number,
+        @Body() dto: CollectionEntryVisibilityDto,
+    ) {
+        return await this.collectionsEntriesService.changeVisibility(
+            session.getUserId(),
+            gameId,
+            dto.visibility,
         );
     }
 

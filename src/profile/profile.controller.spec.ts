@@ -8,6 +8,8 @@ import { ProfileVideoService } from "./profile-video/profile-video.service";
 import { SupporterPreferencesService } from "./supporter-preferences/supporter-preferences.service";
 import { SUPPORTER_PREFERENCES_DEFAULTS } from "./supporter-preferences/supporter-preferences.defaults";
 import { AuthService } from "../auth/auth.service";
+import { LibraryAccessService } from "../libraries/library-access.service";
+import { LibraryVisibility } from "../libraries/library-visibility.constants";
 
 const GIF = Buffer.from(
     "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
@@ -43,8 +45,13 @@ describe("ProfileController", () => {
         findForProfileRead: jest.Mock;
     };
     let supporterPreferencesService: { findOrDefaults: jest.Mock };
+    let libraryAccessService: { resolve: jest.Mock };
+    let getSession: jest.Mock;
 
     beforeEach(async () => {
+        getSession = jest.fn(async () => ({
+            user: { id: "user-1", role: "user" },
+        }));
         profileService = {
             findOneByIdOrFail: jest.fn(),
             updateProfileImage: jest.fn(async () => undefined),
@@ -61,6 +68,14 @@ describe("ProfileController", () => {
                 ...SUPPORTER_PREFERENCES_DEFAULTS,
             })),
         };
+        libraryAccessService = {
+            resolve: jest.fn(async () => ({
+                audience: "everyone",
+                libraryVisibility: LibraryVisibility.Public,
+                canViewLibrary: true,
+                visibleEntryLevels: [LibraryVisibility.Public],
+            })),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             controllers: [ProfileController],
@@ -68,9 +83,7 @@ describe("ProfileController", () => {
                 {
                     provide: AuthService,
                     useValue: {
-                        getSession: jest.fn(async () => ({
-                            user: { id: "user-1", role: "user" },
-                        })),
+                        getSession,
                     },
                 },
                 { provide: ProfileService, useValue: profileService },
@@ -81,6 +94,10 @@ describe("ProfileController", () => {
                 {
                     provide: SupporterPreferencesService,
                     useValue: supporterPreferencesService,
+                },
+                {
+                    provide: LibraryAccessService,
+                    useValue: libraryAccessService,
                 },
             ],
         }).compile();
@@ -110,6 +127,7 @@ describe("ProfileController", () => {
             userId: "user-1",
             username: "me",
             customCoverMode: "any",
+            libraryVisibility: LibraryVisibility.Followers,
         });
         profileVideoService.findForProfileRead.mockResolvedValue({
             avatarVideo: null,
@@ -127,6 +145,8 @@ describe("ProfileController", () => {
             userId: "user-1",
             username: "me",
             customCoverMode: "any",
+            libraryVisibility: LibraryVisibility.Followers,
+            canViewLibrary: true,
             isSupporter: false,
             supporterPreferences: null,
             avatarVideo: null,
@@ -211,6 +231,8 @@ describe("ProfileController", () => {
         expect(response.body).toEqual({
             userId: "user-2",
             username: "them",
+            libraryVisibility: LibraryVisibility.Public,
+            canViewLibrary: true,
             isSupporter: false,
             supporterPreferences: null,
             avatarVideo: null,
@@ -258,6 +280,10 @@ describe("ProfileController", () => {
                 {
                     provide: SupporterPreferencesService,
                     useValue: supporterPreferencesService,
+                },
+                {
+                    provide: LibraryAccessService,
+                    useValue: libraryAccessService,
                 },
             ],
         }).compile();
@@ -326,6 +352,113 @@ describe("ProfileController", () => {
         expect(
             supporterPreferencesService.findOrDefaults,
         ).not.toHaveBeenCalled();
+    });
+
+    describe("library visibility", () => {
+        it("returns the stored level and canViewLibrary true for the owner", async () => {
+            profileService.findOneByIdOrFail.mockResolvedValue({
+                userId: "user-1",
+                username: "me",
+                libraryVisibility: LibraryVisibility.Private,
+            });
+
+            const response = await request(app.getHttpServer()).get("/profile");
+
+            expect(response.status).toBe(200);
+            expect(response.body).toMatchObject({
+                libraryVisibility: LibraryVisibility.Private,
+                canViewLibrary: true,
+            });
+            expect(libraryAccessService.resolve).not.toHaveBeenCalled();
+        });
+
+        it("reports a private library as hidden to an anonymous viewer", async () => {
+            getSession.mockResolvedValue(null);
+            profileService.findOneByIdOrFail.mockResolvedValue({
+                userId: "user-2",
+                username: "them",
+                libraryVisibility: LibraryVisibility.Private,
+            });
+            libraryAccessService.resolve.mockResolvedValue({
+                audience: "everyone",
+                libraryVisibility: LibraryVisibility.Private,
+                canViewLibrary: false,
+                visibleEntryLevels: [],
+            });
+
+            const response = await request(app.getHttpServer()).get(
+                "/profile/user-2",
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body).toMatchObject({
+                libraryVisibility: LibraryVisibility.Private,
+                canViewLibrary: false,
+            });
+            expect(libraryAccessService.resolve).toHaveBeenCalledWith(
+                undefined,
+                "user-2",
+            );
+        });
+
+        it("reports a followers library as visible to a follower", async () => {
+            profileService.findOneByIdOrFail.mockResolvedValue({
+                userId: "user-2",
+                username: "them",
+                libraryVisibility: LibraryVisibility.Followers,
+            });
+            libraryAccessService.resolve.mockResolvedValue({
+                audience: "follower",
+                libraryVisibility: LibraryVisibility.Followers,
+                canViewLibrary: true,
+                visibleEntryLevels: [
+                    LibraryVisibility.Public,
+                    LibraryVisibility.Followers,
+                ],
+            });
+
+            const response = await request(app.getHttpServer()).get(
+                "/profile/user-2",
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body).toMatchObject({
+                libraryVisibility: LibraryVisibility.Followers,
+                canViewLibrary: true,
+            });
+            expect(libraryAccessService.resolve).toHaveBeenCalledWith(
+                "user-1",
+                "user-2",
+            );
+        });
+
+        it("reports a followers library as hidden to a non-follower", async () => {
+            profileService.findOneByIdOrFail.mockResolvedValue({
+                userId: "user-2",
+                username: "them",
+                libraryVisibility: LibraryVisibility.Followers,
+            });
+            libraryAccessService.resolve.mockResolvedValue({
+                audience: "everyone",
+                libraryVisibility: LibraryVisibility.Followers,
+                canViewLibrary: false,
+                visibleEntryLevels: [],
+            });
+
+            const response = await request(app.getHttpServer()).get(
+                "/profile/user-2",
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body).toMatchObject({
+                libraryVisibility: LibraryVisibility.Followers,
+                canViewLibrary: false,
+            });
+            expect(libraryAccessService.resolve).toHaveBeenCalledWith(
+                "user-1",
+                "user-2",
+            );
+        });
     });
 
     it.each([

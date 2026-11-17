@@ -327,6 +327,7 @@ mysqlDescribe(
                         reviewed: 0,
                     }),
                 } as any,
+                { hiddenGameIds: async () => [] } as any,
             );
 
             await withFrozenNow(NOW, async () => {

@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     JoinColumn,
     JoinTable,
     ManyToMany,
@@ -18,6 +19,7 @@ import { Expose } from "class-transformer";
 import { CollectionEntryStatus } from "../collections-entries.constants";
 import { ApiProperty } from "@nestjs/swagger";
 import { Library } from "../../../libraries/entities/library.entity";
+import { LibraryVisibility } from "../../../libraries/library-visibility.constants";
 
 /**
  * Represents an entry (game) in one or multiple collections. <br>
@@ -25,6 +27,10 @@ import { Library } from "../../../libraries/entities/library.entity";
  * @class CollectionEntry
  */
 @Entity()
+@Index("IDX_collection_entry_library_visibility", [
+    "libraryUserId",
+    "visibility",
+])
 export class CollectionEntry {
     @PrimaryGeneratedColumn("uuid")
     id: string;
@@ -67,6 +73,15 @@ export class CollectionEntry {
         type: "varchar",
     })
     status: CollectionEntryStatus;
+
+    @ApiProperty({ enum: LibraryVisibility })
+    @Column({
+        nullable: false,
+        type: "varchar",
+        length: 16,
+        default: LibraryVisibility.Public,
+    })
+    visibility: LibraryVisibility;
 
     @ManyToOne(() => Library, {
         nullable: false,

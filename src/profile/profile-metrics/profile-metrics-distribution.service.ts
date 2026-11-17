@@ -19,6 +19,7 @@ import { PlaytimeService } from "../../playtime/playtime.service";
 import dayjs from "dayjs";
 import { CollectionEntryStatus } from "../../collections/collections-entries/collections-entries.constants";
 import { CollectionEntry } from "../../collections/collections-entries/entities/collection-entry.entity";
+import { LibraryAccess } from "../../libraries/library-visibility.constants";
 
 @Injectable()
 export class ProfileMetricsDistributionService {
@@ -32,7 +33,12 @@ export class ProfileMetricsDistributionService {
     async getYearDistribution(
         userId: string,
         dto: ProfileMetricsYearDistributionRequestDto,
+        access?: LibraryAccess,
     ): Promise<ProfileMetricsYearDistributionResponseDto> {
+        if (access && !access.canViewLibrary) {
+            return { distribution: [] };
+        }
+
         /**
          * A map connecting a year (number) to a distribution item object.
          */
@@ -41,7 +47,7 @@ export class ProfileMetricsDistributionService {
             ProfileMetricsYearDistributionItem
         >();
 
-        const [collectionEntries] =
+        const [entries] =
             await this.collectionsEntriesService.findAllByUserIdWithPermissions(
                 userId,
                 userId,
@@ -50,6 +56,7 @@ export class ProfileMetricsDistributionService {
                     offset: 0,
                 },
             );
+        const collectionEntries = this.visibleEntries(entries, access);
 
         const gameIds = collectionEntries.map((entry) => entry.gameId);
 
@@ -127,6 +134,7 @@ export class ProfileMetricsDistributionService {
                     {
                         limit: 9999999,
                     },
+                    access,
                 );
 
                 for (const playtime of playtimes) {
@@ -155,7 +163,12 @@ export class ProfileMetricsDistributionService {
     async getTypeDistribution(
         userId: string,
         dto: ProfileMetricsTypeDistributionRequestDto,
+        access?: LibraryAccess,
     ): Promise<ProfileMetricsTypeDistributionResponseDto> {
+        if (access && !access.canViewLibrary) {
+            return { distribution: [] };
+        }
+
         /**
          * Map connecting a criteriaId (e.g. game genre id) to an item object.
          */
@@ -173,7 +186,7 @@ export class ProfileMetricsDistributionService {
                     userId,
                     { startDate, endDate },
                 );
-            collectionEntries.push(...entries);
+            collectionEntries.push(...this.visibleEntries(entries, access));
         } else {
             const [entries] =
                 await this.collectionsEntriesService.findAllByUserIdWithPermissions(
@@ -185,7 +198,7 @@ export class ProfileMetricsDistributionService {
                     },
                 );
 
-            collectionEntries.push(...entries);
+            collectionEntries.push(...this.visibleEntries(entries, access));
         }
 
         const gameIds = collectionEntries.map((entry) => entry.gameId);
@@ -323,5 +336,16 @@ export class ProfileMetricsDistributionService {
         return {
             distribution: Array.from(distributionMap.values()),
         };
+    }
+
+    /** Drops the entries a non-owner viewer may not see; owner-only callers pass no access. */
+    private visibleEntries(
+        entries: CollectionEntry[],
+        access?: LibraryAccess,
+    ): CollectionEntry[] {
+        if (!access) return entries;
+        return entries.filter((entry) =>
+            access.visibleEntryLevels.includes(entry.visibility),
+        );
     }
 }

@@ -8,11 +8,18 @@ import request from "supertest";
 import { PlaytimeController } from "./playtime.controller";
 import { PlaytimeService } from "./playtime.service";
 import { AuthGuard } from "../auth/auth.guard";
+import { LibraryAccessService } from "../libraries/library-access.service";
 
 describe("manual playtime HTTP boundary", () => {
     let app: INestApplication;
     let authenticated = true;
     const submit = jest.fn();
+    const resolveAccess = jest.fn().mockResolvedValue({
+        audience: "owner",
+        libraryVisibility: "public",
+        canViewLibrary: true,
+        visibleEntryLevels: ["public", "followers", "private"],
+    });
     const valid = {
         gameId: 1,
         platformId: 6,
@@ -22,7 +29,13 @@ describe("manual playtime HTTP boundary", () => {
     beforeAll(async () => {
         const module = await Test.createTestingModule({
             controllers: [PlaytimeController],
-            providers: [{ provide: PlaytimeService, useValue: { submit } }],
+            providers: [
+                { provide: PlaytimeService, useValue: { submit } },
+                {
+                    provide: LibraryAccessService,
+                    useValue: { resolve: resolveAccess },
+                },
+            ],
         })
             .overrideGuard(AuthGuard)
             .useValue({

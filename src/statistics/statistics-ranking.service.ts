@@ -344,9 +344,6 @@ export class StatisticsRankingService {
         const where = [
             "t.sourceType = 'review'",
             "t.isActive = 1",
-            `(NOT EXISTS (SELECT 1 FROM collection_entry_collections_collection m WHERE m.collectionEntryId = r.collectionEntryId)
-              OR EXISTS (SELECT 1 FROM collection_entry_collections_collection m JOIN collection c ON c.id = m.collectionId
-                         WHERE m.collectionEntryId = r.collectionEntryId AND c.isPublic = 1))`,
         ];
         const parameters: unknown[] = [];
         if (dto?.gameId !== undefined) {

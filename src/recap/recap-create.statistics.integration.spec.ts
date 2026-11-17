@@ -24,6 +24,9 @@ import { CollectionEntry } from "../collections/collections-entries/entities/col
 import { UserPlaytimeHistory } from "../playtime/entity/user-playtime-history.entity";
 import { PlaytimeHistoryService } from "../playtime/playtime-history.service";
 import { recapCacheId } from "./recap.utils";
+import { LibraryAccessService } from "../libraries/library-access.service";
+import { Profile } from "../profile/entities/profile.entity";
+import { UserFollow } from "../follow/entity/user-follow.entity";
 
 describe("recap likes from retained statistics facts", () => {
     let dataSource: DataSource;
@@ -632,11 +635,19 @@ describe("recap generation from seeded statistics", () => {
                         dataSource.getRepository(YearRecap),
                         {} as any,
                         {} as any,
+                        new LibraryAccessService(
+                            dataSource.getRepository(Profile),
+                            dataSource.getRepository(UserFollow),
+                            dataSource.getRepository(CollectionEntry),
+                        ),
                     ),
                 },
                 { provide: RecapWindowService, useValue: {} },
                 { provide: RecapGoalsService, useValue: {} },
-                { provide: AuthService, useValue: {} },
+                {
+                    provide: AuthService,
+                    useValue: { getSession: async () => null },
+                },
             ],
         }).compile();
         const app = moduleRef.createNestApplication();

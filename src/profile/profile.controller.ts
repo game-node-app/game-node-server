@@ -27,6 +27,7 @@ import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
 import { ProfileResponseDto } from "./dto/profile-response.dto";
 import { ProfileVideoService } from "./profile-video/profile-video.service";
 import { SupporterPreferencesService } from "./supporter-preferences/supporter-preferences.service";
+import { LibraryAccessService } from "../libraries/library-access.service";
 
 const PROFILE_IMAGE_MAX_BYTES = 10 * 1024 * 1000;
 
@@ -51,6 +52,7 @@ export class ProfileController {
         private readonly profileService: ProfileService,
         private readonly profileVideoService: ProfileVideoService,
         private readonly supporterPreferencesService: SupporterPreferencesService,
+        private readonly libraryAccessService: LibraryAccessService,
     ) {}
 
     @Patch()
@@ -94,12 +96,23 @@ export class ProfileController {
         );
     }
 
-    private async findWithVideos(userId: string, includeUploads: boolean) {
+    private async findWithVideos(
+        userId: string,
+        includeUploads: boolean,
+        viewerId: string | undefined,
+    ) {
         // Design 1: entitlement runs once, alongside the profile read.
         const [profile, isSupporter] = await Promise.all([
             this.profileService.findOneByIdOrFail(userId),
             this.profileVideoService.isSupporter(userId),
         ]);
+        const access =
+            viewerId === userId
+                ? {
+                      libraryVisibility: profile.libraryVisibility,
+                      canViewLibrary: true,
+                  }
+                : await this.libraryAccessService.resolve(viewerId, userId);
         const [videos, supporterPreferences] = await Promise.all([
             this.profileVideoService.findForProfileRead(
                 userId,
@@ -112,9 +125,11 @@ export class ProfileController {
         ]);
         return {
             ...profile,
+            libraryVisibility: access.libraryVisibility,
             ...videos,
             isSupporter,
             supporterPreferences,
+            canViewLibrary: access.canViewLibrary,
         };
     }
 
@@ -127,7 +142,8 @@ export class ProfileController {
         type: ProfileResponseDto,
     })
     async findOwn(@Session() session: SessionContainer) {
-        return await this.findWithVideos(session.getUserId(), true);
+        const userId = session.getUserId();
+        return await this.findWithVideos(userId, true, userId);
     }
 
     @Get("all")
@@ -154,6 +170,10 @@ export class ProfileController {
         @Session() session: SessionContainer,
         @Param("id") profileId: string,
     ) {
-        return await this.findWithVideos(profileId, false);
+        return await this.findWithVideos(
+            profileId,
+            false,
+            session?.getUserId(),
+        );
     }
 }

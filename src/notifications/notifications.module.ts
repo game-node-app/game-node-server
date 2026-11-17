@@ -15,6 +15,7 @@ import { NotificationCampaignService } from "./notification-campaign.service";
 import { BullModule } from "@nestjs/bullmq";
 import { NOTIFICATIONS_QUEUE_NAME } from "./notifications.constants";
 import { NotificationsQueueProcessor } from "./notifications-queue.processor";
+import { LibrariesModule } from "../libraries/libraries.module";
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { NotificationsQueueProcessor } from "./notifications-queue.processor";
         BullModule.registerQueue({
             name: NOTIFICATIONS_QUEUE_NAME,
         }),
+        LibrariesModule,
     ],
     providers: [
         NotificationsService,

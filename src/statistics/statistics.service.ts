@@ -18,8 +18,10 @@ import {
 import {
     lockNotificationComment,
     lockNotificationRoot,
+    NotificationRootAccess,
     NotificationRootType,
 } from "../notifications/notifications-lifecycle.service";
+import { LibraryAccessService } from "../libraries/library-access.service";
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
 import { ensureStatisticsTarget } from "./statistics-target.repository";
 import {
@@ -83,7 +85,10 @@ function addBucket(value: Date, granularity: StatisticsGranularity) {
 
 @Injectable()
 export class StatisticsService {
-    constructor(private readonly dataSource: DataSource) {}
+    constructor(
+        private readonly dataSource: DataSource,
+        private readonly libraryAccessService: LibraryAccessService,
+    ) {}
 
     async applyReaction(
         userId: string,
@@ -99,7 +104,10 @@ export class StatisticsService {
         for (let retries = 0; ; retries++) {
             try {
                 return await this.dataSource.transaction(async (manager) => {
-                    const context = await this.resolveSource(manager, dto, true);
+                    const context = await this.resolveSource(manager, dto, true, {
+                        viewerId: userId,
+                        libraryAccess: this.libraryAccessService,
+                    });
                     const states = await manager.query(
                         "SELECT likedAt, firstLikedAt FROM engagement_state WHERE targetId = ? AND profileUserId = ? FOR UPDATE",
                         [context.targetId, userId],
@@ -368,6 +376,7 @@ export class StatisticsService {
         manager: EntityManager,
         dto: StatisticsSourceRequestDto,
         initialize: boolean,
+        access?: NotificationRootAccess,
     ): Promise<SourceContext> {
         validateSourceId(dto.sourceType, dto.sourceId);
         let ownerUserId: string | null = null;
@@ -377,7 +386,7 @@ export class StatisticsService {
             const [game] = await manager.query("SELECT id FROM game WHERE id = ? FOR UPDATE", [dto.sourceId]);
             if (!game) throw new NotFoundException("Source not found or inaccessible");
         } else if ([StatisticsSourceType.POST, StatisticsSourceType.REVIEW, StatisticsSourceType.ACTIVITY].includes(dto.sourceType)) {
-            const root = await lockNotificationRoot(manager, dto.sourceType as NotificationRootType, String(dto.sourceId));
+            const root = await lockNotificationRoot(manager, dto.sourceType as NotificationRootType, String(dto.sourceId), access);
             if (!root) throw new NotFoundException("Source not found or inaccessible");
             ownerUserId = root.profileUserId;
         } else {
@@ -388,7 +397,7 @@ export class StatisticsService {
             if (!comment) throw new NotFoundException("Source not found or inaccessible");
             rootId = comment.rootId;
             rootType = rootTypeValue;
-            const locked = await lockNotificationComment(manager, rootTypeValue, rootId, String(dto.sourceId));
+            const locked = await lockNotificationComment(manager, rootTypeValue, rootId, String(dto.sourceId), access);
             if (!locked) throw new NotFoundException("Source not found or inaccessible");
             ownerUserId = locked.profileUserId;
         }
