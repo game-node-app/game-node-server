@@ -2,8 +2,10 @@ import {
     ArrayMaxSize,
     IsArray,
     IsEnum,
+    IsIn,
     IsInt,
     IsOptional,
+    Max,
     Min,
     ValidateBy,
     ValidateNested,
@@ -11,8 +13,9 @@ import {
 import { Type } from "class-transformer";
 import { ApiProperty, PickType } from "@nestjs/swagger";
 import { BaseFindDto } from "../../utils/base-find.dto";
-import { DailyMode } from "../daily.constants";
+import { DailyMode, DailyPuzzleKind } from "../daily.constants";
 import { DailyPuzzle } from "../entity/daily-puzzle.entity";
+import { DailyRankingPeriod, DailyRankingScope } from "../daily-ranking.utils";
 
 // class-validator's `each` checks can't allow null entries, so the skip-aware list gets its own rule.
 const IsGuessList = () =>
@@ -43,6 +46,9 @@ export class DailyResultsRequestDto {
     @IsOptional()
     @IsEnum(DailyMode)
     mode?: DailyMode;
+    @IsOptional()
+    @IsIn(["daily", "weekly"])
+    kind?: DailyPuzzleKind;
 }
 
 export class DailyPlayRequestDto {
@@ -63,6 +69,12 @@ export class DailyPlayRequestDto {
     hintAt?: number | null;
 }
 
+export class DailyPracticeStartRequestDto {
+    /** Practice exists for the two competition modes only. */
+    @IsIn([DailyMode.COVER, DailyMode.SPECS])
+    mode: DailyMode;
+}
+
 export class DailyImportResultItemDto extends DailyPlayRequestDto {
     @IsInt()
     @Min(1)
@@ -75,4 +87,25 @@ export class DailyImportResultsRequestDto {
     @ValidateNested({ each: true })
     @Type(() => DailyImportResultItemDto)
     results: DailyImportResultItemDto[];
+}
+
+export class DailyRankingRequestDto {
+    @IsOptional()
+    @IsIn(["today", "week", "month", "all"])
+    period?: DailyRankingPeriod = "week";
+    @IsOptional()
+    @IsEnum(DailyMode)
+    mode?: DailyMode;
+    @IsOptional()
+    @IsIn(["all", "following"])
+    scope?: DailyRankingScope = "all";
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    offset?: number = 0;
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    @Max(100)
+    limit?: number = 20;
 }

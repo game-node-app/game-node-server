@@ -5,7 +5,7 @@ import { DataSource } from "typeorm";
 import { createConnection, Connection } from "mysql2/promise";
 import { testEnvironment } from "../../test/igdb/helpers/test-environment";
 import { createBaselineTables } from "../../test/baseline-schema";
-import { AddLibraryVisibility1795600000000 } from "../migrations/1795600000000-AddLibraryVisibility";
+import { AddLibraryVisibility1795700000000 } from "../migrations/1795700000000-AddLibraryVisibility";
 
 const DATABASE = "library_visibility_migration_test";
 // Test container credentials from test/igdb/docker-compose.yml; the fixture user only owns igdb_sync_test.
@@ -101,7 +101,7 @@ describe("AddLibraryVisibility migration", () => {
     it("runs up, backfills private-only entries and adds the index", async () => {
         const runner = source.createQueryRunner();
         try {
-            await new AddLibraryVisibility1795600000000().up(runner);
+            await new AddLibraryVisibility1795700000000().up(runner);
 
             const entries = await source.query(
                 "SELECT `id`, `visibility` FROM `collection_entry`",
@@ -160,7 +160,7 @@ describe("AddLibraryVisibility migration", () => {
     it("runs down and removes the columns and index without touching entries", async () => {
         const runner = source.createQueryRunner();
         try {
-            await new AddLibraryVisibility1795600000000().down(runner);
+            await new AddLibraryVisibility1795700000000().down(runner);
 
             const columns = await source.query(
                 `SELECT COLUMN_NAME FROM information_schema.COLUMNS

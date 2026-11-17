@@ -2,13 +2,14 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
     Unique,
 } from "typeorm";
 import { Game } from "../../game/game-repository/entities/game.entity";
-import { DailyMode } from "../daily.constants";
+import { DailyMode, DailyPuzzleKind } from "../daily.constants";
 
 export interface DailyPuzzleMeta {
     artworkId?: number;
@@ -17,11 +18,14 @@ export interface DailyPuzzleMeta {
 }
 
 @Entity()
-@Unique("UQ_daily_puzzle_mode_date", ["mode", "date"])
-@Unique("UQ_daily_puzzle_mode_number", ["mode", "number"])
+@Unique("UQ_daily_puzzle_kind_mode_date", ["kind", "mode", "date"])
+@Unique("UQ_daily_puzzle_kind_mode_number", ["kind", "mode", "number"])
+@Index("IDX_daily_puzzle_kind_date", ["kind", "date"])
 export class DailyPuzzle {
     @PrimaryGeneratedColumn()
     id: number;
+    @Column({ type: "varchar", length: 16, default: "daily" })
+    kind: DailyPuzzleKind;
     @Column({ type: "varchar", length: 16 })
     mode: DailyMode;
     /** Sequential per mode, the "#n" shown to players. */

@@ -51,6 +51,11 @@ the committed migrations once and exits; the API starts only after it succeeds,
 so replicas never run migrations concurrently. Its image tag is independent of
 the API's. Back up the database before deploying a new migration.
 
+The database must use `utf8mb4` with the `utf8mb4_0900_ai_ci` collation (the
+MySQL 8 default). Released migrations create tables without an explicit
+collation, so any other database default makes later foreign keys fail with
+`ER_FK_INCOMPATIBLE_COLUMNS`.
+
 The current Git checkout still needs a versioned initial schema: the historical
 baseline is ignored by Git. See the [fresh installation report](docs/relatorio-reimplantacao-infraestrutura.md#61-pendência-de-reprodução-esquema-inicial-versionado)
 for the bootstrap prerequisite and migration workflow.

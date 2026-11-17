@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddLibraryVisibility1795600000000 implements MigrationInterface {
+export class AddLibraryVisibility1795700000000 implements MigrationInterface {
     async up(runner: QueryRunner): Promise<void> {
         await runner.query(
             "ALTER TABLE `collection_entry` ADD `visibility` varchar(16) NOT NULL DEFAULT 'public'",
