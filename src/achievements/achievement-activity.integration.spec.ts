@@ -32,6 +32,7 @@ describe("ACHIEVEMENT_UNLOCKED activities (integration)", () => {
             { getLockoutStates: async () => new Map() } as any,
             {} as any,
             {} as any,
+            {} as any,
         );
         // Stands in for the activities queue, which calls ActivitiesRepositoryService.create
         progress = new AchievementsProgressService(

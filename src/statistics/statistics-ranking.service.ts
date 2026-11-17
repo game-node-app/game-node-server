@@ -185,6 +185,15 @@ export class StatisticsRankingService {
             source.parameters.unshift(...score.parameters);
         }
         const cacheKey = this.cacheKey(actorId, dto, fromInstant, toInstant);
+        // Prepared game rankings only change when the 6-hourly refresh rewrites computedAt, so the whole
+        // response is reusable until then. Reviews are excluded: new reviews join their rankings with score 0.
+        const preparedKey = rankingKey && sourceType === StatisticsSourceType.GAME
+            ? `${cacheKey}:response:${asOfInstant.iso}`
+            : null;
+        if (preparedKey) {
+            const prepared = await this.cache?.get<any>(preparedKey).catch(() => undefined);
+            if (prepared) return prepared;
+        }
         const countRows = await manager.query(
             `SELECT COUNT(*) AS total ${source.from} WHERE ${source.where}`,
             source.parameters,
@@ -200,7 +209,7 @@ export class StatisticsRankingService {
                   : -1;
             if (memberCount === ids.length) {
                 const freshness = await this.freshness(manager);
-                return this.response(
+                const response = this.response(
                     cached.items,
                     total,
                     limit,
@@ -211,6 +220,8 @@ export class StatisticsRankingService {
                     parseStatisticsInstant(cached.effectiveTo),
                     freshness,
                 );
+                if (preparedKey) await this.cache?.set(preparedKey, response, 6 * 60 * 60_000).catch(() => undefined);
+                return response;
             }
         }
 
@@ -253,7 +264,9 @@ export class StatisticsRankingService {
             effectiveTo: toInstant.iso,
         }, 15 * 60_000).catch(() => undefined);
         const freshness = await this.freshness(manager);
-        return this.response(items, total, limit, offset, mode, asOfInstant, fromInstant, toInstant, freshness);
+        const response = this.response(items, total, limit, offset, mode, asOfInstant, fromInstant, toInstant, freshness);
+        if (preparedKey) await this.cache?.set(preparedKey, response, 6 * 60 * 60_000).catch(() => undefined);
+        return response;
     }
 
     private async gameRankingPage(manager: EntityManager, source: SourceQuery, limit: number, offset: number) {

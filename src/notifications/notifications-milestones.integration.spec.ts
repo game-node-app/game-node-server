@@ -102,6 +102,7 @@ describe("Awards, Recap and goal notifications (integration)", () => {
                 phase,
             });
             expect(data[0].preview?.text).toEqual(expect.any(String));
+            expect(data[0].preview?.milestone).toBe(milestone);
             expect(data[0].actors).toEqual([]);
         },
     );
@@ -120,6 +121,7 @@ describe("Awards, Recap and goal notifications (integration)", () => {
                 year: 2026,
             });
             expect(data[0].preview?.text).toEqual(expect.any(String));
+            expect(data[0].preview?.milestone).toBe(milestone);
             expect(data[0].actors).toEqual([]);
         },
     );

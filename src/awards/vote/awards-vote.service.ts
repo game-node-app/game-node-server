@@ -119,6 +119,7 @@ export class AwardsVoteService {
             relations: {
                 category: {
                     event: true,
+                    translations: true,
                 },
             },
             order: {

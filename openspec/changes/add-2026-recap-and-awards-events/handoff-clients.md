@@ -616,7 +616,7 @@ Inbox read: `GET /v1/notifications` (session) with optional `cursor`, `limit` (1
             "id": 501,
             "type": "awards.milestone",
             "actors": [],
-            "preview": { "text": "Awards voting is open." },
+            "preview": { "text": "Awards voting is open.", "milestone": "voting_open" },
             "target": {
                 "type": "awards",
                 "eventId": 12,
@@ -643,9 +643,11 @@ tab or endpoint.
 
 | Type | Preview | Target |
 | --- | --- | --- |
-| `awards.milestone` | `{ "text": "..." }`; one of the five fixed texts below | `{ "type": "awards", "eventId", "year", "phase" }` |
-| `recap.milestone` | `{ "text": "Your year recap is here." }` or `"Your year recap is final."` | `{ "type": "recap", "userId", "year" }` (`userId` is the recipient) |
+| `awards.milestone` | `{ "text": "...", "milestone": "<milestone>" }`; one of the five fixed texts below | `{ "type": "awards", "eventId", "year", "phase" }` |
+| `recap.milestone` | `{ "text": "Your year recap is here."/"Your year recap is final.", "milestone": "available"\|"closed" }` | `{ "type": "recap", "userId", "year" }` (`userId` is the recipient) |
 | `goal.reminder` | `{ "text": "Your 2027 goal: 7 of 18 games finished.", "target": 18, "finished": 7 }` | `{ "type": "goal", "year" }` |
+
+`awards.milestone` and `recap.milestone` previews carry `milestone` (the payload identifier), so clients pick their copy without matching the English `text`.
 
 Awards preview texts and announced phases:
 

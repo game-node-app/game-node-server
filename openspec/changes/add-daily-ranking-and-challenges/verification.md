@@ -15,7 +15,7 @@ quoted Jest names are the full names recorded in the Jest JSON report of the pas
 | `pnpm test --runInBand --testTimeout=120000 --testPathPatterns='src/daily/\|src/auth/lockout-limit'` | 16/16 suites, 137/137 tests passed (42.8 s) |
 | `pnpm test --testTimeout=120000 --testPathIgnorePatterns='integration.spec.ts'` (unit suites) | 170 passed, 1 skipped, 2 failed of 173 suites; 1466 passed, 14 skipped, 4 failed of 1484 tests (590.8 s). Both failures reproduce on `HEAD` 04ae93d, see Gaps. |
 | `pnpm test --runInBand --testTimeout=120000` (full suite) | Aborted by `RangeError: Maximum call stack size exceeded` in `src/auth/auth.integration.spec.ts`; reproduced on `HEAD`. No suite result to report. |
-| Migration chain (`runMigrations` from `dist/src/migrations` on a fresh MySQL 8.4.13) | 20/20 migrations applied, including `AddDailyRankingAndChallenges1795400000000` (exit 0) |
+| Migration chain (`runMigrations` from `dist/src/migrations` on a fresh MySQL 8.4.13) | 20/20 migrations applied, including `AddDailyRankingAndChallenges1795600000000` (exit 0) |
 | Boot check (`node dist/src/main`, `SERVER_PORT=5056`) | See "Boot check" below: no provider errors, scheduler boot duties ran, daily reads 200 |
 
 The daily run above includes `src/auth/lockout-limit.spec.ts` and the three daily ranking specs, which are

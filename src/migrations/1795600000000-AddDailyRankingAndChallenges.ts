@@ -9,7 +9,7 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  * TypeORM cannot roll them back. Every step therefore checks its own effect first, which makes a
  * retry after a partial failure finish the rest instead of failing on "Duplicate column".
  */
-export class AddDailyRankingAndChallenges1795400000000
+export class AddDailyRankingAndChallenges1795600000000
     implements MigrationInterface
 {
     async up(runner: QueryRunner): Promise<void> {

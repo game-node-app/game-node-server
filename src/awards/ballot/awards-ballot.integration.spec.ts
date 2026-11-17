@@ -25,6 +25,7 @@ import { AwardsAdminService } from "../admin/awards-admin.service";
 import { AwardsPlayContextService } from "../play-context/awards-play-context.service";
 import { AwardsEvent } from "../entity/awards-event.entity";
 import { AwardsCategory } from "../entity/awards-category.entity";
+import { AwardsCategoryTranslation } from "../entity/awards-category-translation.entity";
 import { AwardsCategorySuggestion } from "../entity/awards-category-suggestion.entity";
 import { AwardsVote } from "../entity/awards-vote.entity";
 import { Game } from "../../game/game-repository/entities/game.entity";
@@ -207,6 +208,12 @@ describe("Awards ballot, votes and vote rules", () => {
             );
         }
         narrativeCategory = categories[1];
+        await source.getRepository(AwardsCategoryTranslation).save({
+            categoryId: narrativeCategory.id,
+            locale: "pt-BR",
+            name: "Categoria 1 (PT)",
+            description: "Categoria 1 (PT)",
+        });
         legacyCategory = await categoryRepository.save({
             eventId: legacyEvent.id,
             name: "Legacy Category",
@@ -599,8 +606,18 @@ describe("Awards ballot, votes and vote rules", () => {
         const narrative = ballot.categories.find(
             (category) => category.id === narrativeCategory.id,
         );
+        expect(narrative?.name).toBe("Category 1");
+        expect(narrative?.description).toBe("Category 1");
+        expect(narrative?.translations).toEqual([
+            {
+                locale: "pt-BR",
+                name: "Categoria 1 (PT)",
+                description: "Categoria 1 (PT)",
+            },
+        ]);
         expect(narrative?.voteGameId).toBe(NARRATIVE_NOMINEE);
         expect(narrative?.suggestedGameId).toBeNull();
+        expect(ballot.categories[2].translations).toEqual([]);
         expect(ballot.categories[6].voteGameId).not.toBeNull();
         expect(ballot.categories[7].voteGameId).toBeNull();
     });
@@ -718,6 +735,7 @@ describe("Awards ballot, votes and vote rules", () => {
             categoryRepository,
             suggestionRepository,
             awardsService,
+            source,
         );
         await adminService.removeCategorySuggestion({
             categoryId: curatedCategory.id,
@@ -741,5 +759,35 @@ describe("Awards ballot, votes and vote rules", () => {
         expect(
             ballot.categories[0].nominees.map((nominee) => nominee.gameId),
         ).toEqual([GOTY_NOMINEES[1], ELIGIBLE_NON_NOMINEE]);
+    });
+
+    it("returns recent votes with category translations and base text", async () => {
+        await voteRepository.save({
+            categoryId: narrativeCategory.id,
+            gameId: NARRATIVE_NOMINEE,
+            profileUserId: USER_C,
+        });
+
+        const response = await request(server())
+            .get(`/v1/awards/vote/${openEvent.id}/recent`)
+            .expect(200);
+
+        const translated = response.body.find(
+            (vote: { profileUserId: string }) => vote.profileUserId === USER_C,
+        );
+        expect(translated.category.name).toBe("Category 1");
+        expect(translated.category.description).toBe("Category 1");
+        expect(translated.category.translations).toMatchObject([
+            {
+                locale: "pt-BR",
+                name: "Categoria 1 (PT)",
+                description: "Categoria 1 (PT)",
+            },
+        ]);
+
+        const untranslated = response.body.find(
+            (vote: { profileUserId: string }) => vote.profileUserId === USER_A,
+        );
+        expect(untranslated.category.translations).toEqual([]);
     });
 });

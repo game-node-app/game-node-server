@@ -13,6 +13,7 @@ import { ActivitiesPaginatedResponseDto } from "./dto/activities-paginated-respo
 import { PaginationInterceptor } from "../../interceptor/pagination.interceptor";
 import { Public } from "../../auth/public.decorator";
 import { FindLatestActivitiesDto } from "./dto/find-latest-activities.dto";
+import { Session, SessionContainer } from "../../auth/session.decorator";
 
 @Controller({
     path: "activities",
@@ -31,7 +32,13 @@ export class ActivitiesRepositoryV2Controller {
     })
     @UseInterceptors(PaginationInterceptor)
     @Public()
-    async findLatest(@Query() dto: FindLatestActivitiesDto) {
-        return this.activitiesRepositoryService.findLatest(dto);
+    async findLatest(
+        @Query() dto: FindLatestActivitiesDto,
+        @Session() session: SessionContainer | undefined,
+    ) {
+        return this.activitiesRepositoryService.findLatest(
+            dto,
+            session?.getUserId(),
+        );
     }
 }

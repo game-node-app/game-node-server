@@ -1,7 +1,9 @@
+import { ApiProperty } from "@nestjs/swagger";
 import { PaginationInfo } from "../../../utils/pagination/pagination-response.dto";
-import { Activity } from "../../activities-repository/entities/activity.entity";
+import { ActivityResponseDto } from "../../activities-repository/dto/activity-response.dto";
 
 export class ActivitiesFeedPaginatedResponseDto {
-    data: Activity[];
+    @ApiProperty({ type: () => [ActivityResponseDto] })
+    data: ActivityResponseDto[];
     pagination: PaginationInfo;
 }

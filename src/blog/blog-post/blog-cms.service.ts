@@ -1,5 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { minutes } from '@nestjs/throttler';
+import { Cacheable } from '../../utils/cacheable';
 import { CmsArticle, CmsTranslation } from './blog-selection';
 
 type Translation = CmsTranslation & { article_id: string };
@@ -33,7 +35,18 @@ export class BlogCmsService {
         }
     }
 
-    async articles(preview = false): Promise<CmsArticle[]> {
+    articles(preview = false): Promise<CmsArticle[]> {
+        // Previews must show drafts as soon as they are saved, so only published content is cached.
+        return preview ? this.load(true) : this.published();
+    }
+
+    // Each miss is four paginated Directus calls (130–550 ms); new posts appear within the TTL.
+    @Cacheable(BlogCmsService.name, minutes(2))
+    private published(): Promise<CmsArticle[]> {
+        return this.load(false);
+    }
+
+    private async load(preview: boolean): Promise<CmsArticle[]> {
         const [articles, translations, tags, links] = await Promise.all([
             this.all<Article>('blog_articles', preview), this.all<Translation>('blog_translations', preview),
             this.all<Tag>('blog_tags', preview), this.all<Link>('blog_article_tags', preview),

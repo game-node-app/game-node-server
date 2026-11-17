@@ -5,7 +5,7 @@ import { createConnection, Connection } from "mysql2/promise";
 import { testEnvironment } from "../../test/igdb/helpers/test-environment";
 import { createBaselineTables } from "../../test/baseline-schema";
 import { AddDaily1794400000000 } from "../migrations/1794400000000-AddDaily";
-import { AddDailyRankingAndChallenges1795400000000 } from "../migrations/1795400000000-AddDailyRankingAndChallenges";
+import { AddDailyRankingAndChallenges1795600000000 } from "../migrations/1795600000000-AddDailyRankingAndChallenges";
 import { DailyPracticeRound } from "./entity/daily-practice-round.entity";
 import { DailyRankingEntry } from "./entity/daily-ranking-entry.entity";
 import { DailyRankingSnapshot } from "./entity/daily-ranking-snapshot.entity";
@@ -212,7 +212,7 @@ describe("AddDailyRankingAndChallenges migration", () => {
     it("runs up, adds the schema and backfills same-day results only", async () => {
         const runner = source.createQueryRunner();
         try {
-            await new AddDailyRankingAndChallenges1795400000000().up(runner);
+            await new AddDailyRankingAndChallenges1795600000000().up(runner);
 
             const puzzleIndexes = await indexes("daily_puzzle");
             expect(puzzleIndexes).toEqual(
@@ -459,7 +459,7 @@ describe("AddDailyRankingAndChallenges migration", () => {
     it("runs down and restores the old schema, keeping the rows", async () => {
         const runner = source.createQueryRunner();
         try {
-            await new AddDailyRankingAndChallenges1795400000000().down(runner);
+            await new AddDailyRankingAndChallenges1795600000000().down(runner);
 
             expect(await runner.hasTable("daily_ranking_entry")).toBe(false);
             expect(await runner.hasTable("daily_ranking_snapshot")).toBe(false);
@@ -502,7 +502,7 @@ describe("AddDailyRankingAndChallenges migration", () => {
 
     // MySQL commits DDL implicitly, so a failed deploy leaves the early steps applied.
     it("finishes after a partial run and is a no-op when run again", async () => {
-        const migration = new AddDailyRankingAndChallenges1795400000000();
+        const migration = new AddDailyRankingAndChallenges1795600000000();
         const runner = source.createQueryRunner();
         try {
             // State after a run that died after its first two steps.
@@ -537,7 +537,7 @@ describe("AddDailyRankingAndChallenges migration", () => {
     });
 
     it("refuses to revert while weekly puzzles exist and drops nothing", async () => {
-        const migration = new AddDailyRankingAndChallenges1795400000000();
+        const migration = new AddDailyRankingAndChallenges1795600000000();
         await source.query(
             "INSERT INTO daily_puzzle (id, kind, mode, number, date, gameId, meta, source) VALUES (900, 'weekly', 'cover', 1, '2026-03-09', 1, '{}', 'admin')",
         );
