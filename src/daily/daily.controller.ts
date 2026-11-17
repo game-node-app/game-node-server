@@ -10,30 +10,42 @@ import {
     UseGuards,
 } from "@nestjs/common";
 import { ApiOkResponse, ApiProduces, ApiTags } from "@nestjs/swagger";
+import { seconds, Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { Response } from "express";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
 import { Session, SessionContainer } from "../auth/session.decorator";
 import { DailyService } from "./daily.service";
+import { DailyPracticeService } from "./daily-practice.service";
+import { DailyRankingService } from "./daily-ranking.service";
 import {
     DailyArchiveRequestDto,
     DailyImportResultsRequestDto,
     DailyPlayRequestDto,
+    DailyPracticeStartRequestDto,
+    DailyRankingRequestDto,
     DailyResultsRequestDto,
 } from "./dto/daily-request.dto";
 import {
     DailyArchiveResponseDto,
     DailyImportResultsResponseDto,
     DailyPlayResponseDto,
+    DailyPracticePlayResponseDto,
+    DailyRankingResponseDto,
     DailyResultsResponseDto,
     DailyTodayResponseDto,
+    DailyWeeklyRankingResponseDto,
 } from "./dto/daily-response.dto";
 
 @Controller("daily")
 @ApiTags("daily")
 @UseGuards(AuthGuard)
 export class DailyController {
-    constructor(private readonly dailyService: DailyService) {}
+    constructor(
+        private readonly dailyService: DailyService,
+        private readonly rankingService: DailyRankingService,
+        private readonly practiceService: DailyPracticeService,
+    ) {}
 
     @Get()
     @Public()
@@ -41,6 +53,29 @@ export class DailyController {
         @Session() session?: SessionContainer,
     ): Promise<DailyTodayResponseDto> {
         return this.dailyService.findToday(session?.getUserId());
+    }
+
+    @Get("ranking")
+    @Public()
+    async findRanking(
+        @Query() dto: DailyRankingRequestDto,
+        @Session() session?: SessionContainer,
+    ): Promise<DailyRankingResponseDto> {
+        return this.rankingService.read(
+            dto.period ?? "week",
+            dto.mode,
+            dto.scope ?? "all",
+            dto.offset ?? 0,
+            dto.limit ?? 20,
+            session?.getUserId(),
+        );
+    }
+
+    @Get("weekly/ranking")
+    async findWeeklyRanking(
+        @Session() session: SessionContainer,
+    ): Promise<DailyWeeklyRankingResponseDto> {
+        return this.rankingService.weeklyRanking(session.getUserId());
     }
 
     @Get("archive")
@@ -65,12 +100,43 @@ export class DailyController {
         return this.dailyService.play(session?.getUserId(), id, dto);
     }
 
+    /**
+     * Starts a practice round; the round id is the capability for guests.
+     */
+    @Post("practice")
+    @Public()
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 30, ttl: seconds(60) } })
+    async startPractice(
+        @Body() dto: DailyPracticeStartRequestDto,
+        @Session() session?: SessionContainer,
+    ): Promise<DailyPracticePlayResponseDto> {
+        return this.practiceService.start(session?.getUserId(), dto.mode);
+    }
+
+    /**
+     * Same feedback as the daily mode; progress stored on the round can only grow.
+     */
+    @Post("practice/:id/play")
+    @Public()
+    async playPractice(
+        @Param("id") id: string,
+        @Body() dto: DailyPlayRequestDto,
+        @Session() session?: SessionContainer,
+    ): Promise<DailyPracticePlayResponseDto> {
+        return this.practiceService.play(session?.getUserId(), id, dto);
+    }
+
     @Get("results")
     async findResults(
         @Session() session: SessionContainer,
         @Query() dto: DailyResultsRequestDto,
     ): Promise<DailyResultsResponseDto> {
-        return this.dailyService.findResults(session.getUserId(), dto.mode);
+        return this.dailyService.findResults(
+            session.getUserId(),
+            dto.mode,
+            dto.kind,
+        );
     }
 
     /**

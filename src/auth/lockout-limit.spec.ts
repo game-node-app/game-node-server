@@ -22,6 +22,7 @@ function fakeAuthService(options: {
     users?: UserRow[];
     subscriptions?: SupporterSubscriptionRow[];
     stripeEnabled?: boolean;
+    cache?: { get: jest.Mock; set: jest.Mock };
 }) {
     const rowsFor = (model: string): Row[] =>
         model === "user"
@@ -59,8 +60,82 @@ function fakeAuthService(options: {
     service.auth = {
         $context: Promise.resolve({ adapter: { findMany, count } }),
     };
+    service.cache = options.cache;
     return { service: service as AuthService, findMany, count };
 }
+
+describe("AuthService.getLockedUserIds", () => {
+    const cache = () => {
+        const values = new Map<string, unknown>();
+        return {
+            get: jest.fn(async (key: string) => values.get(key)),
+            set: jest.fn(async (key: string, value: unknown) => {
+                values.set(key, value);
+                return value;
+            }),
+        };
+    };
+
+    it("returns permanent bans and active suspensions, ignoring expired ones", async () => {
+        const { service } = fakeAuthService({
+            users: [
+                { id: "banned", banned: true, banExpires: null },
+                {
+                    id: "suspended",
+                    banned: true,
+                    banExpires: new Date(Date.now() + 60_000),
+                },
+                {
+                    id: "expired",
+                    banned: true,
+                    banExpires: new Date(Date.now() - 60_000),
+                },
+                { id: "active", banned: false, banExpires: null },
+            ],
+        });
+
+        await expect(service.getLockedUserIds()).resolves.toEqual([
+            "banned",
+            "suspended",
+        ]);
+    });
+
+    it("reads every banned row beyond the adapter default of 100", async () => {
+        const users = Array.from({ length: 101 }, (_, index) => ({
+            id: `user-${index}`,
+            banned: true,
+            banExpires: null,
+        }));
+        const { service, count, findMany } = fakeAuthService({ users });
+
+        await expect(service.getLockedUserIds()).resolves.toHaveLength(101);
+        expect(count).toHaveBeenCalledWith({
+            model: "user",
+            where: [{ field: "banned", value: true }],
+        });
+        expect(findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ limit: 101 }),
+        );
+    });
+
+    it("caches the list for 60 seconds", async () => {
+        const cacheMock = cache();
+        const { service, findMany } = fakeAuthService({
+            users: [{ id: "banned", banned: true, banExpires: null }],
+            cache: cacheMock,
+        });
+
+        await service.getLockedUserIds();
+        await service.getLockedUserIds();
+
+        expect(findMany).toHaveBeenCalledTimes(1);
+        expect(cacheMock.set).toHaveBeenCalledWith(
+            "auth:locked-users",
+            ["banned"],
+            60_000,
+        );
+    });
+});
 
 describe("AuthService.getLockoutStates", () => {
     it("evaluates every id beyond the adapter default of 100", async () => {

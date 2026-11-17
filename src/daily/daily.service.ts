@@ -15,22 +15,29 @@ import { DataSource, In, LessThan, Repository } from "typeorm";
 import sharp from "sharp";
 import { DailyPuzzle } from "./entity/daily-puzzle.entity";
 import { DailyResult } from "./entity/daily-result.entity";
+import { DailyPracticeRound } from "./entity/daily-practice-round.entity";
 import {
+    addDays,
     DAILY_IMAGE_WIDTHS,
     DAILY_MAX_ATTEMPTS,
     dailyNextResetAt,
+    dailyPoints,
     dailyToday,
     DailyMode,
+    DailyPuzzleKind,
     DailyStatus,
+    practiceRoundsCutoff,
 } from "./daily.constants";
 import {
     DailyEvaluation,
     DailyGameData,
     DailyNamed,
+    assertProgressCanGrow,
     evaluateDaily,
 } from "./daily-evaluator";
 import {
     DailyImageKind,
+    DailyImageTokenPayload,
     signDailyImageToken,
     verifyDailyImageToken,
 } from "./daily-image-token";
@@ -43,7 +50,9 @@ import {
     DailyArchiveResponseDto,
     DailyImportResultsResponseDto,
     DailyPlayResponseDto,
+    DailyPlayStateDto,
     DailyPuzzleDto,
+    DailyRankingSummaryDto,
     DailyResultsResponseDto,
     DailyTodayResponseDto,
 } from "./dto/daily-response.dto";
@@ -52,6 +61,7 @@ import { GameKeyword } from "../game/game-repository/entities/game-keyword.entit
 import { GameCover } from "../game/game-repository/entities/game-cover.entity";
 import { GameArtwork } from "../game/game-repository/entities/game-artwork.entity";
 import { buildPaginationResponse } from "../utils/pagination/buildPaginationResponse";
+import { DailyRankingService } from "./daily-ranking.service";
 
 const MODE_ORDER = Object.values(DailyMode);
 
@@ -100,6 +110,15 @@ interface DailyContext {
     keywords: Map<number, string>;
 }
 
+/** What evaluating a play needs: a daily puzzle or a practice round. */
+type DailyAnswerSource = Pick<DailyPuzzle, "gameId" | "mode" | "meta">;
+
+type PlayResult = Pick<
+    DailyResult,
+    "puzzleId" | "status" | "ranked" | "points"
+>;
+type PlayOutcome = { saved: DailyResult } | { result: PlayResult };
+
 @Injectable()
 export class DailyService {
     private readonly imageSecret: string;
@@ -112,6 +131,7 @@ export class DailyService {
         private readonly dataSource: DataSource,
         @Inject(CACHE_MANAGER) private readonly cache: Cache,
         configService: ConfigService,
+        private readonly rankingService: DailyRankingService,
     ) {
         this.imageSecret =
             configService.getOrThrow<string>("DAILY_IMAGE_SECRET");
@@ -119,13 +139,17 @@ export class DailyService {
 
     async findToday(userId?: string): Promise<DailyTodayResponseDto> {
         const date = dailyToday();
-        const puzzles = await this.puzzleRepository.findBy({ date });
+        const puzzles = await this.puzzleRepository.findBy({
+            date,
+            kind: "daily",
+        });
         puzzles.sort(
             (a, b) => MODE_ORDER.indexOf(a.mode) - MODE_ORDER.indexOf(b.mode),
         );
         return {
             date,
             nextResetAt: dailyNextResetAt(date),
+            weekly: await this.rankingService.weeklyEntry(userId),
             puzzles: await this.toPuzzleDtos(puzzles, userId),
         };
     }
@@ -135,7 +159,11 @@ export class DailyService {
         dto: DailyArchiveRequestDto,
     ): Promise<DailyArchiveResponseDto> {
         const [puzzles, total] = await this.puzzleRepository.findAndCount({
-            where: { mode: dto.mode, date: LessThan(dailyToday()) },
+            where: {
+                mode: dto.mode,
+                kind: "daily",
+                date: LessThan(dailyToday()),
+            },
             order: { date: "DESC", id: "ASC" },
             skip: dto.offset,
             take: dto.limit,
@@ -151,8 +179,9 @@ export class DailyService {
         puzzleId: number,
         dto: DailyPlayRequestDto,
     ): Promise<DailyPlayResponseDto> {
+        const today = dailyToday();
         const puzzle = await this.puzzleRepository.findOneBy({ id: puzzleId });
-        if (!puzzle || puzzle.date > dailyToday())
+        if (!puzzle || puzzle.date > today)
             throw new NotFoundException("Puzzle not found");
         const saved = userId
             ? await this.resultRepository.findOneBy({ userId, puzzleId })
@@ -166,50 +195,107 @@ export class DailyService {
                 puzzle,
                 await this.evaluate(puzzle, saved.guesses, saved.hintAt),
                 saved.hintAt,
+                await this.rankingSummary(userId, puzzle, saved),
             );
 
         const { guesses } = dto;
         const hintAt = dto.hintAt ?? null;
         // A saved hint is fixed; a new one can't be placed before the guesses already saved.
-        if (
-            saved &&
-            (guesses.length < saved.guesses.length ||
-                saved.guesses.some((id, i) => guesses[i] !== id) ||
-                (saved.hintAt !== null
-                    ? hintAt !== saved.hintAt
-                    : hintAt !== null && hintAt < saved.guesses.length))
-        )
-            throw new BadRequestException(
-                "Guesses can only be added to the saved progress",
-            );
+        if (saved) assertProgressCanGrow(saved, guesses, hintAt);
 
         const evaluation = await this.evaluate(puzzle, guesses, hintAt);
         // Opening a puzzle without playing it doesn't create a result.
-        if (userId && (saved || guesses.length))
-            await this.resultRepository.upsert(
-                {
-                    userId,
-                    puzzleId,
-                    guesses,
-                    hintAt,
-                    status: evaluation.status,
-                    attempts: evaluation.attempts,
-                    finishedAt:
-                        evaluation.status === DailyStatus.IN_PROGRESS
-                            ? null
-                            : new Date(),
-                },
-                ["userId", "puzzleId"],
+        if (!userId || (!saved && !guesses.length))
+            return this.toPlayResponse(puzzle, evaluation, hintAt);
+
+        // The finishing upsert and the ranking recompute commit together behind the
+        // profile row lock, so the recompute always reads this transaction's result.
+        const outcome: PlayOutcome = await this.dataSource.transaction(
+            async (manager) => {
+                await manager.query(
+                    "SELECT userId FROM profile WHERE userId = ? FOR UPDATE",
+                    [userId],
+                );
+                const current = await manager
+                    .getRepository(DailyResult)
+                    .findOneBy({ userId, puzzleId });
+                // Another request finished it while this one waited for the lock.
+                if (
+                    current &&
+                    (current.status !== DailyStatus.IN_PROGRESS ||
+                        !guesses.length)
+                )
+                    return { saved: current };
+                if (current) assertProgressCanGrow(current, guesses, hintAt);
+
+                const finished = evaluation.status !== DailyStatus.IN_PROGRESS;
+                // Counted once, while the puzzle is still active: same day for daily, its week for weekly.
+                const activeEnd = addDays(
+                    puzzle.date,
+                    puzzle.kind === "weekly" ? 6 : 0,
+                );
+                const ranked =
+                    finished && today >= puzzle.date && today <= activeEnd;
+                const points =
+                    ranked && puzzle.kind === "daily"
+                        ? dailyPoints(
+                              puzzle.mode,
+                              evaluation.status,
+                              evaluation.attempts,
+                          )
+                        : 0;
+                await manager.getRepository(DailyResult).upsert(
+                    {
+                        userId,
+                        puzzleId,
+                        guesses,
+                        hintAt,
+                        status: evaluation.status,
+                        attempts: evaluation.attempts,
+                        ranked,
+                        points,
+                        finishedAt: finished ? new Date() : null,
+                    },
+                    ["userId", "puzzleId"],
+                );
+                if (ranked && puzzle.kind === "daily")
+                    await this.rankingService.recompute(userId, today, manager);
+                return {
+                    result: {
+                        puzzleId: puzzle.id,
+                        status: evaluation.status,
+                        ranked,
+                        points,
+                    },
+                };
+            },
+        );
+        if ("saved" in outcome)
+            return this.toPlayResponse(
+                puzzle,
+                await this.evaluate(
+                    puzzle,
+                    outcome.saved.guesses,
+                    outcome.saved.hintAt,
+                ),
+                outcome.saved.hintAt,
+                await this.rankingSummary(userId, puzzle, outcome.saved),
             );
-        return this.toPlayResponse(puzzle, evaluation, hintAt);
+        return this.toPlayResponse(
+            puzzle,
+            evaluation,
+            hintAt,
+            await this.rankingSummary(userId, puzzle, outcome.result),
+        );
     }
 
     async findResults(
         userId: string,
         mode?: DailyMode,
+        kind: DailyPuzzleKind = "daily",
     ): Promise<DailyResultsResponseDto> {
         const results = await this.resultRepository.find({
-            where: { userId, ...(mode && { puzzle: { mode } }) },
+            where: { userId, puzzle: { kind, ...(mode && { mode }) } },
             relations: { puzzle: true },
             order: { puzzle: { date: "DESC" } },
         });
@@ -274,6 +360,7 @@ export class DailyService {
                 hintAt,
                 status: evaluation.status,
                 attempts: evaluation.attempts,
+                ranked: false,
                 finishedAt: new Date(),
             });
             done.add(puzzle.id);
@@ -285,13 +372,23 @@ export class DailyService {
     async getImage(token: string): Promise<Buffer> {
         const payload = verifyDailyImageToken(token, this.imageSecret);
         if (!payload) throw new ForbiddenException("Invalid image token");
-        const key = `daily:image:${payload.p}:${payload.k}:${payload.l}`;
+        const key = `daily:image:${payload.s ?? "p"}:${payload.p}:${payload.k}:${payload.l}`;
         const cached = await this.cache.get<string>(key).catch(() => undefined);
         if (cached) return Buffer.from(cached, "base64");
 
-        const puzzle = await this.puzzleRepository.findOneBy({ id: payload.p });
-        if (!puzzle) throw new NotFoundException("Puzzle not found");
-        const url = await this.imageUrl(puzzle, payload.k);
+        const answer =
+            payload.s === "r"
+                ? await this.practiceAnswer(String(payload.p))
+                : await this.puzzleRepository.findOneBy({
+                      id: Number(payload.p),
+                  });
+        if (!answer)
+            throw new NotFoundException(
+                payload.s === "r"
+                    ? "Practice round not found"
+                    : "Puzzle not found",
+            );
+        const url = await this.imageUrl(answer, payload.k);
         if (!url) throw new NotFoundException("Image not found");
 
         let source: Buffer;
@@ -325,7 +422,10 @@ export class DailyService {
         return image;
     }
 
-    private async imageUrl(puzzle: DailyPuzzle, kind: DailyImageKind) {
+    private async imageUrl(
+        puzzle: Pick<DailyPuzzle, "gameId" | "meta">,
+        kind: DailyImageKind,
+    ) {
         if (kind === "cover") {
             const cover = await this.dataSource
                 .getRepository(GameCover)
@@ -338,6 +438,18 @@ export class DailyService {
             .getRepository(GameArtwork)
             .findOneBy({ id: puzzle.meta.artworkId });
         return igdbImageUrl(artwork?.url, "t_1080p");
+    }
+
+    /** The round's answer, or `null` once the round is past its lifetime. */
+    private async practiceAnswer(
+        roundId: string,
+    ): Promise<DailyAnswerSource | null> {
+        const round = await this.dataSource
+            .getRepository(DailyPracticeRound)
+            .findOneBy({ id: roundId });
+        return round && round.createdAt >= practiceRoundsCutoff()
+            ? round
+            : null;
     }
 
     private async toPuzzleDtos(
@@ -369,8 +481,9 @@ export class DailyService {
         });
     }
 
-    private async evaluate(
-        puzzle: DailyPuzzle,
+    /** Evaluates a saved or incoming play against its answer. */
+    async evaluate(
+        puzzle: DailyAnswerSource,
         guesses: (number | null)[],
         hintAt: number | null,
     ) {
@@ -384,7 +497,7 @@ export class DailyService {
 
     /** Loads every game and keyword the evaluations need in one go. */
     private async loadContext(
-        puzzles: DailyPuzzle[],
+        puzzles: Pick<DailyPuzzle, "gameId" | "meta">[],
         guessIds: (number | null)[],
     ): Promise<DailyContext> {
         const ids = [
@@ -428,7 +541,7 @@ export class DailyService {
 
     private evaluateWith(
         context: DailyContext,
-        puzzle: DailyPuzzle,
+        puzzle: DailyAnswerSource,
         guesses: (number | null)[],
         hintAt: number | null,
     ): DailyEvaluation {
@@ -450,25 +563,46 @@ export class DailyService {
         });
     }
 
-    private async toPlayResponse(
+    /** The ranking block belongs to signed-in, finished daily puzzles only. */
+    private rankingSummary(
+        userId: string | undefined,
         puzzle: DailyPuzzle,
+        result: Pick<DailyResult, "puzzleId" | "status" | "ranked" | "points">,
+    ): Promise<DailyRankingSummaryDto | undefined> {
+        if (
+            !userId ||
+            puzzle.kind !== "daily" ||
+            result.status === DailyStatus.IN_PROGRESS
+        )
+            return Promise.resolve(undefined);
+        return this.rankingService.summaryAfterPlay(
+            userId,
+            result,
+            puzzle.date,
+        );
+    }
+
+    /** The play state a daily puzzle and a practice round share, with image tokens for `source`. */
+    buildPlayState(
+        answer: DailyAnswerSource,
         evaluation: DailyEvaluation,
         hintAt: number | null,
-    ): Promise<DailyPlayResponseDto> {
-        const finished = evaluation.status !== DailyStatus.IN_PROGRESS;
+        source: Pick<DailyImageTokenPayload, "p" | "s">,
+    ): DailyPlayStateDto {
         const { imageLevel, ...hints } = evaluation.hints;
         const levels: (number | "full")[] =
             imageLevel === null
                 ? []
                 : Array.from({ length: imageLevel + 1 }, (_, level) => level);
-        if (finished && puzzle.mode !== DailyMode.SPECS) levels.push("full");
-        const kind = puzzle.mode === DailyMode.ARTWORK ? "artwork" : "cover";
+        if (
+            evaluation.status !== DailyStatus.IN_PROGRESS &&
+            answer.mode !== DailyMode.SPECS
+        )
+            levels.push("full");
+        const kind = answer.mode === DailyMode.ARTWORK ? "artwork" : "cover";
         return {
-            puzzleId: puzzle.id,
-            mode: puzzle.mode,
-            number: puzzle.number,
-            date: puzzle.date,
-            maxAttempts: DAILY_MAX_ATTEMPTS[puzzle.mode],
+            mode: answer.mode,
+            maxAttempts: DAILY_MAX_ATTEMPTS[answer.mode],
             attempts: evaluation.attempts,
             status: evaluation.status,
             feedback: evaluation.feedback,
@@ -476,7 +610,7 @@ export class DailyService {
                 ...hints,
                 imageTokens: levels.map((l) =>
                     signDailyImageToken(
-                        { p: puzzle.id, k: kind, l },
+                        { ...source, k: kind, l },
                         this.imageSecret,
                     ),
                 ),
@@ -484,7 +618,25 @@ export class DailyService {
             hintAvailable: evaluation.hintAvailable,
             hintAt,
             answer: evaluation.answer,
+        };
+    }
+
+    private async toPlayResponse(
+        puzzle: DailyPuzzle,
+        evaluation: DailyEvaluation,
+        hintAt: number | null,
+        ranking?: DailyRankingSummaryDto,
+    ): Promise<DailyPlayResponseDto> {
+        const finished = evaluation.status !== DailyStatus.IN_PROGRESS;
+        return {
+            puzzleId: puzzle.id,
+            number: puzzle.number,
+            date: puzzle.date,
+            ...this.buildPlayState(puzzle, evaluation, hintAt, {
+                p: puzzle.id,
+            }),
             community: finished ? await this.community(puzzle.id) : undefined,
+            ...(ranking && { ranking }),
         };
     }
 

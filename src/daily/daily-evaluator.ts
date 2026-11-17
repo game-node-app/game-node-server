@@ -187,6 +187,24 @@ const revealValues = (
     return items.map((item) => item.name);
 };
 
+/** A saved progress can only grow: guesses append, and a saved hint stays where it was set. */
+export function assertProgressCanGrow(
+    saved: { guesses: (number | null)[]; hintAt: number | null },
+    guesses: (number | null)[],
+    hintAt: number | null,
+): void {
+    if (
+        guesses.length < saved.guesses.length ||
+        saved.guesses.some((id, i) => guesses[i] !== id) ||
+        (saved.hintAt !== null
+            ? hintAt !== saved.hintAt
+            : hintAt !== null && hintAt < saved.guesses.length)
+    )
+        throw new BadRequestException(
+            "Guesses can only be added to the saved progress",
+        );
+}
+
 /**
  * Evaluates a whole play from scratch, so a stored result and a guest's local state give the same answer.
  * Throws a 400 for a state no valid play can reach.
