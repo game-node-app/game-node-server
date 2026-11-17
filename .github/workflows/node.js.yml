@@ -29,3 +29,35 @@ jobs:
     - run: pnpm test:typecheck
     - run: pnpm test
     
+
+  # Runs `pnpm migration:run` the way production does (built image, empty MySQL), so a failure
+  # in the migration step shows up here instead of as a failed deploy.
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci
+          MYSQL_DATABASE: gamenode
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - uses: docker/build-push-action@v6
+      with:
+        context: .
+        load: true
+        tags: game-node-server:ci
+        # Read-only: reuses the layers the Deploy workflow cached on main.
+        cache-from: type=gha
+    - name: Run migrations on an empty database
+      run: |
+        docker run --rm --network host \
+          -e DB_HOST=127.0.0.1 -e DB_PORT=3306 -e DB_DATABASE=gamenode \
+          -e DB_USER=root -e DB_PASS=ci \
+          game-node-server:ci pnpm migration:run
