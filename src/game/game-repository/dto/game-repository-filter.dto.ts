@@ -21,6 +21,15 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
         each: true,
     })
     ids?: number[];
+    /**
+     * Minimum number of external critic reviews (`aggregatedRatingCount`).
+     * Unlike the array filters, this is a single comparison.
+     */
+    @ApiPropertyOptional({ type: Number })
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    minCriticReviewCount?: number;
     @ApiPropertyOptional({ enum: EGameStatus, isArray: true })
     @IsOptional()
     @IsArray()
