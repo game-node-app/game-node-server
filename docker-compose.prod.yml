@@ -88,8 +88,15 @@ services:
       BLOG_REFERENCE_API_URL: http://server:5000/v1
       BLOG_CMS_PREVIEW_TOKEN: ${BLOG_CMS_PREVIEW_TOKEN:?set BLOG_CMS_PREVIEW_TOKEN}
       STORAGE_LOCATIONS: private
-      STORAGE_PRIVATE_DRIVER: local
-      STORAGE_PRIVATE_ROOT: /directus/uploads
+      # Assets live in R2 under cms/ of the shared uploads bucket; /directus/uploads stays local for blog-media staging.
+      STORAGE_PRIVATE_DRIVER: s3
+      STORAGE_PRIVATE_BUCKET: gamenode-user-uploads
+      STORAGE_PRIVATE_ROOT: cms
+      STORAGE_PRIVATE_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT}
+      STORAGE_PRIVATE_REGION: auto
+      STORAGE_PRIVATE_FORCE_PATH_STYLE: "true"
+      STORAGE_PRIVATE_KEY: ${CMS_S3_ACCESS_KEY_ID:?set CMS_S3_ACCESS_KEY_ID}
+      STORAGE_PRIVATE_SECRET: ${CMS_S3_SECRET_ACCESS_KEY:?set CMS_S3_SECRET_ACCESS_KEY}
       FILES_MAX_UPLOAD_SIZE: 10mb
       FILES_MAX_UPLOAD_CONCURRENCY: 1
       FILES_MIME_TYPE_ALLOW_LIST: image/jpeg,image/png,image/webp

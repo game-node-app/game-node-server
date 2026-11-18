@@ -90,7 +90,12 @@ and WebP, bounds input/output image dimensions to 4096, limits transforms to
 five operations and one concurrent transform with a 15-second timeout, and
 retains revisions for 30 days. Prepared images are capped at 20 MiB. Private
 staging files not referenced by published content are removed after one day.
-Back up `blog_cms` and both asset volumes together; the MySQL instance backup
+CMS assets are stored in R2: the `cms/` prefix of the `gamenode-user-uploads`
+bucket, using `CMS_S3_ACCESS_KEY_ID` / `CMS_S3_SECRET_ACCESS_KEY` from Coolify.
+The key can also reach community uploads in that bucket, and objects under
+`cms/` are served by the bucket's public domain (UUID file names, unlisted).
+Only `/directus/uploads/.blog-staging` stays on the local `blog-cms-private`
+volume. Back up `blog_cms`, the `cms/` prefix and both asset volumes together; the MySQL instance backup
 must also include `gamenode`. Monitor disk
 space: previously published media intentionally remains public and is not
 removed when an article is unpublished.
