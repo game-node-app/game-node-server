@@ -190,6 +190,9 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                     CMS_ADMIN_PASSWORD: "cms_test_password",
                     BLOG_CMS_PUBLIC_URL: "https://cms.example.com",
                     BLOG_CMS_PREVIEW_TOKEN: "cms_test_preview_token",
+                    S3_ENDPOINT: "https://r2.example.com",
+                    CMS_S3_ACCESS_KEY_ID: "cms_test_s3_key",
+                    CMS_S3_SECRET_ACCESS_KEY: "cms_test_s3_secret",
                 },
             },
         );
@@ -270,6 +273,12 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                     volume.read_only,
             ).source,
         );
+        expect(prodConfig.services.cms.environment).toMatchObject({
+            STORAGE_PRIVATE_DRIVER: "s3",
+            STORAGE_PRIVATE_BUCKET: "gamenode-user-uploads",
+            STORAGE_PRIVATE_ROOT: "cms",
+            STORAGE_PRIVATE_KEY: "cms_test_s3_key",
+        });
         expect(
             prodConfig.services.cms.volumes.find(
                 (volume: any) => volume.target === "/directus/uploads",
