@@ -8,8 +8,8 @@ export interface PlaytimeInPeriod {
     lastPlayedDate: Date;
     firstPlayedDate: Date;
     /**
-     * Part of `totalPlaytimeInPeriodSeconds` estimated from the provider's
-     * recent total on the first Steam observation.
+     * Part of `totalPlaytimeInPeriodSeconds` estimated from a game's first
+     * observation (see `firstObservationSpread`).
      */
     estimatedPlaytimeSeconds?: number;
 }

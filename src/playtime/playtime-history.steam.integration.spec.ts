@@ -746,10 +746,15 @@ mysqlDescribe(
                 expect(byTable.get("previous").key).toBe(
                     "IDX_playtime_observation_previous",
                 );
+                // Without a source equality, a profile ref filtering createdAt in the index is also bounded.
                 expect([
                     "IDX_playtime_history_profile_period",
                     "IDX_playtime_observation_window",
+                    "IDX_playtime_observation_previous",
                 ]).toContain(byTable.get("ph").key);
+                expect(byTable.get("sync").key).toBe(
+                    "IDX_playtime_observation_window",
+                );
 
                 const timeSql = async ([sql, parameters]: [
                     string,
