@@ -1,5 +1,5 @@
 import { GameRepositoryFilterDto } from "../dto/game-repository-filter.dto";
-import { FindOptionsWhere, In } from "typeorm";
+import { FindOptionsWhere, In, MoreThanOrEqual } from "typeorm";
 import { Game } from "../entities/game.entity";
 
 const propertyEntities = ["category", "status"];
@@ -10,6 +10,12 @@ export function buildGameFilterFindOptions(
     let options: FindOptionsWhere<Game> = {};
     if (dto == undefined) return options;
     for (const [key, value] of Object.entries(dto)) {
+        if (key === "minCriticReviewCount") {
+            if (typeof value === "number" && !Number.isNaN(value)) {
+                options.aggregatedRatingCount = MoreThanOrEqual(value);
+            }
+            continue;
+        }
         if (propertyEntities.includes(key)) {
             const elements: number[] = Array.isArray(value) ? value : [value];
 

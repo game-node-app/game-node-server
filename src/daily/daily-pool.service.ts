@@ -3,7 +3,10 @@ import { DataSource } from "typeorm";
 import { DailyMode, dailyToday, mondayOf } from "./daily.constants";
 import { DailyPuzzleMeta } from "./entity/daily-puzzle.entity";
 import { EGameCategory } from "../game/game-repository/game-repository.constants";
-import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
+import {
+    MATURE_THEME_ID,
+    MINIMUM_CRITIC_REVIEWS,
+} from "../game/game-filter/game-filter.constants";
 import { getRandomItems } from "../utils/getRandomItems";
 
 const MODE_FILTERS: Record<DailyMode, string> = {
@@ -21,8 +24,6 @@ const MODE_FILTERS: Record<DailyMode, string> = {
             WHERE x.gameId = g.id AND (ic.developer = 1 OR ic.publisher = 1))
         AND g.firstReleaseDate <= NOW()`,
 };
-
-const MINIMUM_CRITIC_REVIEWS = 1;
 
 /** Positions within the candidate list ordered by descending critic reviews, then ascending game id. */
 export interface DailyPoolWindow {

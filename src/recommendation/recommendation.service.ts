@@ -10,7 +10,7 @@ import { getRandomItem, getRandomItems } from "../utils/getRandomItems";
 import { Game } from "../game/game-repository/entities/game.entity";
 import { GameFilterService } from "../game/game-filter/game-filter.service";
 
-import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
+import { MINIMUM_CRITIC_REVIEWS } from "../game/game-filter/game-filter.constants";
 
 @Injectable()
 export class RecommendationService {
@@ -68,7 +68,11 @@ export class RecommendationService {
             // Picks a single, random, similar game for each item.
             (game) => {
                 return getRandomItems(
-                    game.similarGames!,
+                    game.similarGames!.filter(
+                        (similar) =>
+                            (similar.aggregatedRatingCount ?? 0) >=
+                            MINIMUM_CRITIC_REVIEWS,
+                    ),
                     similarItemsPerEntry,
                 ).map((item) => item.id);
             },
@@ -130,7 +134,11 @@ export class RecommendationService {
             // Picks a single, random, similar game for each item.
             (game) => {
                 return getRandomItems(
-                    game.similarGames!,
+                    game.similarGames!.filter(
+                        (similar) =>
+                            (similar.aggregatedRatingCount ?? 0) >=
+                            MINIMUM_CRITIC_REVIEWS,
+                    ),
                     similarItemsPerEntry,
                 ).map((item) => item.id);
             },
@@ -200,6 +208,7 @@ export class RecommendationService {
         const gamesInTheme =
             await this.gameRepositoryService.findAllIdsWithFilters({
                 themes: [randomTheme[0]],
+                minCriticReviewCount: MINIMUM_CRITIC_REVIEWS,
             });
 
         const gameIdsInTheme = gamesInTheme.map((game) => game.id);
@@ -274,6 +283,7 @@ export class RecommendationService {
         const gamesInGenre =
             await this.gameRepositoryService.findAllIdsWithFilters({
                 genres: [randomGenre[0]],
+                minCriticReviewCount: MINIMUM_CRITIC_REVIEWS,
             });
 
         const gameIdsInGenre = gamesInGenre.map((game) => game.id);

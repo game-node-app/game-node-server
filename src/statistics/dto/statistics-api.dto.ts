@@ -23,6 +23,7 @@ import { GameRepositoryFilterDto } from "../../game/game-repository/dto/game-rep
 export class GameRankingCriteriaDto extends OmitType(GameRepositoryFilterDto, [
     "limit",
     "offset",
+    "minCriticReviewCount",
 ] as const) {}
 
 export enum StatisticsMetricCode {
