@@ -1,7 +1,9 @@
 import { setCacheManager } from "../utils/cacheable";
+import { UserPlaytimeSource } from "./playtime.constants";
 import {
     PlaytimeHistoryService,
-    estimateSteamRecentPlaytimeSeconds,
+    firstObservationSpread,
+    spreadPlaytimeSeconds,
 } from "./playtime-history.service";
 
 beforeEach(() =>
@@ -45,6 +47,7 @@ test("period filtering uses observation time instead of provider played dates", 
         andWhere: chain,
         subQuery: chain,
         from: chain,
+        useIndex: chain,
         orderBy: chain,
         addOrderBy: chain,
         limit: chain,
@@ -71,10 +74,41 @@ test("period filtering uses observation time instead of provider played dates", 
         "ph.createdAt > :startDate AND ph.createdAt <= :endDate",
         { startDate, endDate },
     );
-    expect(createQueryBuilder).toHaveBeenCalledTimes(1);
+    // The second query fetches first observations for the estimate.
+    expect(createQueryBuilder).toHaveBeenCalledTimes(2);
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith("ph.source = :source", {
+        source: "psn",
+    });
 });
 
 const day = 24 * 60 * 60 * 1000;
+
+const steamSpread = (
+    recentPlaytimeSeconds: number,
+    totalPlaytimeSeconds: number,
+    observedAt: Date,
+    startDate: Date,
+    endDate: Date,
+) => {
+    const spread = firstObservationSpread({
+        gameId: 1,
+        source: UserPlaytimeSource.STEAM,
+        platformId: 6,
+        observedAt,
+        recentPlaytimeSeconds,
+        totalPlaytimeSeconds,
+        firstPlayedDate: null,
+        lastPlayedDate: null,
+        previousSyncAt: null,
+    })!;
+    return spreadPlaytimeSeconds(
+        spread.amount,
+        spread.from,
+        spread.to,
+        startDate,
+        endDate,
+    );
+};
 
 describe("first Steam observation estimate", () => {
     it("spreads the provider recent total over the 14 days before observation", () => {
@@ -83,13 +117,7 @@ describe("first Steam observation estimate", () => {
         const observedAt = new Date(endDate.getTime() - 2 * day);
 
         expect(
-            estimateSteamRecentPlaytimeSeconds(
-                50_400,
-                1_000_000,
-                observedAt,
-                startDate,
-                endDate,
-            ),
+            steamSpread(50_400, 1_000_000, observedAt, startDate, endDate),
         ).toBe(18_000);
     });
 
@@ -99,7 +127,7 @@ describe("first Steam observation estimate", () => {
         const observedAt = new Date(currentStart.getTime() + 10 * day);
 
         expect(
-            estimateSteamRecentPlaytimeSeconds(
+            steamSpread(
                 50_400,
                 1_000_000,
                 observedAt,
@@ -109,41 +137,138 @@ describe("first Steam observation estimate", () => {
         ).toBe(14_400);
     });
 
-    it("conserves rounding between adjacent windows", () => {
-        const endDate = new Date("2026-10-25T12:00:00Z");
-        const middle = new Date(endDate.getTime() - 7 * day);
-        const startDate = new Date(endDate.getTime() - 14 * day);
-        const estimate = (from: Date, to: Date) =>
-            estimateSteamRecentPlaytimeSeconds(101, 1_000, endDate, from, to);
-
-        expect(estimate(startDate, middle) + estimate(middle, endDate)).toBe(
-            101,
-        );
-    });
-
     it("clamps negative recent time and caps it to the lifetime total", () => {
         const endDate = new Date("2026-10-25T12:00:00Z");
         const startDate = new Date(endDate.getTime() - 14 * day);
-        const observedAt = endDate;
 
+        expect(steamSpread(-50, 1_000, endDate, startDate, endDate)).toBe(0);
+        expect(steamSpread(500, 40, endDate, startDate, endDate)).toBe(40);
+    });
+});
+
+describe("spreadPlaytimeSeconds", () => {
+    const from = new Date("2026-11-01T00:00:00Z");
+    const to = new Date("2026-11-11T00:00:00Z");
+
+    it("keeps the part of a positive interval overlapping the window", () => {
         expect(
-            estimateSteamRecentPlaytimeSeconds(
-                -50,
+            spreadPlaytimeSeconds(
                 1_000,
-                observedAt,
-                startDate,
-                endDate,
+                from,
+                to,
+                new Date("2026-11-09T00:00:00Z"),
+                new Date("2026-11-20T00:00:00Z"),
+            ),
+        ).toBe(200);
+        expect(
+            spreadPlaytimeSeconds(
+                1_000,
+                from,
+                to,
+                new Date("2026-11-11T00:00:00Z"),
+                new Date("2026-11-20T00:00:00Z"),
             ),
         ).toBe(0);
+    });
+
+    it("conserves rounding between adjacent windows", () => {
+        const middle = new Date(to.getTime() - 3 * day);
+        const window = (start: Date, end: Date) =>
+            spreadPlaytimeSeconds(101, from, to, start, end);
+
+        expect(window(from, middle) + window(middle, to)).toBe(101);
         expect(
-            estimateSteamRecentPlaytimeSeconds(
-                500,
-                40,
-                observedAt,
-                startDate,
-                endDate,
-            ),
-        ).toBe(40);
+            window(new Date(from.getTime() - day), middle) +
+                window(middle, new Date(to.getTime() + day)),
+        ).toBe(101);
+    });
+
+    it("puts an empty or inverted interval at its end, excluding the window start", () => {
+        const at = (start: Date, end: Date, start2 = to) =>
+            spreadPlaytimeSeconds(500, start2, to, start, end);
+        const before = new Date(to.getTime() - day);
+        const after = new Date(to.getTime() + day);
+
+        expect(at(before, to)).toBe(500);
+        expect(at(to, after)).toBe(0);
+        expect(at(before, to, after)).toBe(500);
+        expect(at(to, after, after)).toBe(0);
+    });
+});
+
+describe("first observation rules", () => {
+    const observedAt = new Date("2026-11-16T15:10:00Z");
+    const observation = {
+        gameId: 1,
+        source: UserPlaytimeSource.NSWITCH,
+        platformId: 130,
+        observedAt,
+        recentPlaytimeSeconds: 0,
+        totalPlaytimeSeconds: 7_200,
+        firstPlayedDate: null,
+        lastPlayedDate: null,
+        previousSyncAt: null,
+    };
+
+    it("spreads from the first played date to the last played date", () => {
+        const firstPlayedDate = new Date("2026-11-16T01:49:00Z");
+        const lastPlayedDate = new Date("2026-11-16T11:38:00Z");
+
+        expect(
+            firstObservationSpread({
+                ...observation,
+                firstPlayedDate,
+                lastPlayedDate,
+            }),
+        ).toEqual({ amount: 7_200, from: firstPlayedDate, to: lastPlayedDate });
+        expect(
+            firstObservationSpread({
+                ...observation,
+                firstPlayedDate,
+                lastPlayedDate: new Date("2026-11-17T00:00:00Z"),
+            }),
+        ).toEqual({ amount: 7_200, from: firstPlayedDate, to: observedAt });
+    });
+
+    it("spreads Xbox games new to a syncing connection since the previous sync", () => {
+        const previousSyncAt = new Date("2026-11-15T15:10:00Z");
+        const xbox = {
+            ...observation,
+            source: UserPlaytimeSource.XBOX,
+            previousSyncAt,
+        };
+
+        expect(firstObservationSpread(xbox)).toEqual({
+            amount: 7_200,
+            from: previousSyncAt,
+            to: observedAt,
+        });
+        expect(
+            firstObservationSpread({
+                ...xbox,
+                lastPlayedDate: new Date("2026-11-15T15:09:59Z"),
+            }),
+        ).toBeNull();
+        expect(
+            firstObservationSpread({ ...xbox, previousSyncAt: null }),
+        ).toBeNull();
+    });
+
+    it("leaves sources without played dates at zero", () => {
+        for (const source of [
+            UserPlaytimeSource.EPICGAMES,
+            UserPlaytimeSource.GOG,
+            UserPlaytimeSource.EMULATOR,
+        ]) {
+            expect(
+                firstObservationSpread({
+                    ...observation,
+                    source,
+                    lastPlayedDate: observedAt,
+                    previousSyncAt: new Date("2026-11-15T15:10:00Z"),
+                }),
+            ).toBeNull();
+        }
     });
 });
 
@@ -162,6 +287,7 @@ test("the Steam estimate query includes first observations after the window end"
             andWhere: chain,
             subQuery: chain,
             from: chain,
+            useIndex: chain,
             orderBy: chain,
             addOrderBy: chain,
             limit: chain,
@@ -180,6 +306,9 @@ test("the Steam estimate query includes first observations after the window end"
             observedAt,
             recentPlaytimeSeconds: 50_400,
             totalPlaytimeSeconds: 1_000_000,
+            firstPlayedDate: null,
+            lastPlayedDate: null,
+            previousSyncAt: null,
         },
     ]);
     const createQueryBuilder = jest
@@ -201,8 +330,10 @@ test("the Steam estimate query includes first observations after the window end"
         estimateQuery.where.mock.calls.map(([sql]: [string]) => sql),
     ).toContainEqual(expect.stringContaining("NOT EXISTS"));
     expect(estimateQuery.andWhere).toHaveBeenCalledWith(
-        "ph.createdAt < :bootstrapEndDate",
-        { bootstrapEndDate: new Date(endDate.getTime() + 14 * day) },
+        expect.stringContaining("ph.createdAt < :steamEndDate"),
+        expect.objectContaining({
+            steamEndDate: new Date(endDate.getTime() + 14 * day),
+        }),
     );
     expect(totals).toEqual([
         {
@@ -227,6 +358,7 @@ test("daily period grouping attributes increments to the observed UTC day", asyn
         andWhere: chain,
         subQuery: chain,
         from: chain,
+        useIndex: chain,
         orderBy: chain,
         addOrderBy: chain,
         limit: chain,

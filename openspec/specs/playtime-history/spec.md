@@ -17,8 +17,8 @@ The system SHALL persist a changed playtime observation and its current aggregat
 - **WHEN** the same unchanged cumulative values are observed repeatedly
 - **THEN** no redundant changed-history entry is created
 
-### Requirement: Period estimates include a baseline and first Steam recent window
-Period playtime SHALL use the latest trusted observation at or before the period start and non-negative increments through its end. An increment SHALL be attributed to its ending observation for existing period responses and documented as an estimate. A first-ever cumulative sample SHALL NOT be invented as historical playtime. As the only exception, when the first persisted observation for a playtime identity is Steam and carries a provider recent total, that recent total SHALL be spread uniformly over the 14 days before the observation and only its overlap with the period SHALL be counted. Overlap SHALL round the cumulative weight at both period edges so adjacent windows conserve the estimate. Negative or invalid recent time SHALL contribute zero, and recent time SHALL be capped to the non-negative lifetime total. Read-time estimates SHALL NOT create synthetic history, sessions, migrations, or daily calendars, and SHALL disclose that the uniform spread is a provider-window approximation rather than exact play dates. Summary period responses SHALL expose the first-observation part additively while keeping it included in the window total.
+### Requirement: Period estimates include a baseline and first-observation spreads
+Period playtime SHALL use the latest trusted observation at or before the period start and non-negative increments through its end. An increment SHALL be attributed to its ending observation for existing period responses and documented as an estimate. A first-ever cumulative sample SHALL NOT be invented as historical playtime. The first persisted observation for a playtime identity SHALL instead be spread uniformly over an interval, counting only its overlap with the period, when that interval is known: for Steam with a provider recent total, the recent total over the 14 days before the observation; for an observation with a provider first-played date (PSN, Nintendo), the lifetime total from that date to the earlier of its last-played date and the observation; for Xbox, the lifetime total from the user's previous Xbox sync to the earlier of its last-played date and the observation, only when an earlier Xbox sync exists, the last-played date is not before it, and the game has no earlier Xbox observation on another platform. Any other first observation, including Epic Games and GOG, SHALL contribute zero. An empty interval SHALL attribute the whole amount to its end. Overlap SHALL round the cumulative weight at both period edges so adjacent windows conserve the estimate. Negative or invalid recent time SHALL contribute zero, and recent time SHALL be capped to the non-negative lifetime total. Read-time estimates SHALL NOT create synthetic history, sessions, migrations, or daily calendars, and SHALL disclose that the uniform spread is a provider-window approximation rather than exact play dates. Summary period responses SHALL expose the first-observation part additively while keeping it included in the window total.
 
 #### Scenario: One observation inside the period
 - **WHEN** the baseline is 100 seconds before the period and one later observation is 160 seconds inside it
@@ -36,8 +36,16 @@ Period playtime SHALL use the latest trusted observation at or before the period
 - **WHEN** the first Steam observation ends after a previous window's end but its 14-day recent interval still overlaps that window
 - **THEN** the previous window includes its rounded overlap instead of losing the estimate because the observation itself is outside the window
 
-#### Scenario: First non-Steam sample
-- **WHEN** the first observation for a PSN, Xbox or other non-Steam identity has no trusted prior baseline
+#### Scenario: First sample with a provider first-played date
+- **WHEN** a Nintendo game's first observation reports 7,200 lifetime seconds first played and last played inside a 7-day window
+- **THEN** the window includes all 7,200 seconds as estimated playtime
+
+#### Scenario: Xbox game new to a syncing connection
+- **WHEN** an Xbox game first appears after an earlier Xbox sync of the same user, with no earlier observation on another platform and a last-played date after that sync
+- **THEN** its lifetime total is spread from the earlier sync to its last-played date
+
+#### Scenario: First sample without a known interval
+- **WHEN** the first observation is an initial Xbox import, or any Epic Games, GOG or other identity without a provider first-played date
 - **THEN** it contributes zero period playtime
 
 #### Scenario: Invalid or inflated first Steam recent total

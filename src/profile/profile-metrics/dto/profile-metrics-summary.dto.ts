@@ -24,8 +24,10 @@ export class ProfileMetricsSummaryNamedTotalDto {
 export class ProfileMetricsSummaryWindowDto {
     totalPlaytimeSeconds: number;
     /**
-     * Part of `totalPlaytimeSeconds` estimated by spreading Steam's recent
-     * total over the 14 days before its first observation.
+     * Part of `totalPlaytimeSeconds` estimated from games' first observations:
+     * Steam's recent total spread over the 14 days before it, or the first
+     * total spread over the provider's played dates (PSN, Nintendo) or since
+     * the previous sync (Xbox games new to a syncing connection).
      */
     estimatedPlaytimeSeconds: number;
     /** Distinct games with playtime in the window. */
@@ -34,17 +36,17 @@ export class ProfileMetricsSummaryWindowDto {
 
 /**
  * Playtime figures are estimates from observed cumulative totals. Increments
- * are attributed to the observation that ended them; a Steam library's first
- * observation also spreads its provider recent total over the preceding 14
- * days. Values are not exact play sessions or dates.
+ * are attributed to the observation that ended them; a game's first
+ * observation is spread over the time it was likely played (see
+ * `estimatedPlaytimeSeconds`). Values are not exact play sessions or dates.
  */
 export class ProfileMetricsSummaryResponseDto {
     period: ProfileMetricsSummaryPeriod;
     current: ProfileMetricsSummaryWindowDto;
     /**
      * The window of the same length that ends where the current one starts.
-     * A Steam library first observed shortly after this end can still
-     * contribute its recent-time overlap.
+     * A game first observed after this end can still contribute the part of
+     * its first-observation estimate that falls inside it.
      */
     previous: ProfileMetricsSummaryWindowDto;
     /** The five most played games of the current window, most played first. */

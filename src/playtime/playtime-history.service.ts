@@ -16,40 +16,97 @@ const nonNegativeSeconds = (value: unknown) => {
 };
 
 /**
- * Steam's recent total covers the 14 days before its first observation, so
- * spread it evenly and keep the part overlapping the window. Rounding both
- * cumulative edges conserves the total between adjacent windows.
+ * Spreads `amount` evenly over [from, to] and keeps the part overlapping
+ * (startDate, endDate]. Rounding both cumulative edges conserves the total
+ * between adjacent windows. An empty or inverted interval puts the whole
+ * amount at `to`.
  */
-export function estimateSteamRecentPlaytimeSeconds(
-    recentPlaytimeSeconds: unknown,
-    totalPlaytimeSeconds: unknown,
-    observedAt: Date,
+export function spreadPlaytimeSeconds(
+    amount: unknown,
+    from: Date,
+    to: Date,
     startDate: Date,
     endDate: Date,
 ) {
-    const recent = Math.min(
-        nonNegativeSeconds(recentPlaytimeSeconds),
-        nonNegativeSeconds(totalPlaytimeSeconds),
-    );
-    const intervalStart = observedAt.getTime() - STEAM_RECENT_WINDOW_MS;
+    const seconds = nonNegativeSeconds(amount);
+    const span = to.getTime() - from.getTime();
+    if (span <= 0) {
+        return startDate.getTime() < to.getTime() &&
+            to.getTime() <= endDate.getTime()
+            ? seconds
+            : 0;
+    }
     const cumulative = (date: Date) => {
         const elapsed = Math.min(
-            Math.max(date.getTime() - intervalStart, 0),
-            STEAM_RECENT_WINDOW_MS,
+            Math.max(date.getTime() - from.getTime(), 0),
+            span,
         );
-        return Math.round(recent * (elapsed / STEAM_RECENT_WINDOW_MS));
+        return Math.round(seconds * (elapsed / span));
     };
     return cumulative(endDate) - cumulative(startDate);
 }
 
-type FirstSteamObservation = {
+type FirstObservation = {
     gameId: number;
     source: UserPlaytimeSource;
     platformId: number;
     observedAt: Date;
     recentPlaytimeSeconds: number;
     totalPlaytimeSeconds: number;
+    firstPlayedDate: Date | null;
+    lastPlayedDate: Date | null;
+    /** Latest earlier sync of the same source; only fetched for Xbox candidates. */
+    previousSyncAt: Date | null;
 };
+
+/**
+ * Time played before a game's first observation, as an amount and the
+ * interval it is spread over, or null when it cannot be told apart from
+ * lifetime time.
+ */
+export function firstObservationSpread(observation: FirstObservation) {
+    const { source, observedAt, firstPlayedDate, lastPlayedDate } = observation;
+    if (source === UserPlaytimeSource.STEAM) {
+        // Steam's recent total covers the 14 days before the observation.
+        return {
+            amount: Math.min(
+                nonNegativeSeconds(observation.recentPlaytimeSeconds),
+                nonNegativeSeconds(observation.totalPlaytimeSeconds),
+            ),
+            from: new Date(observedAt.getTime() - STEAM_RECENT_WINDOW_MS),
+            to: observedAt,
+        };
+    }
+    const to = new Date(
+        Math.min(
+            lastPlayedDate?.getTime() ?? observedAt.getTime(),
+            observedAt.getTime(),
+        ),
+    );
+    if (firstPlayedDate) {
+        return {
+            amount: observation.totalPlaytimeSeconds,
+            from: firstPlayedDate,
+            to,
+        };
+    }
+    const { previousSyncAt } = observation;
+    // Xbox: a game new to an already syncing connection was played since the
+    // previous sync. The query drops games seen before on another platform.
+    if (
+        source === UserPlaytimeSource.XBOX &&
+        previousSyncAt &&
+        (lastPlayedDate == null || lastPlayedDate >= previousSyncAt)
+    ) {
+        return {
+            amount: observation.totalPlaytimeSeconds,
+            from: previousSyncAt,
+            to,
+        };
+    }
+    // shortcut: Epic/GOG are excluded because a newly mapped old game (e.g. the Epic namespace fill) brings its lifetime total, upgrade when they expose a real last-played date.
+    return null;
+}
 
 export interface DailyPlaytime {
     day: string;
@@ -143,7 +200,7 @@ export class PlaytimeHistoryService {
         }
 
         const totals = await qb.getRawMany<PlaytimeInPeriod>();
-        const estimates = await this.getFirstSteamObservationEstimates(dto);
+        const estimates = await this.getFirstObservations(dto);
         const merged = new Map<string, PlaytimeInPeriod>();
         for (const total of totals) {
             const gameId = Number(total.gameId);
@@ -159,10 +216,12 @@ export class PlaytimeHistoryService {
             });
         }
         for (const estimate of estimates) {
-            const seconds = estimateSteamRecentPlaytimeSeconds(
-                estimate.recentPlaytimeSeconds,
-                estimate.totalPlaytimeSeconds,
-                estimate.observedAt,
+            const spread = firstObservationSpread(estimate);
+            if (!spread) continue;
+            const seconds = spreadPlaytimeSeconds(
+                spread.amount,
+                spread.from,
+                spread.to,
                 startDate,
                 endDate,
             );
@@ -188,17 +247,18 @@ export class PlaytimeHistoryService {
         return [...merged.values()];
     }
 
-    private async getFirstSteamObservationEstimates(
-        dto: GetTotalPlaytimePeriodDto,
-    ) {
+    /**
+     * First observations of each (game, source, platform) that may overlap the
+     * period; `firstObservationSpread` decides how much of them counts.
+     */
+    private async getFirstObservations(dto: GetTotalPlaytimePeriodDto) {
         const { userId, source, platformId, startDate, endDate } = dto;
-        if (source != null && source !== UserPlaytimeSource.STEAM) return [];
-
         const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
         const previous = qb
             .subQuery()
             .select("previous.totalPlaytimeSeconds")
             .from(UserPlaytimeHistory, "previous")
+            .useIndex("IDX_playtime_observation_previous")
             .where("previous.profileUserId = ph.profileUserId")
             .andWhere("previous.gameId = ph.gameId")
             .andWhere("previous.source = ph.source")
@@ -207,6 +267,29 @@ export class PlaytimeHistoryService {
                 "(previous.createdAt < ph.createdAt OR (previous.createdAt = ph.createdAt AND previous.id < ph.id))",
             )
             .getQuery();
+        // Xbox switching a game's preferred platform starts a new key carrying the lifetime total.
+        const otherPlatform = qb
+            .subQuery()
+            .select("otherPlatform.id")
+            .from(UserPlaytimeHistory, "otherPlatform")
+            .where("otherPlatform.profileUserId = ph.profileUserId")
+            .andWhere("otherPlatform.gameId = ph.gameId")
+            .andWhere("otherPlatform.source = ph.source")
+            .andWhere("otherPlatform.createdAt < ph.createdAt")
+            .getQuery();
+        // Rows of one import share createdAt, so the initial import has no earlier sync.
+        const previousSync = qb
+            .subQuery()
+            .select("MAX(sync.createdAt)")
+            .from(UserPlaytimeHistory, "sync")
+            // Bounded by the profile's rows of this source, not its whole history.
+            .useIndex("IDX_playtime_observation_window")
+            .where("sync.profileUserId = ph.profileUserId")
+            .andWhere("sync.source = ph.source")
+            .andWhere("sync.createdAt < ph.createdAt")
+            .getQuery();
+        const xboxCandidate =
+            "ph.source = :xbox AND ph.firstPlayedDate IS NULL";
 
         qb.select("ph.gameId", "gameId")
             .addSelect("ph.source", "source")
@@ -214,24 +297,41 @@ export class PlaytimeHistoryService {
             .addSelect("ph.createdAt", "observedAt")
             .addSelect("ph.recentPlaytimeSeconds", "recentPlaytimeSeconds")
             .addSelect("ph.totalPlaytimeSeconds", "totalPlaytimeSeconds")
+            .addSelect("ph.firstPlayedDate", "firstPlayedDate")
+            .addSelect("ph.lastPlayedDate", "lastPlayedDate")
+            .addSelect(
+                `CASE WHEN ${xboxCandidate} THEN ${previousSync} END`,
+                "previousSyncAt",
+            )
             .where(`NOT EXISTS ${previous}`)
             .andWhere("ph.profileUserId = :userId", { userId })
-            .andWhere("ph.source = :steamSource", {
-                steamSource: UserPlaytimeSource.STEAM,
-            })
-            .andWhere("ph.recentPlaytimeSeconds > 0")
+            // Every interval ends at or before the observation.
             .andWhere("ph.createdAt > :startDate", { startDate })
-            .andWhere("ph.createdAt < :bootstrapEndDate", {
-                // A first observation up to one recent window after the period
-                // end can still overlap it.
-                bootstrapEndDate: new Date(
-                    endDate.getTime() + STEAM_RECENT_WINDOW_MS,
-                ),
-            });
+            .andWhere(
+                `(
+                    (ph.source = :steam AND ph.recentPlaytimeSeconds > 0 AND ph.createdAt < :steamEndDate)
+                    OR (ph.source <> :steam AND ph.firstPlayedDate IS NOT NULL
+                        AND LEAST(ph.firstPlayedDate, COALESCE(ph.lastPlayedDate, ph.createdAt), ph.createdAt) <= :endDate)
+                    OR (${xboxCandidate} AND NOT EXISTS ${otherPlatform})
+                )`,
+                {
+                    steam: UserPlaytimeSource.STEAM,
+                    xbox: UserPlaytimeSource.XBOX,
+                    // A Steam first observation up to one recent window after
+                    // the period end can still overlap it.
+                    steamEndDate: new Date(
+                        endDate.getTime() + STEAM_RECENT_WINDOW_MS,
+                    ),
+                    endDate,
+                },
+            );
+        if (source) {
+            qb.andWhere("ph.source = :source", { source });
+        }
         if (platformId) {
             qb.andWhere("ph.platformId = :platformId", { platformId });
         }
-        return await qb.getRawMany<FirstSteamObservation>();
+        return await qb.getRawMany<FirstObservation>();
     }
 
     public async getDailyPlaytimeForPeriod(

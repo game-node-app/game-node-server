@@ -32,7 +32,7 @@ type PlaytimeRow = {
 
 /**
  * Period summary behind the recap share card: playtime deltas from the
- * playtime history plus the first Steam observation's recent-time estimate,
+ * playtime history plus the estimate for games' first observations,
  * with the same figures for the previous window so clients can show the
  * change.
  */
