@@ -169,6 +169,7 @@ export class CollectionsEntriesController {
     @ApiOkResponse({
         type: CollectionEntriesPaginatedResponseDto,
     })
+    @ApiBadRequestResponse({ description: "Invalid query" })
     @Public()
     async findAllByLibraryId(
         @Session() session: SessionContainer | undefined,
@@ -188,6 +189,7 @@ export class CollectionsEntriesController {
     @ApiOkResponse({
         type: CollectionEntriesPaginatedResponseDto,
     })
+    @ApiBadRequestResponse({ description: "Invalid query" })
     @Public()
     async findFavoritesByLibraryId(
         @Session() session: SessionContainer | undefined,
@@ -207,6 +209,7 @@ export class CollectionsEntriesController {
     @ApiOkResponse({
         type: CollectionEntriesPaginatedResponseDto,
     })
+    @ApiBadRequestResponse({ description: "Invalid body" })
     @Public()
     async findAllByCollectionId(
         @Session() session: SessionContainer,

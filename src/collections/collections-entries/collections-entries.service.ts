@@ -9,13 +9,16 @@ import {
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+    And,
     Between,
     DeepPartial,
     FindManyOptions,
+    FindOperator,
     FindOptionsRelations,
     FindOptionsWhere,
     In,
     Not,
+    Raw,
     Repository,
 } from "typeorm";
 import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-entry.dto";
@@ -50,6 +53,7 @@ import {
     LibraryAccess,
     LibraryVisibility,
 } from "../../libraries/library-visibility.constants";
+import { normalizeGameSearchQuery } from "../../search/search.service";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -345,11 +349,42 @@ export class CollectionsEntriesService {
         return choices.map((choice) => choice.gameId);
     }
 
+    private resolveLibrarySearch(
+        search?: string,
+    ): { empty: true } | { empty: false; gameId?: FindOperator<number> } {
+        if (!search || search.trim() === "") return { empty: false };
+        const normalized = normalizeGameSearchQuery(search);
+        if (!normalized) return { empty: true };
+
+        // shortcut: scans the target listing; at ≥20k entries per library, switch to an id-page query or a per-library index and revisit if p95 exceeds 200 ms.
+        return {
+            empty: false,
+            gameId: Raw(
+                (alias) =>
+                    `(EXISTS (SELECT 1 FROM game g WHERE g.id = ${alias} AND g.searchName LIKE :librarySearch) OR EXISTS (SELECT 1 FROM game_alternative_name a WHERE a.gameId = ${alias} AND a.searchName LIKE :librarySearch))`,
+                { librarySearch: `%${normalized}%` },
+            ),
+        };
+    }
+
+    private combineGameIdConditions(
+        ...conditions: (FindOperator<number> | undefined)[]
+    ) {
+        const defined = conditions.filter(
+            (condition): condition is FindOperator<number> =>
+                condition !== undefined,
+        );
+        return defined.length > 1 ? And(...defined) : defined[0];
+    }
+
     async findAllByCollectionIdWithPermissions(
         userId: string | undefined,
         collectionId: string,
         dto?: FindCollectionEntriesForCollectionIdDto,
     ): Promise<[CollectionEntry[], number]> {
+        const searchFilter = this.resolveLibrarySearch(dto?.search);
+        if (searchFilter.empty) return [[], 0];
+
         const baseFindOptions = buildBaseFindOptions<CollectionEntry>({
             ...dto,
             orderBy: undefined,
@@ -388,9 +423,10 @@ export class CollectionsEntriesService {
                     },
                 },
                 visibility: In(access.visibleEntryLevels),
-                gameId: customCoverGameIds
-                    ? In(customCoverGameIds)
-                    : undefined,
+                gameId: this.combineGameIdConditions(
+                    customCoverGameIds ? In(customCoverGameIds) : undefined,
+                    searchFilter.gameId,
+                ),
                 game: buildGameFilterFindOptions(dto?.gameFilters),
             },
             order: {
@@ -422,6 +458,9 @@ export class CollectionsEntriesService {
         targetUserId: string,
         dto: FindCollectionEntriesDto,
     ): Promise<[CollectionEntry[], number]> {
+        const searchFilter = this.resolveLibrarySearch(dto?.search);
+        if (searchFilter.empty) return [[], 0];
+
         const access = await this.libraryAccessService.resolve(
             userId,
             targetUserId,
@@ -450,9 +489,10 @@ export class CollectionsEntriesService {
                     libraryUserId: targetUserId,
                     visibility: In(access.visibleEntryLevels),
                     status: dto.status,
-                    gameId: customCoverGameIds
-                        ? In(customCoverGameIds)
-                        : undefined,
+                    gameId: this.combineGameIdConditions(
+                        customCoverGameIds ? In(customCoverGameIds) : undefined,
+                        searchFilter.gameId,
+                    ),
                     game: buildGameFilterFindOptions(dto.gameFilters),
                 },
                 order: {
@@ -514,6 +554,9 @@ export class CollectionsEntriesService {
         targetUserId: string,
         dto: FindCollectionEntriesDto,
     ): Promise<[CollectionEntry[], number]> {
+        const searchFilter = this.resolveLibrarySearch(dto?.search);
+        if (searchFilter.empty) return [[], 0];
+
         const access = await this.libraryAccessService.resolve(
             userId,
             targetUserId,
@@ -543,9 +586,10 @@ export class CollectionsEntriesService {
                     libraryUserId: targetUserId,
                     visibility: In(access.visibleEntryLevels),
                     status: dto.status,
-                    gameId: customCoverGameIds
-                        ? In(customCoverGameIds)
-                        : undefined,
+                    gameId: this.combineGameIdConditions(
+                        customCoverGameIds ? In(customCoverGameIds) : undefined,
+                        searchFilter.gameId,
+                    ),
                 },
                 order: {
                     createdAt: dto?.orderBy?.addedDate,
