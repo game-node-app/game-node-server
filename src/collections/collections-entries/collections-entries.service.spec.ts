@@ -368,6 +368,119 @@ describe("custom cover filter", () => {
     });
 });
 
+describe("library search filter", () => {
+    test("leaves each listing unchanged without search", async () => {
+        const library = fixture();
+        await library.service.findAllByUserIdWithPermissions(
+            "viewer",
+            "owner",
+            {},
+        );
+        const [libraryCall] = library.repository.findAndCount.mock.calls[0] as [
+            { where: Record<string, unknown> },
+        ];
+        expect(libraryCall.where.gameId).toBeUndefined();
+
+        const favorites = fixture();
+        await favorites.service.findFavoritesByUserId("viewer", "owner", {});
+        const [favoriteCall] = favorites.repository.findAndCount.mock
+            .calls[0] as [{ where: Record<string, unknown> }];
+        expect(favoriteCall.where.gameId).toBeUndefined();
+
+        const collection = fixture();
+        collection.collectionsService.findOneById.mockResolvedValue({
+            id: "collection",
+            libraryUserId: "owner",
+            isPublic: true,
+        });
+        await collection.service.findAllByCollectionIdWithPermissions(
+            "viewer",
+            "collection",
+            {},
+        );
+        const [collectionCall] = collection.repository.findAndCount.mock
+            .calls[0] as [{ where: Record<string, unknown> }];
+        expect(collectionCall.where.gameId).toBeUndefined();
+    });
+
+    test("treats a blank search as no filter", async () => {
+        const { service, repository } = fixture();
+
+        await service.findAllByUserIdWithPermissions("owner", "owner", {
+            search: "   ",
+        });
+
+        expect(repository.findAndCount).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({ gameId: undefined }),
+            }),
+        );
+    });
+
+    test.each(["%%%", "'", "_"])(
+        "returns an empty page for %p when normalization leaves nothing",
+        async (search) => {
+            const { service, repository, userGameCovers, libraryAccess } =
+                fixture();
+
+            await expect(
+                service.findAllByUserIdWithPermissions("owner", "owner", {
+                    search,
+                    hasCustomCover: true,
+                }),
+            ).resolves.toEqual([[], 0]);
+            expect(repository.findAndCount).not.toHaveBeenCalled();
+            expect(userGameCovers.find).not.toHaveBeenCalled();
+            expect(libraryAccess.resolve).not.toHaveBeenCalled();
+        },
+    );
+
+    test("binds the normalized term as a Raw parameter", async () => {
+        const { service, repository } = fixture();
+
+        await service.findAllByUserIdWithPermissions("owner", "owner", {
+            search: "Half-Life",
+        });
+
+        const [{ where }] = repository.findAndCount.mock.calls[0] as [
+            { where: Record<string, unknown> },
+        ];
+        const searchCondition = where.gameId as any;
+        expect(searchCondition.type).toBe("raw");
+        expect(searchCondition.objectLiteralParameters).toEqual({
+            librarySearch: "%Half Life%",
+        });
+        const sql = searchCondition.getSql("ce.gameId");
+        expect(sql).toContain("g.id = ce.gameId");
+        expect(sql).toContain("a.gameId = ce.gameId");
+        expect(sql).not.toContain("Half Life");
+    });
+
+    test("combines search and the custom cover ids with And", async () => {
+        const { service, repository, userGameCovers } = fixture();
+        userGameCovers.find.mockResolvedValue([{ gameId: 7 }]);
+
+        await service.findAllByUserIdWithPermissions("owner", "owner", {
+            search: "halo",
+            hasCustomCover: true,
+        });
+
+        const [{ where }] = repository.findAndCount.mock.calls[0] as [
+            { where: Record<string, unknown> },
+        ];
+        const condition = where.gameId as any;
+        expect(condition.type).toBe("and");
+        expect(condition.value.map((child: any) => child.type)).toEqual([
+            "in",
+            "raw",
+        ]);
+        expect(condition.value[0].value).toEqual([7]);
+        expect(condition.value[1].objectLiteralParameters).toEqual({
+            librarySearch: "%halo%",
+        });
+    });
+});
+
 describe("entry visibility writes", () => {
     const dto = (extra: Record<string, unknown> = {}) => ({
         gameId: 7,

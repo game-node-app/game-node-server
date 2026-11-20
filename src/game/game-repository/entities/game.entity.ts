@@ -34,7 +34,7 @@ import { GameTheme } from "./game-theme.entity";
 import { GamePlayerPerspective } from "./game-player-perspective.entity";
 import { GameEngine } from "./game-engine.entity";
 import { StatisticsTarget } from "../../../statistics/entity/statistics-target.entity";
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiHideProperty, ApiProperty } from "@nestjs/swagger";
 
 /**
  * For future maintainers:
@@ -65,6 +65,19 @@ export class Game {
     // Fields
     @Column()
     name: string;
+    // MySQL-maintained normalized copy of `name` for library search; never written or selected.
+    @ApiHideProperty()
+    @Column({
+        type: "varchar",
+        length: 255,
+        generatedType: "STORED",
+        asExpression:
+            "TRIM(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(`name`, '[\\'‘’＇]', ''), '[\\\\p{P}\\\\p{S}]+', ' '), '\\\\s+', ' '))",
+        insert: false,
+        update: false,
+        select: false,
+    })
+    searchName: string;
     // URL-safe, unique name.
     @Column()
     slug: string;

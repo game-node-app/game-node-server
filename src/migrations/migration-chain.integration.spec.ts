@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { DataSource } from "typeorm";
 import { createConnection, Connection } from "mysql2/promise";
 import { testEnvironment } from "../../test/igdb/helpers/test-environment";
+import { AddGameSearchName1795800000000 } from "./1795800000000-AddGameSearchName";
 
 const DATABASE = "migration_chain_test";
 // Test container credentials from test/igdb/docker-compose.yml.
@@ -107,5 +108,27 @@ describe("migration chain on an empty database", () => {
         expect(
             await source.query("SHOW TABLES LIKE 'daily_ranking_entry'"),
         ).toHaveLength(1);
+    });
+
+    it("recovers the game search migration when only one column exists", async () => {
+        const runner = source.createQueryRunner();
+        const migration = new AddGameSearchName1795800000000();
+        try {
+            await runner.query(
+                "ALTER TABLE `game_alternative_name` DROP COLUMN `searchName`",
+            );
+            await migration.up(runner);
+            expect(await runner.hasColumn("game", "searchName")).toBe(true);
+            expect(
+                await runner.hasColumn("game_alternative_name", "searchName"),
+            ).toBe(true);
+            expect(
+                await runner.query(
+                    "SELECT `table` FROM `typeorm_metadata` WHERE `schema` = DATABASE() AND `type` = 'GENERATED_COLUMN' AND `name` = 'searchName' ORDER BY `table`",
+                ),
+            ).toEqual([{ table: "game" }, { table: "game_alternative_name" }]);
+        } finally {
+            await runner.release();
+        }
     });
 });

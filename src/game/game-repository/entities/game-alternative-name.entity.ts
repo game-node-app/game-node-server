@@ -1,3 +1,4 @@
+import { ApiHideProperty } from "@nestjs/swagger";
 import { Column, Entity, ManyToOne, PrimaryColumn } from "typeorm";
 import { Game } from "./game.entity";
 
@@ -13,6 +14,19 @@ export class GameAlternativeName {
         nullable: true,
     })
     name?: string;
+    // MySQL-maintained normalized copy of `name` for library search; never written or selected.
+    @ApiHideProperty()
+    @Column({
+        type: "text",
+        nullable: true,
+        generatedType: "STORED",
+        asExpression:
+            "TRIM(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(`name`, '[\\'‘’＇]', ''), '[\\\\p{P}\\\\p{S}]+', ' '), '\\\\s+', ' '))",
+        insert: false,
+        update: false,
+        select: false,
+    })
+    searchName?: string;
     @Column("text", {
         nullable: true,
     })

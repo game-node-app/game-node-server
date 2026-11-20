@@ -148,7 +148,7 @@ const EXACT_MATCH_EXPRESSION = "IF(WEIGHT() >= 1000000000, 1, 0)";
 const TEXT_RELEVANCE_EXPRESSION =
     "IF(WEIGHT() >= 1000000000, WEIGHT() - 1000000000, WEIGHT())";
 
-function normalizeGameSearchQuery(query: string): string {
+export function normalizeGameSearchQuery(query: string): string {
     return query
         .normalize("NFD")
         .replace(/\p{M}/gu, "")

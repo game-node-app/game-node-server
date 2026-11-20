@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
+import { plainToInstance } from "class-transformer";
 import { DataSource } from "typeorm";
 import {
     addTransactionalDataSource,
@@ -20,6 +21,8 @@ import { Game } from "../../game/game-repository/entities/game.entity";
 import { LibraryAccessService } from "../../libraries/library-access.service";
 import { LibraryVisibility } from "../../libraries/library-visibility.constants";
 import { CollectionEntryStatus } from "./collections-entries.constants";
+import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
+import { EGameCategory } from "../../game/game-repository/game-repository.constants";
 
 describe("CollectionsEntriesService permissions (MySQL)", () => {
     let source: DataSource;
@@ -30,7 +33,15 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
     const viewer = randomUUID();
     const hiddenOwner = randomUUID();
     const relatedOwner = randomUUID();
-    const userIds = [owner, follower, viewer, hiddenOwner, relatedOwner];
+    const searchOwner = randomUUID();
+    const userIds = [
+        owner,
+        follower,
+        viewer,
+        hiddenOwner,
+        relatedOwner,
+        searchOwner,
+    ];
 
     const entryIds = {
         noCollection: randomUUID(),
@@ -43,6 +54,53 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
         relatedExpansion: randomUUID(),
     };
     const privateCollectionId = randomUUID();
+
+    const searchCollectionId = randomUUID();
+    const lateGameId = 900015;
+    const searchGames = {
+        halo3: { id: 900001, name: "Halo 3" },
+        haloInfinite: { id: 900002, name: "Halo Infinite" },
+        halo4: { id: 900003, name: "Halo 4" },
+        halo2: { id: 900004, name: "Halo 2" },
+        minecraft: { id: 900005, name: "Minecraft" },
+        zelda: {
+            id: 900006,
+            name: "The Legend of Zelda: Breath of the Wild",
+        },
+        twoAliases: { id: 900007, name: "Two Aliases Game" },
+        halfLife2: { id: 900008, name: "Half-Life 2" },
+        pokemon: { id: 900009, name: "Pokémon: Let's Go, Pikachu!" },
+        assassins: { id: 900010, name: "Assassin's Creed" },
+        orangeJuice: { id: 900011, name: "100% Orange Juice" },
+        orLiteral: { id: 900012, name: "Or 1 1 The Game" },
+        dlcBase: { id: 900013, name: "Search DLC Base" },
+        dlcAddon: {
+            id: 900014,
+            name: "Search DLC Addon",
+            category: EGameCategory.DlcAddon,
+        },
+    };
+    const searchEntryIds = {
+        halo3: randomUUID(),
+        haloInfinite: randomUUID(),
+        halo4: randomUUID(),
+        minecraft: randomUUID(),
+        zelda: randomUUID(),
+        twoAliases: randomUUID(),
+        halfLife2: randomUUID(),
+        pokemon: randomUUID(),
+        assassins: randomUUID(),
+        orangeJuice: randomUUID(),
+        orLiteral: randomUUID(),
+        dlcBase: randomUUID(),
+        dlcAddon: randomUUID(),
+    };
+    const orderFixtures = Array.from({ length: 25 }, (_, index) => ({
+        gameId: 902001 + index,
+        entryId: randomUUID(),
+        name: `Order Fixture ${String(index + 1).padStart(2, "0")}`,
+        createdAt: `2026-02-01 00:00:${String(index).padStart(2, "0")}.000000`,
+    }));
 
     beforeAll(async () => {
         source = await createNotificationTestDataSource();
@@ -154,6 +212,142 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
         await source.query(
             "INSERT INTO `collection_entry_collections_collection` (`collectionEntryId`, `collectionId`) VALUES (?, ?)",
             [entryIds.privateCollection, privateCollectionId],
+        );
+
+        const gameRows = Object.values(searchGames);
+        await source.query(
+            `INSERT IGNORE INTO game (id, name, slug, category) VALUES ${gameRows.map(() => "(?, ?, ?, ?)").join(", ")}`,
+            gameRows.flatMap((game) => [
+                game.id,
+                game.name,
+                `search-${game.id}`,
+                "category" in game ? game.category : EGameCategory.Main,
+            ]),
+        );
+        await source.query(
+            `INSERT IGNORE INTO game_alternative_name (id, name, gameId) VALUES ${Array.from({ length: 3 }, () => "(?, ?, ?)").join(", ")}`,
+            [
+                920001,
+                "BOTW",
+                searchGames.zelda.id,
+                920002,
+                "Alpha Beta",
+                searchGames.twoAliases.id,
+                920003,
+                "Gamma Delta",
+                searchGames.twoAliases.id,
+            ],
+        );
+
+        await insertEntry(
+            searchEntryIds.halo3,
+            searchOwner,
+            searchGames.halo3.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.haloInfinite,
+            searchOwner,
+            searchGames.haloInfinite.id,
+            LibraryVisibility.Public,
+            { isFavorite: true },
+        );
+        await insertEntry(
+            searchEntryIds.halo4,
+            searchOwner,
+            searchGames.halo4.id,
+            LibraryVisibility.Private,
+        );
+        await insertEntry(
+            searchEntryIds.minecraft,
+            searchOwner,
+            searchGames.minecraft.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.zelda,
+            searchOwner,
+            searchGames.zelda.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.twoAliases,
+            searchOwner,
+            searchGames.twoAliases.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.halfLife2,
+            searchOwner,
+            searchGames.halfLife2.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.pokemon,
+            searchOwner,
+            searchGames.pokemon.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.assassins,
+            searchOwner,
+            searchGames.assassins.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.orangeJuice,
+            searchOwner,
+            searchGames.orangeJuice.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.orLiteral,
+            searchOwner,
+            searchGames.orLiteral.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.dlcBase,
+            searchOwner,
+            searchGames.dlcBase.id,
+            LibraryVisibility.Public,
+        );
+        await insertEntry(
+            searchEntryIds.dlcAddon,
+            searchOwner,
+            searchGames.dlcAddon.id,
+            LibraryVisibility.Public,
+        );
+
+        await source.query(
+            `INSERT IGNORE INTO game (id, name, slug, category) VALUES ${orderFixtures.map(() => "(?, ?, ?, ?)").join(", ")}`,
+            orderFixtures.flatMap((game) => [
+                game.gameId,
+                game.name,
+                `search-${game.gameId}`,
+                EGameCategory.Main,
+            ]),
+        );
+        await source.query(
+            `INSERT INTO collection_entry (id, libraryUserId, gameId, visibility, status, isFavorite, createdAt) VALUES ${orderFixtures.map(() => "(?, ?, ?, ?, ?, ?, ?)").join(", ")}`,
+            orderFixtures.flatMap((game) => [
+                game.entryId,
+                searchOwner,
+                game.gameId,
+                LibraryVisibility.Public,
+                CollectionEntryStatus.PLANNED,
+                false,
+                game.createdAt,
+            ]),
+        );
+
+        await source.query(
+            "INSERT INTO `collection` (`id`, `libraryUserId`, `name`, `isPublic`) VALUES (?, ?, 'Search Halo', 1)",
+            [searchCollectionId, searchOwner],
+        );
+        await source.query(
+            "INSERT INTO `collection_entry_collections_collection` (`collectionEntryId`, `collectionId`) VALUES (?, ?)",
+            [searchEntryIds.halo3, searchCollectionId],
         );
 
         const libraryAccess = new LibraryAccessService(
@@ -392,5 +586,228 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
         expect(ownedCollectionEntries.map((entry) => entry.id)).toEqual([
             entryIds.privateCollection,
         ]);
+    });
+
+    describe("library search", () => {
+        function searchLibrary(
+            search: string,
+            dto: FindCollectionEntriesDto = {},
+            viewerId?: string,
+        ) {
+            return entries.findAllByUserIdWithPermissions(
+                viewerId,
+                searchOwner,
+                {
+                    ...dto,
+                    search,
+                },
+            );
+        }
+
+        it("matches title and alternative-name substrings with the original names", async () => {
+            const [haloEntries, haloTotal] = await searchLibrary("halo");
+            expect(ids(haloEntries)).toEqual(
+                [searchEntryIds.halo3, searchEntryIds.haloInfinite].sort(),
+            );
+            expect(haloTotal).toBe(2);
+            expect(
+                haloEntries.find((entry) => entry.id === searchEntryIds.halo3)!
+                    .game.name,
+            ).toBe("Halo 3");
+
+            const [zeldaEntries, zeldaTotal] = await searchLibrary("botw");
+            expect(ids(zeldaEntries)).toEqual([searchEntryIds.zelda]);
+            expect(zeldaTotal).toBe(1);
+        });
+
+        it("matches a partial word", async () => {
+            const [found, total] = await searchLibrary("minec");
+
+            expect(ids(found)).toEqual([searchEntryIds.minecraft]);
+            expect(total).toBe(1);
+        });
+
+        it("does not match across two aliases or out-of-order words", async () => {
+            await expect(searchLibrary("beta gamma")).resolves.toEqual([[], 0]);
+            await expect(searchLibrary("life half")).resolves.toEqual([[], 0]);
+
+            const [found, total] = await searchLibrary("alpha");
+            expect(ids(found)).toEqual([searchEntryIds.twoAliases]);
+            expect(total).toBe(1);
+        });
+
+        it.each([
+            ["Assassin's Creed", searchEntryIds.assassins],
+            ["Assassin’s Creed", searchEntryIds.assassins],
+            ["assassins creed", searchEntryIds.assassins],
+            ["POKEMON LETS GO", searchEntryIds.pokemon],
+            ["pokémon", searchEntryIds.pokemon],
+            ["Poke\u0301mon", searchEntryIds.pokemon],
+            ["half life 2", searchEntryIds.halfLife2],
+            ["half-life", searchEntryIds.halfLife2],
+        ])("normalizes %p like catalog search", async (search, expectedId) => {
+            const [found, total] = await searchLibrary(search);
+
+            expect(ids(found)).toEqual([expectedId]);
+            expect(total).toBe(1);
+        });
+
+        it("treats wildcard characters as literal text", async () => {
+            const [found, total] = await searchLibrary("100%");
+
+            expect(ids(found)).toEqual([searchEntryIds.orangeJuice]);
+            expect(total).toBe(1);
+        });
+
+        it("treats SQL-like text as literal text", async () => {
+            const [found, total] = await searchLibrary("' OR 1=1 --");
+
+            expect(ids(found)).toEqual([searchEntryIds.orLiteral]);
+            expect(total).toBe(1);
+        });
+
+        it.each(["%%%", "'", "_"])(
+            "returns an empty page for %p when normalization leaves nothing",
+            async (search) => {
+                await expect(searchLibrary(search)).resolves.toEqual([[], 0]);
+            },
+        );
+
+        it("never returns a catalog game without an entry in the library", async () => {
+            await expect(searchLibrary("halo 2")).resolves.toEqual([[], 0]);
+        });
+
+        it("finds an entry added after an earlier search", async () => {
+            await expect(searchLibrary("late arrival")).resolves.toEqual([
+                [],
+                0,
+            ]);
+
+            await source.query(
+                "DELETE FROM `collection_entry` WHERE `gameId` = ?",
+                [lateGameId],
+            );
+            await source.query("DELETE FROM `game` WHERE `id` = ?", [
+                lateGameId,
+            ]);
+            await source.query(
+                "INSERT INTO `game` (`id`, `name`, `slug`) VALUES (?, 'Late Arrival', 'late-arrival')",
+                [lateGameId],
+            );
+            const lateEntryId = randomUUID();
+            await source.query(
+                "INSERT INTO `collection_entry` (`id`, `libraryUserId`, `gameId`, `visibility`, `status`, `isFavorite`) VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    lateEntryId,
+                    searchOwner,
+                    lateGameId,
+                    LibraryVisibility.Public,
+                    CollectionEntryStatus.PLANNED,
+                    false,
+                ],
+            );
+
+            const [found, total] = await searchLibrary("late arrival");
+            expect(ids(found)).toEqual([lateEntryId]);
+            expect(total).toBe(1);
+        });
+
+        it("does not return or count a private entry for an anonymous viewer", async () => {
+            const [anonymousEntries, anonymousTotal] =
+                await searchLibrary("halo");
+            expect(ids(anonymousEntries)).not.toContain(searchEntryIds.halo4);
+            expect(anonymousTotal).toBe(2);
+
+            const [, ownerTotal] = await searchLibrary("halo", {}, searchOwner);
+            expect(ownerTotal).toBe(3);
+        });
+
+        it("returns an empty page for a hidden library", async () => {
+            await expect(
+                entries.findAllByUserIdWithPermissions(viewer, hiddenOwner, {
+                    search: "notification",
+                }),
+            ).resolves.toEqual([[], 0]);
+        });
+
+        it("keeps the default category filter and honors an explicit one", async () => {
+            const dto = plainToInstance(FindCollectionEntriesDto, {
+                search: "search dlc",
+            });
+            const [baseEntries, baseTotal] =
+                await entries.findAllByUserIdWithPermissions(
+                    undefined,
+                    searchOwner,
+                    dto,
+                );
+            expect(ids(baseEntries)).toEqual([searchEntryIds.dlcBase]);
+            expect(baseTotal).toBe(1);
+
+            const [dlcEntries, dlcTotal] = await searchLibrary("search dlc", {
+                gameFilters: { category: [EGameCategory.DlcAddon] },
+            });
+            expect(ids(dlcEntries)).toEqual([searchEntryIds.dlcAddon]);
+            expect(dlcTotal).toBe(1);
+        });
+
+        it("narrows the favorites listing", async () => {
+            const [found, total] = await entries.findFavoritesByUserId(
+                undefined,
+                searchOwner,
+                { search: "halo" },
+            );
+
+            expect(ids(found)).toEqual([searchEntryIds.haloInfinite]);
+            expect(total).toBe(1);
+        });
+
+        it("narrows the collection listing", async () => {
+            const [found, total] =
+                await entries.findAllByCollectionIdWithPermissions(
+                    undefined,
+                    searchCollectionId,
+                    { search: "halo" },
+                );
+            expect(ids(found)).toEqual([searchEntryIds.halo3]);
+            expect(total).toBe(1);
+
+            await expect(
+                entries.findAllByCollectionIdWithPermissions(
+                    undefined,
+                    searchCollectionId,
+                    { search: "half" },
+                ),
+            ).resolves.toEqual([[], 0]);
+        });
+
+        it("keeps ordering, pagination and filtered totals", async () => {
+            const [found, total] = await searchLibrary("order fixture", {
+                orderBy: { addedDate: "DESC" },
+                offset: 20,
+                limit: 20,
+            });
+
+            expect(total).toBe(25);
+            expect(found.map((entry) => entry.id)).toEqual(
+                [4, 3, 2, 1, 0].map((index) => orderFixtures[index].entryId),
+            );
+        });
+
+        it("keeps the unfiltered listing for a blank search", async () => {
+            const [plainEntries, plainTotal] =
+                await entries.findAllByUserIdWithPermissions(
+                    searchOwner,
+                    searchOwner,
+                    {},
+                );
+            const [blankEntries, blankTotal] = await searchLibrary(
+                "   ",
+                {},
+                searchOwner,
+            );
+
+            expect(ids(blankEntries)).toEqual(ids(plainEntries));
+            expect(blankTotal).toBe(plainTotal);
+        });
     });
 });

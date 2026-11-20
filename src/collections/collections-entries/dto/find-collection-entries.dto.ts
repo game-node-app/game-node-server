@@ -1,14 +1,16 @@
 import { CollectionEntry } from "../entities/collection-entry.entity";
 import { BaseFindDto } from "../../../utils/base-find.dto";
-import { OmitType, PickType } from "@nestjs/swagger";
+import { ApiPropertyOptional, OmitType, PickType } from "@nestjs/swagger";
 import { FindCollectionEntriesOrderBy } from "./collection-entries-order-by.dto";
-import { IsOptional, IsString } from "class-validator";
+import { IsOptional, IsString, MaxLength, ValidateIf } from "class-validator";
 import { CollectionEntryStatus } from "../collections-entries.constants";
 import { Expose, Transform } from "class-transformer";
 import qs from "qs";
 import { GameRepositoryFilterDto } from "../../../game/game-repository/dto/game-repository-filter.dto";
 import { EGameCategory } from "../../../game/game-repository/game-repository.constants";
 import { ToBoolean } from "../../../utils/toBoolean";
+
+const MAX_SEARCH_LENGTH = 256;
 
 export class FindCollectionEntriesGameFilterDto extends PickType(
     GameRepositoryFilterDto,
@@ -19,6 +21,23 @@ export class FindCollectionEntriesDto extends OmitType(
     BaseFindDto<CollectionEntry>,
     ["search", "orderBy"],
 ) {
+    @ApiPropertyOptional({ type: String, maxLength: MAX_SEARCH_LENGTH })
+    @ValidateIf((_dto, value) => value !== undefined)
+    @IsString()
+    @MaxLength(MAX_SEARCH_LENGTH)
+    // Read the original value to validate it before implicit conversion.
+    @Transform(({ obj, key }) => {
+        const raw = (obj as Record<string, unknown>)[key];
+        if (
+            typeof raw === "string" &&
+            raw.length <= MAX_SEARCH_LENGTH &&
+            raw.trim() === ""
+        ) {
+            return undefined;
+        }
+        return raw;
+    })
+    search?: string;
     @IsOptional()
     // Forces orderBy's Transform to run
     @Expose({ name: "orderBy" })
