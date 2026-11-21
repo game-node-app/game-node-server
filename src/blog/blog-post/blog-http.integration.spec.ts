@@ -24,7 +24,7 @@ const { mediaReference } = require('./blog-media.cjs');
 const cover = 'abc12345-0000-4000-8000-0123456789ab';
 const coverName = 'a'.repeat(64) + '.webp';
 const inlineName = 'b'.repeat(64) + '.webp';
-const fixture = (locale: string, status: string, article_id = 'article') => ({ id: article_id + locale, article_id, locale, status, title: locale, content: `<p onclick="bad()">Body<script>bad()</script></p><a href="javascript:bad()">bad</a><a href="https://example.com">good</a><img src="/assets/${cover}?width=1" alt="Image">`, excerpt: 'Excerpt', cover_alt: 'Cover', published_at: '2025-01-01', media_map: {
+const fixture = (locale: string, status: string, article_id = 'article', published_at = '2025-01-01') => ({ id: article_id + locale, article_id, locale, status, title: locale, content: `<p onclick="bad()">Body<script>bad()</script></p><a href="javascript:bad()">bad</a><a href="https://example.com">good</a><img src="/assets/${cover}?width=1" alt="Image">`, excerpt: 'Excerpt', cover_alt: 'Cover', published_at, media_map: {
     [mediaReference('/assets/' + cover, 'https://cms.example').name]: coverName,
     [mediaReference('/assets/' + cover + '?width=1', 'https://cms.example').name]: inlineName,
 } });
@@ -47,9 +47,9 @@ describe('blog HTTP delivery and access', () => {
             if (cmsMode === 'fail') { res.writeHead(500).end(); return; }
             if (req.url?.startsWith('/assets/')) { res.setHeader('Content-Type', 'image/webp'); res.end('image'); return; }
             const rows: Record<string, unknown[]> = {
-                blog_articles: [{ id: 'article', profile_user_id: 'author', cover, game_id: '42', rating: 4 }, { id: 'hidden', profile_user_id: 'author', cover, game_id: null, rating: null }, { id: 'localized', profile_user_id: 'author', cover, game_id: null, rating: null }],
-                blog_translations: [fixture('en', 'published'), fixture('pt-BR', 'draft'), fixture('pt-BR', 'draft', 'hidden'), fixture('en', 'published', 'localized'), fixture('pt-BR', 'published', 'localized')],
-                blog_tags: [{ id: 'review', name: 'Review' }, { id: 'hidden', name: 'Hidden' }, { id: 'news', name: 'News' }], blog_article_tags: [{ id: 1, article_id: 'article', tag_id: 'review' }, { id: 2, article_id: 'hidden', tag_id: 'hidden' }, { id: 3, article_id: 'localized', tag_id: 'news' }],
+                blog_articles: [{ id: 'article', profile_user_id: 'author', cover, game_id: '42', rating: 4 }, { id: 'hidden', profile_user_id: 'author', cover, game_id: null, rating: null }, { id: 'localized', profile_user_id: 'author', cover, game_id: null, rating: null }, { id: 'scheduled', profile_user_id: 'author', cover, game_id: null, rating: null }],
+                blog_translations: [fixture('en', 'published'), fixture('pt-BR', 'draft'), fixture('pt-BR', 'draft', 'hidden'), fixture('en', 'published', 'localized'), fixture('pt-BR', 'published', 'localized'), fixture('en', 'published', 'scheduled', '2099-01-01T00:00:00Z')],
+                blog_tags: [{ id: 'review', name: 'Review' }, { id: 'hidden', name: 'Hidden' }, { id: 'news', name: 'News' }, { id: 'future', name: 'Future' }], blog_article_tags: [{ id: 1, article_id: 'article', tag_id: 'review' }, { id: 2, article_id: 'hidden', tag_id: 'hidden' }, { id: 3, article_id: 'localized', tag_id: 'news' }, { id: 4, article_id: 'scheduled', tag_id: 'future' }],
             };
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ data: cmsMode === 'empty' ? [] : rows[new URL(req.url!, 'http://localhost').pathname.split('/').pop()!] ?? [] }));
@@ -101,6 +101,7 @@ describe('blog HTTP delivery and access', () => {
         expect((await request(app.getHttpServer()).get('/v1/blog/post/localized?locale=pt-BR').expect(200)).body).toMatchObject({ title: 'pt-BR', resolvedLocale: 'pt-BR', availableLocales: ['en', 'pt-BR'] });
         expect((await request(app.getHttpServer()).get('/v1/blog/post/localized').expect(200)).body).toMatchObject({ title: 'en', requestedLocale: 'en' });
         await request(app.getHttpServer()).get('/v1/blog/post/hidden?locale=pt-BR').expect(404);
+        await request(app.getHttpServer()).get('/v1/blog/post/scheduled?locale=en').expect(404);
         expect((await request(app.getHttpServer()).get('/v1/blog/post/tags?locale=pt-BR').expect(200)).body).toEqual([{ id: 'news', name: 'News' }, { id: 'review', name: 'Review' }]);
     });
     it('serves published blog media with immutable caching and leaves missing files uncached', async () => {
@@ -126,6 +127,8 @@ describe('blog HTTP delivery and access', () => {
         expect(image.headers['content-type']).toMatch(/^image\/webp/);
         await request(app.getHttpServer()).get('/v1/blog/preview/article').set('Authorization', `Bearer ${editor}`).expect(400);
         await request(app.getHttpServer()).get('/v1/blog/preview/hidden?locale=en').set('Authorization', `Bearer ${editor}`).expect(404);
+        const scheduledPreview = await request(app.getHttpServer()).get('/v1/blog/preview/scheduled?locale=en').set('Authorization', `Bearer ${editor}`).expect(200);
+        expect(scheduledPreview.body).toMatchObject({ title: 'en', status: 'published', resolvedLocale: 'en', availableLocales: [] });
     });
     it('distinguishes CMS failure, missing articles and a successful empty archive', async () => {
         cmsMode = 'fail';

@@ -25,4 +25,19 @@ describe('published blog selection', () => {
         expect(selectPublishedArticles([article('a', [published('pt-BR')]),
             { ...article('b', [published('en')]), cover: null }], 'en')).toEqual([]);
     });
+    it('withholds scheduled translations until published_at is reached', () => {
+        const now = Date.parse('2026-12-01T11:59:59Z');
+        const rows = [
+            article('scheduled', [published('en', '2026-12-01T12:00:00Z'), published('pt-BR', '2026-12-01T12:00:00Z')]),
+            article('partial', [published('en', '2026-11-20T12:00:00Z'), published('pt-BR', '2026-12-01T12:00:00Z')]),
+        ];
+        const before = selectPublishedArticles(rows, 'pt-BR', undefined, now);
+        expect(before.map((row) => [row.article.id, row.resolvedLocale, row.availableLocales])).toEqual([['partial', 'en', ['en']]]);
+
+        const atLaunch = selectPublishedArticles(rows, 'pt-BR', undefined, Date.parse('2026-12-01T12:00:00Z'));
+        expect(atLaunch.map((row) => [row.article.id, row.resolvedLocale, row.availableLocales])).toEqual([
+            ['partial', 'pt-BR', ['en', 'pt-BR']],
+            ['scheduled', 'pt-BR', ['en', 'pt-BR']],
+        ]);
+    });
 });

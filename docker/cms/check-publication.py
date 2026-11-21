@@ -122,8 +122,16 @@ try:
     status, body = request('POST', '/items/blog_translations', {'article_id': draft_article, 'locale': 'en', 'status': 'draft'}, admin)
     assert status == 200, body
     items.append(('items/blog_translations', body['data']['id']))
+    status, body = request('POST', '/items/blog_articles', {'profile_user_id': 'valid-author', 'cover': cover}, admin)
+    assert status == 200, body
+    scheduled_article = body['data']['id']
+    items.append(('items/blog_articles', scheduled_article))
+    status, body = request('POST', '/items/blog_translations', {**draft, 'article_id': scheduled_article, 'status': 'published', 'published_at': '2099-01-01T00:00:00Z'}, admin)
+    assert status == 200, body
+    scheduled_translation = body['data']['id']
+    items.append(('items/blog_translations', scheduled_translation))
     tags = []
-    for parent in (article, draft_article):
+    for parent in (article, draft_article, scheduled_article):
         tag = 'check-' + secrets.token_hex(8)
         status, body = request('POST', '/items/blog_tags', {'id': tag, 'name': tag}, admin)
         assert status == 200, body
@@ -146,6 +154,8 @@ try:
             assert status == 200 and {row['locale'] for row in body['data']['translations']} == ({'en'} if role_name == 'Blog delivery' else {'en', 'pt-BR'}), body
             status, _ = request('GET', '/items/blog_translations/' + portuguese, token=secret)
             assert status == (403 if role_name == 'Blog delivery' else 200)
+            status, _ = request('GET', '/items/blog_translations/' + scheduled_translation, token=secret)
+            assert status == (403 if role_name == 'Blog delivery' else 200)
             assert request('PATCH', path, {'title': 'must not write'}, secret)[0] == 403
             try:
                 asset_request = urllib.request.Request(base + '/assets/' + cover, headers={'Authorization': 'Bearer ' + secret})
@@ -154,10 +164,11 @@ try:
             except urllib.error.HTTPError as error:
                 asset_status = error.code
             assert asset_status == (403 if role_name == 'Blog delivery' else 200), (role_name, asset_status)
-            for collection, visible, hidden in [('blog_articles', article, draft_article), ('blog_tags', tags[0], tags[1])]:
+            for collection, visible, hidden_items in [('blog_articles', article, (draft_article, scheduled_article)), ('blog_tags', tags[0], (tags[1], tags[2]))]:
                 assert request('GET', '/items/' + collection + '/' + visible, token=secret)[0] == 200
-                result = request('GET', '/items/' + collection + '/' + hidden, token=secret)[0]
-                assert result == (403 if role_name == 'Blog delivery' else 200), (collection, role_name, result)
+                for hidden in hidden_items:
+                    result = request('GET', '/items/' + collection + '/' + hidden, token=secret)[0]
+                    assert result == (403 if role_name == 'Blog delivery' else 200), (collection, role_name, hidden, result)
         finally:
             assert request('DELETE', '/users/' + user, token=admin)[0] == 204
     assert request('GET', '/items/blog_translations/' + portuguese)[0] in (401, 403)
