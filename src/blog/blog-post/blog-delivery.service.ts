@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { BlogCmsService } from './blog-cms.service';
-import { BlogLocale, selectPublishedArticles } from './blog-selection';
+import { BlogLocale, isPublishedTranslation, selectPublishedArticles } from './blog-selection';
 
 @Injectable()
 export class BlogDeliveryService {
@@ -28,7 +28,8 @@ export class BlogDeliveryService {
         const translation = article?.translations.find((item) => item.locale === locale);
         if (!article || !translation) throw new NotFoundException('Blog translation not found');
         const { translations: _translations, ...shared } = article;
-        const availableLocales = (['en', 'pt-BR'] as BlogLocale[]).filter((language) => article.translations.some((item) => item.locale === language && item.status === 'published'));
+        const now = Date.now();
+        const availableLocales = (['en', 'pt-BR'] as BlogLocale[]).filter((language) => article.translations.some((item) => item.locale === language && isPublishedTranslation(item, now)));
         return { article: shared, translation, availableLocales };
     }
 }

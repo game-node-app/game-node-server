@@ -86,8 +86,9 @@ def configure_role(name, app_access, actions):
     grants = {(entry['collection'], entry['action']): entry['id'] for entry in existing['data']}
     for collection in collections:
         for action in actions:
-            published = {'translations': {'status': {'_eq': 'published'}}}
-            filters = {'blog_translations': {'status': {'_eq': 'published'}}, 'blog_articles': published,
+            live = {'_and': [{'status': {'_eq': 'published'}}, {'published_at': {'_lte': '$NOW'}}]}
+            published = {'translations': live}
+            filters = {'blog_translations': live, 'blog_articles': published,
                 'blog_article_tags': {'article_id': published}, 'blog_tags': {'articles': {'article_id': published}}}
             permissions = filters[collection] if name == 'Blog delivery' else {}
             grant = grants.get((collection, action))

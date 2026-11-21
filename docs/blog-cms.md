@@ -113,6 +113,10 @@ The server's versioned API provides:
 - Public articles carry an ID, title, sanitized HTML, excerpt, author ID, tags,
   optional game/rating, explicit cover URL and alt, publication time, and
   requested, resolved and available locales. There is no public draft flag.
+  Setting `status = published` with a future `published_at` schedules a
+  translation: validation and media preparation run on save, while `Blog delivery`
+  and the public API withhold it until `published_at` passes (appearing within the
+  delivery cache TTL); staff can inspect it beforehand through the preview route.
   Missing articles return 404, upstream failures return 503, and a successful
   empty archive remains empty.
 - `GET /v1/blog/preview/:postId?locale=en|pt-BR` requires an authenticated
