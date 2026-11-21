@@ -103,6 +103,14 @@ describe('blog HTTP delivery and access', () => {
         await request(app.getHttpServer()).get('/v1/blog/post/hidden?locale=pt-BR').expect(404);
         expect((await request(app.getHttpServer()).get('/v1/blog/post/tags?locale=pt-BR').expect(200)).body).toEqual([{ id: 'news', name: 'News' }, { id: 'review', name: 'Review' }]);
     });
+    it('serves published blog media with immutable caching and leaves missing files uncached', async () => {
+        const media = await request(app.getHttpServer()).get(`/v1/blog/media/${coverName}`).expect(200);
+        expect(media.headers['content-type']).toMatch(/^image\/webp/);
+        expect(media.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+        const missing = await request(app.getHttpServer()).get(`/v1/blog/media/${'c'.repeat(64)}.webp`).expect(404);
+        expect(missing.headers['cache-control']).toBeUndefined();
+        await request(app.getHttpServer()).get('/v1/blog/media/not-a-hash.webp').expect(404);
+    });
     it('restricts exact-locale draft preview to editorial roles', async () => {
         await request(app.getHttpServer()).get('/v1/blog/preview/article?locale=pt-BR').expect(401);
         await request(app.getHttpServer()).get('/v1/blog/preview/article?locale=pt-BR').set('Authorization', `Bearer ${reader}`).expect(403);
