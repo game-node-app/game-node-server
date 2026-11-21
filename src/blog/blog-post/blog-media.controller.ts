@@ -14,7 +14,8 @@ export class BlogMediaController {
         const root = process.env.BLOG_PUBLIC_MEDIA_PATH;
         if (!root) throw new ServiceUnavailableException('Blog media is not configured');
         response.type('image/webp');
-        response.sendFile(name, { root: resolve(root) }, (error) => {
+        // Published files are content-addressed by SHA-256, so edge caches can keep them without revalidating.
+        response.sendFile(name, { root: resolve(root), maxAge: '365d', immutable: true }, (error) => {
             if (error && !response.headersSent) response.status(404).end();
             else if (error) response.destroy(error);
         });
