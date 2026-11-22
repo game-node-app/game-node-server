@@ -65,6 +65,6 @@ import { LibrariesModule } from "../libraries/libraries.module";
         RecapGoalsService,
     ],
     controllers: [RecapController, RecapAdminController],
-    exports: [RecapWindowService],
+    exports: [RecapWindowService, RecapGoalsService],
 })
 export class RecapModule {}

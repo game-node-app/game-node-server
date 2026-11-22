@@ -170,6 +170,89 @@ describe("AchievementsProgressService (integration)", () => {
         expect(await intentsOf(user, definition.id)).toHaveLength(1);
     });
 
+    it("grantTiersWithManager grants inside the caller's transaction and leaves the feed activity to the caller", async () => {
+        const user = await f.user();
+        const definition = await f.definition("manual", {}, [[1, 100]]);
+
+        const granted = await ds.transaction((manager) =>
+            service.grantTiersWithManager(
+                manager,
+                user,
+                definition,
+                [1],
+                "live",
+            ),
+        );
+
+        expect(granted).toEqual({
+            obtainedAchievementId: expect.any(Number),
+            tier: 1,
+        });
+        expect(await tiersOf(user, definition.id)).toEqual([1]);
+        expect(await intentsOf(user, definition.id)).toHaveLength(1);
+        expect(activities.register).not.toHaveBeenCalled();
+
+        service.registerGrantActivity(user, granted!);
+        expect(activities.register).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: ActivityType.ACHIEVEMENT_UNLOCKED,
+                sourceId: granted!.obtainedAchievementId,
+                profileUserId: user,
+            }),
+            `achievement-unlocked-${granted!.obtainedAchievementId}`,
+        );
+    });
+
+    it("grantTiersWithManager rolls back with the caller's transaction", async () => {
+        const user = await f.user();
+        const definition = await f.definition("manual", {}, [[1, 100]]);
+
+        await expect(
+            ds.transaction(async (manager) => {
+                await service.grantTiersWithManager(
+                    manager,
+                    user,
+                    definition,
+                    [1],
+                    "live",
+                );
+                throw new Error("rollback");
+            }),
+        ).rejects.toThrow("rollback");
+
+        expect(await tiersOf(user, definition.id)).toEqual([]);
+        expect(await countOf(definition.id, 1)).toBe(0);
+        expect(await intentsOf(user, definition.id)).toHaveLength(0);
+        expect(
+            await ds.getRepository(UserLevel).findOneBy({ userId: user }),
+        ).toBeNull();
+        expect(activities.register).not.toHaveBeenCalled();
+    });
+
+    it("grantTiersWithManager returns null in live mode for tiers already obtained", async () => {
+        const user = await f.user();
+        const definition = await f.definition("manual", {}, [[1, 100]]);
+        await service.grantTiers(user, definition, [1], "live");
+        activities.register.mockReset();
+
+        await expect(
+            ds.transaction((manager) =>
+                service.grantTiersWithManager(
+                    manager,
+                    user,
+                    definition,
+                    [1],
+                    "live",
+                ),
+            ),
+        ).resolves.toBeNull();
+
+        expect(await tiersOf(user, definition.id)).toEqual([1]);
+        expect(await countOf(definition.id, 1)).toBe(1);
+        expect(await intentsOf(user, definition.id)).toHaveLength(1);
+        expect(activities.register).not.toHaveBeenCalled();
+    });
+
     it("keeps obtained tiers when the metric drops and does not grant them again", async () => {
         const user = await f.user();
         const followers = await Promise.all([f.user(), f.user(), f.user()]);

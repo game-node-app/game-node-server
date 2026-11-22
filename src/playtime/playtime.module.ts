@@ -8,6 +8,7 @@ import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
 import { GameRepositoryModule } from "../game/game-repository/game-repository.module";
 import { TimeToBeatModule } from "./time-to-beat/time-to-beat.module";
 import { LibrariesModule } from "../libraries/libraries.module";
+import { GuildQueueModule } from "../guild/guild-queue/guild-queue.module";
 
 @Module({
     imports: [
@@ -15,6 +16,7 @@ import { LibrariesModule } from "../libraries/libraries.module";
         GameRepositoryModule,
         TimeToBeatModule,
         LibrariesModule,
+        GuildQueueModule,
     ],
     providers: [PlaytimeService, PlaytimeHistoryService],
     controllers: [PlaytimeController],

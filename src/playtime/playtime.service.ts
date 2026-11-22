@@ -2,7 +2,7 @@ import {
     PlayerSyncWrite,
     recordPlayerSyncStats,
 } from "../sync/player-sync-attempt";
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
     In,
@@ -32,8 +32,9 @@ import { UserPlaytimeDto } from "./dto/user-playtime.dto";
 import { generateChecksum } from "../utils/checksum";
 import dayjs from "dayjs";
 import { currentPlayerSyncObservationAt } from "../sync/player-sync-attempt";
-import { Transactional } from "typeorm-transactional";
+import { runOnTransactionCommit, Transactional } from "typeorm-transactional";
 import { LibraryAccess } from "../libraries/library-visibility.constants";
+import { GuildQueueService } from "../guild/guild-queue/guild-queue.service";
 
 const persistedDate = (date: Date | null | undefined) =>
     date == null
@@ -79,6 +80,8 @@ export class PlaytimeService {
         @InjectRepository(UserPlaytime)
         private readonly userPlaytimeRepository: Repository<UserPlaytime>,
         private readonly playtimeHistoryService: PlaytimeHistoryService,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {}
 
     public async findOne(
@@ -451,6 +454,11 @@ export class PlaytimeService {
                 );
             }
         }
+        runOnTransactionCommit(() => {
+            const userId = playtimes[0]?.profileUserId;
+            if (userId)
+                this.guildQueueService?.enqueueEvaluation(userId, "playtime");
+        });
         return {
             saved,
             changed: prepared.filter((item) => item.changed).length,

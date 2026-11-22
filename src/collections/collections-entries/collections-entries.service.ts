@@ -36,7 +36,7 @@ import { CollectionEntryToCollection } from "./entities/collection-entry-to-coll
 import { CollectionEntryStatus } from "./collections-entries.constants";
 import { match } from "ts-pattern";
 import { buildGameFilterFindOptions } from "../../game/game-repository/utils/build-game-filter-find-options";
-import { Transactional } from "typeorm-transactional";
+import { runOnTransactionCommit, Transactional } from "typeorm-transactional";
 import { GameRepositoryService } from "../../game/game-repository/game-repository.service";
 import { FindRelatedCollectionEntriesResponseDto } from "./dto/find-related-collection-entries.dto";
 import { toMap } from "../../utils/toMap";
@@ -54,6 +54,7 @@ import {
     LibraryVisibility,
 } from "../../libraries/library-visibility.constants";
 import { normalizeGameSearchQuery } from "../../search/search.service";
+import { GuildQueueService } from "../../guild/guild-queue/guild-queue.service";
 
 @Injectable()
 export class CollectionsEntriesService {
@@ -83,6 +84,8 @@ export class CollectionsEntriesService {
             | NotificationsLifecycleService
             | undefined,
         private readonly libraryAccessService: LibraryAccessService,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {}
 
     async findOneById(id: string) {
@@ -739,6 +742,13 @@ export class CollectionsEntriesService {
         for (const metric of ["library_games", "games_finished"]) {
             this.achievementsQueueService.addTrackingJob({ userId, metric });
         }
+
+        runOnTransactionCommit(() => {
+            this.guildQueueService?.enqueueEvaluation(
+                userId,
+                "collection_entry",
+            );
+        });
     }
 
     @Transactional()

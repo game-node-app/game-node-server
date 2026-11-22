@@ -71,6 +71,14 @@ export class Profile {
         default: LibraryVisibility.Public,
     })
     libraryVisibility: LibraryVisibility;
+
+    /** Equipped Guild cosmetic keys; permanent unlocks, independent of supporter status. */
+    @Column({ type: "varchar", length: 64, nullable: true, default: null })
+    guildTitleKey: string | null;
+
+    @Column({ type: "varchar", length: 64, nullable: true, default: null })
+    guildFrameKey: string | null;
+
     @CreateDateColumn()
     createdAt: Date;
     @UpdateDateColumn()

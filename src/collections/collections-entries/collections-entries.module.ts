@@ -15,6 +15,7 @@ import { CollectionsOrderingController } from "./order/collections-ordering.cont
 import { NotificationsModule } from "../../notifications/notifications.module";
 import { UserGameCover } from "../../game/game-cover/entities/user-game-cover.entity";
 import { LibrariesModule } from "../../libraries/libraries.module";
+import { GuildQueueModule } from "../../guild/guild-queue/guild-queue.module";
 
 @Module({
     imports: [
@@ -31,6 +32,7 @@ import { LibrariesModule } from "../../libraries/libraries.module";
         GameRepositoryModule,
         NotificationsModule,
         LibrariesModule,
+        GuildQueueModule,
     ],
     controllers: [CollectionsEntriesController, CollectionsOrderingController],
     providers: [CollectionsEntriesService, CollectionsOrderingService],

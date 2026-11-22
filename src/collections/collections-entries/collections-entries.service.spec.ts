@@ -1,9 +1,12 @@
 import { CollectionEntryStatus } from "./collections-entries.constants";
+const mockCommitCallbacks: Array<() => void> = [];
 jest.mock("typeorm-transactional", () => ({
     Transactional:
         () =>
         (_target: object, _name: string, descriptor: PropertyDescriptor) =>
             descriptor,
+    runOnTransactionCommit: (callback: () => void) =>
+        mockCommitCallbacks.push(callback),
 }));
 import { CollectionsEntriesService } from "./collections-entries.service";
 import { Library } from "../../libraries/entities/library.entity";
@@ -59,6 +62,7 @@ function fixture(
     const activities = { register: jest.fn() };
     const levels = { registerLevelExpIncreaseActivity: jest.fn() };
     const notifications = { invalidateLibraryContent: jest.fn() };
+    const guildQueue = { enqueueEvaluation: jest.fn() };
     const repository = {
         findOne: jest.fn().mockResolvedValue(existing),
         find: jest.fn().mockResolvedValue([]),
@@ -89,6 +93,7 @@ function fixture(
         userGameCovers as any,
         notifications as any,
         libraryAccess as any,
+        guildQueue as any,
     );
     jest.spyOn(service as any, "updateAssociatedCollections").mockResolvedValue(
         undefined,
@@ -104,6 +109,7 @@ function fixture(
         collectionsService,
         userGameCovers,
         libraryAccess,
+        guildQueue,
     };
 }
 
@@ -184,6 +190,42 @@ test("adding or updating an entry evaluates library and finished game achievemen
         [{ userId: "owner", metric: "library_games" }],
         [{ userId: "owner", metric: "games_finished" }],
     ]);
+});
+
+describe("guild contract evaluation hook", () => {
+    const dto = {
+        gameId: 7,
+        status: CollectionEntryStatus.FINISHED,
+        collectionIds: [],
+        platformIds: [6],
+    };
+
+    test("schedules evaluation only after the entry transaction commits", async () => {
+        const { service, guildQueue } = fixture();
+        mockCommitCallbacks.length = 0;
+
+        await service.createOrUpdate("owner", dto);
+
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+        for (const callback of mockCommitCallbacks.splice(0)) callback();
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "owner",
+            "collection_entry",
+        );
+    });
+
+    test("does not wait for the evaluation queue before returning", async () => {
+        const { service, guildQueue } = fixture();
+        mockCommitCallbacks.length = 0;
+        guildQueue.enqueueEvaluation.mockReturnValue(new Promise(() => {}));
+
+        await expect(
+            service.createOrUpdate("owner", dto),
+        ).resolves.toBeUndefined();
+
+        for (const callback of mockCommitCallbacks.splice(0)) callback();
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledTimes(1);
+    });
 });
 
 describe("collection ownership", () => {

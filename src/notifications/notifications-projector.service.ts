@@ -13,6 +13,7 @@ import {
     AwardsMilestone,
     NotificationAwardsPhase,
     NotificationEventIntent,
+    NotificationGameContext,
 } from "./notifications.types";
 import { UserConnection } from "../connection/entity/user-connection.entity";
 import { LibraryAccessService } from "../libraries/library-access.service";
@@ -73,6 +74,26 @@ export interface ResolvedEventDetails {
     suppressionReason?: string;
 }
 
+export async function loadNotificationGameContext(
+    manager: EntityManager,
+    gameId: number | null | undefined,
+): Promise<NotificationGameContext | null> {
+    if (!gameId) return null;
+    const games = await manager.query(
+        `SELECT g.id, g.name, g.slug, c.url AS coverUrl
+        FROM game g LEFT JOIN game_cover c ON c.gameId = g.id
+        WHERE g.id = ?`,
+        [gameId],
+    );
+    if (!games[0]) return null;
+    return {
+        id: Number(games[0].id),
+        name: extractSafePlainText(games[0].name, "Game"),
+        slug: games[0].slug,
+        coverUrl: games[0].coverUrl ?? null,
+    };
+}
+
 export async function materializeNotificationTarget(
     manager: EntityManager,
     type: NotificationRootType,
@@ -111,19 +132,8 @@ export async function materializeNotificationTarget(
             gameId = rows[0]?.gameId;
         }
         if (gameId) {
-            const games = await manager.query(
-                `SELECT g.id, g.name, g.slug, c.url AS coverUrl
-                FROM game g LEFT JOIN game_cover c ON c.gameId = g.id
-                WHERE g.id = ?`,
-                [gameId],
-            );
-            if (games[0])
-                target.game = {
-                    id: Number(games[0].id),
-                    name: extractSafePlainText(games[0].name, "Game"),
-                    slug: games[0].slug,
-                    coverUrl: games[0].coverUrl ?? null,
-                };
+            const game = await loadNotificationGameContext(manager, gameId);
+            if (game) target.game = game;
         }
     }
     return target;
@@ -810,6 +820,34 @@ export class NotificationsProjectorService {
                         finished: Number(finished),
                     },
                     target: { type: "goal", year: Number(year) },
+                };
+            }
+
+            case "guild.contract-ready": {
+                const { contractId, targetGameId } = payload;
+                const recipientUserId = outbox.recipientUserId;
+                if (!recipientUserId) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason: "guild_contract_ready_no_recipient",
+                    } as ResolvedEventDetails;
+                }
+                const game = await loadNotificationGameContext(
+                    manager,
+                    targetGameId,
+                );
+                return {
+                    recipientUserId,
+                    actorUserId: null, // system actor
+                    subjectType: "guild_contract",
+                    subjectId: contractId,
+                    rootType: "guild",
+                    rootId: contractId,
+                    preview: {
+                        text: "A Guild contract is ready to turn in.",
+                        ...(game ? { game } : {}),
+                    },
+                    target: { type: "guild", contractId },
                 };
             }
 

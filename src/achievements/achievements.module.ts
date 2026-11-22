@@ -67,6 +67,6 @@ import { ActivitiesQueueModule } from "../activities/activities-queue/activities
         AchievementsProgressService,
         AchievementsAdminService,
     ],
-    exports: [AchievementsQueueService],
+    exports: [AchievementsQueueService, AchievementsProgressService],
 })
 export class AchievementsModule {}

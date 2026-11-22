@@ -76,6 +76,10 @@ export class SupporterPreferencesResponseDto {
 export class ProfileResponseDto extends Profile {
     @ApiProperty({ enum: LibraryVisibility })
     declare libraryVisibility: LibraryVisibility;
+    @ApiProperty({ type: String, nullable: true })
+    declare guildTitleKey: string | null;
+    @ApiProperty({ type: String, nullable: true })
+    declare guildFrameKey: string | null;
     @ApiProperty({
         description:
             "Whether the current viewer may see this profile's library games.",

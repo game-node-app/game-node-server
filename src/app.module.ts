@@ -50,6 +50,7 @@ import { DailyModule } from "./daily/daily.module";
 import { BillingModule } from "./billing/billing.module";
 import { SupportersModule } from "./supporters/supporters.module";
 import { ProfilePresenceModule } from "./profile/profile-presence/profile-presence.module";
+import { GuildModule } from "./guild/guild.module";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -201,6 +202,7 @@ import { ProfilePresenceModule } from "./profile/profile-presence/profile-presen
         BillingModule,
         SupportersModule,
         ProfilePresenceModule,
+        GuildModule,
     ],
 })
 export class AppModule implements NestModule {

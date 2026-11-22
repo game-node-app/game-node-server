@@ -42,7 +42,7 @@ describe("NotificationsController", () => {
             >;
             expect(
                 schemas.NotificationInboxItemDto.properties.target.oneOf,
-            ).toHaveLength(9);
+            ).toHaveLength(10);
             expect(schemas.NotificationConnectionTargetDto.required).toEqual(
                 expect.arrayContaining(["type", "id", "provider"]),
             );
@@ -85,6 +85,12 @@ describe("NotificationsController", () => {
             expect(schemas.NotificationGoalTargetDto.required).toEqual(
                 expect.arrayContaining(["type", "year"]),
             );
+            expect(schemas.NotificationGuildTargetDto.required).toEqual(
+                expect.arrayContaining(["type", "contractId"]),
+            );
+            expect(
+                schemas.NotificationGuildTargetDto.properties.type.enum,
+            ).toEqual(["guild"]);
             expect(
                 schemas.NotificationContentTargetDto.properties,
             ).not.toHaveProperty("url");
