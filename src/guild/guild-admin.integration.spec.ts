@@ -92,6 +92,17 @@ describe("Guild admin catalog (integration)", () => {
             .set("Authorization", as("editor"))
             .send(body);
 
+    const patchReward = (id: string, body: Record<string, unknown>) =>
+        request(server())
+            .patch(`/v1/guild/admin/rewards/${id}`)
+            .set("Authorization", as("editor"))
+            .send(body);
+
+    const publishEventRequest = (id: string) =>
+        request(server())
+            .post(`/v1/guild/admin/events/${id}/publish`)
+            .set("Authorization", as("editor"));
+
     const createEvent = async (overrides: Record<string, unknown> = {}) => {
         const response = await postEvent(eventPayload(overrides)).expect(201);
         return response.body;
@@ -140,6 +151,30 @@ describe("Guild admin catalog (integration)", () => {
             isHidden: false,
             status: AchievementStatus.DRAFT,
         });
+        await definitions.insert([
+            {
+                id: "guild-admin-draft-badge",
+                name: "Admin draft badge",
+                description: "Still a draft for the admin spec.",
+                category: AchievementCategory.MISC,
+                metric: "manual",
+                criteria: {},
+                icon: { kind: "glyph", name: "draft" },
+                isHidden: false,
+                status: AchievementStatus.DRAFT,
+            },
+            {
+                id: "guild-admin-published-badge",
+                name: "Admin published badge",
+                description: "Published for the admin spec.",
+                category: AchievementCategory.MISC,
+                metric: "manual",
+                criteria: {},
+                icon: { kind: "glyph", name: "relic" },
+                isHidden: false,
+                status: AchievementStatus.PUBLISHED,
+            },
+        ]);
         await source.query(
             "INSERT INTO profile (userId, username) VALUES (?, ?)",
             [READER_ID, "guild_admin_reader"],
@@ -589,6 +624,224 @@ describe("Guild admin catalog (integration)", () => {
             await patchEvent(event.id, {
                 endsAt: "2098-11-30T00:00:00.000Z",
             }).expect(400);
+        });
+    });
+
+    describe("badge rewards on published events", () => {
+        it("only requires a published achievement once the event is published", async () => {
+            const badge = await createReward({
+                key: `badge_draft_link_${randomUUID().slice(0, 8)}`,
+                kind: "badge",
+                achievementId: "guild-admin-draft-badge",
+            });
+
+            const draft = await createEvent();
+            await patchEvent(draft.id, { rewardId: badge.id })
+                .expect(200)
+                .expect(({ body }) => expect(body.reward.id).toBe(badge.id));
+
+            const published = await createEvent();
+            await publishEventRequest(published.id).expect(201);
+            const response = await patchEvent(published.id, {
+                rewardId: badge.id,
+            }).expect(400);
+            expect(response.body.message).toContain("published achievement");
+        });
+
+        it("accepts a published badge on a published event", async () => {
+            const badge = await createReward({
+                key: `badge_published_link_${randomUUID().slice(0, 8)}`,
+                kind: "badge",
+                achievementId: "guild-admin-published-badge",
+            });
+            const event = await createEvent();
+            await publishEventRequest(event.id).expect(201);
+
+            await patchEvent(event.id, { rewardId: badge.id })
+                .expect(200)
+                .expect(({ body }) => expect(body.reward.id).toBe(badge.id));
+        });
+    });
+
+    describe("reward identity after unlocks", () => {
+        const referenceByContract = (rewardId: string) =>
+            source.query(
+                "INSERT INTO guild_contract (id, profileUserId, category, `rank`, xpReward, objectiveType, criteria, acceptedAt, rewardId) VALUES (?, ?, 'event', 'A', 400, 'finish_game', '{}', NOW(6), ?)",
+                [randomUUID(), READER_ID, rewardId],
+            );
+
+        const referenceByUnlock = (rewardId: string) =>
+            source.query(
+                "INSERT INTO user_guild_reward (profileUserId, rewardId, sourceContractId, unlockedAt) VALUES (?, ?, NULL, NOW(6))",
+                [READER_ID, rewardId],
+            );
+
+        it.each(["contract", "unlock"])(
+            "locks key, kind and achievementId once referenced by a %s",
+            async (reference: string) => {
+                const reward = await createReward({
+                    key: `frame_identity_${randomUUID().slice(0, 8)}`,
+                });
+                if (reference === "contract") {
+                    await referenceByContract(reward.id);
+                } else {
+                    await referenceByUnlock(reward.id);
+                }
+
+                for (const changes of [
+                    { key: `frame_renamed_${randomUUID().slice(0, 8)}` },
+                    { kind: "title" },
+                    { achievementId: "guild-admin-published-badge" },
+                ]) {
+                    const response = await patchReward(
+                        reward.id,
+                        changes,
+                    ).expect(409);
+                    expect(response.body).toMatchObject({
+                        code: "guild_reward_identity_locked",
+                    });
+                }
+            },
+        );
+
+        it("still allows catalog-only edits on a referenced reward", async () => {
+            const reward = await createReward({
+                key: `frame_catalog_${randomUUID().slice(0, 8)}`,
+            });
+            await referenceByUnlock(reward.id);
+
+            await patchReward(reward.id, {
+                isActive: false,
+                inChestPool: true,
+                chestBonusXp: 25,
+            })
+                .expect(200)
+                .expect(({ body }) =>
+                    expect(body).toMatchObject({
+                        isActive: false,
+                        inChestPool: true,
+                        chestBonusXp: 25,
+                    }),
+                );
+        });
+
+        it("allows identity edits on an unreferenced reward", async () => {
+            const reward = await createReward({
+                key: `frame_free_${randomUUID().slice(0, 8)}`,
+            });
+            const newKey = `badge_free_${randomUUID().slice(0, 8)}`;
+
+            await patchReward(reward.id, {
+                key: newKey,
+                kind: "badge",
+                achievementId: "guild-admin-published-badge",
+            })
+                .expect(200)
+                .expect(({ body }) =>
+                    expect(body).toMatchObject({
+                        key: newKey,
+                        kind: "badge",
+                        achievementId: "guild-admin-published-badge",
+                    }),
+                );
+        });
+
+        it("refuses to turn a published event's reward into a draft badge", async () => {
+            const reward = await createReward({
+                key: `frame_published_${randomUUID().slice(0, 8)}`,
+            });
+            const event = await createEvent({ rewardId: reward.id });
+            await publishEventRequest(event.id).expect(201);
+
+            await patchReward(reward.id, {
+                kind: "badge",
+                achievementId: "guild-admin-draft-badge",
+            }).expect(400);
+            await patchReward(reward.id, {
+                kind: "badge",
+                achievementId: "guild-admin-published-badge",
+            })
+                .expect(200)
+                .expect(({ body }) =>
+                    expect(body).toMatchObject({
+                        kind: "badge",
+                        achievementId: "guild-admin-published-badge",
+                    }),
+                );
+        });
+    });
+
+    describe("event row lock", () => {
+        it("waits for the event lock before rejecting rules edits with a new contract", async () => {
+            const event = await createEvent();
+            const runner = source.createQueryRunner();
+            await runner.connect();
+            await runner.startTransaction();
+            let settled = false;
+            try {
+                await runner.query(
+                    "SELECT id FROM guild_event WHERE id = ? FOR UPDATE",
+                    [event.id],
+                );
+                await runner.query(
+                    "INSERT INTO guild_contract (id, profileUserId, eventId, category, `rank`, xpReward, objectiveType, criteria, acceptedAt) VALUES (?, ?, ?, 'event', 'A', 400, 'finish_game', '{}', NOW(6))",
+                    [randomUUID(), READER_ID, event.id],
+                );
+
+                const pending = patchEvent(event.id, { xpReward: 999 }).then(
+                    (response) => {
+                        settled = true;
+                        return response;
+                    },
+                );
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                expect(settled).toBe(false);
+
+                await runner.commitTransaction();
+                const response = await pending;
+                expect(response.status).toBe(409);
+                expect(response.body).toMatchObject({
+                    code: "guild_event_rules_locked",
+                });
+            } finally {
+                if (runner.isTransactionActive) {
+                    await runner.rollbackTransaction();
+                }
+                await runner.release();
+            }
+        });
+
+        it("waits for the event lock before archiving", async () => {
+            const event = await createEvent();
+            const runner = source.createQueryRunner();
+            await runner.connect();
+            await runner.startTransaction();
+            let settled = false;
+            try {
+                await runner.query(
+                    "SELECT id FROM guild_event WHERE id = ? FOR UPDATE",
+                    [event.id],
+                );
+                const pending = request(server())
+                    .post(`/v1/guild/admin/events/${event.id}/archive`)
+                    .set("Authorization", as("editor"))
+                    .then((response) => {
+                        settled = true;
+                        return response;
+                    });
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                expect(settled).toBe(false);
+
+                await runner.commitTransaction();
+                const response = await pending;
+                expect(response.status).toBe(201);
+                expect(response.body).toMatchObject({ status: "archived" });
+            } finally {
+                if (runner.isTransactionActive) {
+                    await runner.rollbackTransaction();
+                }
+                await runner.release();
+            }
         });
     });
 

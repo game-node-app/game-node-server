@@ -685,4 +685,72 @@ describe("GuildBoardService (integration)", () => {
             eventRestored.quests.some((quest) => quest.eventId === eventId),
         ).toBe(true);
     });
+
+    it("rolls back every slot when a later slot insert fails", async () => {
+        const userId = await user();
+        await source.query(
+            `CREATE TRIGGER guild_board_entry_reject_slot_two
+             BEFORE INSERT ON guild_board_entry
+             FOR EACH ROW
+             BEGIN
+                 IF NEW.slotIndex = 2 THEN
+                     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'slot 2 rejected';
+                 END IF;
+             END`,
+        );
+
+        try {
+            await expect(
+                service.ensureWeeklyEntries(userId, WEDNESDAY),
+            ).rejects.toThrow();
+        } finally {
+            await source.query(
+                "DROP TRIGGER IF EXISTS guild_board_entry_reject_slot_two",
+            );
+        }
+
+        expect(
+            await source.query(
+                "SELECT COUNT(*) AS total FROM guild_board_entry WHERE profileUserId = ?",
+                [userId],
+            ),
+        ).toEqual([{ total: 0 }]);
+    });
+
+    it("tops up a partial board without replacing its existing slot", async () => {
+        const userId = await user();
+        const existingId = randomUUID();
+        await source.query(
+            `INSERT INTO guild_board_entry
+                (id, profileUserId, weekStart, slotIndex, category, templateKey, \`rank\`, xpReward,
+                 objectiveType, targetCount, criteria, candidateGames, requiresTargetGame, rewardId,
+                 isRecommended, isQuick, expiresAt)
+             VALUES (?, ?, '2026-06-15', 0, ?, 'forgotten_relic', ?, 120, ?, 1, '{}', '[]', 1, NULL, 0, 0, ?)`,
+            [
+                existingId,
+                userId,
+                GuildCategory.LIBRARY,
+                GuildRank.C,
+                GuildObjectiveType.FINISH_GAME,
+                new Date("2026-06-22T03:00:00Z"),
+            ],
+        );
+
+        const entries = await service.ensureWeeklyEntries(userId, WEDNESDAY);
+
+        expect(entries.map((entry) => entry.slotIndex)).toEqual([0, 1, 2]);
+        expect(entries[0]).toMatchObject({
+            id: existingId,
+            templateKey: "forgotten_relic",
+        });
+        expect(
+            entries.filter((entry) => entry.id !== existingId),
+        ).toHaveLength(2);
+        expect(
+            await source.query(
+                "SELECT COUNT(*) AS total FROM guild_board_entry WHERE profileUserId = ?",
+                [userId],
+            ),
+        ).toEqual([{ total: 3 }]);
+    });
 });

@@ -42,6 +42,7 @@ import {
     GuildObjectiveType,
     GuildRank,
     GuildRewardKind,
+    currentWeekStart,
     LinaPose,
     LinaTrigger,
 } from "./guild.constants";
@@ -783,6 +784,40 @@ describe("Guild contracts (integration)", () => {
             );
             expect(Number(rows[0].total)).toBe(1);
         });
+
+        it("binds a target game only on single-game finish quests", async () => {
+            const userId = await user();
+            const multiGameEvent = await event({ targetCount: 2 });
+            const gameId = await game();
+            const error = await rejectionOf(
+                contracts.acceptContract(
+                    userId,
+                    { eventId: multiGameEvent, targetGameId: gameId },
+                    NOW,
+                ),
+            );
+            expect(error).toBeInstanceOf(BadRequestException);
+            expect(error.message).toBe(
+                "targetGameId cannot be set on multi-game finish quests.",
+            );
+
+            const accepted = await contracts.acceptContract(
+                userId,
+                { eventId: multiGameEvent },
+                NOW,
+            );
+            expect(accepted.contract.targetGameId).toBeNull();
+            expect(accepted.contract.progressTarget).toBe(2);
+
+            const singleGameEvent = await event({ targetCount: 1 });
+            const singleGameId = await game();
+            const bound = await contracts.acceptContract(
+                userId,
+                { eventId: singleGameEvent, targetGameId: singleGameId },
+                NOW,
+            );
+            expect(bound.contract.targetGameId).toBe(singleGameId);
+        });
     });
 
     describe("Lina contract triggers", () => {
@@ -901,6 +936,159 @@ describe("Guild contracts (integration)", () => {
             await evaluator.evaluateUserContracts(
                 userId,
                 new Date(NOW.getTime() + 10 * 60_000),
+            );
+            const updated = await contractOf(contract.id);
+            expect(updated.progressCurrent).toBe(1);
+            expect(updated.status).toBe(GuildContractStatus.ACTIVE);
+        });
+
+        it("counts a finish exactly at the evaluation instant but not a later one", async () => {
+            const userId = await user();
+            const quest = await boardEntry(userId, { targetCount: 2 });
+            const { contract } = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id },
+                NOW,
+            );
+
+            const futureGame = await game();
+            await entry(userId, futureGame, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: new Date(NOW.getTime() + 60_000),
+            });
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(NOW.getTime() + 30_000),
+            );
+            let stored = await contractOf(contract.id);
+            expect(stored.progressCurrent).toBe(0);
+            expect(stored.status).toBe(GuildContractStatus.ACTIVE);
+
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(NOW.getTime() + 60_000),
+            );
+            stored = await contractOf(contract.id);
+            expect(stored.progressCurrent).toBe(1);
+            expect(stored.status).toBe(GuildContractStatus.ACTIVE);
+        });
+    });
+
+    describe("acceptance serialization", () => {
+        it("rejects an accept whose event was archived while waiting for the lock", async () => {
+            const userId = await user();
+            await profiles.ensureProfile(userId);
+            const eventId = await event();
+
+            const runner = source.createQueryRunner();
+            await runner.connect();
+            await runner.startTransaction();
+            await runner.query(
+                "SELECT id FROM guild_event WHERE id = ? FOR UPDATE",
+                [eventId],
+            );
+
+            const pending = rejectionOf(
+                contracts.acceptContract(userId, { eventId }, NOW),
+            );
+            await new Promise((resolve) => setImmediate(resolve));
+            await runner.query(
+                "UPDATE guild_event SET status = ? WHERE id = ?",
+                [GuildEventStatus.ARCHIVED, eventId],
+            );
+            await runner.commitTransaction();
+            await runner.release();
+
+            expect(await pending).toBeInstanceOf(NotFoundException);
+            const rows: Array<{ total: number }> = await source.query(
+                "SELECT COUNT(*) AS total FROM guild_contract WHERE profileUserId = ?",
+                [userId],
+            );
+            expect(Number(rows[0].total)).toBe(0);
+        });
+
+        it("accepts an unchanged published event after the lock is released", async () => {
+            const userId = await user();
+            await profiles.ensureProfile(userId);
+            const eventId = await event();
+
+            const runner = source.createQueryRunner();
+            await runner.connect();
+            await runner.startTransaction();
+            await runner.query(
+                "SELECT id FROM guild_event WHERE id = ? FOR UPDATE",
+                [eventId],
+            );
+
+            const pending = contracts.acceptContract(userId, { eventId }, NOW);
+            await new Promise((resolve) => setImmediate(resolve));
+            await runner.commitTransaction();
+            await runner.release();
+
+            const accepted = await pending;
+            expect(accepted.contract.eventId).toBe(eventId);
+            expect(accepted.contract.status).toBe(GuildContractStatus.ACTIVE);
+        });
+
+        it("captures acceptedAt after waiting for the profile lock", async () => {
+            const userId = await user();
+            await profiles.ensureProfile(userId);
+            const quest = await boardEntry(userId, {
+                weekStart: currentWeekStart(new Date()),
+                targetCount: 2,
+                expiresAt: new Date(Date.now() + 7 * DAY_MS),
+            });
+
+            const runner = source.createQueryRunner();
+            await runner.connect();
+            await runner.startTransaction();
+            await runner.query(
+                "SELECT profileUserId FROM guild_profile WHERE profileUserId = ? FOR UPDATE",
+                [userId],
+            );
+
+            const pending = contracts.acceptContract(userId, {
+                boardEntryId: quest.id,
+            });
+            await new Promise((resolve) => setImmediate(resolve));
+
+            const duringWaitGame = await game();
+            const duringWaitFinish = new Date(
+                Math.ceil(Date.now() / 1000) * 1000,
+            );
+            await entry(userId, duringWaitGame, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: duringWaitFinish,
+            });
+            // Lets the wall clock pass the finish, so the post-lock acceptedAt is strictly later.
+            await new Promise((resolve) => setTimeout(resolve, 1_200));
+
+            await runner.commitTransaction();
+            await runner.release();
+
+            const { contract } = await pending;
+            const stored = await contractOf(contract.id);
+            expect(stored.acceptedAt.getTime()).toBeGreaterThan(
+                duringWaitFinish.getTime(),
+            );
+
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(stored.acceptedAt.getTime() + 60_000),
+            );
+            expect((await contractOf(contract.id)).progressCurrent).toBe(0);
+            expect((await contractOf(contract.id)).status).toBe(
+                GuildContractStatus.ACTIVE,
+            );
+
+            const afterAcceptGame = await game();
+            await entry(userId, afterAcceptGame, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: new Date(stored.acceptedAt.getTime() + 60_000),
+            });
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(stored.acceptedAt.getTime() + 120_000),
             );
             const updated = await contractOf(contract.id);
             expect(updated.progressCurrent).toBe(1);
@@ -1426,6 +1614,75 @@ describe("Guild contracts (integration)", () => {
                 "guild_contract_not_ready",
             );
         });
+
+        it("rolls back the whole claim when the receipt fails and retries cleanly", async () => {
+            const userId = await user();
+            await source.query(
+                "INSERT INTO guild_profile (profileUserId, xp, `rank`) VALUES (?, ?, ?)",
+                [userId, 1_900, GuildRank.C],
+            );
+            const badge = await makeBadge();
+            const contractId = await readyContract(userId, {
+                xpReward: 250,
+                rewardId: badge.id,
+            });
+
+            const lookup = jest.spyOn(contracts as any, "findContractOrFail");
+            lookup.mockRejectedValueOnce(
+                new Error("simulated receipt failure"),
+            );
+
+            await expect(
+                contracts.claimContract(userId, contractId, NOW),
+            ).rejects.toThrow("simulated receipt failure");
+
+            const [profile] = await source.query(
+                "SELECT xp, `rank` FROM guild_profile WHERE profileUserId = ?",
+                [userId],
+            );
+            expect(Number(profile.xp)).toBe(1_900);
+            expect(profile.rank).toBe(GuildRank.C);
+
+            const [userLevel]: Array<{ total: number }> = await source.query(
+                "SELECT COUNT(*) AS total FROM user_level WHERE userId = ?",
+                [userId],
+            );
+            expect(Number(userLevel.total)).toBe(0);
+
+            const [obtained]: Array<{ total: number }> = await source.query(
+                "SELECT COUNT(*) AS total FROM obtained_achievement WHERE profileUserId = ? AND achievementId = ?",
+                [userId, badge.achievementId],
+            );
+            expect(Number(obtained.total)).toBe(0);
+
+            const rolledBack = await contractOf(contractId);
+            expect(rolledBack.status).toBe(GuildContractStatus.READY_TO_CLAIM);
+            expect(rolledBack.claimedAt).toBeNull();
+            expect(rolledBack.claimPayload).toBeNull();
+
+            lookup.mockRestore();
+
+            const retry = await request(app.getHttpServer())
+                .post(`/v1/guild/contracts/${contractId}/claim`)
+                .set("x-test-user", userId)
+                .expect(200);
+            expect(retry.body.xpAwarded).toBe(250);
+            expect(retry.body.contract.status).toBe(
+                GuildContractStatus.COMPLETED,
+            );
+
+            const [afterRetry] = await source.query(
+                "SELECT xp FROM guild_profile WHERE profileUserId = ?",
+                [userId],
+            );
+            expect(Number(afterRetry.xp)).toBe(2_150);
+
+            // A real duplicate claim is still a 409.
+            await request(app.getHttpServer())
+                .post(`/v1/guild/contracts/${contractId}/claim`)
+                .set("x-test-user", userId)
+                .expect(409);
+        });
     });
 
     describe("abandon, expiration and listing", () => {
@@ -1538,7 +1795,13 @@ describe("Guild contracts (integration)", () => {
                 status: GuildContractStatus.READY_TO_CLAIM,
             });
             const active = await insertContract(userId);
-            const updatedAtDesc = [expired, abandoned, completed, ready, active];
+            const updatedAtDesc = [
+                expired,
+                abandoned,
+                completed,
+                ready,
+                active,
+            ];
             for (const [index, id] of updatedAtDesc.entries()) {
                 await source.query(
                     "UPDATE guild_contract SET updatedAt = ? WHERE id = ?",

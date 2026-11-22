@@ -167,6 +167,38 @@ describe("GuildTimeToBeatService (integration)", () => {
         expect(result.size).toBe(GUILD_TTB_MAX_BATCH);
     });
 
+    it("caches every returned row of a full batch and only negatively caches the genuine misses", async () => {
+        const ids = nextGameIds(GUILD_TTB_MAX_BATCH);
+        await addGames(ids);
+        const found = ids.slice(0, 35);
+        const missing = ids.slice(35);
+        getTimesToBeat.mockResolvedValueOnce(found.map((id) => ttb(id)));
+
+        const result = await service.getForGameIds(
+            ids,
+            new Date("2026-11-21T12:00:00Z"),
+        );
+
+        expect(getTimesToBeat).toHaveBeenCalledTimes(1);
+        expect(getTimesToBeat).toHaveBeenCalledWith(ids);
+
+        const rows = await repository.find();
+        expect(rows).toHaveLength(ids.length);
+        for (const id of found) {
+            expect(result.get(id)?.normallySeconds).toBe(21_600);
+            expect(rows.find((row) => row.gameId === id)?.normallySeconds).toBe(
+                21_600,
+            );
+        }
+        for (const id of missing) {
+            expect(result.get(id)?.normallySeconds).toBeNull();
+            expect(
+                rows.find((row) => row.gameId === id)?.normallySeconds,
+            ).toBeNull();
+            expect(rows.find((row) => row.gameId === id)?.submitCount).toBe(0);
+        }
+    });
+
     it("does not refetch a negatively cached game before the TTL expires", async () => {
         const [gameId] = nextGameIds(1);
         await addGames([gameId]);

@@ -46,6 +46,9 @@ const CANDIDATE_LIMIT = 3;
 /** Most library games whose TTB is inspected per weekly generation. */
 const WEEKLY_LIBRARY_LIMIT = 40;
 
+/** Design 3: a complete weekly board always has three quest slots. */
+const WEEKLY_BOARD_SLOT_COUNT = 3;
+
 const TEMPLATE_BY_KEY = new Map(
     GUILD_SYSTEM_TEMPLATES.map((template) => [template.key, template]),
 );
@@ -119,7 +122,8 @@ export class GuildBoardService {
             relations: { reward: true },
             order: { slotIndex: "ASC" },
         });
-        if (existing.length > 0) return existing;
+        // A partial board (an earlier request died mid-insert) is topped up below.
+        if (existing.length >= WEEKLY_BOARD_SLOT_COUNT) return existing;
 
         const seed = weekSeed(userId, weekStart);
         const gamenodeTemplate =
@@ -156,34 +160,37 @@ export class GuildBoardService {
         );
         const expiresAt = nextMondayRefreshAt(weekStart);
 
+        // One transaction, so a killed request or failed slot never leaves a partial board for the week.
         // INSERT IGNORE keeps concurrent same-week generation idempotent (UQ user/week/slot).
-        for (const slot of slots) {
-            await this.dataSource.query(
-                `INSERT IGNORE INTO guild_board_entry
-                    (id, profileUserId, weekStart, slotIndex, category, templateKey, \`rank\`, xpReward,
-                     objectiveType, targetCount, criteria, candidateGames, requiresTargetGame, rewardId,
-                     isRecommended, isQuick, expiresAt)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-                [
-                    randomUUID(),
-                    userId,
-                    weekStart,
-                    slot.slotIndex,
-                    slot.template.category,
-                    slot.template.key,
-                    slot.template.rank,
-                    slot.template.xpReward,
-                    slot.template.objectiveType,
-                    slot.template.targetCount,
-                    JSON.stringify(slot.template.criteria),
-                    JSON.stringify(slot.candidateGames),
-                    slot.template.requiresTargetGame,
-                    rewardIds.get(slot.template.rewardKey ?? "") ?? null,
-                    slot.template.isQuick,
-                    expiresAt,
-                ],
-            );
-        }
+        await this.dataSource.transaction(async (manager) => {
+            for (const slot of slots) {
+                await manager.query(
+                    `INSERT IGNORE INTO guild_board_entry
+                        (id, profileUserId, weekStart, slotIndex, category, templateKey, \`rank\`, xpReward,
+                         objectiveType, targetCount, criteria, candidateGames, requiresTargetGame, rewardId,
+                         isRecommended, isQuick, expiresAt)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+                    [
+                        randomUUID(),
+                        userId,
+                        weekStart,
+                        slot.slotIndex,
+                        slot.template.category,
+                        slot.template.key,
+                        slot.template.rank,
+                        slot.template.xpReward,
+                        slot.template.objectiveType,
+                        slot.template.targetCount,
+                        JSON.stringify(slot.template.criteria),
+                        JSON.stringify(slot.candidateGames),
+                        slot.template.requiresTargetGame,
+                        rewardIds.get(slot.template.rewardKey ?? "") ?? null,
+                        slot.template.isQuick,
+                        expiresAt,
+                    ],
+                );
+            }
+        });
 
         return repository.find({
             where: { profileUserId: userId, weekStart },

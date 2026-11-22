@@ -142,6 +142,9 @@ export class GuildContractEvaluatorService {
             conditions.push("ce.finishedAt < ?");
             parameters.push(contract.expiresAt);
         }
+        // A finish dated after the evaluation instant is not progress yet.
+        conditions.push("ce.finishedAt <= ?");
+        parameters.push(now);
         if (contract.targetGameId !== null) {
             conditions.push("ce.gameId = ?");
             parameters.push(contract.targetGameId);

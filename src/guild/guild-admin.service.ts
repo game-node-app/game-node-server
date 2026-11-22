@@ -144,50 +144,67 @@ export class GuildAdminService {
         id: string,
         dto: UpdateGuildEventDto,
     ): Promise<GuildAdminEventResponseDto> {
-        const saved = await this.findEventOrFail(id);
-        if (dto.slug !== undefined && dto.slug !== saved.slug) {
-            await this.assertSlugAvailable(dto.slug);
-        }
-        await this.assertRulesUnlocked(id, saved, dto);
-
-        const startsAt = dto.startsAt ?? saved.startsAt;
-        const endsAt = dto.endsAt ?? saved.endsAt;
-        const objectiveType = dto.objectiveType ?? saved.objectiveType;
-        const targetCount = dto.targetCount ?? saved.targetCount;
-        const criteria = dto.criteria ?? saved.criteria;
-
-        this.assertWindow(startsAt, endsAt);
-        this.assertQuestRules(objectiveType, targetCount, criteria);
-        if (dto.rewardId !== undefined) {
-            await this.assertActiveReward(dto.rewardId);
-        }
-        const translations =
-            dto.translations === undefined
-                ? undefined
-                : this.validateTranslations(dto.translations);
-
-        const changes: Partial<GuildEvent> = {};
-        if (dto.title !== undefined) {
-            changes.title = trimRequired(dto.title, "title");
-        }
-        if (dto.description !== undefined) {
-            changes.description = trimRequired(dto.description, "description");
-        }
-        if (dto.slug !== undefined) changes.slug = dto.slug;
-        if (dto.rank !== undefined) changes.rank = dto.rank;
-        if (dto.xpReward !== undefined) changes.xpReward = dto.xpReward;
-        if (dto.objectiveType !== undefined) {
-            changes.objectiveType = dto.objectiveType;
-        }
-        if (dto.targetCount !== undefined) {
-            changes.targetCount = dto.targetCount;
-        }
-        if (dto.criteria !== undefined) changes.criteria = dto.criteria;
-        if (dto.rewardId !== undefined) changes.rewardId = dto.rewardId;
-        if (dto.startsAt !== undefined) changes.startsAt = dto.startsAt;
-        if (dto.endsAt !== undefined) changes.endsAt = dto.endsAt;
-
         await this.dataSource.transaction(async (manager) => {
+            // Holds the event row so an accepted contract can't slip in before the rules check.
+            await this.lockEvent(manager, id);
+            const saved = await this.findEventOrFail(
+                id,
+                manager.getRepository(GuildEvent),
+            );
+            if (dto.slug !== undefined && dto.slug !== saved.slug) {
+                await this.assertSlugAvailable(dto.slug);
+            }
+            await this.assertRulesUnlocked(manager, id, saved, dto);
+
+            const startsAt = dto.startsAt ?? saved.startsAt;
+            const endsAt = dto.endsAt ?? saved.endsAt;
+            const objectiveType = dto.objectiveType ?? saved.objectiveType;
+            const targetCount = dto.targetCount ?? saved.targetCount;
+            const criteria = dto.criteria ?? saved.criteria;
+
+            this.assertWindow(startsAt, endsAt);
+            this.assertQuestRules(objectiveType, targetCount, criteria);
+            if (dto.rewardId !== undefined) {
+                const reward = await this.assertActiveReward(dto.rewardId);
+                // A published event must not gain a badge whose achievement is still a draft.
+                if (
+                    saved.status === GuildEventStatus.PUBLISHED &&
+                    reward.kind === GuildRewardKind.BADGE
+                ) {
+                    await this.assertBadgeAchievementPublished(
+                        reward.achievementId,
+                    );
+                }
+            }
+            const translations =
+                dto.translations === undefined
+                    ? undefined
+                    : this.validateTranslations(dto.translations);
+
+            const changes: Partial<GuildEvent> = {};
+            if (dto.title !== undefined) {
+                changes.title = trimRequired(dto.title, "title");
+            }
+            if (dto.description !== undefined) {
+                changes.description = trimRequired(
+                    dto.description,
+                    "description",
+                );
+            }
+            if (dto.slug !== undefined) changes.slug = dto.slug;
+            if (dto.rank !== undefined) changes.rank = dto.rank;
+            if (dto.xpReward !== undefined) changes.xpReward = dto.xpReward;
+            if (dto.objectiveType !== undefined) {
+                changes.objectiveType = dto.objectiveType;
+            }
+            if (dto.targetCount !== undefined) {
+                changes.targetCount = dto.targetCount;
+            }
+            if (dto.criteria !== undefined) changes.criteria = dto.criteria;
+            if (dto.rewardId !== undefined) changes.rewardId = dto.rewardId;
+            if (dto.startsAt !== undefined) changes.startsAt = dto.startsAt;
+            if (dto.endsAt !== undefined) changes.endsAt = dto.endsAt;
+
             if (Object.keys(changes).length > 0) {
                 await manager.update(GuildEvent, { id }, changes);
             }
@@ -205,38 +222,50 @@ export class GuildAdminService {
         id: string,
         now = new Date(),
     ): Promise<GuildAdminEventResponseDto> {
-        const saved = await this.findEventOrFail(id);
-        if (saved.status === GuildEventStatus.ARCHIVED) {
-            throw new ConflictException("Archived events can't be published.");
-        }
-        if (saved.endsAt <= now) {
-            badRequest("endsAt must be in the future to publish.");
-        }
-        if (saved.rewardId) {
-            const reward = await this.rewardRepository.findOneBy({
-                id: saved.rewardId,
-            });
-            if (reward?.kind === GuildRewardKind.BADGE) {
-                await this.assertBadgeAchievementPublished(
-                    reward.achievementId,
+        await this.dataSource.transaction(async (manager) => {
+            await this.lockEvent(manager, id);
+            const saved = await this.findEventOrFail(
+                id,
+                manager.getRepository(GuildEvent),
+            );
+            if (saved.status === GuildEventStatus.ARCHIVED) {
+                throw new ConflictException(
+                    "Archived events can't be published.",
                 );
             }
-        }
+            if (saved.endsAt <= now) {
+                badRequest("endsAt must be in the future to publish.");
+            }
+            if (saved.rewardId) {
+                const reward = await manager
+                    .getRepository(GuildReward)
+                    .findOneBy({ id: saved.rewardId });
+                if (reward?.kind === GuildRewardKind.BADGE) {
+                    await this.assertBadgeAchievementPublished(
+                        reward.achievementId,
+                    );
+                }
+            }
 
-        await this.eventRepository.update(
-            { id },
-            { status: GuildEventStatus.PUBLISHED, publishedAt: now },
-        );
+            await manager.update(
+                GuildEvent,
+                { id },
+                { status: GuildEventStatus.PUBLISHED, publishedAt: now },
+            );
+        });
         return this.getEvent(id);
     }
 
     async archiveEvent(id: string): Promise<GuildAdminEventResponseDto> {
-        // Only the event status changes, so contracts already accepted keep progressing.
-        await this.findEventOrFail(id);
-        await this.eventRepository.update(
-            { id },
-            { status: GuildEventStatus.ARCHIVED },
-        );
+        await this.dataSource.transaction(async (manager) => {
+            await this.lockEvent(manager, id);
+            // Only the event status changes, so contracts already accepted keep progressing.
+            await manager.update(
+                GuildEvent,
+                { id },
+                { status: GuildEventStatus.ARCHIVED },
+            );
+        });
         return this.getEvent(id);
     }
 
@@ -275,34 +304,100 @@ export class GuildAdminService {
         id: string,
         dto: UpdateGuildRewardDto,
     ): Promise<GuildAdminRewardResponseDto> {
-        const saved = await this.findRewardOrFail(id);
-        if (dto.key !== undefined && dto.key !== saved.key) {
-            await this.assertKeyAvailable(dto.key);
-        }
+        const saved = await this.dataSource.transaction(async (manager) => {
+            // Locks the reward row so an unlock or contract can't land mid-check.
+            const [locked]: Array<{ id: string }> = await manager.query(
+                "SELECT id FROM guild_reward WHERE id = ? FOR UPDATE",
+                [id],
+            );
+            if (!locked) throw new NotFoundException("Guild reward not found.");
 
-        const kind = dto.kind ?? saved.kind;
-        const achievementId =
-            dto.achievementId !== undefined
-                ? dto.achievementId
-                : saved.achievementId;
-        const inChestPool = dto.inChestPool ?? saved.inChestPool;
-        await this.assertRewardCatalogRules(kind, achievementId, inChestPool);
+            const reward = await this.findRewardOrFail(
+                id,
+                manager.getRepository(GuildReward),
+            );
+            const identityChanged =
+                (dto.key !== undefined && dto.key !== reward.key) ||
+                (dto.kind !== undefined && dto.kind !== reward.kind) ||
+                (dto.achievementId !== undefined &&
+                    dto.achievementId !== reward.achievementId);
+            if (identityChanged && (await this.rewardReferenced(manager, id))) {
+                throw new ConflictException({
+                    message:
+                        "Reward identity fields (key, kind, achievementId) are locked once referenced by contracts or unlocked rewards.",
+                    code: "guild_reward_identity_locked",
+                });
+            }
+            if (dto.key !== undefined && dto.key !== reward.key) {
+                await this.assertKeyAvailable(dto.key);
+            }
 
-        if (dto.key !== undefined) saved.key = dto.key;
-        if (dto.kind !== undefined) saved.kind = dto.kind;
-        if (dto.achievementId !== undefined) {
-            saved.achievementId = dto.achievementId;
-        }
-        if (dto.inChestPool !== undefined) saved.inChestPool = dto.inChestPool;
-        if (dto.chestBonusXp !== undefined) {
-            saved.chestBonusXp = dto.chestBonusXp;
-        }
-        if (dto.isActive !== undefined) saved.isActive = dto.isActive;
-        return toRewardDto(await this.rewardRepository.save(saved));
+            const kind = dto.kind ?? reward.kind;
+            const achievementId =
+                dto.achievementId !== undefined
+                    ? dto.achievementId
+                    : reward.achievementId;
+            const inChestPool = dto.inChestPool ?? reward.inChestPool;
+            await this.assertRewardCatalogRules(
+                kind,
+                achievementId,
+                inChestPool,
+            );
+            if (
+                kind === GuildRewardKind.BADGE &&
+                (kind !== reward.kind ||
+                    achievementId !== reward.achievementId) &&
+                (await manager.getRepository(GuildEvent).existsBy({
+                    rewardId: id,
+                    status: GuildEventStatus.PUBLISHED,
+                }))
+            ) {
+                await this.assertBadgeAchievementPublished(achievementId);
+            }
+
+            if (dto.key !== undefined) reward.key = dto.key;
+            if (dto.kind !== undefined) reward.kind = dto.kind;
+            if (dto.achievementId !== undefined) {
+                reward.achievementId = dto.achievementId;
+            }
+            if (dto.inChestPool !== undefined) {
+                reward.inChestPool = dto.inChestPool;
+            }
+            if (dto.chestBonusXp !== undefined) {
+                reward.chestBonusXp = dto.chestBonusXp;
+            }
+            if (dto.isActive !== undefined) reward.isActive = dto.isActive;
+            return toRewardDto(
+                await manager.getRepository(GuildReward).save(reward),
+            );
+        });
+        return saved;
     }
 
-    private async findEventOrFail(id: string): Promise<GuildEvent> {
-        const event = await this.eventRepository.findOne({
+    /** Locked reads serialize editorial edits with contract acceptance on the same event. */
+    private async lockEvent(manager: EntityManager, id: string) {
+        const [row]: Array<{ id: string }> = await manager.query(
+            "SELECT id FROM guild_event WHERE id = ? FOR UPDATE",
+            [id],
+        );
+        if (!row) throw new NotFoundException("Guild event not found.");
+    }
+
+    private async rewardReferenced(manager: EntityManager, id: string) {
+        const [row]: unknown[] = await manager.query(
+            `SELECT 1 FROM guild_contract WHERE rewardId = ?
+             UNION ALL SELECT 1 FROM user_guild_reward WHERE rewardId = ?
+             LIMIT 1`,
+            [id, id],
+        );
+        return !!row;
+    }
+
+    private async findEventOrFail(
+        id: string,
+        repository: Repository<GuildEvent> = this.eventRepository,
+    ): Promise<GuildEvent> {
+        const event = await repository.findOne({
             where: { id },
             relations: { translations: true, reward: true },
         });
@@ -310,8 +405,11 @@ export class GuildAdminService {
         return event;
     }
 
-    private async findRewardOrFail(id: string): Promise<GuildReward> {
-        const reward = await this.rewardRepository.findOneBy({ id });
+    private async findRewardOrFail(
+        id: string,
+        repository: Repository<GuildReward> = this.rewardRepository,
+    ): Promise<GuildReward> {
+        const reward = await repository.findOneBy({ id });
         if (!reward) throw new NotFoundException("Guild reward not found.");
         return reward;
     }
@@ -434,11 +532,12 @@ export class GuildAdminService {
     }
 
     private async assertRulesUnlocked(
+        manager: EntityManager,
         id: string,
         saved: GuildEvent,
         dto: UpdateGuildEventDto,
     ) {
-        const hasContracts = await this.dataSource
+        const hasContracts = await manager
             .getRepository(GuildContract)
             .existsBy({ eventId: id });
         if (!hasContracts) return;

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { DataSource } from "typeorm";
+import { DataSource, EntityManager } from "typeorm";
 import { CollectionEntryStatus } from "../collections/collections-entries/collections-entries.constants";
 import {
     GuildContractStatus,
@@ -45,6 +45,7 @@ export class LinaReceptionService {
     public async computeHasUnseenBoard(
         guildProfile: GuildProfile,
         now = new Date(),
+        manager?: EntityManager,
     ): Promise<boolean> {
         const lastBoardSeenAt = guildProfile.lastBoardSeenAt;
         if (!lastBoardSeenAt) return true;
@@ -52,7 +53,8 @@ export class LinaReceptionService {
             return true;
         }
 
-        const [row] = await this.dataSource.query(
+        const executor = manager ?? this.dataSource;
+        const [row] = await executor.query(
             `SELECT MAX(publishedAt) AS publishedAt FROM guild_event
              WHERE status = ? AND startsAt <= ? AND endsAt > ?`,
             [GuildEventStatus.PUBLISHED, now, now],

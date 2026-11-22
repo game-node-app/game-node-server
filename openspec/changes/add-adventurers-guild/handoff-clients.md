@@ -306,6 +306,7 @@ Body `AcceptGuildContractDto`:
 - `eventId` must be a `published` event whose `[startsAt, endsAt)` contains now. Unknown/unpublished → 404; outside window → 400.
 - `targetGameId` is required when the quest has `requiresTargetGame: true`. If supplied on an optional-target quest, it must exist and satisfy the criteria. Target validation is 400 with a plain message:
   - game not in `game` table;
+  - `finish_game` quest with `targetCount > 1` (multi-game finish quests cannot be bound to a single `targetGameId`);
   - already `finished` in the user's library;
   - `forgotten_relic`: not a planned/dropped entry older than 365 days without recent playtime;
   - `deep_dive`: not in `playing` status;
@@ -580,7 +581,7 @@ Criteria validation (`400` with `{ message: "Invalid quest rules.", errors: stri
 | `chestBonusXp` | integer | no | default 0, `>= 0` |
 | `isActive` | boolean | no | default true |
 
-**Update** (`PATCH`, 200) accepts any subset; the same validations run against the merged state. Unknown reward → 404. No delete endpoint: deactivate with `isActive: false`.
+**Update** (`PATCH`, 200) accepts any subset; the same validations run against the merged state. Once a reward is referenced by any contract or unlocked cosmetic, changing `key`, `kind`, or `achievementId` fails with 409 `code: "guild_reward_identity_locked"` (catalog fields `isActive`, `inChestPool`, and `chestBonusXp` remain editable). Unknown reward → 404. No delete endpoint: deactivate with `isActive: false`.
 
 **List**: `GET /v1/guild/admin/rewards` ordered by `createdAt` DESC.
 
@@ -671,6 +672,7 @@ Rendering rules:
 | 409 | `guild_contract_not_ready` | claim | Refresh contract; it may already be claimed/abandoned |
 | 409 | `guild_contract_not_active` | abandon | Refresh contract |
 | 409 | `guild_event_rules_locked` | admin event update | Show locked-rules explanation |
+| 409 | `guild_reward_identity_locked` | admin reward update | Show locked-identity explanation; create a new reward instead |
 | 409 | — (message only) | duplicate slug/key, publish archived, other admin conflicts | Show `message` |
 
 ## 13. Out of scope for this server change
