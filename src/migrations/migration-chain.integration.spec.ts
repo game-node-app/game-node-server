@@ -5,6 +5,7 @@ import { DataSource } from "typeorm";
 import { createConnection, Connection } from "mysql2/promise";
 import { testEnvironment } from "../../test/igdb/helpers/test-environment";
 import { AddGameSearchName1795800000000 } from "./1795800000000-AddGameSearchName";
+import { AddLibraryStatusHistory1796000000000 } from "./1796000000000-AddLibraryStatusHistory";
 
 const DATABASE = "migration_chain_test";
 // Test container credentials from test/igdb/docker-compose.yml.
@@ -127,6 +128,55 @@ describe("migration chain on an empty database", () => {
                     "SELECT `table` FROM `typeorm_metadata` WHERE `schema` = DATABASE() AND `type` = 'GENERATED_COLUMN' AND `name` = 'searchName' ORDER BY `table`",
                 ),
             ).toEqual([{ table: "game" }, { table: "game_alternative_name" }]);
+        } finally {
+            await runner.release();
+        }
+    });
+
+    it("backfills one finished history row per finished entry, dated by its finish date", async () => {
+        const userId = "migration-history-user";
+        await source.query(
+            "INSERT INTO `profile` (`userId`, `username`) VALUES (?, ?)",
+            [userId, "migration-history"],
+        );
+        await source.query("INSERT INTO `library` (`userId`) VALUES (?)", [
+            userId,
+        ]);
+        await source.query(
+            "INSERT INTO `game` (`id`, `name`, `slug`) VALUES (990001, 'History Game', 'history-game')",
+        );
+        await source.query(
+            "INSERT INTO `collection_entry` (`id`, `gameId`, `libraryUserId`, `status`, `finishedAt`, `createdAt`, `updatedAt`) VALUES ('history-with-date', 990001, ?, 'finished', '2020-02-03 04:05:06', '2019-01-01 00:00:00.000000', '2021-01-01 00:00:00.000000'), ('history-without-date', 990001, ?, 'finished', NULL, '2019-01-01 00:00:00.000000', '2022-02-03 04:05:06.000000')",
+            [userId, userId],
+        );
+
+        const runner = source.createQueryRunner();
+        try {
+            await new AddLibraryStatusHistory1796000000000().up(runner);
+            // A retry after a partial failure must not duplicate the backfill.
+            await new AddLibraryStatusHistory1796000000000().up(runner);
+            expect(
+                await runner.query(
+                    `SELECT h.collectionEntryId, h.source,
+                        (h.occurredAt = COALESCE(e.finishedAt, e.updatedAt, e.createdAt)) AS same
+                    FROM collection_entry_status_history h
+                    JOIN collection_entry e ON e.id = h.collectionEntryId
+                    WHERE h.libraryUserId = ? AND h.toStatus = 'finished'
+                    ORDER BY h.collectionEntryId`,
+                    [userId],
+                ),
+            ).toEqual([
+                {
+                    collectionEntryId: "history-with-date",
+                    source: "backfill",
+                    same: "1",
+                },
+                {
+                    collectionEntryId: "history-without-date",
+                    source: "backfill",
+                    same: "1",
+                },
+            ]);
         } finally {
             await runner.release();
         }

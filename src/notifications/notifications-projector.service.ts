@@ -851,6 +851,35 @@ export class NotificationsProjectorService {
                 };
             }
 
+            case "guild.contract-expiring": {
+                const { contractId, targetGameId } = payload;
+                const recipientUserId = outbox.recipientUserId;
+                if (!recipientUserId) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason:
+                            "guild_contract_expiring_no_recipient",
+                    } as ResolvedEventDetails;
+                }
+                const game = await loadNotificationGameContext(
+                    manager,
+                    targetGameId,
+                );
+                return {
+                    recipientUserId,
+                    actorUserId: null, // system actor
+                    subjectType: "guild_contract",
+                    subjectId: contractId,
+                    rootType: "guild",
+                    rootId: contractId,
+                    preview: {
+                        text: "A Guild contract expires in less than 24 hours.",
+                        ...(game ? { game } : {}),
+                    },
+                    target: { type: "guild", contractId },
+                };
+            }
+
             default:
                 return {
                     isSuppressed: true,

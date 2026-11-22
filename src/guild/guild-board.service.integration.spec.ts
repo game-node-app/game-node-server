@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { DataSource } from "typeorm";
 import { createAwardsTestDatabase } from "../../test/awards/awards-test-database";
 import { CollectionEntryStatus } from "../collections/collections-entries/collections-entries.constants";
@@ -8,6 +8,7 @@ import { IgdbPlaytimeSyncService } from "../sync/igdb/playtime/igdb-playtime-syn
 import { GameTimeToBeat } from "./entities/game-time-to-beat.entity";
 import { GuildBoardService } from "./guild-board.service";
 import { GuildTimeToBeatService } from "./guild-time-to-beat.service";
+import { GuildBoardResponseDto } from "./dto/guild-board.dto";
 import {
     GuildCategory,
     GuildContractStatus,
@@ -16,6 +17,7 @@ import {
     GuildObjectiveType,
     GuildRank,
     GuildRewardKind,
+    seededOrder,
 } from "./guild.constants";
 
 const RANK_ORDER: Record<GuildRank, number> = {
@@ -28,6 +30,30 @@ const RANK_ORDER: Record<GuildRank, number> = {
 };
 
 const WEDNESDAY = new Date("2026-06-17T12:00:00Z");
+const NEXT_WEDNESDAY = new Date("2026-06-24T12:00:00Z");
+
+const WEEK_START = "2026-06-15";
+const NEXT_WEEK_START = "2026-06-22";
+
+const weekSeed = (userId: string, weekStart = WEEK_START) =>
+    createHash("sha256").update(`${userId}:${weekStart}`).digest();
+
+const fixedUserId = (namespace: number, index: number) =>
+    `${namespace.toString(16).padStart(4, "0")}${index
+        .toString(16)
+        .padStart(4, "0")}-0000-4000-8000-000000000000`;
+
+/** First fixed user whose weekly seed bytes match, so rotation tests stay deterministic. */
+function fixedUserMatching(
+    namespace: number,
+    predicate: (seed: Buffer, nextWeekSeed: Buffer) => boolean,
+): string {
+    for (let index = 0; ; index++) {
+        const userId = fixedUserId(namespace, index);
+        if (predicate(weekSeed(userId), weekSeed(userId, NEXT_WEEK_START)))
+            return userId;
+    }
+}
 
 describe("GuildBoardService (integration)", () => {
     jest.setTimeout(120000);
@@ -90,8 +116,7 @@ describe("GuildBoardService (integration)", () => {
         await source.getRepository(GameTimeToBeat).clear();
     });
 
-    async function user() {
-        const userId = randomUUID();
+    async function user(userId: string = randomUUID()) {
         await source.query(
             "INSERT INTO profile (userId, username, createdAt) VALUES (?, ?, ?)",
             [
@@ -147,6 +172,15 @@ describe("GuildBoardService (integration)", () => {
             ],
         );
         return id;
+    }
+
+    async function finishHistory(userId: string, gameId: number, at: Date) {
+        await source.query(
+            `INSERT INTO collection_entry_status_history
+                (libraryUserId, gameId, collectionEntryId, fromStatus, toStatus, source, occurredAt)
+             VALUES (?, ?, NULL, NULL, ?, 'manual', ?)`,
+            [userId, gameId, CollectionEntryStatus.FINISHED, at],
+        );
     }
 
     async function playtime(userId: string, gameId: number, at: Date) {
@@ -375,6 +409,7 @@ describe("GuildBoardService (integration)", () => {
             sourceType: "board_entry",
             category: GuildCategory.LIBRARY,
             requiresTargetGame: true,
+            contractDurationDays: 21,
             meta: { sinceYear: 2023 },
             reward: { key: "badge_archaeologist" },
         });
@@ -391,7 +426,9 @@ describe("GuildBoardService (integration)", () => {
     });
 
     it("uses cached short games for short_caravan and degrades to weekend_sprint when IGDB fails", async () => {
-        const userId = await user();
+        const userId = await user(
+            fixedUserMatching(1, (seed) => seed[2] % 3 === 0),
+        );
         const sixHourGame = await game("Six hour game");
         const sevenHalfHourGame = await game("Seven and a half hour game");
         await entry(userId, sixHourGame, {
@@ -413,20 +450,26 @@ describe("GuildBoardService (integration)", () => {
             (quest) => quest.templateKey === "short_caravan",
         );
         expect(shortQuest?.templateKey).toBe("short_caravan");
-        expect(shortQuest?.candidateGames).toEqual([
-            expect.objectContaining({
-                gameId: sixHourGame,
-                estimatedHours: 6,
-                name: "Six hour game",
-            }),
-            expect.objectContaining({
-                gameId: sevenHalfHourGame,
-                estimatedHours: 8,
-                name: "Seven and a half hour game",
-            }),
-        ]);
+        expect(shortQuest?.contractDurationDays).toBe(7);
+        expect(shortQuest?.candidateGames).toHaveLength(2);
+        expect(shortQuest?.candidateGames).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    gameId: sixHourGame,
+                    estimatedHours: 6,
+                    name: "Six hour game",
+                }),
+                expect.objectContaining({
+                    gameId: sevenHalfHourGame,
+                    estimatedHours: 8,
+                    name: "Seven and a half hour game",
+                }),
+            ]),
+        );
 
-        const degradedUser = await user();
+        const degradedUser = await user(
+            fixedUserMatching(2, (seed) => seed[2] % 3 === 0),
+        );
         await entry(degradedUser, await game("Uncached game"), {
             createdAt: new Date("2026-06-01T00:00:00Z"),
         });
@@ -441,6 +484,253 @@ describe("GuildBoardService (integration)", () => {
         expect(degradedQuest?.templateKey).toBe("weekend_sprint");
         expect(degradedQuest?.candidateGames).toEqual([]);
         expect(degradedBoard.quests.length).toBeGreaterThan(0);
+    });
+
+    it("keeps previously finished games out of stale, playing and short candidate chips", async () => {
+        const userId = await user(
+            fixedUserMatching(7, (seed) => seed[2] % 3 === 0),
+        );
+        const staleFinished = await game("Finished relic");
+        const playingFinished = await game("Finished replay");
+        const shortFinished = await game("Finished short game");
+        const shortEligible = await game("Eligible short game");
+        await entry(userId, staleFinished, {
+            status: CollectionEntryStatus.DROPPED,
+            plannedAt: new Date("2023-05-01T00:00:00Z"),
+            createdAt: new Date("2023-05-01T00:00:00Z"),
+        });
+        await entry(userId, playingFinished, {
+            status: CollectionEntryStatus.PLAYING,
+            startedAt: new Date("2026-06-10T00:00:00Z"),
+        });
+        await entry(userId, shortFinished, {
+            createdAt: new Date("2026-06-02T00:00:00Z"),
+        });
+        await entry(userId, shortEligible, {
+            createdAt: new Date("2026-06-01T00:00:00Z"),
+        });
+        for (const gameId of [staleFinished, playingFinished, shortFinished])
+            await finishHistory(
+                userId,
+                gameId,
+                new Date("2026-05-01T00:00:00Z"),
+            );
+        getTimesToBeat.mockResolvedValueOnce([
+            ttb(shortEligible, { normally: 6 * 3_600 }),
+            ttb(shortFinished, { normally: 6 * 3_600 }),
+        ]);
+
+        const board = await service.getBoard(userId, { now: WEDNESDAY });
+        const boardEntries = board.quests.filter(
+            (quest) => quest.sourceType === "board_entry",
+        );
+
+        expect(
+            boardEntries.some((quest) =>
+                ["forgotten_relic", "deep_dive"].includes(
+                    quest.templateKey ?? "",
+                ),
+            ),
+        ).toBe(false);
+        const shortQuest = boardEntries.find(
+            (quest) => quest.templateKey === "short_caravan",
+        );
+        expect(shortQuest?.candidateGames.map((game) => game.gameId)).toEqual([
+            shortEligible,
+        ]);
+        const chips = boardEntries.flatMap((quest) =>
+            quest.candidateGames.map((game) => game.gameId),
+        );
+        for (const gameId of [staleFinished, playingFinished, shortFinished])
+            expect(chips).not.toContain(gameId);
+        // No library candidates: the slot falls back to an unused weekly/gamenode template.
+        expect(boardEntries).toHaveLength(3);
+        expect(await service.getOpenBoardCount(userId, WEDNESDAY)).toBe(
+            board.quests.length,
+        );
+    });
+
+    it("rotates weekly and gamenode slots across weeks while the same week stays stable", async () => {
+        const gamenodeUser = await user(
+            fixedUserMatching(3, (seed, next) => seed[0] % 3 !== next[0] % 3),
+        );
+        const weeklyUser = await user(
+            fixedUserMatching(4, (seed, next) => seed[2] % 2 !== next[2] % 2),
+        );
+        for (const userId of [gamenodeUser, weeklyUser]) {
+            await entry(userId, await game("Week rotation relic"), {
+                plannedAt: new Date("2023-05-01T00:00:00Z"),
+                createdAt: new Date("2023-05-01T00:00:00Z"),
+            });
+        }
+
+        const templateOf = async (
+            userId: string,
+            now: Date,
+            category: GuildCategory,
+        ) => {
+            const board = await service.getBoard(userId, { now });
+            return board.quests.find((quest) => quest.category === category)
+                ?.templateKey;
+        };
+        const gamenodeOf = (userId: string, now: Date) =>
+            templateOf(userId, now, GuildCategory.GAMENODE);
+        const weeklyOf = (userId: string, now: Date) =>
+            templateOf(userId, now, GuildCategory.WEEKLY);
+
+        const gamenodeFirst = await gamenodeOf(gamenodeUser, WEDNESDAY);
+        const weeklyFirst = await weeklyOf(weeklyUser, WEDNESDAY);
+        // Same-week reloads keep the persisted templates.
+        expect(
+            await gamenodeOf(gamenodeUser, new Date("2026-06-19T12:00:00Z")),
+        ).toBe(gamenodeFirst);
+        expect(
+            await weeklyOf(weeklyUser, new Date("2026-06-19T12:00:00Z")),
+        ).toBe(weeklyFirst);
+        // A different week seed rotates both slots.
+        expect(await gamenodeOf(gamenodeUser, NEXT_WEDNESDAY)).not.toBe(
+            gamenodeFirst,
+        );
+        expect(await weeklyOf(weeklyUser, NEXT_WEDNESDAY)).not.toBe(
+            weeklyFirst,
+        );
+    });
+
+    it("rotates the new double_feature and quick_take templates onto the board", async () => {
+        const userId = await user(
+            fixedUserMatching(
+                5,
+                (seed) => seed[2] % 2 === 1 && seed[0] % 3 === 2,
+            ),
+        );
+        await entry(userId, await game("New template relic"), {
+            plannedAt: new Date("2023-05-01T00:00:00Z"),
+            createdAt: new Date("2023-05-01T00:00:00Z"),
+        });
+
+        const board = await service.getBoard(userId, { now: WEDNESDAY });
+        const questsByTemplate = new Map(
+            board.quests.map((quest) => [quest.templateKey, quest]),
+        );
+
+        expect([...questsByTemplate.keys()]).toEqual(
+            expect.arrayContaining([
+                "forgotten_relic",
+                "double_feature",
+                "quick_take",
+            ]),
+        );
+        expect(
+            questsByTemplate.get("forgotten_relic")?.contractDurationDays,
+        ).toBe(21);
+        expect(
+            questsByTemplate.get("double_feature")?.contractDurationDays,
+        ).toBe(7);
+        expect(questsByTemplate.get("double_feature")?.targetCount).toBe(2);
+        expect(questsByTemplate.get("quick_take")?.contractDurationDays).toBe(
+            7,
+        );
+        expect(questsByTemplate.get("quick_take")?.isQuick).toBe(true);
+    });
+
+    it("links only active rewards to newly generated board entries", async () => {
+        const userId = await user();
+        await entry(userId, await game("Inactive reward relic"), {
+            plannedAt: new Date("2023-05-01T00:00:00Z"),
+            createdAt: new Date("2023-05-01T00:00:00Z"),
+        });
+        await source.query(
+            "UPDATE guild_reward SET isActive = 0 WHERE `key` = ?",
+            ["badge_archaeologist"],
+        );
+
+        try {
+            const board = await service.getBoard(userId, { now: WEDNESDAY });
+            const relic = board.quests.find(
+                (quest) => quest.templateKey === "forgotten_relic",
+            );
+            expect(relic?.reward).toBeNull();
+        } finally {
+            await source.query(
+                "UPDATE guild_reward SET isActive = 1 WHERE `key` = ?",
+                ["badge_archaeologist"],
+            );
+        }
+    });
+
+    it("rotates stale-backlog candidate chips across weeks from the wider pool", async () => {
+        const gameIds: number[] = [];
+        for (let index = 0; index < 20; index++) {
+            gameIds.push(await game(`Pooled backlog ${index}`));
+        }
+        const chipsFor = (seed: Buffer) =>
+            seededOrder(seed, gameIds, (gameId) => gameId).slice(0, 3);
+        const userId = await user(
+            fixedUserMatching(
+                6,
+                (seed, next) => chipsFor(seed).join() !== chipsFor(next).join(),
+            ),
+        );
+        for (const gameId of gameIds) {
+            await entry(userId, gameId, {
+                plannedAt: new Date("2023-05-01T00:00:00Z"),
+                createdAt: new Date("2023-05-01T00:00:00Z"),
+            });
+        }
+
+        const chipsOf = (board: GuildBoardResponseDto) =>
+            board.quests
+                .find((quest) => quest.templateKey === "forgotten_relic")
+                ?.candidateGames.map((game) => game.gameId) ?? [];
+
+        const first = await service.getBoard(userId, { now: WEDNESDAY });
+        const next = await service.getBoard(userId, { now: NEXT_WEDNESDAY });
+
+        expect(chipsOf(first)).toEqual(chipsFor(weekSeed(userId)));
+        expect(chipsOf(next)).toEqual(
+            chipsFor(weekSeed(userId, NEXT_WEEK_START)),
+        );
+        expect(chipsOf(first)).not.toEqual(chipsOf(next));
+    });
+
+    it("counts open quests without building the board or loading game chips", async () => {
+        const userId = await user();
+        await entry(
+            userId,
+            await game(
+                "Counted relic",
+                "//images.igdb.com/igdb/image/upload/t_thumb/co9.jpg",
+            ),
+            {
+                plannedAt: new Date("2023-05-01T00:00:00Z"),
+                createdAt: new Date("2023-05-01T00:00:00Z"),
+            },
+        );
+        const eventId = await event({
+            startsAt: new Date("2026-06-16T00:00:00Z"),
+            endsAt: new Date("2026-06-23T00:00:00Z"),
+        });
+        // Generate the persisted board first so the count only reads its rows.
+        await service.getBoard(userId, { now: WEDNESDAY });
+
+        const query = jest.spyOn(source, "query");
+        let count = 0;
+        let statements: string[] = [];
+        try {
+            count = await service.getOpenBoardCount(userId, WEDNESDAY);
+            statements = query.mock.calls.map(([sql]) => String(sql));
+        } finally {
+            query.mockRestore();
+        }
+
+        expect(statements.some((sql) => sql.includes("game_cover"))).toBe(
+            false,
+        );
+        const board = await service.getBoard(userId, { now: WEDNESDAY });
+        expect(board.quests.some((quest) => quest.eventId === eventId)).toBe(
+            true,
+        );
+        expect(count).toBe(board.quests.length);
     });
 
     it("merges active published events with translations and reward, then drops them when archived", async () => {
@@ -488,6 +778,7 @@ describe("GuildBoardService (integration)", () => {
             meta: null,
             requiresTargetGame: false,
             isQuick: false,
+            contractDurationDays: null,
             reward: { key: "weekly_chest" },
             expiresAt: endsAt,
         });
@@ -743,9 +1034,9 @@ describe("GuildBoardService (integration)", () => {
             id: existingId,
             templateKey: "forgotten_relic",
         });
-        expect(
-            entries.filter((entry) => entry.id !== existingId),
-        ).toHaveLength(2);
+        expect(entries.filter((entry) => entry.id !== existingId)).toHaveLength(
+            2,
+        );
         expect(
             await source.query(
                 "SELECT COUNT(*) AS total FROM guild_board_entry WHERE profileUserId = ?",

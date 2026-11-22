@@ -1,9 +1,9 @@
 import "reflect-metadata";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { INestApplication, ForbiddenException } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
-import { DataSource } from "typeorm";
+import { DataSource, In } from "typeorm";
 import { createAwardsTestDatabase } from "../../test/awards/awards-test-database";
 import { achievementFixtures } from "../../test/achievements/achievement-fixtures";
 import { AchievementsProgressService } from "../achievements/achievements-progress.service";
@@ -23,6 +23,7 @@ import { GuildRewardsService } from "./guild-rewards.service";
 import {
     DUPLICATE_COSMETIC_BONUS_XP,
     GuildRewardKind,
+    seededOrder,
 } from "./guild.constants";
 import { GuildReward } from "./entities/guild-reward.entity";
 import { UserGuildReward } from "./entities/user-guild-reward.entity";
@@ -33,6 +34,11 @@ const EMPTY_FULFILLMENT = {
     chestResult: null,
     pendingBadgeActivity: null,
 };
+
+const deterministicId = (namespace: number, index: number) =>
+    `${namespace.toString(16).padStart(4, "0")}${index
+        .toString(16)
+        .padStart(4, "0")}-0000-4000-8000-000000000000`;
 
 describe("GuildRewardsService (integration)", () => {
     const database = `guild_test_rewards_${randomUUID().replaceAll("-", "").slice(0, 8)}`;
@@ -111,8 +117,10 @@ describe("GuildRewardsService (integration)", () => {
         activities.register.mockReset();
     });
 
-    const createProfile = async (overrides: Partial<Profile> = {}) => {
-        const userId = randomUUID();
+    const createProfile = async (
+        overrides: Partial<Profile> = {},
+        userId: string = randomUUID(),
+    ) => {
         await source.getRepository(Profile).insert({
             userId,
             username: `g${userId.slice(0, 18)}`,
@@ -120,6 +128,27 @@ describe("GuildRewardsService (integration)", () => {
         });
         return userId;
     };
+
+    const chestPool = () =>
+        source.getRepository(GuildReward).find({
+            where: {
+                inChestPool: true,
+                isActive: true,
+                kind: In([GuildRewardKind.TITLE, GuildRewardKind.AVATAR_FRAME]),
+            },
+        });
+
+    /** Same seeded order the service uses, so expectations never depend on id order. */
+    const expectedChestPick = async (
+        userId: string,
+        contractId: string,
+        ownedIds: Set<string>,
+    ) =>
+        seededOrder(
+            createHash("sha256").update(`${userId}:${contractId}`).digest(),
+            await chestPool(),
+            (cosmetic) => cosmetic.id,
+        ).find((cosmetic) => !ownedIds.has(cosmetic.id)) ?? null;
 
     const makeReward = async (overrides: Partial<GuildReward>) => {
         const id = randomUUID();
@@ -172,7 +201,7 @@ describe("GuildRewardsService (integration)", () => {
     const fulfill = (
         userId: string,
         rewardId: string | null,
-        contractId = randomUUID(),
+        contractId: string = randomUUID(),
     ) =>
         source.transaction((manager) =>
             service.fulfillContractRewardWithManager(
@@ -427,7 +456,7 @@ describe("GuildRewardsService (integration)", () => {
             }
         });
 
-        it("opens the weekly chest with an unowned active pool cosmetic", async () => {
+        it("opens the weekly chest with a seeded unowned active pool cosmetic", async () => {
             const user = await createProfile();
             const chest = await makeReward({
                 kind: GuildRewardKind.WEEKLY_CHEST,
@@ -437,22 +466,61 @@ describe("GuildRewardsService (integration)", () => {
                 kind: GuildRewardKind.TITLE,
                 inChestPool: true,
             });
-            const fresh = await makeReward({
+            await makeReward({
                 kind: GuildRewardKind.AVATAR_FRAME,
                 inChestPool: true,
             });
             await unlock(user, alreadyOwned);
+            const contractId = randomUUID();
 
-            const result = await fulfill(user, chest.id);
+            const result = await fulfill(user, chest.id, contractId);
 
+            const expected = await expectedChestPick(
+                user,
+                contractId,
+                new Set([alreadyOwned.id]),
+            );
+            expect(expected).not.toBeNull();
+            expect(expected?.id).not.toBe(alreadyOwned.id);
             expect(result.bonusXp).toBe(75);
             expect(result.chestResult).toEqual({
                 bonusXp: 75,
-                unlockedCosmetic: descriptorOf(fresh),
+                unlockedCosmetic: descriptorOf(expected!),
             });
-            expect(result.unlockedRewards).toEqual([descriptorOf(fresh)]);
+            expect(result.unlockedRewards).toEqual([descriptorOf(expected!)]);
             await expect(unlockKeysOf(user)).resolves.toEqual(
-                expect.arrayContaining([fresh.key, alreadyOwned.key]),
+                expect.arrayContaining([expected!.key, alreadyOwned.key]),
+            );
+        });
+
+        it("spreads chest cosmetics across users and contracts", async () => {
+            const chest = await makeReward({
+                kind: GuildRewardKind.WEEKLY_CHEST,
+                chestBonusXp: 75,
+            });
+
+            const picks = new Set<string>();
+            for (let index = 0; index < 5; index++) {
+                const user = await createProfile({}, deterministicId(1, index));
+                const contractId = deterministicId(2, index);
+                const result = await fulfill(user, chest.id, contractId);
+                const expected = await expectedChestPick(
+                    user,
+                    contractId,
+                    new Set(),
+                );
+                expect(result.chestResult?.unlockedCosmetic).toEqual(
+                    descriptorOf(expected!),
+                );
+                picks.add(result.chestResult!.unlockedCosmetic!.key);
+            }
+            expect(picks.size).toBeGreaterThan(1);
+
+            const user = await createProfile({}, deterministicId(3, 0));
+            const first = await fulfill(user, chest.id, deterministicId(4, 0));
+            const second = await fulfill(user, chest.id, deterministicId(4, 1));
+            expect(first.chestResult?.unlockedCosmetic?.key).not.toBe(
+                second.chestResult?.unlockedCosmetic?.key,
             );
         });
 

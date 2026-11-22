@@ -22,29 +22,33 @@ import {
     GuildContractsListResponseDto,
     GuildOverviewResponseDto,
 } from "./dto/guild-contracts.dto";
-import { GuildRewardDescriptorDto } from "./dto/guild-rewards.dto";
 import { GuildBoardEntry } from "./entities/guild-board-entry.entity";
 import { GuildContract } from "./entities/guild-contract.entity";
 import { GuildEvent } from "./entities/guild-event.entity";
 import { GuildProfile } from "./entities/guild-profile.entity";
-import { GuildReward } from "./entities/guild-reward.entity";
 import {
     computeGuildRank,
     currentWeekStart,
+    DAY_MS,
+    GUILD_GLOBAL_XP_MULTIPLIER,
     GUILD_MAX_ACTIVE_CONTRACTS,
     GuildCategory,
     GuildContractStatus,
     GuildCriteria,
     GuildEventStatus,
     GuildObjectiveType,
+    igdbImageUrl,
     LinaPose,
     LinaTrigger,
     nextMondayRefreshAt,
+    STALE_BACKLOG_DAYS,
+    toRewardDescriptor,
 } from "./guild.constants";
 import { GuildContractEvaluatorService } from "./guild-contract-evaluator.service";
 import { GuildBoardService } from "./guild-board.service";
 import { GuildProfileService } from "./guild-profile.service";
 import { GuildRewardsService } from "./guild-rewards.service";
+import { GUILD_SYSTEM_TEMPLATES } from "./guild-templates.constants";
 import {
     GuildTimeToBeatService,
     GUILD_TTB_TTL_DAYS,
@@ -52,32 +56,11 @@ import {
 } from "./guild-time-to-beat.service";
 import { LinaReceptionService } from "./lina-reception.service";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Stale backlog threshold shared with the board templates (design 3). */
-const STALE_BACKLOG_DAYS = 365;
-
 const CONTRACT_RELATIONS = {
     targetGame: true,
     reward: true,
     event: { translations: true },
 } as const;
-
-// IGDB stores protocol-relative URLs with the size in the path, like the board.
-const igdbImageUrl = (url: string | undefined, size: string) => {
-    if (!url) return null;
-    const sized = url.replace(/\/t_[a-z0-9_]+\//, `/${size}/`);
-    return sized.startsWith("//") ? `https:${sized}` : sized;
-};
-
-const toRewardDescriptor = (reward: GuildReward): GuildRewardDescriptorDto => ({
-    id: reward.id,
-    key: reward.key,
-    kind: reward.kind,
-    achievementId: reward.achievementId,
-    inChestPool: reward.inChestPool,
-    chestBonusXp: reward.chestBonusXp,
-});
 
 const rankOrder = (status: GuildContractStatus) =>
     status === GuildContractStatus.READY_TO_CLAIM ? 0 : 1;
@@ -366,6 +349,13 @@ export class GuildContractsService {
                 }
 
                 // Snapshot the rules from the event read under lock.
+                const template = GUILD_SYSTEM_TEMPLATES.find(
+                    (item) => item.key === entry?.templateKey,
+                );
+                // A board contract runs from acceptance; an event contract ends with the event.
+                const durationDays =
+                    template?.contractDurationDays ??
+                    (entry?.category === GuildCategory.LIBRARY ? 21 : 7);
                 await manager.getRepository(GuildContract).insert({
                     id: contractId,
                     profileUserId: userId,
@@ -386,7 +376,9 @@ export class GuildContractsService {
                     acceptedAt,
                     readyAt: null,
                     claimedAt: null,
-                    expiresAt: entry ? entry.expiresAt : event!.endsAt,
+                    expiresAt: entry
+                        ? new Date(acceptedAt.getTime() + durationDays * DAY_MS)
+                        : event!.endsAt,
                 });
                 return acceptedAt;
             },
@@ -468,6 +460,9 @@ export class GuildContractsService {
                 );
 
             const totalXp = contract.xpReward + fulfillment.bonusXp;
+            const globalXpAwarded = Math.floor(
+                totalXp * GUILD_GLOBAL_XP_MULTIPLIER,
+            );
             const rankBefore = guildProfile.rank;
             const xpAfter = guildProfile.xp + totalXp;
             const rankAfter = computeGuildRank(xpAfter).rank;
@@ -477,10 +472,17 @@ export class GuildContractsService {
                 { profileUserId: userId },
                 { xp: xpAfter, rank: rankAfter },
             );
-            await this.levelService.increaseExp(userId, totalXp, manager);
+            if (globalXpAwarded > 0) {
+                await this.levelService.increaseExp(
+                    userId,
+                    globalXpAwarded,
+                    manager,
+                );
+            }
 
             const claimPayload = {
                 xpAwarded: totalXp,
+                globalXpAwarded,
                 rankBefore,
                 rankAfter,
                 unlockedRewards: fulfillment.unlockedRewards,
@@ -517,6 +519,7 @@ export class GuildContractsService {
 
             return {
                 totalXp,
+                globalXpAwarded,
                 rankBefore,
                 rankAfter,
                 unlockedRewards: fulfillment.unlockedRewards,
@@ -558,6 +561,7 @@ export class GuildContractsService {
         return {
             contract: outcome.contractDto,
             xpAwarded: outcome.totalXp,
+            globalXpAwarded: outcome.globalXpAwarded,
             rankBefore: outcome.rankBefore,
             rankAfter: outcome.rankAfter,
             unlockedRewards: outcome.unlockedRewards,
@@ -702,7 +706,15 @@ export class GuildContractsService {
                 "SELECT status FROM collection_entry WHERE libraryUserId = ? AND gameId = ? ORDER BY updatedAt DESC LIMIT 1",
                 [userId, targetGameId],
             );
-            if (libraryEntry?.status === CollectionEntryStatus.FINISHED) {
+            // A game finished once stays ineligible after a status toggle. Review quests may bind it.
+            const [everFinished] = await manager.query(
+                "SELECT 1 AS ok FROM collection_entry_status_history WHERE libraryUserId = ? AND gameId = ? AND toStatus = ? LIMIT 1",
+                [userId, targetGameId, CollectionEntryStatus.FINISHED],
+            );
+            if (
+                libraryEntry?.status === CollectionEntryStatus.FINISHED ||
+                everFinished
+            ) {
                 throw new BadRequestException(
                     "This game is already finished in your library.",
                 );

@@ -15,10 +15,12 @@ import { CreateUpdateCollectionEntryDto } from "./dto/create-update-collection-e
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { CollectionEntry } from "./entities/collection-entry.entity";
+import { CollectionEntryStatusHistory } from "./entities/collection-entry-status-history.entity";
 import {
     LibraryAudience,
     LibraryVisibility,
 } from "../../libraries/library-visibility.constants";
+import { LevelIncreaseActivities } from "../../level/level.constants";
 
 const OWNER_ACCESS = {
     audience: LibraryAudience.Owner,
@@ -63,13 +65,23 @@ function fixture(
     const levels = { registerLevelExpIncreaseActivity: jest.fn() };
     const notifications = { invalidateLibraryContent: jest.fn() };
     const guildQueue = { enqueueEvaluation: jest.fn() };
+    const statusHistory = {
+        insert: jest.fn().mockResolvedValue(undefined),
+        existsBy: jest.fn().mockResolvedValue(false),
+    };
     const repository = {
         findOne: jest.fn().mockResolvedValue(existing),
         find: jest.fn().mockResolvedValue([]),
         save: jest.fn(async (row) => ({ ...row, id: "entry" })),
         update: jest.fn(),
         findAndCount: jest.fn().mockResolvedValue([[], 0]),
-        manager: { getRepository: jest.fn(() => ({ findOne: lock })) },
+        manager: {
+            getRepository: jest.fn((entity) =>
+                entity === CollectionEntryStatusHistory
+                    ? statusHistory
+                    : { findOne: lock },
+            ),
+        },
     };
     const collectionsService = {
         findAllByIds: jest.fn().mockResolvedValue(collections),
@@ -110,6 +122,7 @@ function fixture(
         userGameCovers,
         libraryAccess,
         guildQueue,
+        statusHistory,
     };
 }
 
@@ -190,6 +203,175 @@ test("adding or updating an entry evaluates library and finished game achievemen
         [{ userId: "owner", metric: "library_games" }],
         [{ userId: "owner", metric: "games_finished" }],
     ]);
+});
+
+describe("library status history", () => {
+    const dto = (extra: Record<string, unknown> = {}) => ({
+        gameId: 7,
+        status: CollectionEntryStatus.FINISHED,
+        collectionIds: [],
+        platformIds: [6],
+        ...extra,
+    });
+
+    test("records a creation and a status change, but not an unchanged re-save", async () => {
+        const created = fixture();
+        await created.service.createOrUpdate("owner", dto());
+        expect(created.statusHistory.insert).toHaveBeenCalledWith([
+            expect.objectContaining({
+                libraryUserId: "owner",
+                gameId: 7,
+                collectionEntryId: "entry",
+                fromStatus: null,
+                toStatus: CollectionEntryStatus.FINISHED,
+                source: "manual",
+                occurredAt: expect.any(Date),
+            }),
+        ]);
+
+        const changed = fixture({
+            id: "entry",
+            status: CollectionEntryStatus.PLANNED,
+        });
+        await changed.service.createOrUpdate("owner", dto());
+        expect(changed.statusHistory.insert).toHaveBeenCalledWith([
+            expect.objectContaining({
+                fromStatus: CollectionEntryStatus.PLANNED,
+                toStatus: CollectionEntryStatus.FINISHED,
+            }),
+        ]);
+
+        const unchanged = fixture({
+            id: "entry",
+            status: CollectionEntryStatus.PLANNED,
+        });
+        await unchanged.service.createOrUpdate(
+            "owner",
+            dto({ status: CollectionEntryStatus.PLANNED }),
+        );
+        expect(unchanged.statusHistory.insert).not.toHaveBeenCalled();
+    });
+
+    test("records imports as import and related entries as related", async () => {
+        const imported = fixture();
+        await imported.service.createForImport("owner", 7, 6);
+        expect(imported.statusHistory.insert).toHaveBeenCalledWith([
+            expect.objectContaining({
+                source: "import",
+                fromStatus: null,
+                toStatus: CollectionEntryStatus.PLANNED,
+            }),
+        ]);
+
+        const related = fixture();
+        await related.service.createOrUpdate(
+            "owner",
+            dto({ relatedGameIds: [2] }),
+        );
+        expect(related.statusHistory.insert).toHaveBeenLastCalledWith([
+            expect.objectContaining({
+                gameId: 2,
+                source: "related",
+                fromStatus: null,
+                toStatus: CollectionEntryStatus.FINISHED,
+            }),
+        ]);
+    });
+
+    test("grants game-finished XP only for the first finish", async () => {
+        const first = fixture();
+        await first.service.createOrUpdate("owner", dto());
+        expect(
+            first.levels.registerLevelExpIncreaseActivity,
+        ).toHaveBeenCalledWith("owner", LevelIncreaseActivities.GAME_FINISHED);
+
+        const reFinish = fixture({
+            id: "entry",
+            status: CollectionEntryStatus.PLANNED,
+        });
+        reFinish.statusHistory.existsBy.mockResolvedValue(true);
+        await reFinish.service.createOrUpdate("owner", dto());
+        expect(
+            reFinish.levels.registerLevelExpIncreaseActivity,
+        ).not.toHaveBeenCalled();
+
+        const unchanged = fixture({
+            id: "entry",
+            status: CollectionEntryStatus.FINISHED,
+            finishedAt: new Date(),
+        });
+        await unchanged.service.createOrUpdate("owner", dto());
+        expect(
+            unchanged.levels.registerLevelExpIncreaseActivity,
+        ).not.toHaveBeenCalled();
+    });
+});
+
+describe("status date preservation", () => {
+    const dto = (
+        extra: Partial<CreateUpdateCollectionEntryDto> = {},
+    ): CreateUpdateCollectionEntryDto => ({
+        gameId: 7,
+        status: CollectionEntryStatus.PLANNED,
+        collectionIds: [],
+        platformIds: [6],
+        ...extra,
+    });
+    const plannedAt = new Date("2023-01-02T03:04:05Z");
+
+    test("keeps the stored dates when the status does not change", async () => {
+        const { service, repository } = fixture({
+            id: "entry",
+            status: CollectionEntryStatus.PLANNED,
+            plannedAt,
+            startedAt: null,
+            droppedAt: null,
+            finishedAt: null,
+        });
+
+        await service.createOrUpdate("owner", dto());
+
+        expect(repository.save).toHaveBeenCalledWith(
+            expect.objectContaining({
+                status: CollectionEntryStatus.PLANNED,
+                plannedAt,
+            }),
+        );
+    });
+
+    test("keeps a stored finishedAt unless one is supplied", async () => {
+        const finishedAt = new Date("2024-05-06T07:08:09Z");
+        const stored = {
+            id: "entry",
+            status: CollectionEntryStatus.FINISHED,
+            plannedAt,
+            startedAt: null,
+            droppedAt: null,
+            finishedAt,
+        };
+
+        const untouched = fixture({ ...stored });
+        await untouched.service.createOrUpdate(
+            "owner",
+            dto({ status: CollectionEntryStatus.FINISHED }),
+        );
+        expect(untouched.repository.save).toHaveBeenCalledWith(
+            expect.objectContaining({ finishedAt }),
+        );
+
+        const supplied = new Date("2025-01-01T00:00:00Z");
+        const updated = fixture({ ...stored });
+        await updated.service.createOrUpdate(
+            "owner",
+            dto({
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: supplied,
+            }),
+        );
+        expect(updated.repository.save).toHaveBeenCalledWith(
+            expect.objectContaining({ finishedAt: supplied }),
+        );
+    });
 });
 
 describe("guild contract evaluation hook", () => {

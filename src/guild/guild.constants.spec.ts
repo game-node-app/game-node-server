@@ -1,12 +1,19 @@
+import { createHash } from "node:crypto";
 import {
     computeGuildRank,
     currentWeekStart,
+    DAY_MS,
     DUPLICATE_COSMETIC_BONUS_XP,
+    GUILD_GLOBAL_XP_MULTIPLIER,
     GUILD_INACTIVITY_DAYS,
     GUILD_MAX_ACTIVE_CONTRACTS,
+    GUILD_MIN_REVIEW_CHARS,
+    GuildCategory,
     GuildObjectiveType,
     GuildRank,
     nextMondayRefreshAt,
+    seededOrder,
+    STALE_BACKLOG_DAYS,
     weekStartToUtcDate,
 } from "./guild.constants";
 import {
@@ -19,6 +26,56 @@ describe("guild constants", () => {
         expect(GUILD_MAX_ACTIVE_CONTRACTS).toBe(3);
         expect(DUPLICATE_COSMETIC_BONUS_XP).toBe(50);
         expect(GUILD_INACTIVITY_DAYS).toBe(30);
+    });
+
+    it("keeps the global XP share, review minimum and shared day constants", () => {
+        expect(GUILD_GLOBAL_XP_MULTIPLIER).toBe(0.25);
+        expect(GUILD_MIN_REVIEW_CHARS).toBe(80);
+        expect(DAY_MS).toBe(86_400_000);
+        expect(STALE_BACKLOG_DAYS).toBe(365);
+    });
+});
+
+describe("seededOrder", () => {
+    const items = ["a", "b", "c", "d", "e", "f"];
+    const key = (item: string) => item;
+    const seedFor = (value: string) =>
+        createHash("sha256").update(value).digest();
+    const hashFor = (seedHex: string, value: string) =>
+        createHash("sha256").update(`${seedHex}:${value}`).digest("hex");
+
+    it("orders by sha256(seedHex + ':' + key) and is stable for one seed", () => {
+        const seed = seedFor("user:2026-11-02");
+        const seedHex = seed.toString("hex");
+        const expected = [...items].sort((a, b) =>
+            hashFor(seedHex, a).localeCompare(hashFor(seedHex, b)),
+        );
+
+        const ordered = seededOrder(seed, items, key);
+
+        expect(ordered).toEqual(expected);
+        expect(seededOrder(seed, items, key)).toEqual(ordered);
+        expect(seededOrder(seedHex, items, key)).toEqual(ordered);
+    });
+
+    it("keeps the input untouched and can differ between seeds", () => {
+        const input = [...items];
+        const first = seededOrder(seedFor("2026-11-02"), input, key);
+        const second = seededOrder(seedFor("2026-11-09"), input, key);
+
+        expect(input).toEqual(items);
+        expect(first).toEqual(expect.arrayContaining(items));
+        expect(first).not.toEqual(second);
+    });
+
+    it("keeps input order for items with equal keys", () => {
+        const duplicates = [{ id: 1 }, { id: 2 }, { id: 3 }];
+
+        expect(
+            seededOrder("seed", duplicates, () => "same").map(
+                (item) => item.id,
+            ),
+        ).toEqual([1, 2, 3]);
     });
 });
 
@@ -180,14 +237,24 @@ describe("guild weekly cycle", () => {
 });
 
 describe("guild quest rules", () => {
-    it("lists the six system templates and accepts their rules", () => {
+    const templateByKey = (key: string) => {
+        const template = GUILD_SYSTEM_TEMPLATES.find(
+            (item) => item.key === key,
+        );
+        expect(template).toBeDefined();
+        return template!;
+    };
+
+    it("lists the system templates and accepts their rules", () => {
         expect(GUILD_SYSTEM_TEMPLATES.map(({ key }) => key)).toEqual([
             "forgotten_relic",
             "deep_dive",
             "short_caravan",
             "weekend_sprint",
+            "double_feature",
             "captains_log",
             "on_duty_critic",
+            "quick_take",
         ]);
         for (const template of GUILD_SYSTEM_TEMPLATES)
             expect(
@@ -197,6 +264,44 @@ describe("guild quest rules", () => {
                     template.criteria,
                 ),
             ).toEqual([]);
+    });
+
+    it("gives library quests 21 days and weekly/gamenode quests 7", () => {
+        for (const template of GUILD_SYSTEM_TEMPLATES)
+            expect({
+                key: template.key,
+                days: template.contractDurationDays,
+            }).toEqual({
+                key: template.key,
+                days: template.category === GuildCategory.LIBRARY ? 21 : 7,
+            });
+    });
+
+    it("defines the double_feature and quick_take templates", () => {
+        expect(templateByKey("double_feature")).toMatchObject({
+            category: GuildCategory.WEEKLY,
+            rank: GuildRank.C,
+            xpReward: 220,
+            objectiveType: GuildObjectiveType.FINISH_GAME,
+            targetCount: 2,
+            criteria: {},
+            requiresTargetGame: false,
+            isQuick: false,
+            rewardKey: "weekly_chest",
+            contractDurationDays: 7,
+        });
+        expect(templateByKey("quick_take")).toMatchObject({
+            category: GuildCategory.GAMENODE,
+            rank: GuildRank.E,
+            xpReward: 60,
+            objectiveType: GuildObjectiveType.WRITE_REVIEW,
+            targetCount: 1,
+            criteria: {},
+            requiresTargetGame: false,
+            isQuick: true,
+            rewardKey: "weekly_chest",
+            contractDurationDays: 7,
+        });
     });
 
     it("validates the objective type and target count", () => {

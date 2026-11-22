@@ -242,6 +242,29 @@ export function validateNotificationIntent(
                 (payload.targetGameId === null ||
                     positiveId(payload.targetGameId));
             break;
+        case "guild.contract-expiring":
+            allowed = [
+                "contractId",
+                "category",
+                "templateKey",
+                "eventId",
+                "targetGameId",
+                "expiresAt",
+            ];
+            valid =
+                intent.actorUserId === null &&
+                identity(intent.recipientUserId) &&
+                identity(payload.contractId) &&
+                identity(payload.category) &&
+                (payload.templateKey === null ||
+                    identity(payload.templateKey)) &&
+                (payload.eventId === null || identity(payload.eventId)) &&
+                (payload.targetGameId === null ||
+                    positiveId(payload.targetGameId)) &&
+                typeof payload.expiresAt === "string" &&
+                payload.expiresAt.length <= 64 &&
+                Number.isFinite(Date.parse(payload.expiresAt));
+            break;
     }
     if (
         !valid ||

@@ -239,6 +239,12 @@ export class ClaimGuildContractResponseDto {
     @ApiProperty({ example: 300 })
     xpAwarded: number;
 
+    @ApiProperty({
+        description: "Global UserLevel XP credited: floor(xpAwarded × 0.25)",
+        example: 75,
+    })
+    globalXpAwarded: number;
+
     @ApiProperty({ enum: GuildRank })
     rankBefore: GuildRank;
 

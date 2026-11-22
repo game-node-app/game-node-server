@@ -44,7 +44,7 @@ Curated events SHALL start in `draft`, transition to `published` via `POST /v1/g
 - **AND** the existing user's contract can still progress and be claimed
 
 ### Requirement: Curated event rules lock after acceptance
-Once at least one user has accepted a contract for a curated event, `PATCH /v1/guild/admin/events/:id` SHALL reject modifications to `objectiveType`, `criteria`, `targetCount`, `xpReward`, or `rewardId` with 409 (`code: "guild_event_rules_locked"`), while still allowing updates to `title`, `description`, `translations`, and extending `endsAt`.
+Once at least one user has accepted a contract for a curated event, `PATCH /v1/guild/admin/events/:id` SHALL reject modifications to `objectiveType`, `criteria`, `targetCount`, `xpReward`, or `rewardId` with 409 (`code: "guild_event_rules_locked"`), while still allowing updates to `title`, `description`, `translations`, and `endsAt`.
 
 #### Scenario: Rules cannot mutate after contracts exist
 - **WHEN** an editor tries to change `xpReward` or `criteria` on an event that already has accepted contracts

@@ -1,4 +1,7 @@
+import { createHash } from "node:crypto";
 import { addDays, dailyToday, mondayOf } from "../daily/daily.constants";
+import type { GuildRewardDescriptorDto } from "./dto/guild-rewards.dto";
+import type { GuildReward } from "./entities/guild-reward.entity";
 
 /** Guild progression ranks, easiest to hardest (design 2). */
 export enum GuildRank {
@@ -55,8 +58,19 @@ export const GUILD_MAX_ACTIVE_CONTRACTS = 3;
 /** Awarded in place of a title or frame the user already owns (spec: rewards). */
 export const DUPLICATE_COSMETIC_BONUS_XP = 50;
 
+/** Share of claimed Guild XP also credited to the global UserLevel (design 13). */
+export const GUILD_GLOBAL_XP_MULTIPLIER = 0.25;
+
+/** Trimmed review length that proves the reviewer actually played the game. */
+export const GUILD_MIN_REVIEW_CHARS = 80;
+
 /** Days without a Guild visit that trigger Lina's "returning" reception. */
 export const GUILD_INACTIVITY_DAYS = 30;
+
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A planned/dropped game untouched for this long is a stale backlog relic. */
+export const STALE_BACKLOG_DAYS = 365;
 
 export enum GuildCategory {
     LIBRARY = "library",
@@ -120,6 +134,45 @@ export type GuildCriteria = {
     maxTimeToBeatHours?: number;
     finishedInCurrentMonth?: boolean;
 };
+
+// IGDB stores protocol-relative URLs with the size in the path, like daily.service.
+export const igdbImageUrl = (url: string | undefined, size: string) => {
+    if (!url) return null;
+    const sized = url.replace(/\/t_[a-z0-9_]+\//, `/${size}/`);
+    return sized.startsWith("//") ? `https:${sized}` : sized;
+};
+
+export const toRewardDescriptor = (
+    reward: GuildReward,
+): GuildRewardDescriptorDto => ({
+    id: reward.id,
+    key: reward.key,
+    kind: reward.kind,
+    achievementId: reward.achievementId,
+    inChestPool: reward.inChestPool,
+    chestBonusXp: reward.chestBonusXp,
+});
+
+/**
+ * Deterministic rotation order: sha256(seedHex + ":" + key(item)).
+ * A string seed is used as the hex digest; equal keys keep their input order.
+ */
+export function seededOrder<T>(
+    seed: Buffer | string,
+    items: readonly T[],
+    key: (item: T) => string | number,
+): T[] {
+    const seedHex = typeof seed === "string" ? seed : seed.toString("hex");
+    return items
+        .map((item) => ({
+            item,
+            order: createHash("sha256")
+                .update(`${seedHex}:${key(item)}`)
+                .digest("hex"),
+        }))
+        .sort((a, b) => (a.order === b.order ? 0 : a.order < b.order ? -1 : 1))
+        .map(({ item }) => item);
+}
 
 /** Monday of the current São Paulo week, as "YYYY-MM-DD". */
 export const currentWeekStart = (now = new Date()) => mondayOf(dailyToday(now));

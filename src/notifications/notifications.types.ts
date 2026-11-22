@@ -12,7 +12,8 @@ export type NotificationEventType =
     | "awards.milestone"
     | "recap.milestone"
     | "goal.reminder"
-    | "guild.contract-ready";
+    | "guild.contract-ready"
+    | "guild.contract-expiring";
 
 export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "content.liked",
@@ -27,6 +28,7 @@ export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "recap.milestone",
     "goal.reminder",
     "guild.contract-ready",
+    "guild.contract-expiring",
 ] as const;
 
 export const SUPPORTED_EVENT_VERSION = 1;
@@ -134,6 +136,15 @@ export interface GuildContractReadyPayload {
     targetGameId: number | null;
 }
 
+export interface GuildContractExpiringPayload {
+    contractId: string;
+    category: string;
+    templateKey: string | null;
+    eventId: string | null;
+    targetGameId: number | null;
+    expiresAt: string;
+}
+
 export type NotificationEventIntent =
     | BaseNotificationEventIntent<"content.liked", ContentLikedPayload>
     | BaseNotificationEventIntent<"comment.created", CommentCreatedPayload>
@@ -161,6 +172,10 @@ export type NotificationEventIntent =
     | BaseNotificationEventIntent<
           "guild.contract-ready",
           GuildContractReadyPayload
+      >
+    | BaseNotificationEventIntent<
+          "guild.contract-expiring",
+          GuildContractExpiringPayload
       >;
 
 export interface NotificationGameContext {

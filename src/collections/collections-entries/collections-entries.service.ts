@@ -33,7 +33,11 @@ import { LevelIncreaseActivities } from "../../level/level.constants";
 import { CollectionsService } from "../collections.service";
 import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-entries-for-collection-id.dto";
 import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
-import { CollectionEntryStatus } from "./collections-entries.constants";
+import { CollectionEntryStatusHistory } from "./entities/collection-entry-status-history.entity";
+import {
+    CollectionEntryStatus,
+    CollectionEntryStatusHistorySource,
+} from "./collections-entries.constants";
 import { match } from "ts-pattern";
 import { buildGameFilterFindOptions } from "../../game/game-repository/utils/build-game-filter-find-options";
 import { runOnTransactionCommit, Transactional } from "typeorm-transactional";
@@ -616,12 +620,15 @@ export class CollectionsEntriesService {
      * Create or update a user's Collection Entry
      * @param userId
      * @param createEntryDto
+     * @param createOnly
+     * @param source origin recorded in the status history; imports pass `import`
      */
     @Transactional()
     async createOrUpdate(
         userId: string,
         createEntryDto: CreateUpdateCollectionEntryDto,
         createOnly = false,
+        source: "manual" | "import" = "manual",
     ) {
         const {
             collectionIds,
@@ -671,6 +678,21 @@ export class CollectionsEntriesService {
 
         if (createOnly && possibleExistingEntry) return false;
 
+        // Re-saving with the same status keeps the stored status dates (design 11).
+        const storedStatusDates =
+            possibleExistingEntry &&
+            inferredStatusAndDates.status === possibleExistingEntry.status
+                ? {
+                      plannedAt: possibleExistingEntry.plannedAt,
+                      startedAt: possibleExistingEntry.startedAt,
+                      droppedAt: possibleExistingEntry.droppedAt,
+                      finishedAt:
+                          finishedAt !== undefined
+                              ? finishedAt
+                              : possibleExistingEntry.finishedAt,
+                  }
+                : {};
+
         const updatedPartialEntity: DeepPartial<CollectionEntry> = {
             ...possibleExistingEntry,
             libraryUserId: userId,
@@ -683,10 +705,35 @@ export class CollectionsEntriesService {
                 possibleExistingEntry?.visibility ??
                 LibraryVisibility.Public,
             ...inferredStatusAndDates,
+            ...storedStatusDates,
         };
 
         const upsertedEntry =
             await this.collectionEntriesRepository.save(updatedPartialEntity);
+
+        const previousStatus = possibleExistingEntry?.status ?? null;
+        const statusChanged =
+            !possibleExistingEntry ||
+            possibleExistingEntry.status !== upsertedEntry.status;
+        const isFirstFinish =
+            statusChanged &&
+            upsertedEntry.status === CollectionEntryStatus.FINISHED &&
+            !(await this.hasFinishedStatusHistory(userId, gameId));
+
+        if (statusChanged) {
+            await this.appendStatusHistory(
+                [
+                    {
+                        libraryUserId: userId,
+                        gameId,
+                        collectionEntryId: upsertedEntry.id,
+                        fromStatus: previousStatus,
+                        toStatus: upsertedEntry.status,
+                    },
+                ],
+                source,
+            );
+        }
 
         if (
             possibleExistingEntry &&
@@ -719,11 +766,7 @@ export class CollectionsEntriesService {
             );
         }
 
-        const firstFinishedStatusChange =
-            possibleExistingEntry?.finishedAt === null &&
-            updatedPartialEntity.finishedAt != undefined;
-
-        if (firstFinishedStatusChange) {
+        if (isFirstFinish) {
             this.levelService.registerLevelExpIncreaseActivity(
                 userId,
                 LevelIncreaseActivities.GAME_FINISHED,
@@ -776,10 +819,12 @@ export class CollectionsEntriesService {
                 finishedAt: null,
             },
             true,
+            "import",
         );
         return created === false ? ("skipped" as const) : ("imported" as const);
     }
 
+    @Transactional()
     async createMissingForBatch(
         userId: string,
         candidates: ImporterResponseItemDto[],
@@ -811,6 +856,7 @@ export class CollectionsEntriesService {
             gameId: candidate.gameId,
             ...dates,
         }));
+        const toStatus = dates.status ?? CollectionEntryStatus.PLANNED;
         const manager = this.collectionEntriesRepository.manager;
         const junction =
             this.collectionEntriesRepository.metadata.relations.find(
@@ -819,6 +865,16 @@ export class CollectionsEntriesService {
         for (let offset = 0; offset < entries.length; offset += 500) {
             const page = entries.slice(offset, offset + 500);
             await this.collectionEntriesRepository.insert(page);
+            await this.appendStatusHistory(
+                page.map((entry) => ({
+                    libraryUserId: userId,
+                    gameId: entry.gameId,
+                    collectionEntryId: entry.id,
+                    fromStatus: null,
+                    toStatus,
+                })),
+                "import",
+            );
             await manager
                 .createQueryBuilder()
                 .insert()
@@ -1029,8 +1085,56 @@ export class CollectionsEntriesService {
                 plannedAt: parentEntry.plannedAt,
             };
 
-            await this.collectionEntriesRepository.save(relatedEntry);
+            const savedEntry =
+                await this.collectionEntriesRepository.save(relatedEntry);
+            await this.appendStatusHistory(
+                [
+                    {
+                        libraryUserId: parentEntry.libraryUserId,
+                        gameId: relatedGameId,
+                        collectionEntryId: savedEntry.id,
+                        fromStatus: null,
+                        toStatus: parentEntry.status,
+                    },
+                ],
+                "related",
+            );
         }
+    }
+
+    private statusHistoryRepository() {
+        return this.collectionEntriesRepository.manager.getRepository(
+            CollectionEntryStatusHistory,
+        );
+    }
+
+    /**
+     * Appends one row per created or changed entry, in the caller's transaction. A save with an
+     * unchanged status must not call this (design 11).
+     */
+    private async appendStatusHistory(
+        rows: Array<{
+            libraryUserId: string;
+            gameId: number;
+            collectionEntryId: string;
+            fromStatus: CollectionEntryStatus | null;
+            toStatus: CollectionEntryStatus;
+        }>,
+        source: CollectionEntryStatusHistorySource,
+    ) {
+        if (rows.length === 0) return;
+        const occurredAt = new Date();
+        await this.statusHistoryRepository().insert(
+            rows.map((row) => ({ ...row, source, occurredAt })),
+        );
+    }
+
+    private async hasFinishedStatusHistory(userId: string, gameId: number) {
+        return this.statusHistoryRepository().existsBy({
+            libraryUserId: userId,
+            gameId,
+            toStatus: CollectionEntryStatus.FINISHED,
+        });
     }
 
     async changeFavoriteStatus(

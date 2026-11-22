@@ -6,18 +6,16 @@ import {
     GuildEventStatus,
     GUILD_INACTIVITY_DAYS,
     currentWeekStart,
+    DAY_MS,
     LinaPose,
     LinaTrigger,
+    STALE_BACKLOG_DAYS,
     weekStartToUtcDate,
 } from "./guild.constants";
 import { LinaReceptionDto } from "./dto/guild-profile.dto";
 import { GuildContract } from "./entities/guild-contract.entity";
 import { GuildProfile } from "./entities/guild-profile.entity";
 import { GuildProfileService } from "./guild-profile.service";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-/** A planned game untouched for this long is Lina's stale backlog pick (design 3). */
-const STALE_BACKLOG_DAYS = 365;
 
 export interface StaleBacklogGame {
     gameId: number;
@@ -67,7 +65,7 @@ export class LinaReceptionService {
         );
     }
 
-    /** Oldest planned game untouched for over a year, without recent playtime. */
+    /** Oldest planned/dropped game untouched for over a year, without recent playtime. */
     public async findOldestStaleBacklogGame(
         userId: string,
         now = new Date(),
@@ -78,7 +76,7 @@ export class LinaReceptionService {
                     YEAR(COALESCE(ce.plannedAt, ce.createdAt)) AS sinceYear
              FROM collection_entry ce
              INNER JOIN game g ON g.id = ce.gameId
-             WHERE ce.libraryUserId = ? AND ce.status = ?
+             WHERE ce.libraryUserId = ? AND ce.status IN (?, ?)
                AND COALESCE(ce.plannedAt, ce.createdAt) < ?
                AND NOT EXISTS (
                    SELECT 1 FROM user_playtime up
@@ -86,9 +84,22 @@ export class LinaReceptionService {
                      AND up.gameId = ce.gameId
                      AND up.lastPlayedDate >= ?
                )
+               AND NOT EXISTS (
+                   SELECT 1 FROM collection_entry_status_history h
+                   WHERE h.libraryUserId = ce.libraryUserId
+                     AND h.gameId = ce.gameId
+                     AND h.toStatus = ?
+               )
              ORDER BY COALESCE(ce.plannedAt, ce.createdAt) ASC, ce.gameId ASC
              LIMIT 1`,
-            [userId, CollectionEntryStatus.PLANNED, cutoff, cutoff],
+            [
+                userId,
+                CollectionEntryStatus.PLANNED,
+                CollectionEntryStatus.DROPPED,
+                cutoff,
+                cutoff,
+                CollectionEntryStatus.FINISHED,
+            ],
         );
 
         return row

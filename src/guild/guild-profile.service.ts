@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, Repository } from "typeorm";
 import { CollectionEntryStatus } from "../collections/collections-entries/collections-entries.constants";
+import { dailyToday } from "../daily/daily.constants";
 import { Profile } from "../profile/entities/profile.entity";
 import { RecapGoalsService } from "../recap/recap-goals.service";
 import {
@@ -12,6 +13,9 @@ import {
 } from "./dto/guild-profile.dto";
 import { GuildProfile } from "./entities/guild-profile.entity";
 import { computeGuildRank } from "./guild.constants";
+
+/** Visits closer together than this don't rewrite lastVisitedAt (design 17). */
+const LAST_VISITED_WRITE_INTERVAL_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class GuildProfileService {
@@ -24,19 +28,23 @@ export class GuildProfileService {
         private readonly recapGoalsService: RecapGoalsService,
     ) {}
 
-    /** Race-safe lazy membership: concurrent first visits keep the first license number. */
+    /**
+     * Race-safe lazy membership: concurrent first visits keep the first license number.
+     * Reads first so an existing member costs a single SELECT (design 17).
+     */
     public async ensureProfile(
         userId: string,
         manager?: EntityManager,
     ): Promise<GuildProfile> {
         const executor = manager ?? this.dataSource.manager;
+        const repository = executor.getRepository(GuildProfile);
+        const existing = await repository.findOneBy({ profileUserId: userId });
+        if (existing) return existing;
         await executor.query(
             "INSERT IGNORE INTO guild_profile (profileUserId) VALUES (?)",
             [userId],
         );
-        return executor
-            .getRepository(GuildProfile)
-            .findOneByOrFail({ profileUserId: userId });
+        return repository.findOneByOrFail({ profileUserId: userId });
     }
 
     public async getLicense(
@@ -65,7 +73,7 @@ export class GuildProfileService {
         userId: string,
         now = new Date(),
     ): Promise<GuildYearGoalDto | null> {
-        const year = now.getUTCFullYear();
+        const year = Number(dailyToday(now).slice(0, 4));
         const goal = await this.recapGoalsService.getGoal(userId, year);
         return goal.target === null
             ? null
@@ -88,10 +96,17 @@ export class GuildProfileService {
         userId: string,
         now = new Date(),
     ): Promise<void> {
-        await this.guildProfileRepository.update(
-            { profileUserId: userId },
-            { lastVisitedAt: now },
-        );
+        await this.guildProfileRepository
+            .createQueryBuilder()
+            .update(GuildProfile)
+            .set({ lastVisitedAt: now })
+            .where("profileUserId = :userId", { userId })
+            .andWhere("(lastVisitedAt IS NULL OR lastVisitedAt < :cutoff)", {
+                cutoff: new Date(
+                    now.getTime() - LAST_VISITED_WRITE_INTERVAL_MS,
+                ),
+            })
+            .execute();
     }
 
     private async getStats(userId: string): Promise<GuildLicenseStatsDto> {

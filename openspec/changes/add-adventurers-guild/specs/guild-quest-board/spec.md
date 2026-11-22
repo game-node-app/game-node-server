@@ -32,6 +32,24 @@ The quest board SHALL run on weekly cycles starting Monday 00:00 `America/Sao_Pa
 - **WHEN** an editor has published a curated event whose `[startsAt, endsAt)` window contains now
 - **THEN** `GET /v1/guild/board` includes that event under category `event` with its `title`, `description`, `translations`, `rank`, `xpReward`, `reward`, and `expiresAt`
 
+### Requirement: Board quest deadline and reward metadata
+Board quests SHALL expose `contractDurationDays` (the deadline an accepted contract receives; `null` for events). Newly generated board entries SHALL link only active rewards.
+
+#### Scenario: Library quest advertises a 21-day contract
+- **WHEN** a user reads a board containing a `forgotten_relic` quest
+- **THEN** that quest reports `contractDurationDays: 21`
+
+### Requirement: Weekly board variety
+Template choice per slot and candidate game chips SHALL rotate across weeks using a deterministic per-user weekly seed, so the same week stays stable while consecutive weeks can differ. The system template catalog SHALL include `double_feature` (finish 2 games, `weekly`) and `quick_take` (write 1 review, `gamenode`, quick) in addition to the original templates. Candidate chips SHALL be drawn from a wider eligible pool rather than always the same oldest or newest games.
+
+#### Scenario: Large backlog shows different relic candidates over weeks
+- **WHEN** a user with 20 eligible stale backlog games opens the board in two consecutive weeks
+- **THEN** each week shows up to 3 candidates from that pool, chosen deterministically per week, and the two weeks are not required to show the same 3 games
+
+#### Scenario: Same week stays stable
+- **WHEN** a user reloads the board several times within one week
+- **THEN** templates and candidate chips are identical across the reloads
+
 ### Requirement: Lina's recommended quest marker
 At most one open quest on the user's current board SHALL be flagged `isRecommended: true`. Recommendation selection SHALL prioritize an open `library` stale-backlog quest first, then an active `event` quest, then the first open `weekly` quest.
 

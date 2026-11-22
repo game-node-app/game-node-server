@@ -4,14 +4,13 @@ import { In, Repository } from "typeorm";
 import { IGDBTimeToBeatPlaytime } from "../sync/igdb/igdb.types";
 import { IgdbPlaytimeSyncService } from "../sync/igdb/playtime/igdb-playtime-sync.service";
 import { GameTimeToBeat } from "./entities/game-time-to-beat.entity";
+import { DAY_MS } from "./guild.constants";
 
 /** Days a cached IGDB time-to-beat row stays fresh, including negative entries. */
 export const GUILD_TTB_TTL_DAYS = 30;
 
 /** Most uncached or stale game IDs fetched from IGDB per call (design 4). */
 export const GUILD_TTB_MAX_BATCH = 40;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** `normallySeconds` with `hastilySeconds` fallback, as the board templates expect. */
 export function getEffectiveTtbSeconds(

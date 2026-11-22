@@ -113,13 +113,17 @@ describe("Guild admin catalog (integration)", () => {
         return response.body;
     };
 
-    const createContract = async (eventId: string) => {
+    const createContract = async (
+        eventId: string,
+        status = "active",
+        expiresAt: Date | null = null,
+    ) => {
         const id = randomUUID();
         await source.query(
             `INSERT INTO guild_contract
-                (id, profileUserId, eventId, category, \`rank\`, xpReward, objectiveType, criteria, acceptedAt)
-             VALUES (?, ?, ?, 'event', 'A', 400, 'finish_game', '{}', NOW(6))`,
-            [id, READER_ID, eventId],
+                (id, profileUserId, eventId, category, \`rank\`, xpReward, objectiveType, criteria, status, acceptedAt, expiresAt)
+             VALUES (?, ?, ?, 'event', 'A', 400, 'finish_game', '{}', ?, NOW(6), ?)`,
+            [id, READER_ID, eventId, status, expiresAt],
         );
         return id;
     };
@@ -421,6 +425,29 @@ describe("Guild admin catalog (integration)", () => {
             ["an unknown objectiveType", { objectiveType: "collect_game" }],
         ])("rejects %s with 400", async (label, overrides) => {
             await postEvent(eventPayload(overrides)).expect(400);
+        });
+    });
+
+    describe("event deadline propagation", () => {
+        it("applies a shorter endsAt to active contracts only", async () => {
+            const event = await createEvent();
+            const activeId = await createContract(event.id);
+            const readyId = await createContract(event.id, "ready_to_claim");
+            const completedId = await createContract(event.id, "completed");
+            const endsAt = "2099-06-30T00:00:00.000Z";
+
+            const response = await patchEvent(event.id, { endsAt }).expect(200);
+            expect(new Date(response.body.endsAt).toISOString()).toBe(endsAt);
+
+            const rows: Array<{ id: string; expiresAt: Date | null }> =
+                await source.query(
+                    "SELECT id, expiresAt FROM guild_contract WHERE id IN (?, ?, ?)",
+                    [activeId, readyId, completedId],
+                );
+            const byId = new Map(rows.map((row) => [row.id, row.expiresAt]));
+            expect(new Date(byId.get(activeId)!).toISOString()).toBe(endsAt);
+            expect(byId.get(readyId)).toBeNull();
+            expect(byId.get(completedId)).toBeNull();
         });
     });
 

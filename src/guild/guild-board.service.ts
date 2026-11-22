@@ -10,11 +10,16 @@ import { GuildEvent } from "./entities/guild-event.entity";
 import { GuildReward } from "./entities/guild-reward.entity";
 import {
     currentWeekStart,
+    DAY_MS,
     GuildCategory,
     GuildContractStatus,
     GuildEventStatus,
     GuildRank,
+    igdbImageUrl,
     nextMondayRefreshAt,
+    seededOrder,
+    STALE_BACKLOG_DAYS,
+    toRewardDescriptor,
 } from "./guild.constants";
 import {
     GUILD_SYSTEM_TEMPLATES,
@@ -30,12 +35,6 @@ import {
     GuildBoardQuestDto,
     GuildBoardResponseDto,
 } from "./dto/guild-board.dto";
-import { GuildRewardDescriptorDto } from "./dto/guild-rewards.dto";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** A planned/dropped game untouched for this long is a stale backlog relic. */
-const STALE_BACKLOG_DAYS = 365;
 
 /** Design 3: candidate chips only for games at most 8 hours long. */
 const SHORT_GAME_MAX_SECONDS = 8 * 60 * 60;
@@ -45,6 +44,17 @@ const CANDIDATE_LIMIT = 3;
 
 /** Most library games whose TTB is inspected per weekly generation. */
 const WEEKLY_LIBRARY_LIMIT = 40;
+
+/** Design 15: stale and playing candidate pools are seeded-ordered, then truncated to 3. */
+const STALE_BACKLOG_POOL_LIMIT = 30;
+const PLAYING_POOL_LIMIT = 10;
+
+/** Design 15: the gamenode slot rotates over these. */
+const GAMENODE_TEMPLATE_KEYS = [
+    "captains_log",
+    "on_duty_critic",
+    "quick_take",
+] as const;
 
 /** Design 3: a complete weekly board always has three quest slots. */
 const WEEKLY_BOARD_SLOT_COUNT = 3;
@@ -62,26 +72,11 @@ const RANK_ORDER: Record<GuildRank, number> = {
     [GuildRank.S]: 5,
 };
 
-// IGDB stores protocol-relative URLs with the size in the path, like daily.service.
-const igdbImageUrl = (url: string | undefined, size: string) => {
-    if (!url) return null;
-    const sized = url.replace(/\/t_[a-z0-9_]+\//, `/${size}/`);
-    return sized.startsWith("//") ? `https:${sized}` : sized;
-};
-
+/** Design 15: deterministic per-user weekly seed for template rotation and chips. */
 const weekSeed = (userId: string, weekStart: string) =>
     createHash("sha256").update(`${userId}:${weekStart}`).digest();
 
 const template = (key: string) => TEMPLATE_BY_KEY.get(key)!;
-
-const toRewardDescriptor = (reward: GuildReward): GuildRewardDescriptorDto => ({
-    id: reward.id,
-    key: reward.key,
-    kind: reward.kind,
-    achievementId: reward.achievementId,
-    inChestPool: reward.inChestPool,
-    chestBonusXp: reward.chestBonusXp,
-});
 
 interface BoardSlot {
     slotIndex: number;
@@ -126,15 +121,11 @@ export class GuildBoardService {
         if (existing.length >= WEEKLY_BOARD_SLOT_COUNT) return existing;
 
         const seed = weekSeed(userId, weekStart);
-        const gamenodeTemplate =
-            seed[0] % 2 === 0
-                ? template("captains_log")
-                : template("on_duty_critic");
-        const shortGames = await this.shortGameCandidates(userId, now);
-        const weeklyTemplate =
-            shortGames.length > 0
-                ? template("short_caravan")
-                : template("weekend_sprint");
+        const gamenodeTemplate = template(
+            GAMENODE_TEMPLATE_KEYS[seed[0] % GAMENODE_TEMPLATE_KEYS.length],
+        );
+        const shortGames = await this.shortGameCandidates(userId, now, seed);
+        const weeklyTemplate = this.weeklyTemplate(seed, shortGames.length > 0);
         const librarySlot = await this.librarySlot(
             userId,
             now,
@@ -147,7 +138,8 @@ export class GuildBoardService {
             {
                 slotIndex: 1,
                 template: weeklyTemplate,
-                candidateGames: shortGames,
+                candidateGames:
+                    weeklyTemplate.key === "short_caravan" ? shortGames : [],
             },
             {
                 slotIndex: 2,
@@ -207,7 +199,11 @@ export class GuildBoardService {
         const weekStart = currentWeekStart(now);
         const entries = await this.ensureWeeklyEntries(userId, now);
         const events = await this.activeEvents(now);
-        const excluded = await this.excludedQuestKeys(userId, entries, events);
+        const excluded = await this.excludedQuestKeys(
+            userId,
+            entries.map((entry) => entry.id),
+            events.map((event) => event.id),
+        );
 
         const openEntries = entries.filter(
             (entry) => !excluded.boardEntryIds.has(entry.id),
@@ -241,28 +237,65 @@ export class GuildBoardService {
         };
     }
 
-    /** Open quest count for `GET /v1/guild`, sharing the board's exclusion rules. */
+    /** Open quest count for `GET /v1/guild`, sharing the board's exclusion rules (design 17). */
     public async getOpenBoardCount(
         userId: string,
         now = new Date(),
     ): Promise<number> {
-        return (await this.getBoard(userId, { now })).quests.length;
+        const entries = await this.ensureWeeklyEntries(userId, now);
+        const eventIds = (
+            await this.dataSource.getRepository(GuildEvent).find({
+                where: this.activeEventsWhere(now),
+                select: { id: true },
+            })
+        ).map((event) => event.id);
+        const excluded = await this.excludedQuestKeys(
+            userId,
+            entries.map((entry) => entry.id),
+            eventIds,
+        );
+        return (
+            entries.filter((entry) => !excluded.boardEntryIds.has(entry.id))
+                .length +
+            eventIds.filter((id) => !excluded.eventIds.has(id)).length
+        );
+    }
+
+    /** Design 15: weekly pool rotates; short_caravan needs short candidates. */
+    private weeklyTemplate(
+        seed: Buffer,
+        hasShortGames: boolean,
+    ): GuildQuestTemplate {
+        const pool = [
+            ...(hasShortGames ? [template("short_caravan")] : []),
+            template("weekend_sprint"),
+            template("double_feature"),
+        ];
+        return pool[seed[2] % pool.length];
     }
 
     private async shortGameCandidates(
         userId: string,
         now: Date,
+        seed: Buffer,
     ): Promise<GuildBoardCandidateGame[]> {
         const rows: Array<{ gameId: number }> = await this.dataSource.query(
             `SELECT ce.gameId
              FROM collection_entry ce
              WHERE ce.libraryUserId = ? AND ce.status IN (?, ?)
+               AND NOT EXISTS (
+                   SELECT 1 FROM collection_entry_status_history h
+                   WHERE h.libraryUserId = ce.libraryUserId
+                     AND h.gameId = ce.gameId
+                     AND h.toStatus = ?
+               )
              ORDER BY COALESCE(ce.plannedAt, ce.createdAt) DESC, ce.gameId ASC
              LIMIT ?`,
             [
                 userId,
                 CollectionEntryStatus.PLANNED,
                 CollectionEntryStatus.PLAYING,
+                CollectionEntryStatus.FINISHED,
                 WEEKLY_LIBRARY_LIMIT,
             ],
         );
@@ -273,7 +306,7 @@ export class GuildBoardService {
             gameIds,
             now,
         );
-        return gameIds
+        const shortGames = gameIds
             .map((gameId) => ({
                 gameId,
                 seconds: getEffectiveTtbSeconds(ttbByGameId.get(gameId)),
@@ -289,11 +322,14 @@ export class GuildBoardService {
                     item.seconds > 0 &&
                     item.seconds <= SHORT_GAME_MAX_SECONDS,
             )
-            .slice(0, CANDIDATE_LIMIT)
             .map(({ gameId, seconds }) => ({
                 gameId,
                 estimatedHours: Math.max(1, Math.round(seconds / 3_600)),
             }));
+        return seededOrder(seed, shortGames, (game) => game.gameId).slice(
+            0,
+            CANDIDATE_LIMIT,
+        );
     }
 
     private async librarySlot(
@@ -302,15 +338,18 @@ export class GuildBoardService {
         usedTemplates: GuildQuestTemplate[],
         seed: Buffer,
     ): Promise<Omit<BoardSlot, "slotIndex">> {
-        const stale = await this.staleBacklogCandidates(userId, now);
-        if (stale.length > 0) {
+        const [stale, playing] = await Promise.all([
+            this.staleBacklogCandidates(userId, now, seed),
+            this.playingCandidates(userId, seed),
+        ]);
+        // Design 15: deep_dive replaces forgotten_relic only when both are possible.
+        if (stale.length > 0 && !(playing.length > 0 && seed[1] % 3 === 2)) {
             return {
                 template: template("forgotten_relic"),
                 candidateGames: stale,
             };
         }
 
-        const playing = await this.playingCandidates(userId);
         if (playing.length > 0) {
             return {
                 template: template("deep_dive"),
@@ -335,6 +374,7 @@ export class GuildBoardService {
     private async staleBacklogCandidates(
         userId: string,
         now: Date,
+        seed: Buffer,
     ): Promise<GuildBoardCandidateGame[]> {
         const cutoff = new Date(now.getTime() - STALE_BACKLOG_DAYS * DAY_MS);
         const rows: Array<{ gameId: number; sinceYear: number }> =
@@ -349,6 +389,12 @@ export class GuildBoardService {
                          AND up.gameId = ce.gameId
                          AND up.lastPlayedDate >= ?
                    )
+                   AND NOT EXISTS (
+                       SELECT 1 FROM collection_entry_status_history h
+                       WHERE h.libraryUserId = ce.libraryUserId
+                         AND h.gameId = ce.gameId
+                         AND h.toStatus = ?
+                   )
                  ORDER BY COALESCE(ce.plannedAt, ce.createdAt) ASC, ce.gameId ASC
                  LIMIT ?`,
                 [
@@ -357,27 +403,48 @@ export class GuildBoardService {
                     CollectionEntryStatus.DROPPED,
                     cutoff,
                     cutoff,
-                    CANDIDATE_LIMIT,
+                    CollectionEntryStatus.FINISHED,
+                    STALE_BACKLOG_POOL_LIMIT,
                 ],
             );
-        return rows.map((row) => ({
+        const candidates = rows.map((row) => ({
             gameId: Number(row.gameId),
             sinceYear: Number(row.sinceYear),
         }));
+        return seededOrder(seed, candidates, (game) => game.gameId).slice(
+            0,
+            CANDIDATE_LIMIT,
+        );
     }
 
     private async playingCandidates(
         userId: string,
+        seed: Buffer,
     ): Promise<GuildBoardCandidateGame[]> {
         const rows: Array<{ gameId: number }> = await this.dataSource.query(
             `SELECT ce.gameId
              FROM collection_entry ce
              WHERE ce.libraryUserId = ? AND ce.status = ?
+               AND NOT EXISTS (
+                   SELECT 1 FROM collection_entry_status_history h
+                   WHERE h.libraryUserId = ce.libraryUserId
+                     AND h.gameId = ce.gameId
+                     AND h.toStatus = ?
+               )
              ORDER BY COALESCE(ce.startedAt, ce.createdAt) DESC, ce.gameId ASC
              LIMIT ?`,
-            [userId, CollectionEntryStatus.PLAYING, CANDIDATE_LIMIT],
+            [
+                userId,
+                CollectionEntryStatus.PLAYING,
+                CollectionEntryStatus.FINISHED,
+                PLAYING_POOL_LIMIT,
+            ],
         );
-        return rows.map((row) => ({ gameId: Number(row.gameId) }));
+        const candidates = rows.map((row) => ({ gameId: Number(row.gameId) }));
+        return seededOrder(seed, candidates, (game) => game.gameId).slice(
+            0,
+            CANDIDATE_LIMIT,
+        );
     }
 
     private async rewardIdsByKey(
@@ -390,17 +457,21 @@ export class GuildBoardService {
 
         const rewards = await this.dataSource
             .getRepository(GuildReward)
-            .find({ where: { key: In(uniqueKeys) } });
+            .find({ where: { key: In(uniqueKeys), isActive: true } });
         return new Map(rewards.map((reward) => [reward.key, reward.id]));
+    }
+
+    private activeEventsWhere(now: Date) {
+        return {
+            status: GuildEventStatus.PUBLISHED,
+            startsAt: LessThanOrEqual(now),
+            endsAt: MoreThan(now),
+        };
     }
 
     private activeEvents(now: Date): Promise<GuildEvent[]> {
         return this.dataSource.getRepository(GuildEvent).find({
-            where: {
-                status: GuildEventStatus.PUBLISHED,
-                startsAt: LessThanOrEqual(now),
-                endsAt: MoreThan(now),
-            },
+            where: this.activeEventsWhere(now),
             relations: { translations: true, reward: true },
             order: { startsAt: "ASC", id: "ASC" },
         });
@@ -409,11 +480,9 @@ export class GuildBoardService {
     /** Contracts that close a quest: abandoned/expired leave it open (spec: quest board). */
     private async excludedQuestKeys(
         userId: string,
-        entries: GuildBoardEntry[],
-        events: GuildEvent[],
+        boardEntryIds: string[],
+        eventIds: string[],
     ): Promise<{ boardEntryIds: Set<string>; eventIds: Set<string> }> {
-        const boardEntryIds = entries.map((entry) => entry.id);
-        const eventIds = events.map((event) => event.id);
         const closedBoardEntryIds = new Set<string>();
         const closedEventIds = new Set<string>();
 
@@ -540,6 +609,9 @@ export class GuildBoardService {
             reward: entry.reward ? toRewardDescriptor(entry.reward) : null,
             isRecommended: false,
             isQuick: entry.isQuick,
+            contractDurationDays:
+                TEMPLATE_BY_KEY.get(entry.templateKey)?.contractDurationDays ??
+                null,
             expiresAt: entry.expiresAt,
         };
     }
@@ -576,6 +648,7 @@ export class GuildBoardService {
             reward: event.reward ? toRewardDescriptor(event.reward) : null,
             isRecommended: false,
             isQuick: event.rank === GuildRank.E || event.rank === GuildRank.D,
+            contractDurationDays: null,
             expiresAt: event.endsAt,
         };
     }

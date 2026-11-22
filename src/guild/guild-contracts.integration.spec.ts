@@ -19,6 +19,7 @@ import { AchievementsProgressService } from "../achievements/achievements-progre
 import { AuthGuard } from "../auth/auth.guard";
 import { BillingService } from "../billing/billing.service";
 import { CollectionEntryStatus } from "../collections/collections-entries/collections-entries.constants";
+import type { CollectionEntryStatusHistorySource } from "../collections/collections-entries/collections-entries.constants";
 import { LevelService } from "../level/level.service";
 import { UserLevel } from "../level/entities/user-level.entity";
 import { Profile } from "../profile/entities/profile.entity";
@@ -43,6 +44,7 @@ import {
     GuildRank,
     GuildRewardKind,
     currentWeekStart,
+    DAY_MS,
     LinaPose,
     LinaTrigger,
 } from "./guild.constants";
@@ -54,7 +56,6 @@ import { LinaReceptionService } from "./lina-reception.service";
 
 const NOW = new Date("2026-06-17T12:00:00Z");
 const WEEK_START = "2026-06-15";
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 class TestSessionGuard implements CanActivate {
@@ -201,6 +202,8 @@ describe("Guild contracts (integration)", () => {
             startedAt?: Date;
             finishedAt?: Date;
             droppedAt?: Date;
+            occurredAt?: Date;
+            source?: CollectionEntryStatusHistorySource;
         } = {},
     ) {
         const id = randomUUID();
@@ -221,7 +224,58 @@ describe("Guild contracts (integration)", () => {
                 values.droppedAt ?? null,
             ],
         );
+        await statusHistory(
+            userId,
+            gameId,
+            values.status ?? CollectionEntryStatus.PLANNED,
+            values.occurredAt ?? values.finishedAt ?? createdAt,
+            values.source,
+            id,
+        );
         return id;
+    }
+
+    /** One server-dated status transition, as the application writes it. */
+    async function statusHistory(
+        userId: string,
+        gameId: number,
+        toStatus: CollectionEntryStatus,
+        occurredAt: Date,
+        historySource: CollectionEntryStatusHistorySource = "manual",
+        collectionEntryId: string | null = null,
+    ) {
+        await source.query(
+            `INSERT INTO collection_entry_status_history
+                (libraryUserId, gameId, collectionEntryId, fromStatus, toStatus, source, occurredAt)
+             VALUES (?, ?, ?, NULL, ?, ?, ?)`,
+            [
+                userId,
+                gameId,
+                collectionEntryId,
+                toStatus,
+                historySource,
+                occurredAt,
+            ],
+        );
+    }
+
+    async function finishEntry(
+        userId: string,
+        gameId: number,
+        occurredAt: Date,
+        historySource: CollectionEntryStatusHistorySource = "manual",
+    ) {
+        await source.query(
+            "UPDATE collection_entry SET status = ?, finishedAt = ? WHERE libraryUserId = ? AND gameId = ?",
+            [CollectionEntryStatus.FINISHED, occurredAt, userId, gameId],
+        );
+        await statusHistory(
+            userId,
+            gameId,
+            CollectionEntryStatus.FINISHED,
+            occurredAt,
+            historySource,
+        );
     }
 
     async function review(
@@ -229,6 +283,7 @@ describe("Guild contracts (integration)", () => {
         gameId: number,
         collectionEntryId: string,
         createdAt: Date,
+        content = "A substantive review with enough detail. ".repeat(3),
     ) {
         const id = randomUUID();
         await source.query(
@@ -237,7 +292,7 @@ describe("Guild contracts (integration)", () => {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 id,
-                "Review",
+                content,
                 4,
                 gameId,
                 userId,
@@ -527,15 +582,7 @@ describe("Guild contracts (integration)", () => {
             { boardEntryId: quest.id, targetGameId: gameId },
             NOW,
         );
-        await source.query(
-            "UPDATE collection_entry SET status = ?, finishedAt = ? WHERE libraryUserId = ? AND gameId = ?",
-            [
-                CollectionEntryStatus.FINISHED,
-                new Date(NOW.getTime() + 60_000),
-                userId,
-                gameId,
-            ],
-        );
+        await finishEntry(userId, gameId, new Date(NOW.getTime() + 60_000));
         await evaluator.evaluateUserContracts(
             userId,
             new Date(NOW.getTime() + 120_000),
@@ -606,6 +653,82 @@ describe("Guild contracts (integration)", () => {
             expect(accepted.contract.progressTarget).toBe(1);
             expect(accepted.contract.status).toBe(GuildContractStatus.ACTIVE);
             expect(accepted.lina).toBeDefined();
+        });
+
+        it("rejects a target game finished in the past after a status change", async () => {
+            const userId = await user();
+            const gameId = await game();
+            await entry(userId, gameId, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: new Date("2025-01-01T00:00:00Z"),
+            });
+            await source.query(
+                "UPDATE collection_entry SET status = ? WHERE libraryUserId = ? AND gameId = ?",
+                [CollectionEntryStatus.PLAYING, userId, gameId],
+            );
+            const quest = await boardEntry(userId, {
+                templateKey: "deep_dive",
+                category: GuildCategory.LIBRARY,
+                requiresTargetGame: true,
+                isQuick: false,
+            });
+
+            await expect(
+                contracts.acceptContract(
+                    userId,
+                    { boardEntryId: quest.id, targetGameId: gameId },
+                    NOW,
+                ),
+            ).rejects.toBeInstanceOf(BadRequestException);
+        });
+
+        it("accepts a finished target game on a write_review event contract", async () => {
+            const userId = await user();
+            const gameId = await game();
+            await entry(userId, gameId, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: new Date("2025-01-01T00:00:00Z"),
+            });
+            const eventId = await event({
+                objectiveType: GuildObjectiveType.WRITE_REVIEW,
+            });
+
+            const accepted = await contracts.acceptContract(
+                userId,
+                { eventId, targetGameId: gameId },
+                NOW,
+            );
+            expect(accepted.contract.targetGameId).toBe(gameId);
+            expect(accepted.contract.objectiveType).toBe(
+                GuildObjectiveType.WRITE_REVIEW,
+            );
+        });
+
+        it("sets board contract deadlines relative to acceptance", async () => {
+            const userId = await user();
+            const libraryQuest = await boardEntry(userId, {
+                templateKey: "deep_dive",
+                category: GuildCategory.LIBRARY,
+                isQuick: false,
+            });
+            const library = await contracts.acceptContract(
+                userId,
+                { boardEntryId: libraryQuest.id },
+                NOW,
+            );
+            expect(library.contract.expiresAt!.getTime()).toBe(
+                NOW.getTime() + 21 * DAY_MS,
+            );
+
+            const weeklyQuest = await boardEntry(userId);
+            const weekly = await contracts.acceptContract(
+                userId,
+                { boardEntryId: weeklyQuest.id },
+                NOW,
+            );
+            expect(weekly.contract.expiresAt!.getTime()).toBe(
+                NOW.getTime() + 7 * DAY_MS,
+            );
         });
 
         it("rejects targets that do not satisfy genre, keyword and TTB criteria", async () => {
@@ -1116,15 +1239,7 @@ describe("Guild contracts (integration)", () => {
                 NOW,
             );
 
-            await source.query(
-                "UPDATE collection_entry SET status = ?, finishedAt = ? WHERE libraryUserId = ? AND gameId = ?",
-                [
-                    CollectionEntryStatus.FINISHED,
-                    new Date(NOW.getTime() + 60_000),
-                    userId,
-                    gameId,
-                ],
-            );
+            await finishEntry(userId, gameId, new Date(NOW.getTime() + 60_000));
             const evaluationNow = new Date(NOW.getTime() + 120_000);
             await Promise.all([
                 evaluator.evaluateUserContracts(userId, evaluationNow),
@@ -1139,6 +1254,125 @@ describe("Guild contracts (integration)", () => {
 
             await evaluator.evaluateUserContracts(userId, evaluationNow);
             expect(await outboxFor(contract.id)).toHaveLength(1);
+        });
+
+        it("counts only first manual finishes inside the contract window", async () => {
+            const userId = await user();
+            const quest = await boardEntry(userId, { targetCount: 5 });
+            const { contract } = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id },
+                NOW,
+            );
+
+            // Re-finishing a game first finished before the contract never counts.
+            const oldGame = await game();
+            await entry(userId, oldGame, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: new Date("2024-01-01T00:00:00Z"),
+            });
+            await statusHistory(
+                userId,
+                oldGame,
+                CollectionEntryStatus.PLANNED,
+                new Date(NOW.getTime() + 30_000),
+            );
+            await statusHistory(
+                userId,
+                oldGame,
+                CollectionEntryStatus.FINISHED,
+                new Date(NOW.getTime() + 60_000),
+            );
+
+            // Imports and related-entry propagation never progress a contract.
+            const imported = await game();
+            await entry(userId, imported, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: new Date(NOW.getTime() + 120_000),
+                source: "import",
+            });
+            const related = await game();
+            await entry(userId, related, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: new Date(NOW.getTime() + 180_000),
+                source: "related",
+            });
+
+            const manual = await game();
+            await entry(userId, manual, {
+                status: CollectionEntryStatus.FINISHED,
+                finishedAt: new Date(NOW.getTime() + 240_000),
+            });
+
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(NOW.getTime() + 300_000),
+            );
+            const updated = await contractOf(contract.id);
+            expect(updated.progressCurrent).toBe(1);
+            expect(updated.status).toBe(GuildContractStatus.ACTIVE);
+        });
+
+        it("counts distinct substantive reviews only", async () => {
+            const userId = await user();
+            const quest = await boardEntry(userId, {
+                templateKey: "on_duty_critic",
+                category: GuildCategory.GAMENODE,
+                objectiveType: GuildObjectiveType.WRITE_REVIEW,
+                targetCount: 3,
+                criteria: {},
+            });
+            const { contract } = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id },
+                NOW,
+            );
+            const gameId = await game();
+            const entryId = await entry(userId, gameId);
+            const secondEntryId = await entry(userId, gameId);
+            const thirdEntryId = await entry(userId, gameId);
+
+            await review(
+                userId,
+                gameId,
+                entryId,
+                new Date(NOW.getTime() + 60_000),
+                "  short review  ",
+            );
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(NOW.getTime() + 120_000),
+            );
+            expect((await contractOf(contract.id)).progressCurrent).toBe(0);
+
+            await review(
+                userId,
+                gameId,
+                secondEntryId,
+                new Date(NOW.getTime() + 180_000),
+                "x".repeat(80),
+            );
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(NOW.getTime() + 240_000),
+            );
+            expect((await contractOf(contract.id)).progressCurrent).toBe(1);
+
+            // A second qualifying review for the same game counts once.
+            await review(
+                userId,
+                gameId,
+                thirdEntryId,
+                new Date(NOW.getTime() + 300_000),
+                "y".repeat(120),
+            );
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(NOW.getTime() + 360_000),
+            );
+            const updated = await contractOf(contract.id);
+            expect(updated.progressCurrent).toBe(1);
+            expect(updated.status).toBe(GuildContractStatus.ACTIVE);
         });
 
         it("evaluates event criteria with genres, themes, keywords and TTB", async () => {
@@ -1445,6 +1679,7 @@ describe("Guild contracts (integration)", () => {
                 .expect(200);
 
             expect(response.body.xpAwarded).toBe(250);
+            expect(response.body.globalXpAwarded).toBe(62);
             expect(response.body.rankBefore).toBe(GuildRank.C);
             expect(response.body.rankAfter).toBe(GuildRank.B);
             expect(response.body.contract.status).toBe(
@@ -1461,10 +1696,11 @@ describe("Guild contracts (integration)", () => {
             expect(guildProfile.rank).toBe(GuildRank.B);
 
             const [userLevel] = await source.query(
-                "SELECT currentLevel FROM user_level WHERE userId = ?",
+                "SELECT currentLevel, currentLevelExp FROM user_level WHERE userId = ?",
                 [userId],
             );
-            expect(userLevel.currentLevel).toBeGreaterThanOrEqual(2);
+            expect(userLevel.currentLevel).toBe(1);
+            expect(Number(userLevel.currentLevelExp)).toBe(62);
 
             const obtained: Array<{ total: number }> = await source.query(
                 "SELECT COUNT(*) AS total FROM obtained_achievement WHERE profileUserId = ? AND achievementId = ?",
@@ -1475,6 +1711,7 @@ describe("Guild contracts (integration)", () => {
             const stored = await contractOf(contractId);
             expect(stored.claimPayload).toMatchObject({
                 xpAwarded: 250,
+                globalXpAwarded: 62,
                 rankBefore: GuildRank.C,
                 rankAfter: GuildRank.B,
             });
@@ -1528,6 +1765,7 @@ describe("Guild contracts (integration)", () => {
                 NOW,
             );
             expect(claim.xpAwarded).toBe(300);
+            expect(claim.globalXpAwarded).toBe(75);
             expect(claim.unlockedRewards).toHaveLength(0);
             const [guildProfile] = await source.query(
                 "SELECT xp FROM guild_profile WHERE profileUserId = ?",
@@ -1557,6 +1795,7 @@ describe("Guild contracts (integration)", () => {
                 NOW,
             );
             expect(claim.xpAwarded).toBe(225);
+            expect(claim.globalXpAwarded).toBe(56);
             expect(claim.chestResult).toEqual({
                 bonusXp: 75,
                 unlockedCosmetic: expect.objectContaining({

@@ -16,6 +16,7 @@ import { GuildAdminService } from "./guild-admin.service";
 import { GuildBoardService } from "./guild-board.service";
 import { GuildContractEvaluatorProcessor } from "./guild-contract-evaluator.processor";
 import { GuildContractEvaluatorService } from "./guild-contract-evaluator.service";
+import { GuildContractRemindersService } from "./guild-contract-reminders.service";
 import { GuildContractsService } from "./guild-contracts.service";
 import { GuildController } from "./guild.controller";
 import { GuildProfileService } from "./guild-profile.service";
@@ -53,6 +54,7 @@ import { LinaReceptionService } from "./lina-reception.service";
         GuildAdminService,
         GuildContractEvaluatorService,
         GuildContractEvaluatorProcessor,
+        GuildContractRemindersService,
         GuildContractsService,
         GuildScheduler,
     ],

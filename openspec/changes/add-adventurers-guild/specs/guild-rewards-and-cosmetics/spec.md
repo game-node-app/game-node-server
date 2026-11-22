@@ -25,7 +25,7 @@ When a claimed contract carries a `badge` reward linked to a published `Achievem
 - **THEN** the claim succeeds, grants the contract's XP, and does not throw or duplicate the achievement
 
 ### Requirement: Permanent cosmetic unlock inventory and duplicate fallback
-Claiming a contract that unlocks a `title` or `avatar_frame` SHALL permanently record `(profileUserId, rewardId)` in `user_guild_reward`. If the user already owns that cosmetic, the claim SHALL stay idempotent and award +50 Guild XP and +50 global `UserLevel` XP instead of failing. `GET /v1/guild/rewards` SHALL return all unlocked Guild cosmetics and the user's equipped `guildTitleKey` and `guildFrameKey`.
+Claiming a contract that unlocks a `title` or `avatar_frame` SHALL permanently record `(profileUserId, rewardId)` in `user_guild_reward`. If the user already owns that cosmetic, the claim SHALL stay idempotent and award +50 Guild XP (converted to global `UserLevel` XP with the claim's 0.25 multiplier) instead of failing. `GET /v1/guild/rewards` SHALL return all unlocked Guild cosmetics and the user's equipped `guildTitleKey` and `guildFrameKey`.
 
 #### Scenario: Unlocking a new title records ownership permanently
 - **WHEN** a user claims `Diário de Bordo` offering `title_chronist`
@@ -33,10 +33,10 @@ Claiming a contract that unlocks a `title` or `avatar_frame` SHALL permanently r
 
 #### Scenario: Re-unlocking an already-owned title grants fallback XP
 - **WHEN** a user who already owns `title_chronist` claims a contract offering `title_chronist`
-- **THEN** no duplicate inventory row is created and the claim awards an extra 50 Guild XP and 50 global XP
+- **THEN** no duplicate inventory row is created and the claim awards an extra 50 Guild XP (included in the global XP conversion)
 
 ### Requirement: Weekly chest opening on claim
-Claiming a `weekly_chest` contract SHALL open the chest atomically inside the claim transaction, crediting `chestBonusXp` to both Guild XP and global `UserLevel` XP and permanently unlocking one unowned active `inChestPool` cosmetic if any remain (otherwise crediting an extra +50 Guild XP and +50 global XP). The opened `chestResult: { bonusXp, unlockedCosmetic }` SHALL be persisted on `claimPayload` and returned.
+Claiming a `weekly_chest` contract SHALL open the chest atomically inside the claim transaction, crediting `chestBonusXp` as Guild XP (converted to global XP with the claim multiplier) and permanently unlocking one unowned active `inChestPool` cosmetic if any remain (otherwise crediting an extra +50 Guild XP). The opened `chestResult: { bonusXp, unlockedCosmetic }` SHALL be persisted on `claimPayload` and returned.
 
 #### Scenario: Weekly chest awards bonus XP and an unowned pool cosmetic
 - **WHEN** a user claims `Caravana Curta` carrying `weekly_chest` while unowned pool cosmetics remain
@@ -45,6 +45,13 @@ Claiming a `weekly_chest` contract SHALL open the chest atomically inside the cl
 #### Scenario: Weekly chest when pool is exhausted grants extra bonus XP
 - **WHEN** a user who already owns all active chest-pool cosmetics claims a `weekly_chest` contract
 - **THEN** `chestResult.unlockedCosmetic` is `null` and `chestResult.bonusXp` includes the extra fallback XP bonus
+
+### Requirement: Varied chest cosmetic picks
+The chest cosmetic SHALL be chosen pseudo-randomly per user and contract among unowned active pool cosmetics, so different users do not unlock the pool in the same order. The starter chest pool SHALL contain at least ten cosmetics.
+
+#### Scenario: Two users get different first chest cosmetics
+- **WHEN** many users open their first weekly chest
+- **THEN** the unlocked cosmetics are spread across the pool instead of always being the same one
 
 ### Requirement: Equipping Guild titles and avatar frames
 `PATCH /v1/guild/cosmetics` SHALL allow the authenticated user to update `guildTitleKey` and/or `guildFrameKey` independently (omitted fields stay unchanged; `null` unequips). Setting a non-null key SHALL succeed only when the user owns an unlocked reward of the matching kind (`title` or `avatar_frame`); otherwise the request SHALL fail with 403 (`code: "guild_cosmetic_not_owned"`) without mutating state.

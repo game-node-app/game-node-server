@@ -185,7 +185,62 @@ To launch the Guild first for Supporters and later open it to all users with a s
 - `GuildModule` imports `BillingModule` directly; `BillingModule` has no dependency on `GuildModule`, so no cycle is introduced.
 - Alternative rejected: a database feature-flag table or percentage rollout service. Unnecessary complexity for a single `supporters` → `public` toggle.
 
-### 10. Hand-off
+### 11. Library status history and first-finish semantics (review follow-up)
+
+Problem: `collection_entry.finishedAt` is client-controlled and is cleared/re-set by status toggles, so `finish_game` contracts (and the existing global `GAME_FINISHED` XP) could be completed by re-saving an already-finished game.
+
+- New table `collection_entry_status_history` (migration `1796000000000-AddLibraryStatusHistory`): `id bigint unsigned AUTO_INCREMENT PK`, `libraryUserId varchar(36) NOT NULL` FK `library(userId) ON DELETE CASCADE`, `gameId` (same type as `collection_entry.gameId`), `collectionEntryId varchar(36) NULL` FK `collection_entry(id) ON DELETE SET NULL` (history survives entry deletion, so delete + re-add is not a "first finish"), `fromStatus varchar(32) NULL`, `toStatus varchar(32) NOT NULL`, `source varchar(16) NOT NULL` (`manual` | `import` | `related` | `backfill`), `occurredAt datetime(6) NOT NULL` (server clock, never the client `finishedAt`). Indexes `IDX_ce_status_history_user_game (libraryUserId, gameId, toStatus, occurredAt)` and `IDX_ce_status_history_user_status (libraryUserId, toStatus, occurredAt)`.
+- A row is appended in the same transaction as the entry write whenever an entry is created or its `status` changes: `CollectionsEntriesService.createOrUpdate` (`manual`, including MCP tools; `import` when reached through `createForImport`), `createMissingForBatch` (`import`), `processRelatedEntries` (`related`). Any other writer of `collection_entry.status` found in the codebase must append too. Rows are never updated or deleted by application code and are not exposed by any API.
+- Backfill in the migration: one `backfill` row per currently `finished` entry with `occurredAt = COALESCE(finishedAt, updatedAt, createdAt)`. `shortcut: games finished before the migration and later moved to another status have no history row and could count once as a first finish; upgrade by reconstructing history from activities if this is abused.`
+- **First finish** of `(libraryUserId, gameId)` = the earliest history row with `toStatus = 'finished'` (any source).
+- `GAME_FINISHED` level XP in `createOrUpdate` is registered only when the transition being written is the first finish (no earlier finished row), replacing the `finishedAt === null` check.
+- Status-date preservation: `inferStatusAndAssociatedDates` keeps the existing `plannedAt`/`startedAt`/`droppedAt`/`finishedAt` when the inferred status equals the stored status (a client-supplied `finishedAt` still overrides `finishedAt`), so editing platforms or collections no longer makes a stale backlog game look fresh.
+- Future replay support (counting repeated finishes) can be added on top of this table without schema changes.
+
+### 12. Guild finish/review counting
+
+- `finish_game` evaluation counts distinct `gameId`s whose first finish has `source = 'manual'` and `occurredAt >= acceptedAt`, `< expiresAt` (when set) and `<= now`, then applies `targetGameId`, game criteria and TTB filters as before. Imports, related-entry propagation (DLCs inheriting the parent finish) and backfill rows never progress a contract, but they still define the first finish.
+- Accept-time target validation for `finish_game` contracts rejects any `targetGameId` with an existing finished history row (or a currently `finished` entry), replacing the current-status-only check; `deep_dive` still requires the game to be `playing` now.
+- `write_review` evaluation counts `COUNT(DISTINCT r.gameId)` over reviews created in the window whose trimmed content has at least `GUILD_MIN_REVIEW_CHARS = 80` characters (plus existing criteria). `shortcut: deleting and rewriting a review for the same game can count again in a later contract; upgrade with review history if abused.`
+
+### 13. Global XP multiplier
+
+`GUILD_GLOBAL_XP_MULTIPLIER = 0.25` in `guild.constants.ts`. On claim, `guildXpAwarded = contract.xpReward + bonusXp` (duplicate-cosmetic and chest bonuses included) goes to `guild_profile.xp`; `globalXpAwarded = Math.floor(guildXpAwarded × 0.25)` goes to `LevelService.increaseExp` (skipped when `0`; the user's own `expMultiplier` still applies inside `LevelService`). `claimPayload` and `ClaimGuildContractResponseDto` add `globalXpAwarded`; `xpAwarded` keeps meaning Guild XP.
+
+### 14. Contract deadlines relative to acceptance
+
+Templates gain `contractDurationDays` (`forgotten_relic`/`deep_dive`: 21; every `weekly`/`gamenode` template: 7). Board contracts get `expiresAt = acceptedAt + contractDurationDays × 24h`. `guild_board_entry.expiresAt` keeps meaning "acceptable until next Monday". Board quests expose `contractDurationDays` (`null` for events, whose contracts keep `expiresAt = event.endsAt`). When `PATCH /v1/guild/admin/events/:id` changes `endsAt`, the same transaction sets `expiresAt = endsAt` on that event's `active` contracts (`ready_to_claim`/terminal untouched; an `endsAt` already in the past expires them lazily).
+
+### 15. Weekly board variety
+
+A shared `seededOrder(seed, items, key)` helper in `guild.constants.ts` orders items by `sha256(seedHex + ":" + key)` (deterministic, no `Math.random`).
+- Templates: `gamenode` slot rotates `captains_log` / `on_duty_critic` / `quick_take` by `seed[0] % 3`; `weekly` slot rotates over the available pool (`short_caravan` only when short candidates exist, plus `weekend_sprint` and `double_feature`) by `seed[2]`; `library` slot uses `deep_dive` instead of `forgotten_relic` when both are possible and `seed[1] % 3 === 2`. Empty-library fallback is unchanged.
+- Candidates: stale pool = 30 oldest eligible, playing pool = 10 most recent, short pool = every short game among the 40 inspected; each pool is `seededOrder`-ed and the first 3 become chips.
+- New templates: `double_feature` (`weekly`, Rank `C`, `+220 XP`, `finish_game`, `targetCount: 2`, `criteria: {}`, no target, not quick, `weekly_chest`, 7 days) and `quick_take` (`gamenode`, Rank `E`, `+60 XP`, `write_review`, `targetCount: 1`, `criteria: {}`, quick, `weekly_chest`, 7 days).
+- `rewardIdsByKey` ignores inactive rewards (an inactive reward key yields `rewardId = null`).
+
+### 16. Chest picks and catalog
+
+The chest picks the unowned active pool cosmetic first in `seededOrder(sha256(userId + ":" + contractId), pool, id)`. Migration `1796000000001-HardenAdventurersGuild` seeds active chest-pool cosmetics `title_relic_hunter`, `title_night_owl`, `title_completionist`, `frame_ember_rune`, `frame_moonlit_ivy`, `frame_gilded_compass` (`INSERT IGNORE` by `key`) and adds `guild_contract.expiringNotifiedAt datetime(6) NULL`.
+
+### 17. Cheaper `GET /v1/guild`
+
+- `GuildBoardService.getOpenBoardCount` counts open entries + open events with the same exclusion rules but without loading game chips or building quest DTOs.
+- `GuildProfileService.ensureProfile` reads first and issues `INSERT IGNORE` only when the row is missing.
+- `LinaReceptionService` writes `lastVisitedAt` only when it is `null` or older than 1 hour (inactivity is measured in days).
+- Shared helpers (`igdbImageUrl`, `toRewardDescriptor`, `STALE_BACKLOG_DAYS`, `DAY_MS`) live once in `guild.constants.ts`.
+
+### 18. Contract expiry reminder (`guild.contract-expiring`)
+
+The hourly `GuildScheduler` tick also calls `GuildContractRemindersService.notifyExpiring(now)`: up to 500 `active` contracts with `expiresAt > now AND expiresAt <= now + 24h AND expiringNotifiedAt IS NULL`; for each, one transaction locks the row, re-checks those conditions, sets `expiringNotifiedAt = now` and appends `guild.contract-expiring` v1 (`payload: { contractId, category, templateKey, eventId, targetGameId, expiresAt }`, no actor). Notifications support mirrors `guild.contract-ready` (types, outbox validation, individual projection with `subjectType: "guild_contract"`, target `{ type: "guild", contractId }`).
+
+### 19. Small fixes
+
+- Yearly goal year = `Number(dailyToday(now).slice(0, 4))` (São Paulo), not UTC.
+- Lina's `stale_backlog_game` considers `planned` and `dropped`, like the board.
+- `memberSince` intentionally stays the profile creation date (spec requirement), not the Guild join date.
+
+### 20. Hand-off
 
 The final task writes `openspec/changes/add-adventurers-guild/handoff-clients.md` mapping every Figma frame (`6:2`, `8:268`, `9:387`, `10:409`, `2:62`) to endpoints, DTOs, error codes (including `403 guild_early_access_required`), `GET /v1/guild/access` gating guidance, `templateKey` / `lina.trigger` localization tables (`en` and `pt-BR`), rank title keys, cosmetic key rendering rules (including coexistence with `supporterPreferences`), and the admin curated-event endpoints.
 

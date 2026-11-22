@@ -132,6 +132,10 @@ export class GuildContract {
     @Column({ type: "datetime", nullable: true, default: null })
     expiresAt: Date | null;
 
+    /** When the 24h expiry reminder was queued; null until then (design 18). */
+    @Column({ type: "datetime", precision: 6, nullable: true, default: null })
+    expiringNotifiedAt: Date | null;
+
     @CreateDateColumn({ type: "datetime", precision: 6 })
     createdAt: Date;
 

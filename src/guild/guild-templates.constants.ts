@@ -17,6 +17,8 @@ export interface GuildQuestTemplate {
     requiresTargetGame: boolean;
     isQuick: boolean;
     rewardKey: string | null;
+    /** Days an accepted board contract stays open (design 14). */
+    contractDurationDays: number;
 }
 
 export const GUILD_SYSTEM_TEMPLATES: readonly GuildQuestTemplate[] = [
@@ -31,6 +33,7 @@ export const GUILD_SYSTEM_TEMPLATES: readonly GuildQuestTemplate[] = [
         requiresTargetGame: true,
         isQuick: false,
         rewardKey: "badge_archaeologist",
+        contractDurationDays: 21,
     },
     {
         key: "deep_dive",
@@ -43,6 +46,7 @@ export const GUILD_SYSTEM_TEMPLATES: readonly GuildQuestTemplate[] = [
         requiresTargetGame: true,
         isQuick: false,
         rewardKey: "weekly_chest",
+        contractDurationDays: 21,
     },
     {
         key: "short_caravan",
@@ -55,6 +59,7 @@ export const GUILD_SYSTEM_TEMPLATES: readonly GuildQuestTemplate[] = [
         requiresTargetGame: false,
         isQuick: true,
         rewardKey: "weekly_chest",
+        contractDurationDays: 7,
     },
     {
         key: "weekend_sprint",
@@ -67,6 +72,20 @@ export const GUILD_SYSTEM_TEMPLATES: readonly GuildQuestTemplate[] = [
         requiresTargetGame: false,
         isQuick: true,
         rewardKey: "weekly_chest",
+        contractDurationDays: 7,
+    },
+    {
+        key: "double_feature",
+        category: GuildCategory.WEEKLY,
+        rank: GuildRank.C,
+        xpReward: 220,
+        objectiveType: GuildObjectiveType.FINISH_GAME,
+        targetCount: 2,
+        criteria: {},
+        requiresTargetGame: false,
+        isQuick: false,
+        rewardKey: "weekly_chest",
+        contractDurationDays: 7,
     },
     {
         key: "captains_log",
@@ -79,6 +98,7 @@ export const GUILD_SYSTEM_TEMPLATES: readonly GuildQuestTemplate[] = [
         requiresTargetGame: false,
         isQuick: true,
         rewardKey: "title_chronist",
+        contractDurationDays: 7,
     },
     {
         key: "on_duty_critic",
@@ -91,6 +111,20 @@ export const GUILD_SYSTEM_TEMPLATES: readonly GuildQuestTemplate[] = [
         requiresTargetGame: false,
         isQuick: false,
         rewardKey: "weekly_chest",
+        contractDurationDays: 7,
+    },
+    {
+        key: "quick_take",
+        category: GuildCategory.GAMENODE,
+        rank: GuildRank.E,
+        xpReward: 60,
+        objectiveType: GuildObjectiveType.WRITE_REVIEW,
+        targetCount: 1,
+        criteria: {},
+        requiresTargetGame: false,
+        isQuick: true,
+        rewardKey: "weekly_chest",
+        contractDurationDays: 7,
     },
 ];
 

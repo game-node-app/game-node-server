@@ -5,6 +5,7 @@ import { dailyToday } from "../daily/daily.constants";
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
 import { GuildContract } from "./entities/guild-contract.entity";
 import {
+    GUILD_MIN_REVIEW_CHARS,
     GuildContractStatus,
     GuildCriteria,
     GuildObjectiveType,
@@ -129,31 +130,47 @@ export class GuildContractEvaluatorService {
         now: Date,
     ): Promise<number> {
         const conditions = [
-            "ce.libraryUserId = ?",
-            "ce.status = ?",
-            "ce.finishedAt >= ?",
+            "h.libraryUserId = ?",
+            "h.toStatus = ?",
+            "h.source = ?",
+            "h.occurredAt >= ?",
+            // The earliest finish is the game's first finish; a re-finish never counts.
+            `NOT EXISTS (
+                SELECT 1 FROM collection_entry_status_history earlier
+                WHERE earlier.libraryUserId = h.libraryUserId
+                  AND earlier.gameId = h.gameId
+                  AND earlier.toStatus = h.toStatus
+                  AND (earlier.occurredAt < h.occurredAt
+                       OR (earlier.occurredAt = h.occurredAt AND earlier.id < h.id))
+            )`,
         ];
         const parameters: unknown[] = [
             contract.profileUserId,
             CollectionEntryStatus.FINISHED,
+            "manual",
             contract.acceptedAt,
         ];
         if (contract.expiresAt !== null) {
-            conditions.push("ce.finishedAt < ?");
+            conditions.push("h.occurredAt < ?");
             parameters.push(contract.expiresAt);
         }
         // A finish dated after the evaluation instant is not progress yet.
-        conditions.push("ce.finishedAt <= ?");
+        conditions.push("h.occurredAt <= ?");
         parameters.push(now);
         if (contract.targetGameId !== null) {
-            conditions.push("ce.gameId = ?");
+            conditions.push("h.gameId = ?");
             parameters.push(contract.targetGameId);
         }
-        this.applyGameCriteria(conditions, parameters, contract.criteria);
+        this.applyGameCriteria(
+            conditions,
+            parameters,
+            contract.criteria,
+            "h.gameId",
+        );
 
         const rows: Array<{ gameId: number }> = await this.dataSource.query(
-            `SELECT DISTINCT ce.gameId FROM collection_entry ce
-             WHERE ${conditions.join(" AND ")}`,
+            `SELECT DISTINCT h.gameId FROM collection_entry_status_history h
+                 WHERE ${conditions.join(" AND ")}`,
             parameters,
         );
         return this.countWithinTimeToBeat(
@@ -167,10 +184,15 @@ export class GuildContractEvaluatorService {
         contract: GuildContract,
         now: Date,
     ): Promise<number> {
-        const conditions = ["r.profileUserId = ?", "r.createdAt >= ?"];
+        const conditions = [
+            "r.profileUserId = ?",
+            "r.createdAt >= ?",
+            "CHAR_LENGTH(TRIM(r.content)) >= ?",
+        ];
         const parameters: unknown[] = [
             contract.profileUserId,
             contract.acceptedAt,
+            GUILD_MIN_REVIEW_CHARS,
         ];
         if (contract.expiresAt !== null) {
             conditions.push("r.createdAt < ?");
@@ -198,8 +220,10 @@ export class GuildContractEvaluatorService {
             parameters.push(CollectionEntryStatus.FINISHED, start, end);
         }
 
-        const rows: Array<{ id: string }> = await this.dataSource.query(
-            `SELECT DISTINCT r.id FROM review r
+        // shortcut: deleting and rewriting a review for the same game can count
+        // again in a later contract; upgrade with review history if abused.
+        const rows: Array<{ gameId: number }> = await this.dataSource.query(
+            `SELECT DISTINCT r.gameId FROM review r
              WHERE ${conditions.join(" AND ")}`,
             parameters,
         );

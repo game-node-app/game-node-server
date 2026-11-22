@@ -95,6 +95,15 @@ describe("Guild profile and Lina reception (integration)", () => {
         return id;
     }
 
+    async function finishHistory(userId: string, gameId: number, at: Date) {
+        await source.query(
+            `INSERT INTO collection_entry_status_history
+                (libraryUserId, gameId, collectionEntryId, fromStatus, toStatus, source, occurredAt)
+             VALUES (?, ?, NULL, NULL, ?, 'manual', ?)`,
+            [userId, gameId, CollectionEntryStatus.FINISHED, at],
+        );
+    }
+
     async function review(
         userId: string,
         gameId: number,
@@ -183,6 +192,27 @@ describe("Guild profile and Lina reception (integration)", () => {
         ).toEqual([{ total: 1 }]);
     });
 
+    it("reads an existing Guild profile without inserting and inserts for a missing one", async () => {
+        const userId = await user();
+        const created = await profiles.ensureProfile(userId);
+        const query = jest.spyOn(source.manager, "query");
+        const inserts = () =>
+            query.mock.calls.filter(([sql]) =>
+                /INSERT\s+IGNORE/i.test(String(sql)),
+            );
+
+        try {
+            const existing = await profiles.ensureProfile(userId);
+            expect(existing.licenseNumber).toBe(created.licenseNumber);
+            expect(inserts()).toEqual([]);
+
+            await profiles.ensureProfile(await user());
+            expect(inserts()).toHaveLength(1);
+        } finally {
+            query.mockRestore();
+        }
+    });
+
     it("aggregates License stats, rank progress and equipped cosmetics", async () => {
         const userId = await user();
         const finishedA = await game("Finished A");
@@ -244,6 +274,22 @@ describe("Guild profile and Lina reception (integration)", () => {
             year: 2026,
             target: 12,
             finished: 1,
+        });
+    });
+
+    it("uses the São Paulo calendar year at the New Year boundary", async () => {
+        const userId = await user();
+        // 2027-01-01T02:30Z is still 2026-12-31 23:30 in São Paulo.
+        const now = new Date("2027-01-01T02:30:00Z");
+        await source.query(
+            `INSERT INTO year_goal (profileUserId, year, finishedGamesTarget) VALUES (?, ?, ?), (?, ?, ?)`,
+            [userId, 2026, 12, userId, 2027, 5],
+        );
+
+        expect(await profiles.getCurrentYearGoal(userId, now)).toEqual({
+            year: 2026,
+            target: 12,
+            finished: 0,
         });
     });
 
@@ -372,6 +418,35 @@ describe("Guild profile and Lina reception (integration)", () => {
         expect((await reload(userId)).lastVisitedAt).toEqual(touchedAt);
     });
 
+    it("throttles lastVisitedAt writes to once per hour", async () => {
+        const userId = await user();
+        await profiles.ensureProfile(userId);
+        const now = new Date("2026-06-15T12:00:00Z");
+        await source.query(
+            "UPDATE guild_profile SET lastBoardSeenAt = ? WHERE profileUserId = ?",
+            [now, userId],
+        );
+
+        await lina.evaluateReception(userId, await reload(userId), { now });
+        expect((await reload(userId)).lastVisitedAt).toEqual(now);
+
+        const recent = new Date(now.getTime() - 30 * 60 * 1000);
+        await source.query(
+            "UPDATE guild_profile SET lastVisitedAt = ? WHERE profileUserId = ?",
+            [recent, userId],
+        );
+        await lina.evaluateReception(userId, await reload(userId), { now });
+        expect((await reload(userId)).lastVisitedAt).toEqual(recent);
+
+        const stale = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+        await source.query(
+            "UPDATE guild_profile SET lastVisitedAt = ? WHERE profileUserId = ?",
+            [stale, userId],
+        );
+        await lina.evaluateReception(userId, await reload(userId), { now });
+        expect((await reload(userId)).lastVisitedAt).toEqual(now);
+    });
+
     it("keeps a returning user out of inactivity when platform activity is recent", async () => {
         const userId = await user();
         await profiles.ensureProfile(userId);
@@ -425,6 +500,84 @@ describe("Guild profile and Lina reception (integration)", () => {
             gameId,
             gameName: "Lost Relic",
             sinceYear: 2023,
+        });
+    });
+
+    it("highlights a dropped stale backlog game", async () => {
+        const userId = await user();
+        await profiles.ensureProfile(userId);
+        const now = new Date("2026-06-15T12:00:00Z");
+        await source.query(
+            "UPDATE guild_profile SET lastBoardSeenAt = ?, lastVisitedAt = ? WHERE profileUserId = ?",
+            [now, now, userId],
+        );
+        const gameId = await game("Dropped Relic");
+        await entry(userId, gameId, {
+            status: CollectionEntryStatus.DROPPED,
+            createdAt: new Date("2023-05-01T00:00:00Z"),
+            plannedAt: new Date("2023-05-01T00:00:00Z"),
+        });
+
+        const reception = await lina.evaluateReception(
+            userId,
+            await reload(userId),
+            { now },
+        );
+        expect(reception).toMatchObject({
+            trigger: LinaTrigger.STALE_BACKLOG_GAME,
+            pose: LinaPose.NEUTRAL,
+            hasUnseenBoard: false,
+        });
+        expect(reception.context).toEqual({
+            gameId,
+            gameName: "Dropped Relic",
+            sinceYear: 2023,
+        });
+    });
+
+    it("skips a previously finished dropped game for Lina's stale pick", async () => {
+        const userId = await user();
+        await profiles.ensureProfile(userId);
+        const now = new Date("2026-06-15T12:00:00Z");
+        await source.query(
+            "UPDATE guild_profile SET lastBoardSeenAt = ?, lastVisitedAt = ? WHERE profileUserId = ?",
+            [now, now, userId],
+        );
+        const finishedDropped = await game("Finished Dropped");
+        const stillStale = await game("Still Stale");
+        await entry(userId, finishedDropped, {
+            status: CollectionEntryStatus.DROPPED,
+            createdAt: new Date("2023-04-01T00:00:00Z"),
+            plannedAt: new Date("2023-04-01T00:00:00Z"),
+        });
+        await entry(userId, stillStale, {
+            status: CollectionEntryStatus.PLANNED,
+            createdAt: new Date("2023-05-01T00:00:00Z"),
+            plannedAt: new Date("2023-05-01T00:00:00Z"),
+        });
+        await finishHistory(
+            userId,
+            finishedDropped,
+            new Date("2023-03-01T00:00:00Z"),
+        );
+
+        expect(await lina.findOldestStaleBacklogGame(userId, now)).toEqual({
+            gameId: stillStale,
+            gameName: "Still Stale",
+            sinceYear: 2023,
+        });
+        const reception = await lina.evaluateReception(
+            userId,
+            await reload(userId),
+            { now },
+        );
+        expect(reception).toMatchObject({
+            trigger: LinaTrigger.STALE_BACKLOG_GAME,
+            context: {
+                gameId: stillStale,
+                gameName: "Still Stale",
+                sinceYear: 2023,
+            },
         });
     });
 

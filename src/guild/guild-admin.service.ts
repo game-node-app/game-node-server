@@ -19,16 +19,17 @@ import {
     UpdateGuildEventDto,
     UpdateGuildRewardDto,
 } from "./dto/guild-admin.dto";
-import { GuildRewardDescriptorDto } from "./dto/guild-rewards.dto";
 import { GuildContract } from "./entities/guild-contract.entity";
 import { GuildEventTranslation } from "./entities/guild-event-translation.entity";
 import { GuildEvent } from "./entities/guild-event.entity";
 import { GuildReward } from "./entities/guild-reward.entity";
 import {
     GuildCriteria,
+    GuildContractStatus,
     GuildEventStatus,
     GuildObjectiveType,
     GuildRewardKind,
+    toRewardDescriptor,
 } from "./guild.constants";
 import { validateGuildQuestRules } from "./guild-templates.constants";
 
@@ -46,17 +47,6 @@ function trimRequired(value: string, field: string): string {
     const trimmed = value.trim();
     if (!trimmed) badRequest(`${field} must not be empty.`);
     return trimmed;
-}
-
-function toRewardDescriptor(reward: GuildReward): GuildRewardDescriptorDto {
-    return {
-        id: reward.id,
-        key: reward.key,
-        kind: reward.kind,
-        achievementId: reward.achievementId,
-        inChestPool: reward.inChestPool,
-        chestBonusXp: reward.chestBonusXp,
-    };
 }
 
 function toRewardDto(reward: GuildReward): GuildAdminRewardResponseDto {
@@ -207,6 +197,16 @@ export class GuildAdminService {
 
             if (Object.keys(changes).length > 0) {
                 await manager.update(GuildEvent, { id }, changes);
+            }
+            // A new deadline also applies to contracts already accepted under the event (design 14).
+            if (
+                dto.endsAt !== undefined &&
+                dto.endsAt.getTime() !== saved.endsAt.getTime()
+            ) {
+                await manager.query(
+                    "UPDATE guild_contract SET expiresAt = ? WHERE eventId = ? AND status = ?",
+                    [dto.endsAt, id, GuildContractStatus.ACTIVE],
+                );
             }
             // Omitted preserves the stored set; an explicit array replaces it atomically.
             if (translations !== undefined) {

@@ -76,6 +76,20 @@ The system SHALL compute a user's Guild Rank from cumulative Guild XP across six
 - **WHEN** a user without a `YearGoal` for the current year requests `GET /v1/guild`
 - **THEN** `yearGoal` is `null` and all other overview sections return normally
 
+### Requirement: Yearly goal follows the São Paulo calendar
+The overview's current year for `yearGoal` SHALL follow the `America/Sao_Paulo` calendar.
+
+#### Scenario: New Year's Eve evening still shows the current year
+- **WHEN** a user requests `GET /v1/guild` on December 31 at 22:00 São Paulo time
+- **THEN** `yearGoal.year` is that December's year
+
+### Requirement: Lina stale backlog eligibility and visit writes
+Lina's `stale_backlog_game` pick SHALL use the same eligibility as the board's stale backlog quest (`planned` or `dropped`, untouched > 1 year). Repeated visits within one hour MAY skip rewriting `lastVisitedAt`.
+
+#### Scenario: Dropped relic is highlighted
+- **WHEN** a user's only stale backlog game is `dropped` since 2023 and no higher-priority trigger applies
+- **THEN** `lina.trigger` is `stale_backlog_game` for that game
+
 ### Requirement: Lina contextual reception and dialogue triggers
 `GET /v1/guild` SHALL return `lina: { trigger, pose, context, hasUnseenBoard }` choosing `trigger` by priority: `contract_ready_to_claim` (`pose: "happy"`), `returning_after_inactivity` (30+ days without Guild visit or platform activity), `weekly_board_refreshed` (unseen Monday cycle), `stale_backlog_game` (backlog game untouched > 1 year), or `default` (all `"neutral"`). Each visit SHALL update `lastVisitedAt` after checking inactivity without marking the board seen.
 

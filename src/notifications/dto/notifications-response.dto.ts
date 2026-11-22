@@ -117,7 +117,8 @@ export class NotificationTextPreviewDto {
     milestone?: string;
     @ApiPropertyOptional({
         type: NotificationGameContextDto,
-        description: "Game context, for guild.contract-ready",
+        description:
+            "Game context, for guild.contract-ready and guild.contract-expiring",
     })
     game?: NotificationGameContextDto;
 }

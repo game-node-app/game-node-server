@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import { DataSource, EntityManager, In } from "typeorm";
 import {
@@ -10,6 +11,8 @@ import { Profile } from "../profile/entities/profile.entity";
 import {
     DUPLICATE_COSMETIC_BONUS_XP,
     GuildRewardKind,
+    seededOrder,
+    toRewardDescriptor,
 } from "./guild.constants";
 import {
     GuildChestResultDto,
@@ -30,15 +33,6 @@ export type GuildRewardFulfillment = {
     /** Newly granted achievement tier; the caller registers its feed activity after commit. */
     pendingBadgeActivity: GrantedTier | null;
 };
-
-const toDescriptor = (reward: GuildReward): GuildRewardDescriptorDto => ({
-    id: reward.id,
-    key: reward.key,
-    kind: reward.kind,
-    achievementId: reward.achievementId,
-    inChestPool: reward.inChestPool,
-    chestBonusXp: reward.chestBonusXp,
-});
 
 @Injectable()
 export class GuildRewardsService {
@@ -66,7 +60,7 @@ export class GuildRewardsService {
                     unlockedAt,
                 }): UserGuildRewardDto => ({
                     id,
-                    reward: toDescriptor(reward),
+                    reward: toRewardDescriptor(reward),
                     sourceContractId,
                     unlockedAt,
                 }),
@@ -168,7 +162,9 @@ export class GuildRewardsService {
                         "live",
                     );
                 if (granted) {
-                    fulfillment.unlockedRewards.push(toDescriptor(reward));
+                    fulfillment.unlockedRewards.push(
+                        toRewardDescriptor(reward),
+                    );
                     fulfillment.pendingBadgeActivity = granted;
                 }
                 break;
@@ -183,7 +179,9 @@ export class GuildRewardsService {
                     now,
                 );
                 if (inserted) {
-                    fulfillment.unlockedRewards.push(toDescriptor(reward));
+                    fulfillment.unlockedRewards.push(
+                        toRewardDescriptor(reward),
+                    );
                 } else {
                     fulfillment.bonusXp += DUPLICATE_COSMETIC_BONUS_XP;
                 }
@@ -202,7 +200,6 @@ export class GuildRewardsService {
                                 GuildRewardKind.AVATAR_FRAME,
                             ]),
                         },
-                        order: { id: "ASC" },
                     }),
                     manager.getRepository(UserGuildReward).find({
                         where: { profileUserId: userId },
@@ -210,9 +207,14 @@ export class GuildRewardsService {
                     }),
                 ]);
                 const ownedIds = new Set(owned.map((row) => row.rewardId));
-                const candidate = pool.find(
-                    (cosmetic) => !ownedIds.has(cosmetic.id),
-                );
+                // Design 16: unpicked cosmetics spread across the pool per user + contract.
+                const candidate = seededOrder(
+                    createHash("sha256")
+                        .update(`${userId}:${contractId}`)
+                        .digest(),
+                    pool,
+                    (cosmetic) => cosmetic.id,
+                ).find((cosmetic) => !ownedIds.has(cosmetic.id));
 
                 let unlockedCosmetic: GuildRewardDescriptorDto | null = null;
                 if (
@@ -225,7 +227,7 @@ export class GuildRewardsService {
                         now,
                     ))
                 ) {
-                    unlockedCosmetic = toDescriptor(candidate);
+                    unlockedCosmetic = toRewardDescriptor(candidate);
                     fulfillment.unlockedRewards.push(unlockedCosmetic);
                 } else {
                     fulfillment.bonusXp += DUPLICATE_COSMETIC_BONUS_XP;

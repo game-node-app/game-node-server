@@ -142,6 +142,15 @@ export class GuildBoardQuestDto {
     @ApiProperty({ example: true })
     isQuick: boolean;
 
+    @ApiProperty({
+        type: Number,
+        nullable: true,
+        description:
+            "Days an accepted contract stays open; null for event quests",
+        example: 21,
+    })
+    contractDurationDays: number | null;
+
     @ApiProperty({ type: Date, example: "2026-06-22T03:00:00.000Z" })
     expiresAt: Date;
 }
