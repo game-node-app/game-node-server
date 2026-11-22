@@ -4,7 +4,6 @@ import {
     NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { ThrottlerStorageService } from "@nestjs/throttler";
 import { EntityNotFoundError } from "typeorm";
 import { AuthService } from "../auth/auth.service";
 import { SearchService } from "../search/search.service";
@@ -51,15 +50,12 @@ describe("McpToolsService", () => {
         finishedAt: null,
     };
     let service: McpToolsService;
-    let storage: ThrottlerStorageService;
 
     beforeEach(() => {
         jest.resetAllMocks();
-        storage = new ThrottlerStorageService();
         service = new McpToolsService(
             new ConfigService({ DOMAIN_WEBSITE: "https://gamenode.test" }),
             auth as unknown as AuthService,
-            storage,
             search as unknown as SearchService,
             games as unknown as GameRepositoryService,
             collections as unknown as CollectionsService,
@@ -82,8 +78,6 @@ describe("McpToolsService", () => {
         entries.findOneByUserIdAndGameIdOrFail.mockResolvedValue(entry);
         posts.create.mockResolvedValue({ id: "post" });
     });
-
-    afterEach(() => storage.onApplicationShutdown());
 
     it.each([
         { isSuspended: true, isBanned: false },
@@ -112,47 +106,19 @@ describe("McpToolsService", () => {
         expect(entries.createOrUpdate).not.toHaveBeenCalled();
     });
 
-    it("shares the ten-write limit across tools, keeps other users independent and reads available", async () => {
-        reviews.findOneByUserIdAndGameId.mockResolvedValue({
-            id: "review",
-            rating: 4,
-            content: null,
-        });
-        for (let i = 0; i < 5; i++) {
+    it("allows bulk writes without rate limiting across tools", async () => {
+        for (let i = 0; i < 15; i++) {
             expect(
                 (
-                    await service.createPost("user", {
+                    await service.addGameToLibrary("user", {
                         game_id: 1,
-                        content: "hello",
-                    })
-                ).isError,
-            ).toBeUndefined();
-            expect(
-                (
-                    await service.reviewGame("user", {
-                        game_id: 1,
-                        rating: 4,
-                        overwrite: true,
+                        status: Status.PLAYING,
+                        platform_ids: [6],
                     })
                 ).isError,
             ).toBeUndefined();
         }
-        expect(
-            (
-                await service.createPost("user", {
-                    game_id: 1,
-                    content: "blocked",
-                })
-            ).content[0],
-        ).toMatchObject({ text: expect.stringContaining("Try again in") });
-        expect(posts.create).toHaveBeenCalledTimes(5);
-        expect(
-            (await service.createPost("other", { game_id: 1, content: "ok" }))
-                .isError,
-        ).toBeUndefined();
-        expect(
-            (await service.getLibraryEntry("user", { game_id: 1 })).isError,
-        ).toBeUndefined();
+        expect(entries.createOrUpdate).toHaveBeenCalledTimes(15);
     });
 
     it("returns compact search results in engine order", async () => {
@@ -543,7 +509,7 @@ describe("McpToolsService", () => {
             expect(result.isError).toBe(true);
         });
 
-        it("refuses restricted users and rate limits dismissals but not mappings", async () => {
+        it("refuses restricted users and allows bulk mappings and dismissals", async () => {
             auth.getLockoutStates.mockResolvedValueOnce(
                 new Map([["user", { isBanned: true }]]),
             );
@@ -556,7 +522,7 @@ describe("McpToolsService", () => {
                 id: 7,
                 name: "G",
             });
-            for (let i = 0; i < 12; i++)
+            for (let i = 0; i < 12; i++) {
                 expect(
                     (
                         await service.mapExternalGame("other", {
@@ -565,7 +531,16 @@ describe("McpToolsService", () => {
                         })
                     ).isError,
                 ).toBeFalsy();
+                expect(
+                    (
+                        await service.dismissUnmappedGame("other", {
+                            id: i + 100,
+                        })
+                    ).isError,
+                ).toBeFalsy();
+            }
             expect(externalGames.mapUnmappedGame).toHaveBeenCalledTimes(12);
+            expect(externalGames.dismissUnmappedGame).toHaveBeenCalledTimes(12);
         });
     });
 });
