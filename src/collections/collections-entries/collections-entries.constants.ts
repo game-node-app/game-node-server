@@ -9,3 +9,10 @@ export enum CollectionEntryStatus {
      */
     ONGOING = "ongoing",
 }
+
+/** Where a status history row came from (design 11). */
+export type CollectionEntryStatusHistorySource =
+    | "manual"
+    | "import"
+    | "related"
+    | "backfill";

@@ -10,6 +10,7 @@ import { CollectionsEntriesModule } from "../collections/collections-entries/col
 import { AchievementsModule } from "../achievements/achievements.module";
 import { LevelModule } from "../level/level.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { GuildQueueModule } from "../guild/guild-queue/guild-queue.module";
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
         forwardRef(() => CollectionsEntriesModule),
         forwardRef(() => NotificationsModule),
         LevelModule,
+        GuildQueueModule,
     ],
     controllers: [ReviewsController],
     providers: [ReviewsService],

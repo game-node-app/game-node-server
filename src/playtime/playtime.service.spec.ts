@@ -1,8 +1,11 @@
+const mockCommitCallbacks: Array<() => void> = [];
 jest.mock("typeorm-transactional", () => ({
     Transactional:
         () =>
         (_target: object, _name: string, descriptor: PropertyDescriptor) =>
             descriptor,
+    runOnTransactionCommit: (callback: () => void) =>
+        mockCommitCallbacks.push(callback),
 }));
 
 import { PlaytimeService } from "./playtime.service";
@@ -55,10 +58,16 @@ function makeService(existing?: any) {
                 { gameId: 1, totalPlaytimeInPeriodSeconds: 42 },
             ]),
     };
+    const guildQueue = { enqueueEvaluation: jest.fn() };
     return {
-        service: new PlaytimeService(repository as any, history as any),
+        service: new PlaytimeService(
+            repository as any,
+            history as any,
+            guildQueue as any,
+        ),
         repository,
         history,
+        guildQueue,
     };
 }
 
@@ -245,4 +254,55 @@ test("identical manual retries preserve legacy counts and omitted provider dates
     expect(saved).toBe(existing);
     expect(current.history.save).not.toHaveBeenCalled();
     expect(current.repository.save).not.toHaveBeenCalled();
+});
+
+describe("guild contract evaluation hook", () => {
+    test("schedules evaluation after imported playtime commits", async () => {
+        const current = makeService();
+        mockCommitCallbacks.length = 0;
+
+        await current.service.saveImported([observation()], new Map());
+
+        expect(current.guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+        for (const callback of mockCommitCallbacks.splice(0)) callback();
+        expect(current.guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "user",
+            "playtime",
+        );
+    });
+
+    test("schedules evaluation after a submitted playtime commits", async () => {
+        const current = makeService();
+        mockCommitCallbacks.length = 0;
+
+        await current.service.submit("user", {
+            gameId: 1,
+            source: UserPlaytimeSource.PSN,
+            platformId: 7,
+            totalPlaytimeSeconds: 120,
+            lastPlayedDate: undefined,
+        });
+
+        expect(current.guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+        for (const callback of mockCommitCallbacks.splice(0)) callback();
+        expect(current.guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "user",
+            "playtime",
+        );
+    });
+
+    test("does not wait for the evaluation queue before committing", async () => {
+        const current = makeService();
+        mockCommitCallbacks.length = 0;
+        current.guildQueue.enqueueEvaluation.mockReturnValue(
+            new Promise(() => {}),
+        );
+
+        await expect(
+            current.service.saveImported([observation()], new Map()),
+        ).resolves.toHaveLength(1);
+
+        for (const callback of mockCommitCallbacks.splice(0)) callback();
+        expect(current.guildQueue.enqueueEvaluation).toHaveBeenCalledTimes(1);
+    });
 });

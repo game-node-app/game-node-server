@@ -185,6 +185,8 @@ services:
       STRIPE_PRICE_SUPPORTER_YEARLY: ${STRIPE_PRICE_SUPPORTER_YEARLY:-}
       # Starts paused for the initial validation; set true in Coolify after the smoke tests.
       PLAYER_DATA_SYNC_ENABLED: ${PLAYER_DATA_SYNC_ENABLED:-false}
+      # Adventurers Guild rollout gate; supporters restricts it to active supporters and editors.
+      GUILD_ACCESS_MODE: ${GUILD_ACCESS_MODE:-public}
       # Telemetry to PostHog; disabled while the endpoint is empty. See docs/observability.md.
       OTEL_SERVICE_NAME: game-node-server
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}

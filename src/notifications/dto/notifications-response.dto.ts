@@ -94,6 +94,11 @@ export class NotificationGoalTargetDto {
     @ApiProperty() year: number;
 }
 
+export class NotificationGuildTargetDto {
+    @ApiProperty({ enum: ["guild"] }) type: "guild";
+    @ApiProperty() contractId: string;
+}
+
 export class NotificationTextPreviewDto {
     @ApiProperty({ maxLength: 240 }) text: string;
     @ApiPropertyOptional({ enum: ["alert", "suspension", "ban"] })
@@ -110,6 +115,12 @@ export class NotificationTextPreviewDto {
             "Milestone identifier, for awards.milestone and recap.milestone",
     })
     milestone?: string;
+    @ApiPropertyOptional({
+        type: NotificationGameContextDto,
+        description:
+            "Game context, for guild.contract-ready and guild.contract-expiring",
+    })
+    game?: NotificationGameContextDto;
 }
 
 export class NotificationImportGameDto {
@@ -164,6 +175,7 @@ export class NotificationActorDto {
     NotificationAwardsTargetDto,
     NotificationRecapTargetDto,
     NotificationGoalTargetDto,
+    NotificationGuildTargetDto,
     NotificationTextPreviewDto,
     NotificationImportPreviewDto,
 )
@@ -197,6 +209,7 @@ export class NotificationInboxItemDto {
             NotificationAwardsTargetDto,
             NotificationRecapTargetDto,
             NotificationGoalTargetDto,
+            NotificationGuildTargetDto,
         ].map((type) => ({ $ref: getSchemaPath(type) })),
     })
     target: NotificationTarget | null;

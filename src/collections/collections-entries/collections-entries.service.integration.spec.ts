@@ -11,6 +11,7 @@ import {
 import { createNotificationTestDataSource } from "../../../test/notifications/notification-test-harness";
 import { CollectionEntry } from "./entities/collection-entry.entity";
 import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
+import { CollectionEntryStatusHistory } from "./entities/collection-entry-status-history.entity";
 import { CollectionsEntriesService } from "./collections-entries.service";
 import { CollectionsService } from "../collections.service";
 import { Collection } from "../entities/collection.entity";
@@ -23,10 +24,12 @@ import { LibraryVisibility } from "../../libraries/library-visibility.constants"
 import { CollectionEntryStatus } from "./collections-entries.constants";
 import { FindCollectionEntriesDto } from "./dto/find-collection-entries.dto";
 import { EGameCategory } from "../../game/game-repository/game-repository.constants";
+import { LevelIncreaseActivities } from "../../level/level.constants";
 
 describe("CollectionsEntriesService permissions (MySQL)", () => {
     let source: DataSource;
     let entries: CollectionsEntriesService;
+    let levels: { registerLevelExpIncreaseActivity: jest.Mock };
 
     const owner = randomUUID();
     const follower = randomUUID();
@@ -34,6 +37,8 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
     const hiddenOwner = randomUUID();
     const relatedOwner = randomUUID();
     const searchOwner = randomUUID();
+    const historyOwner = randomUUID();
+    const historyRelatedOwner = randomUUID();
     const userIds = [
         owner,
         follower,
@@ -41,7 +46,10 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
         hiddenOwner,
         relatedOwner,
         searchOwner,
+        historyOwner,
+        historyRelatedOwner,
     ];
+    const historyCollectionId = randomUUID();
 
     const entryIds = {
         noCollection: randomUUID(),
@@ -130,6 +138,13 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
         await source.query(
             "INSERT INTO `user_follow` (`followerUserId`, `followedUserId`) VALUES (?, ?), (?, ?)",
             [follower, owner, follower, relatedOwner],
+        );
+        await source.query(
+            "INSERT IGNORE INTO `game_platform` (`id`, `name`, `abbreviation`) VALUES (6, 'PC', 'PC')",
+        );
+        await source.query(
+            "INSERT INTO `collection` (`id`, `libraryUserId`, `name`, `isPublic`) VALUES (?, ?, 'History', 1)",
+            [historyCollectionId, historyOwner],
         );
 
         const insertEntry = (
@@ -366,7 +381,7 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
             source.getRepository(CollectionEntryToCollection),
             { register: jest.fn() } as any,
             { addTrackingJob: jest.fn() } as any,
-            { registerLevelExpIncreaseActivity: jest.fn() } as any,
+            (levels = { registerLevelExpIncreaseActivity: jest.fn() }) as any,
             collections,
             {
                 findOneByIdOrFail: (id: number, dto?: any) =>
@@ -808,6 +823,163 @@ describe("CollectionsEntriesService permissions (MySQL)", () => {
 
             expect(ids(blankEntries)).toEqual(ids(plainEntries));
             expect(blankTotal).toBe(plainTotal);
+        });
+    });
+
+    describe("library status history", () => {
+        const historyRows = (userId: string, gameId: number) =>
+            source.getRepository(CollectionEntryStatusHistory).find({
+                where: { libraryUserId: userId, gameId },
+                order: { id: "ASC" },
+            });
+        const entryFor = (userId: string, gameId: number) =>
+            source
+                .getRepository(CollectionEntry)
+                .findOneByOrFail({ libraryUserId: userId, gameId });
+        const dto = (extra: Record<string, unknown> = {}) => ({
+            gameId: 1,
+            status: CollectionEntryStatus.FINISHED,
+            collectionIds: [historyCollectionId],
+            platformIds: [6],
+            ...extra,
+        });
+        const gameFinishedCalls = () =>
+            levels.registerLevelExpIncreaseActivity.mock.calls.filter(
+                ([, activity]) =>
+                    activity === LevelIncreaseActivities.GAME_FINISHED,
+            );
+
+        it("appends one row per change and grants XP only on the first finish", async () => {
+            levels.registerLevelExpIncreaseActivity.mockClear();
+
+            await entries.createOrUpdate(historyOwner, dto());
+            await entries.createOrUpdate(
+                historyOwner,
+                dto({ status: CollectionEntryStatus.PLANNED }),
+            );
+            await entries.createOrUpdate(historyOwner, dto());
+            // Re-saving without a status change must not append.
+            await entries.createOrUpdate(historyOwner, dto());
+
+            const rows = await historyRows(historyOwner, 1);
+            expect(
+                rows.map((row) => [row.fromStatus, row.toStatus, row.source]),
+            ).toEqual([
+                [null, CollectionEntryStatus.FINISHED, "manual"],
+                [
+                    CollectionEntryStatus.FINISHED,
+                    CollectionEntryStatus.PLANNED,
+                    "manual",
+                ],
+                [
+                    CollectionEntryStatus.PLANNED,
+                    CollectionEntryStatus.FINISHED,
+                    "manual",
+                ],
+            ]);
+            expect(rows.every((row) => row.occurredAt instanceof Date)).toBe(
+                true,
+            );
+            expect(gameFinishedCalls()).toHaveLength(1);
+        });
+
+        it("keeps history and the first finish after deleting and re-adding", async () => {
+            const first = await entryFor(historyOwner, 1);
+            await entries.delete(historyOwner, first.id);
+
+            const afterDelete = await historyRows(historyOwner, 1);
+            expect(afterDelete).toHaveLength(3);
+            expect(afterDelete.map((row) => row.collectionEntryId)).toEqual([
+                null,
+                null,
+                null,
+            ]);
+            const firstFinishId = afterDelete[0].id;
+
+            levels.registerLevelExpIncreaseActivity.mockClear();
+            await entries.createOrUpdate(historyOwner, dto());
+
+            const afterReAdd = await historyRows(historyOwner, 1);
+            expect(afterReAdd).toHaveLength(4);
+            expect(afterReAdd[3]).toMatchObject({
+                fromStatus: null,
+                toStatus: CollectionEntryStatus.FINISHED,
+                source: "manual",
+            });
+            expect(afterReAdd[0].id).toBe(firstFinishId);
+            expect(gameFinishedCalls()).toHaveLength(0);
+        });
+
+        it("keeps the stored status dates when the status does not change", async () => {
+            await entries.createOrUpdate(
+                historyOwner,
+                dto({ gameId: 2, status: CollectionEntryStatus.PLANNED }),
+            );
+            const plannedAt = new Date("2023-01-02T03:04:05Z");
+            await source
+                .getRepository(CollectionEntry)
+                .update(
+                    { libraryUserId: historyOwner, gameId: 2 },
+                    { plannedAt },
+                );
+
+            await entries.createOrUpdate(
+                historyOwner,
+                dto({ gameId: 2, status: CollectionEntryStatus.PLANNED }),
+            );
+
+            const entry = await entryFor(historyOwner, 2);
+            expect(entry.plannedAt?.getTime()).toBe(plannedAt.getTime());
+            expect(await historyRows(historyOwner, 2)).toHaveLength(1);
+        });
+
+        it("keeps finishedAt unless the client supplies one", async () => {
+            const stored = new Date("2024-05-06T07:08:09Z");
+            await entries.createOrUpdate(
+                historyOwner,
+                dto({ gameId: 3, finishedAt: stored }),
+            );
+            await entries.createOrUpdate(historyOwner, dto({ gameId: 3 }));
+
+            let entry = await entryFor(historyOwner, 3);
+            expect(entry.finishedAt?.getTime()).toBe(stored.getTime());
+
+            const supplied = new Date("2025-01-01T00:00:00Z");
+            await entries.createOrUpdate(
+                historyOwner,
+                dto({ gameId: 3, finishedAt: supplied }),
+            );
+
+            entry = await entryFor(historyOwner, 3);
+            expect(entry.finishedAt?.getTime()).toBe(supplied.getTime());
+            expect(await historyRows(historyOwner, 3)).toHaveLength(1);
+        });
+
+        it("records import and related origins", async () => {
+            await expect(
+                entries.createForImport(historyRelatedOwner, 4, 6),
+            ).resolves.toBe("imported");
+            const imported = await historyRows(historyRelatedOwner, 4);
+            expect(
+                imported.map((row) => [
+                    row.fromStatus,
+                    row.toStatus,
+                    row.source,
+                ]),
+            ).toEqual([[null, CollectionEntryStatus.PLANNED, "import"]]);
+
+            await entries.createOrUpdate(
+                historyRelatedOwner,
+                dto({ gameId: 1, collectionIds: [], relatedGameIds: [2] }),
+            );
+            const related = await historyRows(historyRelatedOwner, 2);
+            expect(
+                related.map((row) => [
+                    row.fromStatus,
+                    row.toStatus,
+                    row.source,
+                ]),
+            ).toEqual([[null, CollectionEntryStatus.FINISHED, "related"]]);
         });
     });
 });

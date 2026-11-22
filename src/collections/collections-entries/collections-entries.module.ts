@@ -9,12 +9,14 @@ import { AchievementsModule } from "../../achievements/achievements.module";
 import { LevelModule } from "../../level/level.module";
 import { CollectionsModule } from "../collections.module";
 import { CollectionEntryToCollection } from "./entities/collection-entry-to-collection.entity";
+import { CollectionEntryStatusHistory } from "./entities/collection-entry-status-history.entity";
 import { GameRepositoryModule } from "../../game/game-repository/game-repository.module";
 import { CollectionsOrderingService } from "./order/collections-ordering.service";
 import { CollectionsOrderingController } from "./order/collections-ordering.controller";
 import { NotificationsModule } from "../../notifications/notifications.module";
 import { UserGameCover } from "../../game/game-cover/entities/user-game-cover.entity";
 import { LibrariesModule } from "../../libraries/libraries.module";
+import { GuildQueueModule } from "../../guild/guild-queue/guild-queue.module";
 
 @Module({
     imports: [
@@ -22,6 +24,7 @@ import { LibrariesModule } from "../../libraries/libraries.module";
             CollectionEntry,
             GamePlatform,
             CollectionEntryToCollection,
+            CollectionEntryStatusHistory,
             UserGameCover,
         ]),
         forwardRef(() => ActivitiesQueueModule),
@@ -31,6 +34,7 @@ import { LibrariesModule } from "../../libraries/libraries.module";
         GameRepositoryModule,
         NotificationsModule,
         LibrariesModule,
+        GuildQueueModule,
     ],
     controllers: [CollectionsEntriesController, CollectionsOrderingController],
     providers: [CollectionsEntriesService, CollectionsOrderingService],

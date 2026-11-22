@@ -22,6 +22,11 @@ import {
 
 export type GrantMode = "live" | "backfill" | "manual";
 
+export type GrantedTier = {
+    obtainedAchievementId: number;
+    tier: number;
+};
+
 export const BACKFILL_BATCH_SIZE = 500;
 
 /**
@@ -168,6 +173,88 @@ export class AchievementsProgressService {
     }
 
     /**
+     * Idempotently grants `levels` of `definition` to the user, with their exp, inside the
+     * caller's transaction. live/manual grants also notify (highest new tier only), but the
+     * feed activity is the caller's to register after commit via `registerGrantActivity`.
+     * @returns the highest newly obtained tier, or null when nothing was new
+     */
+    async grantTiersWithManager(
+        manager: EntityManager,
+        userId: string,
+        definition: AchievementDefinition,
+        levels: number[],
+        mode: GrantMode,
+    ): Promise<GrantedTier | null> {
+        const tiers = definition.tiers
+            .filter((tier) => levels.includes(tier.level))
+            .sort((a, b) => a.level - b.level);
+
+        let exp = 0;
+        let highest: GrantedTier | null = null;
+        for (const tier of tiers) {
+            const result = await manager.query(
+                "INSERT IGNORE INTO obtained_achievement (achievementId, profileUserId, tier) VALUES (?, ?, ?)",
+                [definition.id, userId, tier.level],
+            );
+            if (result.affectedRows !== 1) continue;
+            await manager.increment(
+                AchievementTier,
+                { id: tier.id },
+                "obtainedCount",
+                1,
+            );
+            exp += tier.expReward;
+            highest = {
+                obtainedAchievementId: result.insertId,
+                tier: tier.level,
+            };
+        }
+
+        if (!highest) {
+            if (mode === "manual") {
+                throw new HttpException(
+                    "User already has this achievement.",
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
+            return null;
+        }
+        if (exp > 0) {
+            await this.levelService.increaseExp(userId, exp, manager);
+        }
+        if (mode !== "backfill") {
+            await appendNotificationIntent(manager, {
+                eventType: "achievement.unlocked",
+                eventVersion: 1,
+                occurredAt: new Date(),
+                recipientUserId: userId,
+                actorUserId: null,
+                payload: {
+                    obtainedAchievementId: highest.obtainedAchievementId,
+                    achievementId: definition.id,
+                    tier: highest.tier,
+                },
+            });
+        }
+        return highest;
+    }
+
+    /**
+     * Publishes the feed activity of an already committed grant.
+     */
+    registerGrantActivity(userId: string, granted: GrantedTier) {
+        // shortcut: enqueued after commit like other producers, a crash here loses only the feed item
+        this.activitiesQueueService.register(
+            {
+                type: ActivityType.ACHIEVEMENT_UNLOCKED,
+                sourceId: granted.obtainedAchievementId,
+                profileUserId: userId,
+            },
+            `achievement-unlocked-${granted.obtainedAchievementId}`,
+        );
+    }
+
+    /**
      * Idempotently grants `levels` of `definition` to the user, with their exp, in one transaction.
      * live/manual grants also notify (highest new tier only) and register a feed activity.
      * @returns the highest newly obtained tier, or null when nothing was new
@@ -178,74 +265,18 @@ export class AchievementsProgressService {
         levels: number[],
         mode: GrantMode,
     ) {
-        const tiers = definition.tiers
-            .filter((tier) => levels.includes(tier.level))
-            .sort((a, b) => a.level - b.level);
-
-        const granted = await this.dataSource.transaction(async (manager) => {
-            let exp = 0;
-            let highest: {
-                obtainedAchievementId: number;
-                tier: number;
-            } | null = null;
-            for (const tier of tiers) {
-                const result = await manager.query(
-                    "INSERT IGNORE INTO obtained_achievement (achievementId, profileUserId, tier) VALUES (?, ?, ?)",
-                    [definition.id, userId, tier.level],
-                );
-                if (result.affectedRows !== 1) continue;
-                await manager.increment(
-                    AchievementTier,
-                    { id: tier.id },
-                    "obtainedCount",
-                    1,
-                );
-                exp += tier.expReward;
-                highest = {
-                    obtainedAchievementId: result.insertId,
-                    tier: tier.level,
-                };
-            }
-
-            if (!highest) {
-                if (mode === "manual") {
-                    throw new HttpException(
-                        "User already has this achievement.",
-                        HttpStatus.BAD_REQUEST,
-                    );
-                }
-                return null;
-            }
-            if (exp > 0) {
-                await this.levelService.increaseExp(userId, exp, manager);
-            }
-            if (mode !== "backfill") {
-                await appendNotificationIntent(manager, {
-                    eventType: "achievement.unlocked",
-                    eventVersion: 1,
-                    occurredAt: new Date(),
-                    recipientUserId: userId,
-                    actorUserId: null,
-                    payload: {
-                        obtainedAchievementId: highest.obtainedAchievementId,
-                        achievementId: definition.id,
-                        tier: highest.tier,
-                    },
-                });
-            }
-            return highest;
-        });
+        const granted = await this.dataSource.transaction((manager) =>
+            this.grantTiersWithManager(
+                manager,
+                userId,
+                definition,
+                levels,
+                mode,
+            ),
+        );
 
         if (granted && mode !== "backfill") {
-            // shortcut: enqueued after commit like other producers, a crash here loses only the feed item
-            this.activitiesQueueService.register(
-                {
-                    type: ActivityType.ACHIEVEMENT_UNLOCKED,
-                    sourceId: granted.obtainedAchievementId,
-                    profileUserId: userId,
-                },
-                `achievement-unlocked-${granted.obtainedAchievementId}`,
-            );
+            this.registerGrantActivity(userId, granted);
         }
 
         return granted;

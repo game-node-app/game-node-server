@@ -21,6 +21,7 @@ import {
 import { LevelService } from "../level/level.service";
 import { LevelIncreaseActivities } from "../level/level.constants";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import { GuildQueueService } from "../guild/guild-queue/guild-queue.service";
 
 export class ReviewsService {
     private readonly logger = new Logger(ReviewsService.name);
@@ -35,6 +36,8 @@ export class ReviewsService {
         private readonly levelService: LevelService,
         @Optional()
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {}
 
     async findOneById(id: string) {
@@ -216,6 +219,8 @@ export class ReviewsService {
                 return review;
             },
         );
+
+        this.guildQueueService?.enqueueEvaluation(userId, "review");
 
         this.activitiesQueue.register({
             type: ActivityType.REVIEW,
