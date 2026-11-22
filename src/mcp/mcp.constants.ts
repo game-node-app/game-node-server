@@ -21,6 +21,3 @@ export const MCP_SCOPES = [
     "offline_access",
     ...new Set(Object.values(MCP_TOOL_SCOPES)),
 ];
-
-export const MCP_WRITE_LIMIT = 10;
-export const MCP_WRITE_WINDOW_MS = 60_000;

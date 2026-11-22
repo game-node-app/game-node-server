@@ -269,12 +269,12 @@ The `mappings:write` tools work through the queue of platform games GameNode cou
 not map. They are only listed and callable for users with the `ADMIN` role, checked on
 every request, so holding the scope is not enough. Mappings they write have origin
 `agent`, never overwrite an existing mapping, and can be reviewed or reverted with
-`origin = 'agent'` in `game_external_game`. Their writes count toward the same limit.
+`origin = 'agent'` in `game_external_game`.
 
 OAuth also supports `openid`, `profile` and `offline_access`; the last enables
 rotating refresh tokens. Clients can use CIMD or register dynamically without a
-preconfigured client id or secret. Writes share a limit of 10 per user per minute
-and stop immediately when the user is suspended or banned. Reviews require
+preconfigured client id or secret. Writes stop immediately when the user is
+suspended or banned. Reviews require
 `overwrite: true` to replace an existing review. Content is plain text, escaped
 into HTML paragraphs before storage.
 

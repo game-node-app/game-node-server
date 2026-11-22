@@ -49,13 +49,6 @@ Write tools SHALL refuse calls from users who are currently suspended or banned,
 - **WHEN** a suspended user's client calls `create_post` with a valid token
 - **THEN** the tool returns an error result and no post is created
 
-### Requirement: Write rate limit
-Write tools SHALL be limited to 10 calls per user per 60 seconds, counted across all write tools. Calls over the limit SHALL return a tool error that says the limit was reached and when to retry.
-
-#### Scenario: Agent loops on posting
-- **WHEN** a client calls `create_post` an 11th time within 60 seconds
-- **THEN** the call returns a rate-limit tool error and no post is created
-
 ### Requirement: Input validation
 Tool inputs SHALL be validated against their declared schema before any side effect. Invalid input SHALL return a tool error naming the invalid field, without changing any data.
 

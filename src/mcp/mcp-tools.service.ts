@@ -1,6 +1,5 @@
-import { HttpException, Inject, Injectable, Logger } from "@nestjs/common";
+import { HttpException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { ThrottlerStorage } from "@nestjs/throttler";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { EntityNotFoundError } from "typeorm";
 import { AuthService } from "../auth/auth.service";
@@ -16,7 +15,6 @@ import { ExternalGameService } from "../game/external-game/external-game.service
 import { EGameExternalGameCategory } from "../game/game-repository/game-repository.constants";
 import { storeUrl } from "../game/external-game/external-game.utils";
 import { plainTextToHtml } from "./mcp-content";
-import { MCP_WRITE_LIMIT, MCP_WRITE_WINDOW_MS } from "./mcp.constants";
 
 const ok = (data: object): CallToolResult => ({
     content: [{ type: "text", text: JSON.stringify(data) }],
@@ -57,8 +55,6 @@ export class McpToolsService {
     constructor(
         configService: ConfigService,
         private readonly authService: AuthService,
-        @Inject(ThrottlerStorage)
-        private readonly throttlerStorage: ThrottlerStorage,
         private readonly searchService: SearchService,
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly collectionsService: CollectionsService,
@@ -96,12 +92,11 @@ export class McpToolsService {
     }
 
     /**
-     * Covers access tokens that outlive a lockout (up to 1h) and runaway agents.
+     * Covers access tokens that outlive a lockout (up to 1h).
      * Returns an error result when the write must not happen.
      */
     private async assertCanWrite(
         userId: string,
-        rateLimited = true,
     ): Promise<CallToolResult | undefined> {
         const state = (await this.authService.getLockoutStates([userId])).get(
             userId,
@@ -109,20 +104,6 @@ export class McpToolsService {
         if (state?.isBanned || state?.isSuspended) {
             return fail(
                 "Your GameNode account is restricted (suspended or banned), so this action is not allowed.",
-            );
-        }
-        if (!rateLimited) return;
-        // The Redis store rejects a zero block duration, so block for the window.
-        const record = await this.throttlerStorage.increment(
-            `mcp:write:${userId}`,
-            MCP_WRITE_WINDOW_MS,
-            MCP_WRITE_LIMIT,
-            MCP_WRITE_WINDOW_MS,
-            "mcp-write",
-        );
-        if (record.isBlocked) {
-            return fail(
-                `Write limit reached (${MCP_WRITE_LIMIT} per minute). Try again in ${record.timeToBlockExpire} seconds.`,
             );
         }
     }
@@ -392,8 +373,7 @@ export class McpToolsService {
         userId: string,
         input: { id: number; game_id: number },
     ): Promise<CallToolResult> {
-        // Admin bulk curation: still refused for restricted users, but not rate limited.
-        const blocked = await this.assertCanWrite(userId, false);
+        const blocked = await this.assertCanWrite(userId);
         if (blocked) return blocked;
         return this.run(async () => {
             const game = await this.externalGameService.mapUnmappedGame(
