@@ -73,11 +73,18 @@ describe("guild contract evaluation hook", () => {
         expect(events).toContain("committed");
     });
 
-    test("editing an existing review schedules no evaluation", async () => {
-        const { service, guildQueue } = fixture({ id: "review", rating: 3 });
+    test("schedules evaluation after an existing review is edited", async () => {
+        const { service, guildQueue, events } = fixture({
+            id: "review",
+            rating: 3,
+        });
 
         await service.createOrUpdate("user", { gameId: 1, rating: 5 });
 
-        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+        expect(events).toEqual(["updated", "enqueued"]);
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "user",
+            "review",
+        );
     });
 });

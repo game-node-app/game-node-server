@@ -198,6 +198,8 @@ export class ReviewsService {
                 createReviewDto,
             );
             await this.reviewsRepository.update(mergedEntry.id, mergedEntry);
+            // An edit can cross the minimum length a Guild review contract requires.
+            this.guildQueueService?.enqueueEvaluation(userId, "review");
             return;
         }
 
