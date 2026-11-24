@@ -58,7 +58,11 @@ describe("Journal access (MySQL)", () => {
             undefined,
             libraryAccess,
         );
-        journal = new JournalService(entries);
+        journal = new JournalService(
+            source.getRepository(CollectionEntry),
+            libraryAccess,
+            undefined,
+        );
         heatmap = new JournalHeatmapService(journal);
         playlog = new JournalPlayLogService(
             entries,
@@ -163,6 +167,23 @@ describe("Journal access (MySQL)", () => {
         const ownerHeatmap = await heatmap.buildHeatmap(ownerId, ownerId);
         expect(ownerHeatmap.items).toHaveLength(1);
         expect(ownerHeatmap.items[0].count).toBe(3);
+    });
+
+    it("filters the overview to a requested year", async () => {
+        const matching = await journal.getOverview(
+            undefined,
+            ownerId,
+            FIXTURE_YEAR,
+        );
+        expect(matching.years.map((year) => year.year)).toEqual([FIXTURE_YEAR]);
+        expect(overviewGameIds(matching)).toEqual([PUBLIC_GAME]);
+
+        const empty = await journal.getOverview(
+            undefined,
+            ownerId,
+            FIXTURE_YEAR + 1,
+        );
+        expect(empty).toEqual({ years: [] });
     });
 
     it("returns 404 for the play log of a game hidden from the viewer", async () => {

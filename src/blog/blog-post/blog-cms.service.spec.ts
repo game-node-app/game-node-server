@@ -3,6 +3,8 @@ import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { BlogCmsService } from './blog-cms.service';
 import { BlogDeliveryService } from './blog-delivery.service';
+import { BlogPresentationService } from './blog-presentation.service';
+import { CmsArticle, CmsTranslation } from './blog-selection';
 
 describe('blog CMS reads', () => {
     let server: Server;
@@ -62,10 +64,12 @@ describe('blog CMS reads', () => {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ data: rows[new URL(req.url!, 'http://localhost').pathname.split('/').pop()!] ?? [] }));
         });
-        const delivery = new BlogDeliveryService(service);
+        const presentation = { present: async (article: Omit<CmsArticle, 'translations'>, translation: CmsTranslation, requestedLocale: string, availableLocales: string[]) =>
+            ({ id: article.id, title: translation.title, tags: article.tags, requestedLocale, resolvedLocale: translation.locale, availableLocales }) };
+        const delivery = new BlogDeliveryService(service, presentation as unknown as BlogPresentationService);
         const [page, count] = await delivery.list('pt-BR', 'review', 1, 1);
         expect(count).toBe(2);
-        expect(page.map((row) => [row.article.id, row.resolvedLocale, row.translation.title])).toEqual([['b', 'pt-BR', 'pt-BRb']]);
+        expect(page.map((row) => [row.id, row.resolvedLocale, row.title])).toEqual([['b', 'pt-BR', 'pt-BRb']]);
         expect((await delivery.one('a', 'pt-BR')).resolvedLocale).toBe('en');
         await expect(delivery.one('c', 'pt-BR')).rejects.toMatchObject({ status: 404 });
         expect(await delivery.tags('pt-BR')).toEqual([{ id: 'review', name: 'Review' }]);

@@ -688,4 +688,68 @@ describe("statistics rankings", () => {
         expect(changed.items.map((item: any) => item.sourceId)).toEqual([secondId, thirdId]);
         await cache.disconnect();
     });
+
+    it("serves prepared game pages from ranking scores and reuses the filtered total across pages", async () => {
+        const firstId = 2_210_000_000 - randomInt(100_000);
+        const ids = [firstId, firstId + 1, firstId + 2];
+        const targets = new Map<number, number>();
+        for (const id of ids) targets.set(id, await createGame(id));
+        const key = "game:popular:quarter";
+        await dataSource.query("DELETE FROM ranking_score WHERE rankingKey = ?", [key]);
+        await dataSource.query(
+            `INSERT INTO ranking_score (rankingKey, targetId, score, definitionVersion, computedAt)
+             VALUES (?, ?, 3, 'engagement-v1', '2025-06-01 10:00:00'),
+                (?, ?, 2, 'engagement-v1', '2025-06-01 10:00:00'),
+                (?, ?, 1, 'engagement-v1', '2025-06-01 10:00:00')`,
+            [key, targets.get(ids[0]), key, targets.get(ids[1]), key, targets.get(ids[2])],
+        );
+        const queries: string[] = [];
+        const originalTransaction = dataSource.transaction.bind(dataSource);
+        const transaction = jest.spyOn(dataSource, "transaction").mockImplementation((async (...args: any[]) => {
+            const callback = args[args.length - 1];
+            return (originalTransaction as any)(async (manager: any) => {
+                const query = manager.query.bind(manager);
+                manager.query = (sql: string, parameters?: any[]) => {
+                    queries.push(sql.replace(/\s+/g, " "));
+                    return query(sql, parameters);
+                };
+                return callback(manager);
+            });
+        }) as any);
+        const cache = createCache();
+        try {
+            const rankings = new StatisticsRankingService(dataSource, cache);
+            const request = {
+                sourceType: StatisticsSourceType.GAME,
+                mode: "popular",
+                period: "quarter",
+                criteria: { ids },
+                limit: 2,
+            } as any;
+
+            const first = await rankings.findRankings(undefined, { ...request, offset: 0 });
+            expect(first.pagination.total).toBe(3);
+            expect(first.items.map((item: any) => item.sourceId)).toEqual([ids[0], ids[1]]);
+
+            const deep = await rankings.findRankings(undefined, { ...request, offset: 60 });
+            expect(deep.pagination.total).toBe(3);
+            expect(deep.items).toEqual([]);
+            const counts = queries.filter((sql) => sql.includes("COUNT(*) AS total"));
+            expect(counts).toHaveLength(1);
+            expect(counts[0]).toContain("FROM ranking_score prepared STRAIGHT_JOIN game g");
+            expect(counts[0]).toContain("prepared.rankingKey = ? AND prepared.score > 0");
+
+            await dataSource.query(
+                "UPDATE ranking_score SET computedAt = '2025-06-01 11:00:00', score = IF(targetId = ?, 0, score) WHERE rankingKey = ?",
+                [targets.get(ids[2]), key],
+            );
+            const refreshed = await rankings.findRankings(undefined, { ...request, offset: 60 });
+            expect(refreshed.pagination.total).toBe(2);
+            expect(queries.filter((sql) => sql.includes("COUNT(*) AS total"))).toHaveLength(2);
+        } finally {
+            transaction.mockRestore();
+            await dataSource.query("DELETE FROM ranking_score WHERE rankingKey = ?", [key]);
+            await cache.disconnect();
+        }
+    });
 });

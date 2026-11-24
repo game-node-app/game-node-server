@@ -1,5 +1,8 @@
 import { Transform, Type } from "class-transformer";
 import {
+    ArrayMaxSize,
+    ArrayMinSize,
+    IsArray,
     IsBoolean,
     IsDateString,
     IsEnum,
@@ -197,6 +200,64 @@ export class StatisticsSummaryDto {
     viewsCount: number;
     @ApiProperty()
     likesCount: number;
+    @ApiProperty({ description: "Total comments including replies; 0 for non-commentable sources." })
+    commentsCount: number;
+    @ApiProperty()
+    projectionLagSeconds: number;
+    @ApiProperty()
+    hasFailedEvents: boolean;
+    @ApiProperty()
+    historyComplete: boolean;
+    @ApiProperty({ nullable: true, type: String })
+    completeSince: string | null;
+}
+
+export class StatisticsBatchSummaryRequestDto {
+    @ApiProperty({ enum: StatisticsSourceType })
+    @IsEnum(StatisticsSourceType)
+    sourceType: StatisticsSourceType;
+
+    @ApiProperty({
+        type: "array",
+        minItems: 1,
+        maxItems: 100,
+        items: { oneOf: [{ type: "integer", minimum: 1 }, { type: "string", format: "uuid" }] },
+        description: "1-100 native source ids matching sourceType.",
+    })
+    @Transform(({ value, obj }) =>
+        Array.isArray(value)
+            ? value.map((sourceId) => normalizeSourceId(sourceId, obj.sourceType))
+            : value,
+    )
+    @IsArray()
+    @ArrayMinSize(1)
+    @ArrayMaxSize(100)
+    @Validate(IsStatisticsSourceIdConstraint, { each: true })
+    sourceIds: Array<string | number>;
+}
+
+export class StatisticsBatchSummaryItemDto {
+    @ApiProperty({ enum: StatisticsSourceType })
+    sourceType: StatisticsSourceType;
+    @ApiProperty({ oneOf: [{ type: "string", format: "uuid" }, { type: "integer" }] })
+    sourceId: string | number;
+    @ApiProperty()
+    viewsCount: number;
+    @ApiProperty()
+    likesCount: number;
+    @ApiProperty({ description: "Total comments including replies; 0 for non-commentable sources." })
+    commentsCount: number;
+    @ApiProperty()
+    isLiked: boolean;
+    @ApiProperty()
+    isViewed: boolean;
+}
+
+export class StatisticsBatchSummaryResponseDto {
+    @ApiProperty({ type: () => [StatisticsBatchSummaryItemDto] })
+    items: StatisticsBatchSummaryItemDto[];
+    @ApiProperty({ format: "date-time" })
+    asOf: string;
     @ApiProperty()
     projectionLagSeconds: number;
     @ApiProperty()

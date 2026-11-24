@@ -1,4 +1,4 @@
-import { INestApplication } from "@nestjs/common";
+import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import request from "supertest";
 import sharp from "sharp";
@@ -10,6 +10,7 @@ import { SUPPORTER_PREFERENCES_DEFAULTS } from "./supporter-preferences/supporte
 import { AuthService } from "../auth/auth.service";
 import { LibraryAccessService } from "../libraries/library-access.service";
 import { LibraryVisibility } from "../libraries/library-visibility.constants";
+import { BillingService } from "../billing/billing.service";
 
 const GIF = Buffer.from(
     "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
@@ -38,14 +39,20 @@ describe("ProfileController", () => {
     let controller: ProfileController;
     let profileService: {
         findOneByIdOrFail: jest.Mock;
+        findManyByIds: jest.Mock;
         updateProfileImage: jest.Mock;
     };
     let profileVideoService: {
         isSupporter: jest.Mock;
         findForProfileRead: jest.Mock;
+        findForProfileReadMany: jest.Mock;
     };
-    let supporterPreferencesService: { findOrDefaults: jest.Mock };
-    let libraryAccessService: { resolve: jest.Mock };
+    let supporterPreferencesService: {
+        findOrDefaults: jest.Mock;
+        findOrDefaultsMany: jest.Mock;
+    };
+    let libraryAccessService: { resolve: jest.Mock; resolveMany: jest.Mock };
+    let billingService: { findSupporterUserIdsIn: jest.Mock };
     let getSession: jest.Mock;
 
     beforeEach(async () => {
@@ -54,6 +61,7 @@ describe("ProfileController", () => {
         }));
         profileService = {
             findOneByIdOrFail: jest.fn(),
+            findManyByIds: jest.fn(async () => []),
             updateProfileImage: jest.fn(async () => undefined),
         };
         profileVideoService = {
@@ -62,11 +70,13 @@ describe("ProfileController", () => {
                 avatarVideo: null,
                 bannerVideo: null,
             })),
+            findForProfileReadMany: jest.fn(async () => new Map()),
         };
         supporterPreferencesService = {
             findOrDefaults: jest.fn(async () => ({
                 ...SUPPORTER_PREFERENCES_DEFAULTS,
             })),
+            findOrDefaultsMany: jest.fn(async () => new Map()),
         };
         libraryAccessService = {
             resolve: jest.fn(async () => ({
@@ -75,6 +85,10 @@ describe("ProfileController", () => {
                 canViewLibrary: true,
                 visibleEntryLevels: [LibraryVisibility.Public],
             })),
+            resolveMany: jest.fn(async () => new Map()),
+        };
+        billingService = {
+            findSupporterUserIdsIn: jest.fn(async () => new Set<string>()),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -99,10 +113,12 @@ describe("ProfileController", () => {
                     provide: LibraryAccessService,
                     useValue: libraryAccessService,
                 },
+                { provide: BillingService, useValue: billingService },
             ],
         }).compile();
 
         app = module.createNestApplication();
+        app.useGlobalPipes(new ValidationPipe({ transform: true }));
         await app.init();
         controller = module.get<ProfileController>(ProfileController);
     });
@@ -285,6 +301,7 @@ describe("ProfileController", () => {
                     provide: LibraryAccessService,
                     useValue: libraryAccessService,
                 },
+                { provide: BillingService, useValue: billingService },
             ],
         }).compile();
         const isolatedApp = module.createNestApplication();
@@ -352,6 +369,227 @@ describe("ProfileController", () => {
         expect(
             supporterPreferencesService.findOrDefaults,
         ).not.toHaveBeenCalled();
+    });
+
+    describe("POST /profile/all", () => {
+        function profileOf(
+            userId: string,
+            libraryVisibility = LibraryVisibility.Public,
+        ) {
+            return {
+                userId,
+                username: userId,
+                avatar: null,
+                banner: null,
+                customCoverMode: "any",
+                libraryVisibility,
+            };
+        }
+
+        function accessOf(
+            libraryVisibility: LibraryVisibility,
+            canViewLibrary: boolean,
+        ) {
+            return {
+                audience: "everyone",
+                libraryVisibility,
+                canViewLibrary,
+                visibleEntryLevels: canViewLibrary
+                    ? [LibraryVisibility.Public]
+                    : [],
+            };
+        }
+
+        it("returns found profiles in request order without duplicates or missing ids", async () => {
+            getSession.mockResolvedValue(null);
+            const profiles = [profileOf("user-2"), profileOf("user-1")];
+            profileService.findManyByIds.mockResolvedValue(profiles);
+            libraryAccessService.resolveMany.mockResolvedValue(
+                new Map([
+                    ["user-2", accessOf(LibraryVisibility.Public, true)],
+                    ["user-1", accessOf(LibraryVisibility.Private, false)],
+                ]),
+            );
+
+            const response = await request(app.getHttpServer())
+                .post("/profile/all")
+                .send({ userIds: ["user-2", "user-1", "user-2", "missing"] });
+
+            expect(response.status).toBe(200);
+            expect(
+                (response.body as Array<{ userId: string }>).map(
+                    (profile) => profile.userId,
+                ),
+            ).toEqual(["user-2", "user-1"]);
+            expect(profileService.findManyByIds).toHaveBeenCalledWith([
+                "user-2",
+                "user-1",
+                "missing",
+            ]);
+            expect(libraryAccessService.resolveMany).toHaveBeenCalledWith(
+                undefined,
+                profiles,
+            );
+            expect(response.body[0]).toMatchObject({
+                userId: "user-2",
+                username: "user-2",
+                libraryVisibility: LibraryVisibility.Public,
+                canViewLibrary: true,
+                isSupporter: false,
+                supporterPreferences: null,
+                avatar: null,
+                banner: null,
+                avatarVideo: null,
+                bannerVideo: null,
+            });
+            expect(response.body[1]).toMatchObject({
+                userId: "user-1",
+                libraryVisibility: LibraryVisibility.Private,
+                canViewLibrary: false,
+            });
+            expect(response.body[0]).not.toHaveProperty("videoUploads");
+            expect(
+                profileVideoService.findForProfileRead,
+            ).not.toHaveBeenCalled();
+            expect(
+                supporterPreferencesService.findOrDefaults,
+            ).not.toHaveBeenCalled();
+        });
+
+        it("evaluates canViewLibrary per profile for the signed-in viewer", async () => {
+            const profiles = [
+                profileOf("owner", LibraryVisibility.Private),
+                profileOf("followed", LibraryVisibility.Followers),
+                profileOf("stranger", LibraryVisibility.Private),
+                profileOf("everyone", LibraryVisibility.Public),
+            ];
+            profileService.findManyByIds.mockResolvedValue(profiles);
+            libraryAccessService.resolveMany.mockResolvedValue(
+                new Map([
+                    ["owner", accessOf(LibraryVisibility.Private, true)],
+                    ["followed", accessOf(LibraryVisibility.Followers, true)],
+                    ["stranger", accessOf(LibraryVisibility.Private, false)],
+                    ["everyone", accessOf(LibraryVisibility.Public, true)],
+                ]),
+            );
+
+            const response = await request(app.getHttpServer())
+                .post("/profile/all")
+                .send({
+                    userIds: ["owner", "followed", "stranger", "everyone"],
+                });
+
+            expect(response.status).toBe(200);
+            const items = response.body as Array<{
+                userId: string;
+                canViewLibrary: boolean;
+                libraryVisibility: LibraryVisibility;
+            }>;
+            expect(items.map(({ canViewLibrary }) => canViewLibrary)).toEqual([
+                true,
+                true,
+                false,
+                true,
+            ]);
+            expect(
+                items.map(({ libraryVisibility }) => libraryVisibility),
+            ).toEqual([
+                LibraryVisibility.Private,
+                LibraryVisibility.Followers,
+                LibraryVisibility.Private,
+                LibraryVisibility.Public,
+            ]);
+            expect(libraryAccessService.resolveMany).toHaveBeenCalledTimes(1);
+            expect(libraryAccessService.resolveMany).toHaveBeenCalledWith(
+                "user-1",
+                profiles,
+            );
+            expect(libraryAccessService.resolve).not.toHaveBeenCalled();
+        });
+
+        it("only reads videos and preferences for supporters", async () => {
+            const profiles = [profileOf("user-1"), profileOf("user-2")];
+            profileService.findManyByIds.mockResolvedValue(profiles);
+            billingService.findSupporterUserIdsIn.mockResolvedValue(
+                new Set(["user-2"]),
+            );
+            libraryAccessService.resolveMany.mockResolvedValue(
+                new Map([
+                    ["user-1", accessOf(LibraryVisibility.Public, true)],
+                    ["user-2", accessOf(LibraryVisibility.Public, true)],
+                ]),
+            );
+            profileVideoService.findForProfileReadMany.mockResolvedValue(
+                new Map([
+                    [
+                        "user-2",
+                        {
+                            avatarVideo: {
+                                filename: "ab12",
+                                extension: "mp4",
+                            },
+                            bannerVideo: null,
+                        },
+                    ],
+                ]),
+            );
+            const preferences = {
+                ...SUPPORTER_PREFERENCES_DEFAULTS,
+                titleKey: "founder",
+            };
+            supporterPreferencesService.findOrDefaultsMany.mockResolvedValue(
+                new Map([["user-2", preferences]]),
+            );
+
+            const response = await request(app.getHttpServer())
+                .post("/profile/all")
+                .send({ userIds: ["user-1", "user-2"] });
+
+            expect(response.status).toBe(200);
+            expect(response.body[0]).toMatchObject({
+                userId: "user-1",
+                isSupporter: false,
+                supporterPreferences: null,
+                avatarVideo: null,
+                bannerVideo: null,
+            });
+            expect(response.body[1]).toMatchObject({
+                userId: "user-2",
+                isSupporter: true,
+                supporterPreferences: preferences,
+                avatarVideo: { filename: "ab12", extension: "mp4" },
+                bannerVideo: null,
+            });
+            expect(
+                profileVideoService.findForProfileReadMany,
+            ).toHaveBeenCalledTimes(1);
+            expect(
+                profileVideoService.findForProfileReadMany,
+            ).toHaveBeenCalledWith(["user-2"]);
+            expect(
+                supporterPreferencesService.findOrDefaultsMany,
+            ).toHaveBeenCalledWith(["user-2"]);
+            expect(profileVideoService.isSupporter).not.toHaveBeenCalled();
+            expect(
+                supporterPreferencesService.findOrDefaults,
+            ).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ["an empty", []],
+            [
+                "an oversized",
+                Array.from({ length: 101 }, (_, index) => `user-${index}`),
+            ],
+            ["a non-string", [1, 2]],
+        ])("rejects %s userIds array with 400", async (_case, userIds) => {
+            const response = await request(app.getHttpServer())
+                .post("/profile/all")
+                .send({ userIds });
+
+            expect(response.status).toBe(400);
+            expect(profileService.findManyByIds).not.toHaveBeenCalled();
+        });
     });
 
     describe("library visibility", () => {

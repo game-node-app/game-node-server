@@ -1,6 +1,6 @@
 import { BaseFindDto } from "../../../utils/base-find.dto";
 import { PickType } from "@nestjs/swagger";
-import { IsNotEmpty, IsObject, IsOptional } from "class-validator";
+import { IsISO8601, IsNotEmpty, IsObject, IsOptional } from "class-validator";
 import { FindOptionsRelations } from "typeorm";
 import { Game } from "../entities/game.entity";
 import {
@@ -19,6 +19,12 @@ export class FindGamesByCollectionTypeRequestDto extends PickType(BaseFindDto, [
 ]) {
     @IsNotEmpty()
     collectionType: GameRepositoryCollectionType;
+    @IsOptional()
+    @IsISO8601()
+    from?: string;
+    @IsOptional()
+    @IsISO8601()
+    to?: string;
     @IsOptional()
     @IsObject()
     relations?: FindOptionsRelations<Game>;

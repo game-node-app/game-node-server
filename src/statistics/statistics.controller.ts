@@ -21,6 +21,8 @@ import { StatisticsService } from "./statistics.service";
 import { StatisticsRankingService } from "./statistics-ranking.service";
 import { ReactionRequestDto, ReactionResponseDto } from "./dto/reaction-request.dto";
 import {
+    StatisticsBatchSummaryRequestDto,
+    StatisticsBatchSummaryResponseDto,
     StatisticsRankingsRequestDto,
     StatisticsRankingResponseDto,
     StatisticsSeriesRequestDto,
@@ -70,8 +72,23 @@ export class StatisticsController {
     @UsePipes(strictValidation)
     @HttpCode(HttpStatus.OK)
     @ApiResponse({ status: 200, type: StatisticsSummaryDto })
-    async findSummary(@Body() dto: StatisticsSourceRequestDto) {
-        return this.statisticsService.findSummary(dto);
+    async findSummary(
+        @Session() session: SessionContainer | undefined,
+        @Body() dto: StatisticsSourceRequestDto,
+    ) {
+        return this.statisticsService.findSummary(dto, session?.getUserId());
+    }
+
+    @Post("batch")
+    @Public()
+    @UsePipes(strictValidation)
+    @HttpCode(HttpStatus.OK)
+    @ApiResponse({ status: 200, type: StatisticsBatchSummaryResponseDto })
+    async findBatchSummary(
+        @Session() session: SessionContainer | undefined,
+        @Body() dto: StatisticsBatchSummaryRequestDto,
+    ) {
+        return this.statisticsService.findBatchSummary(dto, session?.getUserId());
     }
 
     @Get("status")

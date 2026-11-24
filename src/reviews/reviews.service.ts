@@ -25,7 +25,10 @@ import { GuildQueueService } from "../guild/guild-queue/guild-queue.service";
 
 export class ReviewsService {
     private readonly logger = new Logger(ReviewsService.name);
-    private relations: FindOptionsRelations<Review> = {};
+    /** Author summary embedded on every read; additive to the review contract. */
+    private relations: FindOptionsRelations<Review> = {
+        profile: { avatar: true },
+    };
 
     constructor(
         @InjectRepository(Review)
@@ -193,11 +196,11 @@ export class ReviewsService {
         );
 
         if (possibleExistingReview) {
-            const mergedEntry = this.reviewsRepository.merge(
-                possibleExistingReview,
-                createReviewDto,
-            );
-            await this.reviewsRepository.update(mergedEntry.id, mergedEntry);
+            // Only user-editable columns; a loaded relation would break .update().
+            await this.reviewsRepository.update(possibleExistingReview.id, {
+                content: createReviewDto.content,
+                rating: createReviewDto.rating,
+            });
             // An edit can cross the minimum length a Guild review contract requires.
             this.guildQueueService?.enqueueEvaluation(userId, "review");
             return;

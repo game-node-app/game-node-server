@@ -23,8 +23,15 @@ it("a second POST /v1/reviews updates the same review and keeps omitted content"
                     ),
                 ),
             ),
-        update: jest.fn(async (_id, review) => {
-            row = review;
+        update: jest.fn(async (_id, patch) => {
+            row = {
+                ...row,
+                ...Object.fromEntries(
+                    Object.entries(patch).filter(
+                        ([, value]) => value !== undefined,
+                    ),
+                ),
+            } as Review;
         }),
         create: (review: object) => review,
         manager: {
@@ -89,6 +96,9 @@ it("a second POST /v1/reviews updates the same review and keeps omitted content"
         expect(repository.update).toHaveBeenCalledWith(
             "review",
             expect.objectContaining({ rating: 5 }),
+        );
+        expect(repository.update.mock.calls[0][1]).not.toHaveProperty(
+            "profile",
         );
         expect(activity.register).toHaveBeenCalledTimes(1);
     } finally {

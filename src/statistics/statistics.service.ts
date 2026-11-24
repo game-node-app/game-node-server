@@ -9,6 +9,7 @@ import { DataSource, EntityManager } from "typeorm";
 import { StatisticsSourceType } from "./statistics.constants";
 import { ReactionRequestDto, ReactionResponseDto } from "./dto/reaction-request.dto";
 import {
+    StatisticsBatchSummaryRequestDto,
     StatisticsGranularity,
     StatisticsMetricCode,
     StatisticsSeriesRequestDto,
@@ -22,6 +23,7 @@ import {
     NotificationRootType,
 } from "../notifications/notifications-lifecycle.service";
 import { LibraryAccessService } from "../libraries/library-access.service";
+import { entryVisibilitySql } from "../libraries/library-visibility.constants";
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
 import { ensureStatisticsTarget } from "./statistics-target.repository";
 import {
@@ -34,6 +36,11 @@ type SourceContext = {
     ownerUserId: string | null;
     rootType: string;
     rootId: string;
+};
+
+type ReadableSource = {
+    sourceId: string | number;
+    targetId: number | null;
 };
 
 const sourceTables: Record<StatisticsSourceType, { table: string; id: string }> = {
@@ -241,24 +248,75 @@ export class StatisticsService {
         });
     }
 
-    async findSummary(dto: StatisticsSourceRequestDto) {
-        return this.dataSource.transaction(async (manager) => {
-            const context = await this.resolveSource(manager, dto, true);
-            const [values] = await manager.query(
-                `SELECT
-                    COALESCE(MAX(CASE WHEN metricCode = 'views' THEN metricValue END), 0) AS viewsCount,
-                    COALESCE(MAX(CASE WHEN metricCode = 'likes_current' THEN metricValue END), 0) AS likesCount
-                FROM metric_total WHERE targetId = ?`,
-                [context.targetId],
-            );
-            return {
-                sourceType: dto.sourceType,
-                sourceId: dto.sourceId,
-                viewsCount: assertSafeCount(values.viewsCount),
-                likesCount: assertSafeCount(values.likesCount),
-                ...(await this.freshness(manager, context.targetId)),
-            };
-        });
+    async findSummary(dto: StatisticsSourceRequestDto, userId?: string) {
+        validateSourceId(dto.sourceType, dto.sourceId);
+        const manager = this.dataSource.manager;
+        const sources = await this.readReadableSources(
+            manager,
+            dto.sourceType,
+            [dto.sourceId],
+            userId,
+        );
+        const source = sources.get(this.sourceKey(dto.sourceId));
+        if (!source) throw new NotFoundException("Source not found or inaccessible");
+        const totals =
+            source.targetId === null
+                ? undefined
+                : (await this.readMetricTotals(manager, [source.targetId])).get(source.targetId);
+        const commentsCount =
+            (await this.readCommentCounts(manager, dto.sourceType, [dto.sourceId])).get(
+                this.sourceKey(dto.sourceId),
+            ) ?? 0;
+        return {
+            sourceType: dto.sourceType,
+            sourceId: dto.sourceId,
+            viewsCount: totals?.viewsCount ?? 0,
+            likesCount: totals?.likesCount ?? 0,
+            commentsCount,
+            ...(await this.freshness(manager, source.targetId ?? undefined)),
+        };
+    }
+
+    async findBatchSummary(dto: StatisticsBatchSummaryRequestDto, userId?: string) {
+        const sourceIds: Array<string | number> = [];
+        const seen = new Set<string>();
+        for (const sourceId of dto.sourceIds) {
+            const key = this.sourceKey(sourceId);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            sourceIds.push(sourceId);
+        }
+        for (const sourceId of sourceIds) validateSourceId(dto.sourceType, sourceId);
+        const manager = this.dataSource.manager;
+        const sources = await this.readReadableSources(manager, dto.sourceType, sourceIds, userId);
+        const readableIds = sourceIds.filter((sourceId) => sources.has(this.sourceKey(sourceId)));
+        const comments = await this.readCommentCounts(manager, dto.sourceType, readableIds);
+        const targetIds = [
+            ...new Set(
+                readableIds
+                    .map((sourceId) => sources.get(this.sourceKey(sourceId))!.targetId)
+                    .filter((targetId): targetId is number => targetId !== null),
+            ),
+        ];
+        const totals = await this.readMetricTotals(manager, targetIds);
+        const states = await this.readViewerStates(manager, targetIds, userId);
+        return {
+            items: readableIds.map((sourceId) => {
+                const targetId = sources.get(this.sourceKey(sourceId))!.targetId;
+                const total = targetId === null ? undefined : totals.get(targetId);
+                const state = targetId === null ? undefined : states.get(targetId);
+                return {
+                    sourceType: dto.sourceType,
+                    sourceId,
+                    viewsCount: total?.viewsCount ?? 0,
+                    likesCount: total?.likesCount ?? 0,
+                    commentsCount: comments.get(this.sourceKey(sourceId)) ?? 0,
+                    isLiked: state?.isLiked ?? false,
+                    isViewed: state?.isViewed ?? false,
+                };
+            }),
+            ...(await this.freshness(manager)),
+        };
     }
 
     async findSeries(dto: StatisticsSeriesRequestDto) {
@@ -351,6 +409,250 @@ export class StatisticsService {
             case StatisticsMetricCode.LIKES_REMOVED: return "eventKind = 'like.removed'";
             case StatisticsMetricCode.LIKE_CREDIT: return "eventKind = 'like.added' AND firstLikeCredit = 1";
         }
+    }
+
+    private sourceKey(sourceId: string | number) {
+        return String(sourceId).toLowerCase();
+    }
+
+    /**
+     * Read-only source resolution: existence and visibility checks without locks or target
+     * writes. Activity visibility mirrors `lockNotificationRoot`, including followers entries
+     * inside public libraries.
+     */
+    private async readReadableSources(
+        manager: EntityManager,
+        sourceType: StatisticsSourceType,
+        sourceIds: ReadonlyArray<string | number>,
+        viewerId?: string,
+    ): Promise<Map<string, ReadableSource>> {
+        const readable = new Map<string, ReadableSource>();
+        if (!sourceIds.length) return readable;
+        const queryIds = [...sourceIds];
+        const add = (row: any) => {
+            const targetId =
+                row.statisticsTargetId === null || row.statisticsTargetId === undefined
+                    ? null
+                    : Number(row.statisticsTargetId);
+            if (targetId !== null && (!Number.isSafeInteger(targetId) || targetId < 1))
+                throw new Error("Statistics target id is outside the safe numeric range");
+            readable.set(this.sourceKey(row.id), { sourceId: row.id, targetId });
+        };
+
+        if (sourceType === StatisticsSourceType.GAME) {
+            const rows = await manager.query(
+                "SELECT id, statisticsTargetId FROM game WHERE id IN (?)",
+                [queryIds],
+            );
+            for (const row of rows) add(row);
+        } else if (sourceType === StatisticsSourceType.POST) {
+            const rows = await manager.query(
+                "SELECT id, statisticsTargetId FROM post WHERE id IN (?) AND deletedAt IS NULL",
+                [queryIds],
+            );
+            for (const row of rows) add(row);
+        } else if (sourceType === StatisticsSourceType.REVIEW) {
+            const rows = await manager.query(
+                "SELECT id, statisticsTargetId FROM review WHERE id IN (?)",
+                [queryIds],
+            );
+            for (const row of rows) add(row);
+        } else if (sourceType === StatisticsSourceType.ACTIVITY) {
+            const rows = await manager.query(
+                `SELECT id, postId, reviewId, collectionId, collectionEntryId, statisticsTargetId
+                FROM activity WHERE id IN (?)`,
+                [queryIds],
+            );
+            for (const row of await this.filterAccessibleActivities(manager, rows, viewerId)) add(row);
+        } else {
+            const rootType = sourceType.replace("_comment", "") as NotificationRootType;
+            if (!["post", "review", "activity"].includes(rootType))
+                throw new BadRequestException("Unsupported source type");
+            const rows = await manager.query(
+                `SELECT id, ${rootType}Id AS rootId, statisticsTargetId
+                FROM ${sourceTables[sourceType].table} WHERE id IN (?)`,
+                [queryIds],
+            );
+            const rootIds: string[] = [
+                ...new Set<string>(rows.map((row: any) => String(row.rootId))),
+            ];
+            const accessibleRootIds = await this.readAccessibleContentIds(
+                manager,
+                rootType,
+                rootIds,
+                viewerId,
+            );
+            for (const row of rows) {
+                if (accessibleRootIds.has(String(row.rootId))) add(row);
+            }
+        }
+        return readable;
+    }
+
+    private async filterAccessibleActivities(
+        manager: EntityManager,
+        rows: any[],
+        viewerId?: string,
+    ): Promise<any[]> {
+        if (!rows.length) return rows;
+        const distinct = (values: unknown[]) => [
+            ...new Set(values.filter(Boolean).map(String)),
+        ];
+        const postIds = distinct(rows.map((row) => row.postId));
+        const reviewIds = distinct(rows.map((row) => row.reviewId));
+        const collectionIds = distinct(rows.map((row) => row.collectionId));
+        const entryIds = distinct(rows.map((row) => row.collectionEntryId));
+        const posts = await this.readAccessibleContentIds(manager, "post", postIds, viewerId);
+        const reviews = await this.readAccessibleContentIds(manager, "review", reviewIds, viewerId);
+        const collections = await this.readAccessibleCollectionIds(manager, collectionIds, viewerId);
+        const entries = await this.readAccessibleCollectionEntryIds(manager, entryIds, viewerId);
+        return rows.filter(
+            (row) =>
+                (!row.postId || posts.has(String(row.postId))) &&
+                (!row.reviewId || reviews.has(String(row.reviewId))) &&
+                (!row.collectionId || collections.has(String(row.collectionId))) &&
+                (!row.collectionEntryId || entries.has(String(row.collectionEntryId))),
+        );
+    }
+
+    private async readAccessibleContentIds(
+        manager: EntityManager,
+        contentType: NotificationRootType,
+        ids: string[],
+        viewerId?: string,
+    ): Promise<Set<string>> {
+        if (!ids.length) return new Set();
+        if (contentType === "post") {
+            const rows = await manager.query(
+                "SELECT id FROM post WHERE id IN (?) AND deletedAt IS NULL",
+                [ids],
+            );
+            return new Set(rows.map((row: any) => String(row.id)));
+        }
+        if (contentType === "review") {
+            const rows = await manager.query("SELECT id FROM review WHERE id IN (?)", [ids]);
+            return new Set(rows.map((row: any) => String(row.id)));
+        }
+        const rows = await manager.query(
+            `SELECT id, postId, reviewId, collectionId, collectionEntryId
+            FROM activity WHERE id IN (?)`,
+            [ids],
+        );
+        const accessible = await this.filterAccessibleActivities(manager, rows, viewerId);
+        return new Set(accessible.map((row: any) => String(row.id)));
+    }
+
+    private async readAccessibleCollectionIds(
+        manager: EntityManager,
+        ids: string[],
+        viewerId?: string,
+    ): Promise<Set<string>> {
+        if (!ids.length) return new Set();
+        const rows = await manager.query(
+            `SELECT c.id FROM collection c
+            LEFT JOIN profile p ON p.userId = c.libraryUserId
+            WHERE c.id IN (?) AND c.isPublic = 1
+              AND (
+                c.libraryUserId = ?
+                OR p.libraryVisibility IS NULL
+                OR p.libraryVisibility = 'public'
+                OR (p.libraryVisibility = 'followers' AND EXISTS (
+                    SELECT 1 FROM user_follow f
+                    WHERE f.followerUserId = ? AND f.followedUserId = c.libraryUserId
+                ))
+              )`,
+            [ids, viewerId ?? null, viewerId ?? null],
+        );
+        return new Set(rows.map((row: any) => String(row.id)));
+    }
+
+    private async readAccessibleCollectionEntryIds(
+        manager: EntityManager,
+        ids: string[],
+        viewerId?: string,
+    ): Promise<Set<string>> {
+        if (!ids.length) return new Set();
+        // entryVisibilitySql binds the viewer twice: library owner and follower checks.
+        const rows = await manager.query(
+            `SELECT e.id FROM collection_entry e
+            WHERE e.id IN (?) AND ${entryVisibilitySql("e", "viewerId").replaceAll(":viewerId", "?")}`,
+            [ids, viewerId ?? null, viewerId ?? null],
+        );
+        return new Set(rows.map((row: any) => String(row.id)));
+    }
+
+    private async readCommentCounts(
+        manager: EntityManager,
+        sourceType: StatisticsSourceType,
+        sourceIds: ReadonlyArray<string | number>,
+    ): Promise<Map<string, number>> {
+        const counts = new Map<string, number>();
+        for (const sourceId of sourceIds) counts.set(this.sourceKey(sourceId), 0);
+        if (
+            !sourceIds.length ||
+            ![
+                StatisticsSourceType.REVIEW,
+                StatisticsSourceType.ACTIVITY,
+                StatisticsSourceType.POST,
+            ].includes(sourceType)
+        )
+            return counts;
+        const table = `${sourceType}_comment`;
+        const column = `${sourceType}Id`;
+        const rows = await manager.query(
+            `SELECT ${column} AS sourceId, COUNT(*) AS commentsCount
+            FROM ${table} WHERE ${column} IN (?) GROUP BY ${column}`,
+            [sourceIds],
+        );
+        for (const row of rows) {
+            const key = this.sourceKey(row.sourceId);
+            if (counts.has(key)) counts.set(key, assertSafeCount(row.commentsCount));
+        }
+        return counts;
+    }
+
+    private async readMetricTotals(manager: EntityManager, targetIds: number[]) {
+        const totals = new Map<number, { viewsCount: number; likesCount: number }>();
+        for (const targetId of targetIds)
+            totals.set(targetId, { viewsCount: 0, likesCount: 0 });
+        if (!targetIds.length) return totals;
+        const rows = await manager.query(
+            `SELECT targetId,
+                COALESCE(MAX(CASE WHEN metricCode = 'views' THEN metricValue END), 0) AS viewsCount,
+                COALESCE(MAX(CASE WHEN metricCode = 'likes_current' THEN metricValue END), 0) AS likesCount
+            FROM metric_total WHERE targetId IN (?) GROUP BY targetId`,
+            [targetIds],
+        );
+        for (const row of rows) {
+            const total = totals.get(Number(row.targetId));
+            if (!total) continue;
+            total.viewsCount = assertSafeCount(row.viewsCount);
+            total.likesCount = assertSafeCount(row.likesCount);
+        }
+        return totals;
+    }
+
+    private async readViewerStates(
+        manager: EntityManager,
+        targetIds: number[],
+        userId?: string,
+    ) {
+        const states = new Map<number, { isLiked: boolean; isViewed: boolean }>();
+        for (const targetId of targetIds)
+            states.set(targetId, { isLiked: false, isViewed: false });
+        if (!userId || !targetIds.length) return states;
+        const rows = await manager.query(
+            `SELECT targetId, likedAt, lastViewedAt FROM engagement_state
+            WHERE profileUserId = ? AND targetId IN (?)`,
+            [userId, targetIds],
+        );
+        for (const row of rows) {
+            const state = states.get(Number(row.targetId));
+            if (!state) continue;
+            state.isLiked = Boolean(row.likedAt);
+            state.isViewed = Boolean(row.lastViewedAt);
+        }
+        return states;
     }
 
     private async freshness(manager: EntityManager, targetId?: number) {

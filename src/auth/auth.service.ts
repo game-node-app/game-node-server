@@ -417,6 +417,31 @@ export class AuthService implements OnModuleDestroy {
         });
     }
 
+    /** Subscriptions of several users in one lookup; empty input never touches the adapter. */
+    async getSubscriptionsForUsers(
+        userIds: string[],
+    ): Promise<SupporterSubscriptionRow[]> {
+        const uniqueIds = [...new Set(userIds)];
+        if (!this.stripeEnabled || uniqueIds.length === 0) return [];
+        const ctx = await this.auth.$context;
+        const where = [
+            {
+                field: "referenceId",
+                operator: "in" as const,
+                value: uniqueIds,
+            },
+        ];
+        // The adapter defaults to 100 rows, and one user can hold more than one subscription.
+        const total = await ctx.adapter.count({ model: "subscription", where });
+        return total
+            ? ctx.adapter.findMany<SupporterSubscriptionRow>({
+                  model: "subscription",
+                  where,
+                  limit: total,
+              })
+            : [];
+    }
+
     async listSubscriptionsByStatuses(
         statuses: SupporterSubscriptionRow["status"][],
     ): Promise<SupporterSubscriptionRow[]> {

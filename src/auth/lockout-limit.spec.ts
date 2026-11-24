@@ -219,6 +219,105 @@ describe("ProfileService.findAll", () => {
     });
 });
 
+describe("AuthService.getSubscriptionsForUsers", () => {
+    it("returns [] without touching the adapter for an empty input", async () => {
+        const { service, count, findMany } = fakeAuthService({});
+
+        await expect(service.getSubscriptionsForUsers([])).resolves.toEqual([]);
+        expect(count).not.toHaveBeenCalled();
+        expect(findMany).not.toHaveBeenCalled();
+    });
+
+    it("returns [] when Stripe is not configured", async () => {
+        const { service, count, findMany } = fakeAuthService({
+            stripeEnabled: false,
+            subscriptions: [
+                {
+                    id: "sub-1",
+                    plan: "supporter",
+                    referenceId: "user-1",
+                    status: "active",
+                },
+            ],
+        });
+
+        await expect(
+            service.getSubscriptionsForUsers(["user-1"]),
+        ).resolves.toEqual([]);
+        expect(count).not.toHaveBeenCalled();
+        expect(findMany).not.toHaveBeenCalled();
+    });
+
+    it("reads the subscriptions of every requested user in one lookup", async () => {
+        const { service, count, findMany } = fakeAuthService({
+            subscriptions: [
+                {
+                    id: "sub-1",
+                    plan: "supporter",
+                    referenceId: "user-1",
+                    status: "active",
+                },
+                {
+                    id: "sub-2",
+                    plan: "supporter",
+                    referenceId: "user-2",
+                    status: "canceled",
+                    periodEnd: new Date(),
+                },
+                {
+                    id: "sub-3",
+                    plan: "supporter",
+                    referenceId: "user-3",
+                    status: "active",
+                },
+            ],
+        });
+
+        const rows = await service.getSubscriptionsForUsers([
+            "user-1",
+            "user-2",
+            "user-1",
+        ]);
+
+        expect(rows.map(({ id }) => id)).toEqual(["sub-1", "sub-2"]);
+        const where = [
+            {
+                field: "referenceId",
+                operator: "in",
+                value: ["user-1", "user-2"],
+            },
+        ];
+        expect(count).toHaveBeenCalledWith({ model: "subscription", where });
+        expect(findMany).toHaveBeenCalledWith({
+            model: "subscription",
+            where,
+            limit: 2,
+        });
+    });
+
+    it("reads every row beyond the adapter default of 100", async () => {
+        const subscriptions = Array.from(
+            { length: 150 },
+            (_, index): SupporterSubscriptionRow => ({
+                id: `sub-${index}`,
+                plan: "supporter",
+                referenceId: `user-${index}`,
+                status: "active",
+            }),
+        );
+        const { service, findMany } = fakeAuthService({ subscriptions });
+
+        const rows = await service.getSubscriptionsForUsers(
+            subscriptions.map(({ referenceId }) => referenceId),
+        );
+
+        expect(rows).toHaveLength(150);
+        expect(findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ limit: 150 }),
+        );
+    });
+});
+
 describe("AuthService.listSubscriptionsByStatuses", () => {
     const statuses: SupporterSubscriptionRow["status"][] = [
         "active",

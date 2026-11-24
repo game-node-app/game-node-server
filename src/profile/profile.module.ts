@@ -10,6 +10,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
 import { ProfileVideoModule } from "./profile-video/profile-video.module";
 import { SupporterPreferencesModule } from "./supporter-preferences/supporter-preferences.module";
 import { LibrariesModule } from "../libraries/libraries.module";
+import { BillingModule } from "../billing/billing.module";
 
 @Module({
     imports: [
@@ -23,6 +24,7 @@ import { LibrariesModule } from "../libraries/libraries.module";
         ProfileVideoModule,
         SupporterPreferencesModule,
         LibrariesModule,
+        BillingModule,
     ],
     controllers: [ProfileController],
     providers: [ProfileService],

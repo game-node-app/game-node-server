@@ -19,6 +19,7 @@ import { ProfileSupporterPreferences } from "../profile/entities/profile-support
 import { ProfileVideo } from "../profile/entities/profile-video.entity";
 import { Profile } from "../profile/entities/profile.entity";
 import { SupporterPreferencesService } from "../profile/supporter-preferences/supporter-preferences.service";
+import { BillingService } from "../billing/billing.service";
 import { GuildRewardsService } from "./guild-rewards.service";
 import {
     DUPLICATE_COSMETIC_BONUS_XP,
@@ -101,6 +102,14 @@ describe("GuildRewardsService (integration)", () => {
                 {
                     provide: LibraryAccessService,
                     useValue: libraryAccessService,
+                },
+                {
+                    provide: BillingService,
+                    useValue: {
+                        findSupporterUserIdsIn: jest.fn(
+                            async () => new Set<string>(),
+                        ),
+                    },
                 },
             ],
         }).compile();

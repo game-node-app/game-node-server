@@ -1,4 +1,5 @@
 import { Logger } from "@nestjs/common";
+import { In } from "typeorm";
 import { ProfileSupporterPreferences } from "../entities/profile-supporter-preferences.entity";
 import {
     SUPPORTER_PREFERENCES_DEFAULTS,
@@ -175,6 +176,51 @@ describe("SupporterPreferencesService", () => {
         expect(repository.find).toHaveBeenCalledWith({
             where: { showOnSupportersWall: false },
             select: { profileUserId: true },
+        });
+    });
+
+    describe("findOrDefaultsMany", () => {
+        it("returns an empty map without querying for no ids", async () => {
+            const { service, repository } = fixture();
+
+            await expect(service.findOrDefaultsMany([])).resolves.toEqual(
+                new Map(),
+            );
+            expect(repository.find).not.toHaveBeenCalled();
+        });
+
+        it("returns stored rows and defaults for the batch in one query", async () => {
+            const { service, repository } = fixture();
+            repository.find.mockResolvedValue([
+                {
+                    profileUserId: "user-1",
+                    ...SUPPORTER_PREFERENCES_DEFAULTS,
+                    showBadge: false,
+                    accentColor: "#FF8800",
+                },
+            ]);
+
+            const values = await service.findOrDefaultsMany([
+                "user-1",
+                "user-2",
+                "user-1",
+            ]);
+
+            expect(repository.find).toHaveBeenCalledTimes(1);
+            expect(repository.find).toHaveBeenCalledWith({
+                where: { profileUserId: In(["user-1", "user-2"]) },
+            });
+            expect(values.get("user-1")).toEqual({
+                ...SUPPORTER_PREFERENCES_DEFAULTS,
+                showBadge: false,
+                accentColor: "#FF8800",
+            });
+            expect(values.get("user-2")).toEqual(
+                SUPPORTER_PREFERENCES_DEFAULTS,
+            );
+            expect(values.get("user-2")).not.toBe(
+                SUPPORTER_PREFERENCES_DEFAULTS,
+            );
         });
     });
 });

@@ -6,7 +6,7 @@ import {
     InternalServerErrorException,
     Logger,
 } from "@nestjs/common";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { randomUUID } from "node:crypto";
 import {
     chmod,
@@ -46,6 +46,37 @@ import { ProfileVideoQueueService } from "./profile-video-queue.service";
 export async function ensureProfileVideoTempRoot(): Promise<void> {
     await mkdir(PROFILE_VIDEO_TEMP_ROOT, { recursive: true, mode: 0o755 });
     await chmod(PROFILE_VIDEO_TEMP_ROOT, 0o755);
+}
+
+export type PublishedProfileVideo = {
+    filename: string;
+    extension: "mp4";
+    mimetype: "video/mp4";
+    size: number;
+    durationMs: number;
+    width: number;
+    height: number;
+};
+
+export type ProfileVideos = {
+    avatarVideo: PublishedProfileVideo | null;
+    bannerVideo: PublishedProfileVideo | null;
+};
+
+function publishedVideo(
+    row: ProfileVideo | undefined,
+): PublishedProfileVideo | null {
+    return row?.filename
+        ? {
+              filename: row.filename,
+              extension: "mp4",
+              mimetype: "video/mp4",
+              size: row.size!,
+              durationMs: row.durationMs!,
+              width: row.width!,
+              height: row.height!,
+          }
+        : null;
 }
 
 async function moveSource(from: string, to: string): Promise<void> {
@@ -155,17 +186,7 @@ export class ProfileVideoService {
         const banner = slots.get("banner");
 
         const published = (row: ProfileVideo | undefined) =>
-            row?.filename && isSupporter
-                ? {
-                      filename: row.filename,
-                      extension: "mp4",
-                      mimetype: "video/mp4",
-                      size: row.size!,
-                      durationMs: row.durationMs!,
-                      width: row.width!,
-                      height: row.height!,
-                  }
-                : null;
+            isSupporter ? publishedVideo(row) : null;
 
         const upload = (row: ProfileVideo | undefined) => {
             if (!row?.status) return null;
@@ -191,6 +212,31 @@ export class ProfileVideoService {
                   }
                 : {}),
         };
+    }
+
+    /**
+     * Public video fields for a batch of supporters in one query. Callers pass only ids already
+     * resolved as supporters; upload statuses stay owner-only.
+     */
+    async findForProfileReadMany(
+        userIds: string[],
+    ): Promise<Map<string, ProfileVideos>> {
+        const videos = new Map<string, ProfileVideos>();
+        for (const userId of new Set(userIds)) {
+            videos.set(userId, { avatarVideo: null, bannerVideo: null });
+        }
+        if (videos.size === 0) return videos;
+
+        const rows = await this.repository.find({
+            where: { profileUserId: In([...videos.keys()]) },
+        });
+        for (const row of rows) {
+            const video = videos.get(row.profileUserId);
+            if (!video) continue;
+            if (row.type === "avatar") video.avatarVideo = publishedVideo(row);
+            if (row.type === "banner") video.bannerVideo = publishedVideo(row);
+        }
+        return videos;
     }
 
     async process(data: ProfileVideoJobData): Promise<void> {
