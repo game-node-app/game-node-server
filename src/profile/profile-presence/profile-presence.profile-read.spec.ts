@@ -11,6 +11,7 @@ import { SUPPORTER_PREFERENCES_DEFAULTS } from "../supporter-preferences/support
 import { SupporterPreferencesService } from "../supporter-preferences/supporter-preferences.service";
 import { LibraryAccessService } from "../../libraries/library-access.service";
 import { LibraryVisibility } from "../../libraries/library-visibility.constants";
+import { BillingService } from "../../billing/billing.service";
 
 describe("Profile reads and Steam", () => {
     let app: INestApplication;
@@ -73,6 +74,14 @@ describe("Profile reads and Steam", () => {
                 },
                 { provide: SteamSyncService, useValue: steam },
                 { provide: ConnectionsService, useValue: connections },
+                {
+                    provide: BillingService,
+                    useValue: {
+                        findSupporterUserIdsIn: jest.fn(
+                            async () => new Set<string>(),
+                        ),
+                    },
+                },
             ],
         }).compile();
 

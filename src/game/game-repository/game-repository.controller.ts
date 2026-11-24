@@ -41,6 +41,8 @@ export class GameRepositoryController {
     }
 
     @Post("collection")
+    // A read: answer 200 as documented, so the spec has no untyped 201 response.
+    @HttpCode(200)
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({
         type: FindGamesByCollectionTypeResponseDto,

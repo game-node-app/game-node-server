@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { ProfileSupporterPreferences } from "../entities/profile-supporter-preferences.entity";
 import {
     SUPPORTER_PREFERENCES_DEFAULTS,
@@ -26,6 +26,33 @@ export class SupporterPreferencesService {
     async findOrDefaults(userId: string): Promise<SupporterPreferencesValues> {
         const row = await this.repository.findOneBy({ profileUserId: userId });
         return row ? this.valuesOf(row) : { ...SUPPORTER_PREFERENCES_DEFAULTS };
+    }
+
+    /**
+     * Preferences for a batch of supporters in one query, defaulting missing rows. Callers pass
+     * only ids already resolved as supporters.
+     */
+    async findOrDefaultsMany(
+        userIds: string[],
+    ): Promise<Map<string, SupporterPreferencesValues>> {
+        const preferences = new Map<string, SupporterPreferencesValues>();
+        const uniqueIds = [...new Set(userIds)];
+        if (uniqueIds.length === 0) return preferences;
+
+        const rows = await this.repository.find({
+            where: { profileUserId: In(uniqueIds) },
+        });
+        const stored = new Map(rows.map((row) => [row.profileUserId, row]));
+        for (const userId of uniqueIds) {
+            const row = stored.get(userId);
+            preferences.set(
+                userId,
+                row
+                    ? this.valuesOf(row)
+                    : { ...SUPPORTER_PREFERENCES_DEFAULTS },
+            );
+        }
+        return preferences;
     }
 
     async update(

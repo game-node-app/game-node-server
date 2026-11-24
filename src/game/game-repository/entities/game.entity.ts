@@ -54,6 +54,7 @@ import { ApiHideProperty, ApiProperty } from "@nestjs/swagger";
     "status",
     "category",
 ])
+@Index("IDX_game_release_category", ["firstReleaseDate", "category"])
 export class Game {
     /**
      * Should be mapped to the IGDB ID of the game.

@@ -1,5 +1,23 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { CollectionEntryStatus } from "../../collections/collections-entries/collections-entries.constants";
+import { Type } from "class-transformer";
+import { IsInt, IsOptional, Max, Min } from "class-validator";
+
+export class GetJournalOverviewQueryDto {
+    @ApiPropertyOptional({
+        description:
+            "Only include status dates from this calendar year. Omit for every year.",
+        example: 2026,
+        minimum: 1970,
+        maximum: 2100,
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1970)
+    @Max(2100)
+    year?: number;
+}
 
 export class JournalOverviewResponseDto {
     @ApiProperty({ description: "Group of collection entries by year" })

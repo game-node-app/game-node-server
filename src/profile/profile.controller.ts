@@ -3,10 +3,13 @@ import {
     Body,
     Controller,
     Get,
+    HttpCode,
+    HttpStatus,
     MaxFileSizeValidator,
     Param,
     ParseFilePipe,
     Patch,
+    Post,
     Put,
     UploadedFile,
     UseGuards,
@@ -24,10 +27,12 @@ import { UpdateProfileImageDto } from "./dto/update-profile-image.dto";
 import { Roles } from "../auth/roles.decorator";
 import { EUserRoles } from "../utils/constants";
 import { FindAllProfileResponseItemDto } from "./dto/find-all-profile.dto";
+import { FindProfilesByIdsDto } from "./dto/find-profiles-by-ids.dto";
 import { ProfileResponseDto } from "./dto/profile-response.dto";
 import { ProfileVideoService } from "./profile-video/profile-video.service";
 import { SupporterPreferencesService } from "./supporter-preferences/supporter-preferences.service";
 import { LibraryAccessService } from "../libraries/library-access.service";
+import { BillingService } from "../billing/billing.service";
 
 const PROFILE_IMAGE_MAX_BYTES = 10 * 1024 * 1000;
 
@@ -53,6 +58,7 @@ export class ProfileController {
         private readonly profileVideoService: ProfileVideoService,
         private readonly supporterPreferencesService: SupporterPreferencesService,
         private readonly libraryAccessService: LibraryAccessService,
+        private readonly billingService: BillingService,
     ) {}
 
     @Patch()
@@ -134,6 +140,56 @@ export class ProfileController {
     }
 
     /**
+     * Batch counterpart of `GET /v1/profile/:id`: one profile query, one entitlement query and
+     * one library-access resolution, with videos and preferences read only for supporters.
+     */
+    private async findManyWithVideos(
+        userIds: string[],
+        viewerId: string | undefined,
+    ) {
+        const [profiles, supporterIds] = await Promise.all([
+            this.profileService.findManyByIds(userIds),
+            this.billingService.findSupporterUserIdsIn(userIds),
+        ]);
+        const supporterIdList = profiles
+            .filter((profile) => supporterIds.has(profile.userId))
+            .map((profile) => profile.userId);
+        const [access, videos, preferences] = await Promise.all([
+            this.libraryAccessService.resolveMany(viewerId, profiles),
+            this.profileVideoService.findForProfileReadMany(supporterIdList),
+            this.supporterPreferencesService.findOrDefaultsMany(
+                supporterIdList,
+            ),
+        ]);
+        const profilesById = new Map(
+            profiles.map((profile) => [profile.userId, profile]),
+        );
+
+        return userIds.flatMap((userId) => {
+            const profile = profilesById.get(userId);
+            const profileAccess = access.get(userId);
+            if (!profile || !profileAccess) return [];
+            const isSupporter = supporterIds.has(userId);
+
+            return [
+                {
+                    ...profile,
+                    libraryVisibility: profileAccess.libraryVisibility,
+                    ...(videos.get(userId) ?? {
+                        avatarVideo: null,
+                        bannerVideo: null,
+                    }),
+                    isSupporter,
+                    supporterPreferences: isSupporter
+                        ? (preferences.get(userId) ?? null)
+                        : null,
+                    canViewLibrary: profileAccess.canViewLibrary,
+                },
+            ];
+        });
+    }
+
+    /**
      * Used to access own profile
      * @param session
      */
@@ -154,6 +210,23 @@ export class ProfileController {
     })
     async findAll() {
         return await this.profileService.findAll();
+    }
+
+    @Post("all")
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ApiOkResponse({
+        type: ProfileResponseDto,
+        isArray: true,
+    })
+    async findManyByIds(
+        @Session() session: SessionContainer,
+        @Body() dto: FindProfilesByIdsDto,
+    ) {
+        return await this.findManyWithVideos(
+            [...new Set(dto.userIds)],
+            session?.getUserId(),
+        );
     }
 
     /**

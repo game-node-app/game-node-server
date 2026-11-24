@@ -4,13 +4,12 @@ import { AuthGuard } from '../../auth/auth.guard';
 import { Public } from '../../auth/public.decorator';
 import { PaginationInterceptor } from '../../interceptor/pagination.interceptor';
 import { BlogDeliveryService } from './blog-delivery.service';
-import { BlogPresentationService } from './blog-presentation.service';
 import { BlogArticleDto, BlogListQueryDto, BlogListResponseDto, BlogLocaleQueryDto, BlogTagDto } from './dto/blog-content.dto';
 
 @Controller('blog/post')
 @UseGuards(AuthGuard)
 export class BlogPostController {
-    constructor(private readonly delivery: BlogDeliveryService, private readonly presentation: BlogPresentationService) {}
+    constructor(private readonly delivery: BlogDeliveryService) {}
 
     @Get('tags')
     @Public()
@@ -23,8 +22,7 @@ export class BlogPostController {
     @Public()
     @ApiOkResponse({ type: BlogArticleDto })
     async one(@Param('postId') id: string, @Query() query: BlogLocaleQueryDto) {
-        const row = await this.delivery.one(id, query.locale);
-        return this.presentation.present(row.article, row.translation, row.requestedLocale, row.availableLocales);
+        return this.delivery.one(id, query.locale);
     }
 
     @Get()
@@ -32,7 +30,6 @@ export class BlogPostController {
     @UseInterceptors(PaginationInterceptor)
     @ApiOkResponse({ type: BlogListResponseDto })
     async list(@Query() query: BlogListQueryDto) {
-        const [rows, count] = await this.delivery.list(query.locale, query.tag, query.offset, query.limit);
-        return [await Promise.all(rows.map((row) => this.presentation.present(row.article, row.translation, row.requestedLocale, row.availableLocales))), count];
+        return this.delivery.list(query.locale, query.tag, query.offset, query.limit);
     }
 }

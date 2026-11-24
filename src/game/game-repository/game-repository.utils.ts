@@ -1,4 +1,28 @@
+import { FindOptionsRelations } from "typeorm";
 import { EGameCategory, PlatformToIconMap } from "./game-repository.constants";
+
+/**
+ * Deterministic cache-key fragment for a relation shape, so `{ cover, platforms }` and
+ * `{ platforms, cover }` share per-game cache entries.
+ */
+export function getRelationsCacheKey(
+    relations?: FindOptionsRelations<any>,
+): string {
+    const normalize = (value: any): any => {
+        if (value == null || typeof value !== "object") return value;
+        return Object.keys(value)
+            .sort()
+            .reduce(
+                (acc, key) => {
+                    acc[key] = normalize(value[key]);
+                    return acc;
+                },
+                {} as Record<string, any>,
+            );
+    };
+
+    return JSON.stringify(normalize(relations ?? {}));
+}
 
 export function getIconNamesForPlatformAbbreviations(abbreviations: string[]) {
     const iconsNames: string[] = [];

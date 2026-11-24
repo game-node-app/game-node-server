@@ -17,6 +17,7 @@ import { BadRequestException, ConflictException } from "@nestjs/common";
 import { access, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join, basename } from "node:path";
+import { In } from "typeorm";
 import { Profile } from "../entities/profile.entity";
 import { ProfileAvatar } from "../entities/profile-avatar.entity";
 import { ProfileBanner } from "../entities/profile-banner.entity";
@@ -761,6 +762,95 @@ describe("ProfileVideoService", () => {
             );
 
             expect(result).not.toHaveProperty("videoUploads");
+        });
+    });
+
+    describe("findForProfileReadMany", () => {
+        function row(overrides: Partial<ProfileVideo> = {}): ProfileVideo {
+            return {
+                profileUserId: "user-1",
+                type: "avatar",
+                filename: "video-file",
+                size: 812345,
+                durationMs: 8000,
+                width: 256,
+                height: 256,
+                status: "ready",
+                attemptId: "attempt-1",
+                errorCode: null,
+                processingStartedAt: new Date(),
+                ...overrides,
+            } as ProfileVideo;
+        }
+
+        it("returns an empty map without querying for no ids", async () => {
+            await expect(service.findForProfileReadMany([])).resolves.toEqual(
+                new Map(),
+            );
+            expect(repository.find).not.toHaveBeenCalled();
+        });
+
+        it("loads published avatar and banner videos for the batch in one query", async () => {
+            repository.find.mockResolvedValue([
+                row(),
+                row({ type: "banner", filename: "banner-file" }),
+                row({
+                    profileUserId: "user-2",
+                    filename: "previous-file",
+                    status: "processing",
+                }),
+            ]);
+
+            const videos = await service.findForProfileReadMany([
+                "user-1",
+                "user-2",
+                "user-3",
+                "user-1",
+            ]);
+
+            expect(repository.find).toHaveBeenCalledTimes(1);
+            expect(repository.find).toHaveBeenCalledWith({
+                where: {
+                    profileUserId: In(["user-1", "user-2", "user-3"]),
+                },
+            });
+            expect(videos.get("user-1")).toEqual({
+                avatarVideo: {
+                    filename: "video-file",
+                    extension: "mp4",
+                    mimetype: "video/mp4",
+                    size: 812345,
+                    durationMs: 8000,
+                    width: 256,
+                    height: 256,
+                },
+                bannerVideo: {
+                    filename: "banner-file",
+                    extension: "mp4",
+                    mimetype: "video/mp4",
+                    size: 812345,
+                    durationMs: 8000,
+                    width: 256,
+                    height: 256,
+                },
+            });
+            expect(videos.get("user-2")).toEqual({
+                avatarVideo: {
+                    filename: "previous-file",
+                    extension: "mp4",
+                    mimetype: "video/mp4",
+                    size: 812345,
+                    durationMs: 8000,
+                    width: 256,
+                    height: 256,
+                },
+                bannerVideo: null,
+            });
+            expect(videos.get("user-3")).toEqual({
+                avatarVideo: null,
+                bannerVideo: null,
+            });
+            expect(videos.get("user-1")).not.toHaveProperty("videoUploads");
         });
     });
 

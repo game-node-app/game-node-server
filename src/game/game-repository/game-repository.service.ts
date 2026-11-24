@@ -1,15 +1,13 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+    BadRequestException,
+    HttpException,
+    HttpStatus,
+    Injectable,
+    Logger,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Game } from "./entities/game.entity";
-import {
-    Between,
-    DataSource,
-    FindManyOptions,
-    In,
-    MoreThanOrEqual,
-    Not,
-    Repository,
-} from "typeorm";
+import { DataSource, FindOptionsRelations, In, Repository } from "typeorm";
 import { GamePlatform } from "./entities/game-platform.entity";
 import { GameRepositoryFindAllDto } from "./dto/game-repository-find-all.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
@@ -28,7 +26,10 @@ import {
 import { buildGameFilterFindOptions } from "./utils/build-game-filter-find-options";
 import { Cacheable } from "../../utils/cacheable";
 import { hours, minutes } from "@nestjs/throttler";
-import { getIconNamesForPlatformAbbreviations } from "./game-repository.utils";
+import {
+    getIconNamesForPlatformAbbreviations,
+    getRelationsCacheKey,
+} from "./game-repository.utils";
 import {
     GameAllowedResource,
     GamePropertyPathToEntityMap,
@@ -38,11 +39,44 @@ import {
     FindGamesByCollectionTypeRequestDto,
     GameRepositoryCollectionType,
 } from "./dto/game-repository-collection.dto";
-import { match } from "ts-pattern";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { getPreviousDate } from "../../statistics/statistics.utils";
 import { MATURE_THEME_ID } from "../game-filter/game-filter.constants";
 import { EGameCategory } from "./game-repository.constants";
+
+dayjs.extend(utc);
+
+const RELEASE_COLLECTION_CATEGORIES = [
+    EGameCategory.Main,
+    EGameCategory.Remaster,
+    EGameCategory.Remake,
+    EGameCategory.DlcAddon,
+    EGameCategory.Expansion,
+    EGameCategory.StandaloneExpansion,
+];
+
+// Lean collection projection: only the fields the release strip and calendar render.
+const COLLECTION_GAME_FIELDS = [
+    "id",
+    "name",
+    "slug",
+    "category",
+    "status",
+    "firstReleaseDate",
+    "summary",
+].map((field) => `game.${field}`);
+const COLLECTION_COVER_FIELDS = [
+    "id",
+    "imageId",
+    "url",
+    "width",
+    "height",
+    "gameId",
+].map((field) => `cover.${field}`);
+const COLLECTION_PLATFORM_FIELDS = ["id", "name", "abbreviation"].map(
+    (field) => `platforms.${field}`,
+);
 
 @Injectable()
 export class GameRepositoryService {
@@ -64,18 +98,63 @@ export class GameRepositoryService {
         private readonly cacheManager: Cache,
     ) {}
 
-    @Cacheable(GameRepositoryService.name, minutes(5))
     async findOneByIdOrFail(
         id: number,
         dto?: GameRepositoryFindOneDto,
     ): Promise<Game> {
-        return await this.gameRepository.findOneOrFail({
+        const cacheKey = this.gameCacheKey(id, dto?.relations);
+        const cached = await this.readCachedGames([cacheKey]);
+        // The copy keeps callers from mutating an object still referenced by an in-memory cache.
+        if (cached[0]) return { ...cached[0] };
+
+        const game = await this.gameRepository.findOneOrFail({
             where: {
                 id,
             },
             relations: dto?.relations,
             relationLoadStrategy: getRelationLoadStrategy(dto?.relations),
         });
+        this.writeCachedGames([game], dto?.relations);
+        return game;
+    }
+
+    private gameCacheKey(
+        gameId: number,
+        relations?: FindOptionsRelations<Game>,
+    ): string {
+        return `game-repo:v1:${gameId}:${getRelationsCacheKey(relations)}`;
+    }
+
+    /** Fail-open: any cache error reads as a miss so the database still answers. */
+    private async readCachedGames(
+        cacheKeys: string[],
+    ): Promise<Array<Game | null>> {
+        try {
+            return await this.cacheManager.mget<Game>(cacheKeys);
+        } catch (error) {
+            this.logger.warn(`Game cache read failed: ${error}`);
+            return [];
+        }
+    }
+
+    private writeCachedGames(
+        games: Game[],
+        relations?: FindOptionsRelations<Game>,
+    ) {
+        if (games.length === 0) return;
+
+        this.cacheManager
+            .mset(
+                games.map((game) => ({
+                    key: this.gameCacheKey(game.id, relations),
+                    // Stored apart from the returned row so no caller can mutate the cached object.
+                    value: { ...game },
+                    ttl: minutes(5),
+                })),
+            )
+            .catch((error) => {
+                this.logger.warn(`Game cache write failed: ${error}`);
+            });
     }
 
     private reOrderByIds(originalIds: number[], unOrderedGames: Game[]) {
@@ -88,8 +167,7 @@ export class GameRepositoryService {
             .filter((game) => game != undefined) as Game[];
     }
 
-    @Cacheable(GameRepositoryService.name, minutes(5))
-    async findAllByIds(dto: GameRepositoryFindAllDto) {
+    async findAllByIds(dto: GameRepositoryFindAllDto): Promise<Game[]> {
         if (
             dto == undefined ||
             dto.gameIds == undefined ||
@@ -98,22 +176,43 @@ export class GameRepositoryService {
             throw new HttpException("Invalid query.", HttpStatus.BAD_REQUEST);
         }
 
-        const games = await this.gameRepository.find({
-            where: {
-                id: In(dto?.gameIds),
-            },
-            relations: dto.relations,
-            relationLoadStrategy: getRelationLoadStrategy(dto?.relations),
+        const gameIds = [...new Set(dto.gameIds)];
+        const cacheKeys = gameIds.map((gameId) =>
+            this.gameCacheKey(gameId, dto.relations),
+        );
+        const cachedGames = await this.readCachedGames(cacheKeys);
+        const gamesById = new Map<number, Game>();
+        const missedIds: number[] = [];
+
+        gameIds.forEach((gameId, index) => {
+            const cached = cachedGames[index];
+            if (cached) gamesById.set(gameId, { ...cached });
+            else missedIds.push(gameId);
         });
 
-        if (games.length === 0) {
+        if (missedIds.length > 0) {
+            const missedGames = await this.gameRepository.find({
+                where: {
+                    id: In(missedIds),
+                },
+                relations: dto.relations,
+                relationLoadStrategy: getRelationLoadStrategy(dto.relations),
+            });
+
+            for (const game of missedGames) {
+                gamesById.set(game.id, game);
+            }
+            this.writeCachedGames(missedGames, dto.relations);
+        }
+
+        if (gamesById.size === 0) {
             throw new HttpException(
                 "No games match provided ids",
                 HttpStatus.NOT_FOUND,
             );
         }
 
-        return this.reOrderByIds(dto.gameIds, games);
+        return this.reOrderByIds(gameIds, Array.from(gamesById.values()));
     }
 
     /**
@@ -248,56 +347,112 @@ export class GameRepositoryService {
 
     public async findGamesByCollectionType(
         dto: FindGamesByCollectionTypeRequestDto,
-    ) {
-        const baseFindOptions = buildBaseFindOptions(dto);
-        // Release dates are UTC midnights; "upcoming" includes games launching today.
-        const startOfToday = dayjs().startOf("day").toDate();
-        const findOptionsForType = match<
-            GameRepositoryCollectionType,
-            FindManyOptions<Game>
-        >(dto.collectionType)
-            .with(GameRepositoryCollectionType.UPCOMING, () => ({
-                where: {
-                    firstReleaseDate: MoreThanOrEqual(startOfToday),
-                },
-                order: {
-                    firstReleaseDate: "ASC",
-                },
-            }))
-            .with(GameRepositoryCollectionType.RECENTLY_RELEASED, () => ({
-                where: {
-                    firstReleaseDate: Between(
-                        getPreviousDate(30),
-                        dayjs().endOf("day").toDate(),
-                    ),
-                },
-                order: {
-                    firstReleaseDate: "ASC",
-                },
-            }))
-            .exhaustive();
+    ): Promise<TPaginationData<Game>> {
+        const { from, to } = this.resolveCollectionBounds(dto);
+        const relations = dto.relations ?? {};
+        const { skip, take } = buildBaseFindOptions(dto);
+        // Omitted bounds roll at UTC midnight, so the current day is part of the key.
+        const dayBucket =
+            dto.from && dto.to ? "fixed" : dayjs().utc().format("YYYY-MM-DD");
+        const cacheKey = [
+            "game-repo:collection:v1",
+            dto.collectionType,
+            dto.from ?? "default",
+            dto.to ?? "default",
+            dayBucket,
+            skip,
+            take,
+            getRelationsCacheKey(relations),
+        ].join(":");
 
-        const includedCategories = [
-            EGameCategory.Main,
-            EGameCategory.Remaster,
-            EGameCategory.Remake,
-            EGameCategory.DlcAddon,
-            EGameCategory.Expansion,
-            EGameCategory.StandaloneExpansion,
-        ];
+        try {
+            const cached =
+                await this.cacheManager.get<TPaginationData<Game>>(cacheKey);
+            if (cached) return cached;
+        } catch (error) {
+            this.logger.warn(`Collection cache read failed: ${error}`);
+        }
 
-        return await this.gameRepository.findAndCount({
-            ...baseFindOptions,
-            ...findOptionsForType,
-            where: {
-                ...findOptionsForType.where,
-                category: In(includedCategories),
-                themes: {
-                    id: Not(MATURE_THEME_ID),
-                },
-            },
-            relations: dto.relations,
-            relationLoadStrategy: getRelationLoadStrategy(dto.relations),
+        const query = this.gameRepository
+            .createQueryBuilder("game")
+            .select(COLLECTION_GAME_FIELDS)
+            .where(
+                "NOT EXISTS (SELECT 1 FROM game_themes_game_theme mature WHERE mature.gameId = game.id AND mature.gameThemeId = :matureThemeId)",
+                { matureThemeId: MATURE_THEME_ID },
+            )
+            .andWhere("game.category IN (:...categories)", {
+                categories: RELEASE_COLLECTION_CATEGORIES,
+            })
+            .andWhere("game.firstReleaseDate >= :from", { from })
+            .orderBy("game.firstReleaseDate", "ASC")
+            .skip(skip)
+            .take(take);
+
+        if (to) {
+            query.andWhere("game.firstReleaseDate <= :to", { to });
+        }
+
+        for (const [relation, value] of Object.entries(relations)) {
+            if (!value) continue;
+
+            if (relation === "cover") {
+                query
+                    .leftJoin("game.cover", "cover")
+                    .addSelect(COLLECTION_COVER_FIELDS);
+            } else if (relation === "platforms") {
+                query
+                    .leftJoin("game.platforms", "platforms")
+                    .addSelect(COLLECTION_PLATFORM_FIELDS);
+            } else {
+                // shortcut: extra relations only load their top level, upgrade if a caller nests them.
+                query.leftJoinAndSelect(`game.${relation}`, relation);
+            }
+        }
+
+        const result = await query.getManyAndCount();
+
+        this.cacheManager.set(cacheKey, result, minutes(15)).catch((error) => {
+            this.logger.warn(`Collection cache write failed: ${error}`);
         });
+
+        return result;
+    }
+
+    private resolveCollectionBounds(dto: FindGamesByCollectionTypeRequestDto): {
+        from: Date;
+        to?: Date;
+    } {
+        const parse = (value: string | undefined, field: "from" | "to") => {
+            if (value === undefined) return undefined;
+
+            const parsed = dayjs.utc(value);
+            if (!parsed.isValid()) {
+                throw new BadRequestException(`Invalid '${field}' date.`);
+            }
+            return parsed.toDate();
+        };
+
+        const from = parse(dto.from, "from");
+        const to = parse(dto.to, "to");
+        if (from && to && from.getTime() > to.getTime()) {
+            throw new BadRequestException(
+                "'from' must be before or equal to 'to'.",
+            );
+        }
+
+        switch (dto.collectionType) {
+            case GameRepositoryCollectionType.UPCOMING:
+                return {
+                    from: from ?? dayjs().utc().startOf("day").toDate(),
+                    to,
+                };
+            case GameRepositoryCollectionType.RECENTLY_RELEASED:
+                return {
+                    from: from ?? getPreviousDate(30),
+                    to: to ?? dayjs().utc().endOf("day").toDate(),
+                };
+            default:
+                throw new BadRequestException("Invalid collection type.");
+        }
     }
 }

@@ -10,7 +10,7 @@ import {
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Profile } from "./entities/profile.entity";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
 import { generateUsername } from "unique-username-generator";
 import {
@@ -190,6 +190,21 @@ export class ProfileService {
         return await this.profileRepository.findOne({
             where: {
                 userId,
+            },
+            relations: {
+                avatar: true,
+                banner: true,
+            },
+        });
+    }
+
+    /** Batch counterpart of `findOneById`; missing ids are simply not returned. */
+    async findManyByIds(userIds: string[]): Promise<Profile[]> {
+        if (userIds.length === 0) return [];
+
+        return await this.profileRepository.find({
+            where: {
+                userId: In(userIds),
             },
             relations: {
                 avatar: true,

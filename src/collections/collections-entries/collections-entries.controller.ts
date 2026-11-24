@@ -27,6 +27,7 @@ import { CollectionEntriesPaginatedResponseDto } from "./dto/collection-entries-
 import { Public } from "../../auth/public.decorator";
 import { FindCollectionEntriesForCollectionIdDto } from "./dto/find-collection-entries-for-collection-id.dto";
 import { CollectionEntryVisibilityDto } from "./dto/collection-entry-visibility.dto";
+import { FindOwnCollectionEntriesByGameIdsDto } from "./dto/find-own-collection-entries-by-game-ids.dto";
 
 @Controller("collections-entries")
 @ApiTags("collections-entries")
@@ -44,6 +45,19 @@ export class CollectionsEntriesController {
         return await this.collectionsEntriesService.createOrUpdate(
             session.getUserId(),
             createCollectionEntryDto,
+        );
+    }
+
+    @Post("own")
+    @HttpCode(HttpStatus.OK)
+    @ApiOkResponse({ type: [CollectionEntry] })
+    async findOwnEntriesByGameIds(
+        @Session() session: SessionContainer,
+        @Body() dto: FindOwnCollectionEntriesByGameIdsDto,
+    ): Promise<CollectionEntry[]> {
+        return await this.collectionsEntriesService.findOwnByGameIds(
+            session.getUserId(),
+            dto.gameIds,
         );
     }
 

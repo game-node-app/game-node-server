@@ -13,6 +13,7 @@ describe("CollectionsEntriesController", () => {
     let app: INestApplication;
     let service: {
         changeVisibility: jest.Mock;
+        findOwnByGameIds: jest.Mock;
         findOneByIdForViewer: jest.Mock;
         findOneByUserIdAndGameIdForViewer: jest.Mock;
         findRelatedEntriesForViewer: jest.Mock;
@@ -23,6 +24,7 @@ describe("CollectionsEntriesController", () => {
     beforeEach(async () => {
         service = {
             changeVisibility: jest.fn(),
+            findOwnByGameIds: jest.fn().mockResolvedValue([]),
             findOneByIdForViewer: jest.fn().mockResolvedValue({ id: "entry" }),
             findOneByUserIdAndGameIdForViewer: jest
                 .fn()
@@ -130,5 +132,63 @@ describe("CollectionsEntriesController", () => {
             "owner",
             7,
         );
+    });
+
+    describe("POST /collections-entries/own", () => {
+        it("returns the caller's matching entries in one batch", async () => {
+            const owned = [{ id: "entry-7", gameId: 7 }];
+            service.findOwnByGameIds.mockResolvedValue(owned);
+            const gameIds = Array.from({ length: 90 }, (_, index) => index + 1);
+
+            const response = await request(app.getHttpServer())
+                .post("/collections-entries/own")
+                .send({ gameIds })
+                .expect(200);
+
+            expect(response.body).toEqual(owned);
+            expect(service.findOwnByGameIds).toHaveBeenCalledWith(
+                "user",
+                gameIds,
+            );
+        });
+
+        it("returns an empty list when none of the games are owned", async () => {
+            const response = await request(app.getHttpServer())
+                .post("/collections-entries/own")
+                .send({ gameIds: [7, 8] })
+                .expect(200);
+
+            expect(response.body).toEqual([]);
+        });
+
+        it("rejects a signed-out batch lookup with 401", async () => {
+            getSession.mockResolvedValue(null);
+
+            await request(app.getHttpServer())
+                .post("/collections-entries/own")
+                .send({ gameIds: [7] })
+                .expect(401);
+
+            expect(service.findOwnByGameIds).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ["an empty array", []],
+            [
+                "more than 200 ids",
+                Array.from({ length: 201 }, (_, index) => index + 1),
+            ],
+            ["a non-integer id", [7, 8.5]],
+            ["a non-numeric id", [7, "8"]],
+            ["a zero id", [7, 0]],
+            ["a negative id", [7, -1]],
+        ])("rejects %s with 400", async (_case, gameIds) => {
+            await request(app.getHttpServer())
+                .post("/collections-entries/own")
+                .send({ gameIds })
+                .expect(400);
+
+            expect(service.findOwnByGameIds).not.toHaveBeenCalled();
+        });
     });
 });

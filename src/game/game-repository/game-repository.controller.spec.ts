@@ -66,7 +66,10 @@ describe("GameRepositoryController cover personalization", () => {
             ? request(server()).post(`/game/repository/${id}`).send(body)
             : request(server()).post(`/game/repository/${id}`);
 
-    /** The @Cacheable key is JSON.stringify([dto]), so the args must match today's exactly. */
+    /**
+     * The controller must hand the cache-friendly dto (ids + relations) to the service,
+     * so personalization fields never leak into per-game cache keys.
+     */
     function expectCachedArgs(actual: unknown[], expected: unknown[]) {
         expect(JSON.stringify(actual)).toBe(JSON.stringify(expected));
     }
@@ -119,6 +122,8 @@ describe("GameRepositoryController cover personalization", () => {
             { gameIds: [10], relations: { cover: true } },
         ]);
         expect(response.body[0].cover.imageId).toBe("chosen");
+        // Personalized covers are applied on a copy, never on the shared cached game.
+        expect(game.cover).toEqual({ id: 1, imageId: "default" });
     });
 
     it("opts in through the cover owner alone", async () => {
@@ -201,6 +206,7 @@ describe("GameRepositoryController cover personalization", () => {
             [10, { relations: { cover: true } }],
         );
         expect(response.body.cover.imageId).toBe("chosen");
+        expect(game.cover).toEqual({ id: 1, imageId: "default" });
     });
 
     it("does not personalize a single read without the cover relation", async () => {

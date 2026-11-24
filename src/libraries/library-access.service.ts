@@ -49,6 +49,73 @@ export class LibraryAccessService {
     }
 
     /**
+     * Batched counterpart of `resolve` for already-loaded profiles. Follows are fetched once, and
+     * only for non-owned `followers` libraries: anonymous viewers and batches without one never
+     * query `user_follow`. Entry levels for `public` libraries therefore stop at the everyone
+     * subset; callers that filter entries by level need `resolve`.
+     */
+    async resolveMany(
+        viewerId: string | undefined,
+        profiles: Pick<Profile, "userId" | "libraryVisibility">[],
+    ): Promise<Map<string, LibraryAccess>> {
+        const followedUserIds = new Set<string>();
+        const followCheckOwnerIds = [
+            ...new Set(
+                profiles
+                    .filter(
+                        (profile) =>
+                            profile.userId !== viewerId &&
+                            profile.libraryVisibility ===
+                                LibraryVisibility.Followers,
+                    )
+                    .map((profile) => profile.userId),
+            ),
+        ];
+
+        if (viewerId && followCheckOwnerIds.length > 0) {
+            const follows = await this.userFollowRepository.find({
+                where: {
+                    followerUserId: viewerId,
+                    followedUserId: In(followCheckOwnerIds),
+                },
+                select: { followedUserId: true },
+            });
+            for (const follow of follows) {
+                followedUserIds.add(follow.followedUserId);
+            }
+        }
+
+        return new Map<string, LibraryAccess>(
+            profiles.map((profile): [string, LibraryAccess] => {
+                const audience =
+                    profile.userId === viewerId
+                        ? LibraryAudience.Owner
+                        : followedUserIds.has(profile.userId)
+                          ? LibraryAudience.Follower
+                          : LibraryAudience.Everyone;
+                const libraryVisibility =
+                    profile.libraryVisibility ?? LibraryVisibility.Public;
+
+                return [
+                    profile.userId,
+                    {
+                        audience,
+                        libraryVisibility,
+                        canViewLibrary: audienceSatisfiesLevel(
+                            audience,
+                            libraryVisibility,
+                        ),
+                        visibleEntryLevels: visibleEntryLevels(
+                            audience,
+                            libraryVisibility,
+                        ),
+                    },
+                ];
+            }),
+        );
+    }
+
+    /**
      * Game ids of the owner's entries whose level is not in `visibleEntryLevels`, sorted
      * ascending. With an empty list every game in the library is hidden.
      */

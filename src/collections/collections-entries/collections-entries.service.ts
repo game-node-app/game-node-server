@@ -242,6 +242,22 @@ export class CollectionsEntriesService {
         return entry;
     }
 
+    /**
+     * The caller's own entries for the given games, in whatever order the database returns them.
+     */
+    async findOwnByGameIds(
+        userId: string,
+        gameIds: number[],
+    ): Promise<CollectionEntry[]> {
+        return this.collectionEntriesRepository.find({
+            where: {
+                libraryUserId: userId,
+                gameId: In([...new Set(gameIds)]),
+            },
+            relations: this.relations,
+        });
+    }
+
     async findOneByUserIdAndGameIdForViewer(
         viewerId: string | undefined,
         userId: string,

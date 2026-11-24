@@ -22,6 +22,7 @@ describe("BillingService", () => {
             subscriptions: { update: jest.fn(), retrieve: jest.fn() },
         },
         getSubscriptions: jest.fn(),
+        getSubscriptionsForUsers: jest.fn(),
         listSubscriptionsByStatuses: jest.fn(),
         auth: {
             api: {
@@ -272,6 +273,65 @@ describe("BillingService", () => {
             authService.listSubscriptionsByStatuses.mockResolvedValue([]);
 
             await expect(service.findSupporterUserIds()).resolves.toEqual([]);
+        });
+    });
+
+    describe("findSupporterUserIdsIn", () => {
+        it("returns an empty set without a lookup for an empty input", async () => {
+            await expect(service.findSupporterUserIdsIn([])).resolves.toEqual(
+                new Set(),
+            );
+            expect(authService.getSubscriptionsForUsers).not.toHaveBeenCalled();
+        });
+
+        it("keeps only the users whose subscription grants entitlement", async () => {
+            authService.getSubscriptionsForUsers.mockResolvedValue([
+                row({ id: "active", referenceId: "user-1" }),
+                row({
+                    id: "expired",
+                    referenceId: "user-2",
+                    status: "canceled",
+                    periodEnd: new Date(Date.now() - DAY_MS),
+                }),
+                row({
+                    id: "grace",
+                    referenceId: "user-3",
+                    status: "past_due",
+                    periodEnd: new Date(Date.now() - 2 * DAY_MS),
+                }),
+                row({
+                    id: "unpaid",
+                    referenceId: "user-4",
+                    status: "unpaid",
+                }),
+            ]);
+
+            const supporterIds = await service.findSupporterUserIdsIn([
+                "user-1",
+                "user-2",
+                "user-3",
+                "user-4",
+                "user-5",
+            ]);
+
+            expect(supporterIds).toEqual(new Set(["user-1", "user-3"]));
+            expect(authService.getSubscriptionsForUsers).toHaveBeenCalledWith([
+                "user-1",
+                "user-2",
+                "user-3",
+                "user-4",
+                "user-5",
+            ]);
+        });
+
+        it("fails closed to an empty set when the lookup fails", async () => {
+            authService.getSubscriptionsForUsers.mockRejectedValue(
+                new Error("adapter down"),
+            );
+
+            await expect(
+                service.findSupporterUserIdsIn(["user-1"]),
+            ).resolves.toEqual(new Set());
         });
     });
 
