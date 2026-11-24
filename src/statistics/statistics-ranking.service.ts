@@ -70,16 +70,23 @@ export class StatisticsRankingService {
         const score = this.scoreQuery(mode, from, asOf, period === "all");
         const key = `${sourceType}:${mode}:${period}`;
         const source = this.sourceQuery(sourceType);
+        // Game reads only join prepared scores > 0, so storing zero rows (~90% of games) was pure write load.
+        const positiveOnly = sourceType === StatisticsSourceType.GAME;
+        const sourceFrom = positiveOnly
+            ? `FROM (${score.sql}) score STRAIGHT_JOIN game g ON g.statisticsTargetId = score.targetId STRAIGHT_JOIN statistics_target t ON t.id = g.statisticsTargetId`
+            : `${source.from} LEFT JOIN (${score.sql}) score ON score.targetId = t.id`;
+        const sourceWhere = positiveOnly ? `score.score > 0 AND ${source.where}` : source.where;
         let attempts = 0;
         while (attempts < 3) {
             try {
-                await this.dataSource.transaction(async (tx) => {
+                // READ COMMITTED: under REPEATABLE READ, INSERT ... SELECT share-locks every scanned source row
+                // (game, statistics_target, metric_*, statistics_event), stalling view/like writes and the IGDB sync.
+                await this.dataSource.transaction("READ COMMITTED", async (tx) => {
                     await tx.query(
                         `INSERT INTO ranking_score (rankingKey, targetId, score, definitionVersion, computedAt)
                         SELECT ?, t.id, COALESCE(score.score, 0), ?, ?
-                        ${source.from}
-                        LEFT JOIN (${score.sql}) score ON score.targetId = t.id
-                        WHERE ${source.where}
+                        ${sourceFrom}
+                        WHERE ${sourceWhere}
                         ON DUPLICATE KEY UPDATE score = VALUES(score), definitionVersion = VALUES(definitionVersion), computedAt = VALUES(computedAt)`,
                         [key, definitionVersion, asOf, ...score.parameters, ...source.parameters],
                     );

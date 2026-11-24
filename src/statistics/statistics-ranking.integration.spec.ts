@@ -321,6 +321,27 @@ describe("statistics rankings", () => {
         expect(expansions.pagination.total).toBe(2);
     });
 
+    it("prepares only positive game scores and drops games whose score fell to zero", async () => {
+        const firstId = 2_090_000_000 - randomInt(100_000);
+        const scored = await createGame(firstId);
+        const unscored = await createGame(firstId + 1);
+        await setMetric(scored, "views", 4);
+        const rows = () => dataSource.query(
+            "SELECT targetId, score FROM ranking_score WHERE rankingKey = 'game:popular:all' AND targetId IN (?, ?)",
+            [scored, unscored],
+        );
+        try {
+            await (service as any).refreshKey(StatisticsSourceType.GAME, "popular", "all");
+            expect((await rows()).map((row: any) => [Number(row.targetId), Number(row.score)])).toEqual([[scored, 4]]);
+            await setMetric(scored, "views", 0);
+            await (service as any).refreshKey(StatisticsSourceType.GAME, "popular", "all");
+            expect(await rows()).toEqual([]);
+        } finally {
+            // Other tests read "all" live; a published key would switch them to prepared scores.
+            await dataSource.query("DELETE FROM ranking_score WHERE rankingKey = 'game:popular:all'");
+        }
+    });
+
     it("rechecks cached positive-score eligibility even when the total stays unchanged", async () => {
         const firstId = 2_080_000_000 - randomInt(100_000);
         const firstTarget = await createGame(firstId);

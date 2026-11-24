@@ -35,8 +35,10 @@ export class IgdbCatalogStateService {
         let expired = false;
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-            await runner.query("SET SESSION innodb_lock_wait_timeout = 10");
-            await runner.query("SET SESSION MAX_EXECUTION_TIME = 30000");
+            // One round trip per catalog game instead of two (this runs millions of times per sync).
+            await runner.query(
+                "SET SESSION innodb_lock_wait_timeout = 10, MAX_EXECUTION_TIME = 30000",
+            );
             // Server-side cancellation rolls back and rejects pending queries.
             // mysql2.destroy() alone does not reject a running query reliably.
             timer = setTimeout(() => {
@@ -63,10 +65,7 @@ export class IgdbCatalogStateService {
             if (!expired) {
                 try {
                     await runner.query(
-                        "SET SESSION innodb_lock_wait_timeout = DEFAULT",
-                    );
-                    await runner.query(
-                        "SET SESSION MAX_EXECUTION_TIME = DEFAULT",
+                        "SET SESSION innodb_lock_wait_timeout = DEFAULT, MAX_EXECUTION_TIME = DEFAULT",
                     );
                 } finally {
                     await runner.release();
