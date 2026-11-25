@@ -14,6 +14,7 @@ import { NotificationsLifecycleService } from "../notifications/notifications-li
 import { BillingService } from "../billing/billing.service";
 import { Library } from "../libraries/entities/library.entity";
 import { LibraryAccessService } from "../libraries/library-access.service";
+import { GuildQueueService } from "../guild/guild-queue/guild-queue.service";
 
 const FREE_COLLECTION_LIMIT = 5;
 
@@ -33,6 +34,8 @@ export class CollectionsService {
             | NotificationsLifecycleService
             | undefined,
         private readonly libraryAccessService: LibraryAccessService,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {}
 
     async findOneById(id: string) {
@@ -187,6 +190,9 @@ export class CollectionsService {
                 await repository.save(collectionEntity);
             },
         );
+
+        if (createCollectionDto.isPublic)
+            this.guildQueueService?.enqueueEvaluation(userId, "collection");
     }
 
     async update(
@@ -194,7 +200,7 @@ export class CollectionsService {
         collectionId: string,
         updateCollectionDto: UpdateCollectionDto,
     ) {
-        return this.collectionsRepository.manager.transaction(
+        const saved = await this.collectionsRepository.manager.transaction(
             async (manager) => {
                 const repository = manager.getRepository(Collection);
                 const collection = await repository.findOne({
@@ -236,6 +242,9 @@ export class CollectionsService {
                 return saved;
             },
         );
+        if (saved.isPublic)
+            this.guildQueueService?.enqueueEvaluation(userId, "collection");
+        return saved;
     }
 
     /**

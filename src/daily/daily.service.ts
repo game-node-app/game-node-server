@@ -4,6 +4,7 @@ import {
     Inject,
     Injectable,
     NotFoundException,
+    Optional,
     ServiceUnavailableException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -62,6 +63,7 @@ import { GameCover } from "../game/game-repository/entities/game-cover.entity";
 import { GameArtwork } from "../game/game-repository/entities/game-artwork.entity";
 import { buildPaginationResponse } from "../utils/pagination/buildPaginationResponse";
 import { DailyRankingService } from "./daily-ranking.service";
+import { GuildQueueService } from "../guild/guild-queue/guild-queue.service";
 
 const MODE_ORDER = Object.values(DailyMode);
 
@@ -132,6 +134,8 @@ export class DailyService {
         @Inject(CACHE_MANAGER) private readonly cache: Cache,
         configService: ConfigService,
         private readonly rankingService: DailyRankingService,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {
         this.imageSecret =
             configService.getOrThrow<string>("DAILY_IMAGE_SECRET");
@@ -281,6 +285,8 @@ export class DailyService {
                 outcome.saved.hintAt,
                 await this.rankingSummary(userId, puzzle, outcome.saved),
             );
+        if (outcome.result.status === DailyStatus.WON)
+            this.guildQueueService?.enqueueEvaluation(userId, "daily");
         return this.toPlayResponse(
             puzzle,
             evaluation,
@@ -336,6 +342,7 @@ export class DailyService {
         );
 
         let imported = 0;
+        let importedWin = false;
         for (const item of dto.results) {
             const puzzle = puzzles.get(item.puzzleId);
             if (!puzzle || done.has(puzzle.id)) continue;
@@ -365,7 +372,10 @@ export class DailyService {
             });
             done.add(puzzle.id);
             imported++;
+            importedWin ||= evaluation.status === DailyStatus.WON;
         }
+        if (importedWin)
+            this.guildQueueService?.enqueueEvaluation(userId, "daily");
         return { imported };
     }
 

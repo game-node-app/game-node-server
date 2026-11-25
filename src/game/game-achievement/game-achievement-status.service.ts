@@ -1,5 +1,5 @@
 import { playerSyncWrite } from "../../sync/player-sync-attempt";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
     Between,
     FindOptionsRelations,
@@ -17,6 +17,7 @@ import { generateChecksum } from "../../utils/checksum";
 import { FindGameCompletionStatusDto } from "./dto/game-completion-status.dto";
 import { GameAchievementDto } from "./dto/game-achievement.dto";
 import { GameObtainedAchievementDto } from "./dto/game-obtained-achievement.dto";
+import { GuildQueueService } from "../../guild/guild-queue/guild-queue.service";
 
 const createChecksum = (status: GameCompletionStatus) => {
     const comparableEntity: Partial<GameCompletionStatus> = {
@@ -41,6 +42,8 @@ export class GameAchievementStatusService {
     constructor(
         @InjectRepository(GameCompletionStatus)
         private readonly gameCompletionStatusRepository: Repository<GameCompletionStatus>,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {}
 
     async findStatusByUserIdOrFail(userId: string, externalGameId: number) {
@@ -86,12 +89,12 @@ export class GameAchievementStatusService {
         gameAchievements: GameAchievementDto[],
         obtainedAchievements: GameObtainedAchievementDto[],
         manager?: EntityManager,
-    ) {
+    ): Promise<boolean> {
         const repository =
             manager?.getRepository(GameCompletionStatus) ??
             this.gameCompletionStatusRepository;
         if (gameAchievements.length === 0) {
-            return;
+            return false;
         }
 
         const actuallyObtainedAchievements = obtainedAchievements.filter(
@@ -136,7 +139,7 @@ export class GameAchievementStatusService {
             this.logger.log(
                 `No changes detected for game completion status of user ${userId} and game ${externalGameId}. Skipping update.`,
             );
-            return;
+            return false;
         }
 
         const save = () =>
@@ -147,8 +150,16 @@ export class GameAchievementStatusService {
         if (manager) await save();
         else await playerSyncWrite(save);
 
+        // With a manager the caller owns the transaction and evaluates after its commit.
+        if (!manager)
+            this.guildQueueService?.enqueueEvaluation(
+                userId,
+                "game_achievement",
+            );
+
         this.logger.log(
             `Updated game completion status for user ${userId} and game ${externalGameId}. Completed: ${isCompleted}, Platinum: ${isPlatinum}, Total Achievements: ${gameAchievements.length}, Obtained Achievements: ${obtainedAchievements.length}`,
         );
+        return true;
     }
 }

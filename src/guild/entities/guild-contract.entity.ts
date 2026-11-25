@@ -11,6 +11,7 @@ import {
 import { Game } from "../../game/game-repository/entities/game.entity";
 import { Profile } from "../../profile/entities/profile.entity";
 import {
+    GuildBonusObjective,
     GuildCategory,
     GuildContractStatus,
     GuildCriteria,
@@ -20,6 +21,7 @@ import {
 import { GuildBoardEntry } from "./guild-board-entry.entity";
 import { GuildEvent } from "./guild-event.entity";
 import { GuildReward } from "./guild-reward.entity";
+import { GuildUserChain } from "./guild-user-chain.entity";
 
 /** An accepted quest tracked through active -> ready_to_claim -> completed (design 1). */
 @Entity()
@@ -31,6 +33,7 @@ import { GuildReward } from "./guild-reward.entity";
 @Index("IDX_guild_contract_user_board", ["profileUserId", "boardEntryId"])
 @Index("IDX_guild_contract_user_event", ["profileUserId", "eventId"])
 @Index("IDX_guild_contract_status_expires", ["status", "expiresAt"])
+@Index("IDX_guild_contract_chain_progress", ["chainProgressId"])
 export class GuildContract {
     @PrimaryColumn({ type: "varchar", length: 36 })
     id: string;
@@ -78,11 +81,35 @@ export class GuildContract {
     @Column({ type: "int", unsigned: true })
     xpReward: number;
 
+    @Column({ type: "int", unsigned: true, default: 0 })
+    sealsReward: number;
+
     @Column({ type: "varchar", length: 32 })
     objectiveType: GuildObjectiveType;
 
     @Column({ type: "json" })
     criteria: GuildCriteria;
+
+    /** Optional secondary objective, snapshotted on accept; locked after (design 4). */
+    @Column({ type: "json", nullable: true, default: null })
+    bonusObjective: GuildBonusObjective | null;
+
+    @Column({ type: "boolean", default: false })
+    bonusCompleted: boolean;
+
+    /** Hourglass extensions applied; at most 1 per contract (spec: contracts). */
+    @Column({ type: "tinyint", unsigned: true, default: 0 })
+    extendedCount: number;
+
+    @ManyToOne(() => GuildUserChain, { nullable: true, onDelete: "SET NULL" })
+    @JoinColumn({
+        name: "chainProgressId",
+        foreignKeyConstraintName: "FK_guild_contract_chain_progress",
+    })
+    chainProgress: GuildUserChain | null;
+
+    @Column({ type: "varchar", length: 36, nullable: true, default: null })
+    chainProgressId: string | null;
 
     @ManyToOne(() => Game, { nullable: true, onDelete: "SET NULL" })
     @JoinColumn({

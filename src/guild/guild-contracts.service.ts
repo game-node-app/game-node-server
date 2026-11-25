@@ -4,16 +4,19 @@ import {
     Injectable,
     Logger,
     NotFoundException,
+    Optional,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { DataSource, EntityManager, In } from "typeorm";
 import { AchievementsProgressService } from "../achievements/achievements-progress.service";
 import { CollectionEntryStatus } from "../collections/collections-entries/collections-entries.constants";
 import { LevelService } from "../level/level.service";
+import { GuildChainClaimProgressDto } from "./dto/guild-chains.dto";
 import {
     AcceptGuildContractDto,
     AcceptGuildContractResponseDto,
     ClaimGuildContractResponseDto,
+    ExtendGuildContractResponseDto,
     GetGuildContractsQueryDto,
     GuildContractDto,
     GuildContractEventSummaryDto,
@@ -27,34 +30,50 @@ import { GuildContract } from "./entities/guild-contract.entity";
 import { GuildEvent } from "./entities/guild-event.entity";
 import { GuildProfile } from "./entities/guild-profile.entity";
 import {
+    ANCIENT_FOSSIL_DAYS,
     computeGuildRank,
+    currentMonthKey,
     currentWeekStart,
     DAY_MS,
+    defaultSealsForRank,
     GUILD_GLOBAL_XP_MULTIPLIER,
-    GUILD_MAX_ACTIVE_CONTRACTS,
+    GuildBoardCycle,
     GuildCategory,
+    GuildConsumableKey,
     GuildContractStatus,
-    GuildCriteria,
     GuildEventStatus,
     GuildObjectiveType,
+    GuildRank,
+    GuildSealReason,
+    getGuildRankPerks,
     igdbImageUrl,
     LinaPose,
     LinaTrigger,
     nextMondayRefreshAt,
+    RECENT_DUST_DAYS,
     STALE_BACKLOG_DAYS,
     toRewardDescriptor,
 } from "./guild.constants";
 import { GuildContractEvaluatorService } from "./guild-contract-evaluator.service";
 import { GuildBoardService } from "./guild-board.service";
+import { GuildBountiesService } from "./guild-bounties.service";
+import {
+    GuildChainsService,
+    resolveActiveContractLimit,
+} from "./guild-chains.service";
+import { GuildPassportService } from "./guild-passport.service";
 import { GuildProfileService } from "./guild-profile.service";
+import { GuildRankProgressionService } from "./guild-rank-progression.service";
 import { GuildRewardsService } from "./guild-rewards.service";
+import { GuildSealsService } from "./guild-seals.service";
 import { GUILD_SYSTEM_TEMPLATES } from "./guild-templates.constants";
 import {
     GuildTimeToBeatService,
-    GUILD_TTB_TTL_DAYS,
     getEffectiveTtbSeconds,
 } from "./guild-time-to-beat.service";
 import { LinaReceptionService } from "./lina-reception.service";
+import { evaluateGuildBonusObjective } from "./evaluators";
+import { gameMatchesGuildCriteria } from "./evaluators/game-criteria";
 
 const CONTRACT_RELATIONS = {
     targetGame: true,
@@ -65,6 +84,9 @@ const CONTRACT_RELATIONS = {
 const rankOrder = (status: GuildContractStatus) =>
     status === GuildContractStatus.READY_TO_CLAIM ? 0 : 1;
 
+/** `GuildProceduralBoardService`'s veteran-library threshold for `ancient_fossil`. */
+const VETERAN_LIBRARY_DAYS = 730;
+
 /**
  * Player-facing contract lifecycle: acceptance with target validation,
  * listing, atomic turn-in and abandonment (designs 5 and 6).
@@ -72,6 +94,10 @@ const rankOrder = (status: GuildContractStatus) =>
 @Injectable()
 export class GuildContractsService {
     private readonly logger = new Logger(GuildContractsService.name);
+    private readonly sealsService: GuildSealsService;
+    private readonly rankProgressionService: GuildRankProgressionService;
+    private readonly passportService: GuildPassportService;
+    private readonly chainsService: GuildChainsService;
 
     constructor(
         private readonly dataSource: DataSource,
@@ -83,7 +109,35 @@ export class GuildContractsService {
         private readonly levelService: LevelService,
         private readonly achievementsProgressService: AchievementsProgressService,
         private readonly guildTimeToBeatService: GuildTimeToBeatService,
-    ) {}
+        @Optional() sealsService?: GuildSealsService,
+        @Optional() rankProgressionService?: GuildRankProgressionService,
+        @Optional() passportService?: GuildPassportService,
+        @Optional() chainsService?: GuildChainsService,
+        @Optional()
+        private readonly guildBountiesService?: GuildBountiesService,
+    ) {
+        // Optional until Wave 5 registers the economy services in GuildModule.
+        this.sealsService = sealsService ?? new GuildSealsService(dataSource);
+        this.rankProgressionService =
+            rankProgressionService ??
+            new GuildRankProgressionService(dataSource, guildRewardsService);
+        this.passportService =
+            passportService ??
+            new GuildPassportService(
+                dataSource,
+                guildRewardsService,
+                this.sealsService,
+                this.rankProgressionService,
+                levelService,
+            );
+        this.chainsService =
+            chainsService ??
+            new GuildChainsService(
+                dataSource,
+                this.sealsService,
+                guildTimeToBeatService,
+            );
+    }
 
     public async getOverview(
         userId: string,
@@ -94,28 +148,44 @@ export class GuildContractsService {
         await this.evaluatorService.evaluateUserContracts(userId, now);
 
         const weekStart = currentWeekStart(now);
-        const [license, contracts, yearGoal, boardCount, completedCount] =
-            await Promise.all([
-                this.guildProfileService.getLicense(userId, guildProfile),
-                this.contractRepository().find({
-                    where: {
-                        profileUserId: userId,
-                        status: In([
-                            GuildContractStatus.ACTIVE,
-                            GuildContractStatus.READY_TO_CLAIM,
-                        ]),
-                    },
-                    relations: CONTRACT_RELATIONS,
-                }),
-                this.guildProfileService.getCurrentYearGoal(userId, now),
-                this.guildBoardService.getOpenBoardCount(userId, now),
-                this.contractRepository().count({
-                    where: {
-                        profileUserId: userId,
-                        status: GuildContractStatus.COMPLETED,
-                    },
-                }),
-            ]);
+        const [
+            license,
+            contracts,
+            yearGoal,
+            boardCount,
+            completedCount,
+            passport,
+            activeChain,
+            bountySummary,
+        ] = await Promise.all([
+            this.guildProfileService.getLicense(userId, guildProfile, now),
+            this.contractRepository().find({
+                where: {
+                    profileUserId: userId,
+                    status: In([
+                        GuildContractStatus.ACTIVE,
+                        GuildContractStatus.READY_TO_CLAIM,
+                    ]),
+                },
+                relations: CONTRACT_RELATIONS,
+            }),
+            this.guildProfileService.getCurrentYearGoal(userId, now),
+            this.guildBoardService.getOpenBoardCount(userId, now),
+            this.contractRepository().count({
+                where: {
+                    profileUserId: userId,
+                    status: GuildContractStatus.COMPLETED,
+                },
+            }),
+            this.passportService.getPassportSummary(userId, now),
+            this.chainsService.getActiveChainSummary(userId),
+            this.guildBountiesService
+                ? this.guildBountiesService.getBountiesSummary(userId, now)
+                : Promise.resolve({
+                      activeBountiesCount: 0,
+                      claimableBountiesCount: 0,
+                  }),
+        ]);
 
         contracts.sort(
             (a, b) =>
@@ -135,7 +205,13 @@ export class GuildContractsService {
         const lina = await this.linaReceptionService.evaluateReception(
             userId,
             guildProfile,
-            { readyContract, now, updateLastVisited: true },
+            {
+                readyContract,
+                now,
+                updateLastVisited: true,
+                hasClaimableCommunityBounty:
+                    bountySummary.claimableBountiesCount > 0,
+            },
         );
 
         return {
@@ -150,6 +226,9 @@ export class GuildContractsService {
             weekStart,
             nextRefreshAt: nextMondayRefreshAt(weekStart),
             lina,
+            passport,
+            activeChain,
+            activeBountiesCount: bountySummary.activeBountiesCount,
         };
     }
 
@@ -256,10 +335,11 @@ export class GuildContractsService {
 
         // Warms the TTB cache before the transaction, so the locked accept never
         // reaches IGDB while holding the guild_event row.
+        const preReadCriteria = entry?.criteria ?? preReadEvent?.criteria;
         if (
             dto.targetGameId != null &&
-            (entry?.criteria ?? preReadEvent?.criteria)?.maxTimeToBeatHours !=
-                null
+            (preReadCriteria?.maxTimeToBeatHours != null ||
+                preReadCriteria?.minTimeToBeatHours != null)
         ) {
             await this.guildTimeToBeatService.getForGameIds(
                 [dto.targetGameId],
@@ -271,8 +351,8 @@ export class GuildContractsService {
         const acceptedAt = await this.dataSource.transaction(
             async (manager) => {
                 // Serializes concurrent accepts of the same user (cap + duplicates).
-                await manager.query(
-                    "SELECT profileUserId FROM guild_profile WHERE profileUserId = ? FOR UPDATE",
+                const [profileRow] = await manager.query(
+                    "SELECT `rank` AS guildRank, extraSlotPermitWeekStart FROM guild_profile WHERE profileUserId = ? FOR UPDATE",
                     [userId],
                 );
                 // Fixed guild_profile -> guild_event order: admin event writes never lock the profile.
@@ -291,10 +371,24 @@ export class GuildContractsService {
                           manager,
                       )
                     : null;
-                if (entry && entry.weekStart !== currentWeekStart(acceptedAt)) {
-                    throw new BadRequestException(
-                        "This board quest is no longer available.",
-                    );
+                if (entry) {
+                    if (entry.cycle === GuildBoardCycle.MONTHLY) {
+                        // Expeditions stay acceptable until the next São Paulo month.
+                        if (
+                            entry.periodKey !== currentMonthKey(acceptedAt) ||
+                            acceptedAt >= entry.expiresAt
+                        ) {
+                            throw new BadRequestException(
+                                "This board quest is no longer available.",
+                            );
+                        }
+                    } else if (
+                        entry.weekStart !== currentWeekStart(acceptedAt)
+                    ) {
+                        throw new BadRequestException(
+                            "This board quest is no longer available.",
+                        );
+                    }
                 }
                 await this.assertTargetGame(
                     userId,
@@ -318,10 +412,14 @@ export class GuildContractsService {
                         GuildContractStatus.READY_TO_CLAIM,
                     ],
                 );
-                if (Number(countRow.total) >= GUILD_MAX_ACTIVE_CONTRACTS) {
+                const activeLimit = resolveActiveContractLimit(
+                    profileRow?.guildRank ?? guildProfile.rank,
+                    profileRow?.extraSlotPermitWeekStart ?? null,
+                    currentWeekStart(acceptedAt),
+                );
+                if (Number(countRow.total) >= activeLimit) {
                     throw new ConflictException({
-                        message:
-                            "You already hold the maximum of 3 active contracts.",
+                        message: `You already hold the maximum of ${activeLimit} active contracts.`,
                         code: "guild_active_contract_limit_reached",
                     });
                 }
@@ -356,6 +454,7 @@ export class GuildContractsService {
                 const durationDays =
                     template?.contractDurationDays ??
                     (entry?.category === GuildCategory.LIBRARY ? 21 : 7);
+                const rank = entry?.rank ?? event!.rank;
                 await manager.getRepository(GuildContract).insert({
                     id: contractId,
                     profileUserId: userId,
@@ -363,10 +462,18 @@ export class GuildContractsService {
                     eventId: event?.id ?? null,
                     category: entry?.category ?? GuildCategory.EVENT,
                     templateKey: entry?.templateKey ?? null,
-                    rank: entry?.rank ?? event!.rank,
+                    rank,
                     xpReward: entry?.xpReward ?? event!.xpReward,
+                    sealsReward: entry
+                        ? entry.sealsReward
+                        : event!.sealsReward ||
+                          defaultSealsForRank(event!.rank),
                     objectiveType: entry?.objectiveType ?? event!.objectiveType,
                     criteria: entry?.criteria ?? event!.criteria,
+                    bonusObjective:
+                        entry?.bonusObjective ?? event?.bonusObjective ?? null,
+                    bonusCompleted: false,
+                    extendedCount: 0,
                     targetGameId: dto.targetGameId ?? null,
                     progressCurrent: 0,
                     progressTarget: entry?.targetCount ?? event!.targetCount,
@@ -420,11 +527,14 @@ export class GuildContractsService {
         now = new Date(),
     ): Promise<ClaimGuildContractResponseDto> {
         const outcome = await this.dataSource.transaction(async (manager) => {
-            const rows: Array<{ id: string; status: GuildContractStatus }> =
-                await manager.query(
-                    "SELECT id, status FROM guild_contract WHERE id = ? AND profileUserId = ? FOR UPDATE",
-                    [contractId, userId],
-                );
+            const rows: Array<{
+                id: string;
+                status: GuildContractStatus;
+                chainProgressId: string | null;
+            }> = await manager.query(
+                "SELECT id, status, chainProgressId FROM guild_contract WHERE id = ? AND profileUserId = ? FOR UPDATE",
+                [contractId, userId],
+            );
             const locked = rows[0];
             if (!locked) {
                 throw new NotFoundException("Contract not found.");
@@ -436,6 +546,13 @@ export class GuildContractsService {
                 });
             }
 
+            // Design 6 lock order: contract -> chain -> profile.
+            if (locked.chainProgressId) {
+                await manager.query(
+                    "SELECT id FROM guild_user_chain WHERE id = ? FOR UPDATE",
+                    [locked.chainProgressId],
+                );
+            }
             await manager.query(
                 "SELECT profileUserId FROM guild_profile WHERE profileUserId = ? FOR UPDATE",
                 [userId],
@@ -450,6 +567,9 @@ export class GuildContractsService {
                     relations: CONTRACT_RELATIONS,
                 });
 
+            const { bonusCompleted, creditedCollectionIds } =
+                await this.recheckClaimObjectives(manager, contract, now);
+
             const fulfillment =
                 await this.guildRewardsService.fulfillContractRewardWithManager(
                     manager,
@@ -457,9 +577,40 @@ export class GuildContractsService {
                     contract.id,
                     contract.rewardId,
                     now,
+                    {
+                        upgradeChestTier:
+                            bonusCompleted &&
+                            contract.bonusObjective?.upgradeChestTier === true,
+                    },
                 );
 
-            const totalXp = contract.xpReward + fulfillment.bonusXp;
+            const sealsReward = contract.sealsReward ?? 0;
+            const bonusSeals = bonusCompleted
+                ? (contract.bonusObjective?.bonusSeals ?? 0)
+                : 0;
+            if (sealsReward > 0) {
+                await this.sealsService.creditSealsWithManager(
+                    manager,
+                    userId,
+                    sealsReward,
+                    GuildSealReason.CONTRACT_CLAIM,
+                    contract.id,
+                );
+            }
+            if (bonusSeals > 0) {
+                await this.sealsService.creditSealsWithManager(
+                    manager,
+                    userId,
+                    bonusSeals,
+                    GuildSealReason.BONUS_OBJECTIVE,
+                    contract.id,
+                );
+            }
+
+            const bonusXp = bonusCompleted
+                ? (contract.bonusObjective?.bonusXp ?? 0)
+                : 0;
+            const totalXp = contract.xpReward + bonusXp + fulfillment.bonusXp;
             const globalXpAwarded = Math.floor(
                 totalXp * GUILD_GLOBAL_XP_MULTIPLIER,
             );
@@ -480,20 +631,71 @@ export class GuildContractsService {
                 );
             }
 
+            const updatedProfile = await manager
+                .getRepository(GuildProfile)
+                .findOneByOrFail({ profileUserId: userId });
+            const promotion =
+                await this.rankProgressionService.grantRankPromotionsWithManager(
+                    manager,
+                    updatedProfile,
+                    contract.id,
+                    now,
+                );
+            const prestige =
+                await this.rankProgressionService.grantPrestigeStarsWithManager(
+                    manager,
+                    updatedProfile,
+                    contract.id,
+                    now,
+                );
+            const passportMonth =
+                await this.passportService.recordContractCompletionWithManager(
+                    manager,
+                    userId,
+                    now,
+                );
+            const chainProgress =
+                await this.chainsService.onChainContractClaimedWithManager(
+                    manager,
+                    userId,
+                    contract,
+                    now,
+                );
+
+            // `fulfillment.bonusSeals` was already credited (chest/duplicate) inside
+            // the rewards service; sum it into the receipt without crediting it again.
+            const sealsAwarded =
+                sealsReward +
+                bonusSeals +
+                fulfillment.bonusSeals +
+                prestige.sealsAwarded +
+                (chainProgress?.bonusSealsAwarded ?? 0);
+
             const claimPayload = {
                 xpAwarded: totalXp,
                 globalXpAwarded,
                 rankBefore,
                 rankAfter,
+                sealsAwarded,
+                sealsReward,
+                bonusObjective: contract.bonusObjective,
+                bonusCompleted,
+                extendedCount: contract.extendedCount,
+                chainProgressId: contract.chainProgressId,
+                creditedCollectionIds,
                 unlockedRewards: fulfillment.unlockedRewards,
                 chestResult: fulfillment.chestResult,
+                promotionRewards: promotion.unlockedRewards,
+                prestigeRewards: prestige.chestResults,
+                passportMonth,
             };
             await manager.query(
-                "UPDATE guild_contract SET status = ?, claimedAt = ?, claimPayload = ? WHERE id = ?",
+                "UPDATE guild_contract SET status = ?, claimedAt = ?, claimPayload = ?, bonusCompleted = ? WHERE id = ?",
                 [
                     GuildContractStatus.COMPLETED,
                     now,
                     JSON.stringify(claimPayload),
+                    bonusCompleted,
                     contractId,
                 ],
             );
@@ -522,8 +724,14 @@ export class GuildContractsService {
                 globalXpAwarded,
                 rankBefore,
                 rankAfter,
+                sealsAwarded,
+                bonusCompleted,
                 unlockedRewards: fulfillment.unlockedRewards,
                 chestResult: fulfillment.chestResult,
+                promotionRewards: promotion.unlockedRewards,
+                prestigeRewards: prestige.chestResults,
+                passportMonth,
+                chainProgress,
                 pendingBadgeActivity: fulfillment.pendingBadgeActivity,
                 contractDto,
                 hasUnseenBoard,
@@ -545,15 +753,24 @@ export class GuildContractsService {
             }
         }
 
+        const chainCompleted = outcome.chainProgress?.chainCompleted === true;
         const lina = {
-            trigger: LinaTrigger.CONTRACT_CLAIMED,
+            trigger: chainCompleted
+                ? LinaTrigger.CHAIN_COMPLETED
+                : outcome.rankBefore !== outcome.rankAfter
+                  ? LinaTrigger.RANK_PROMOTED
+                  : LinaTrigger.CONTRACT_CLAIMED,
             pose: LinaPose.HAPPY,
             context: {
                 contractId: outcome.contractDto.id,
                 xpAwarded: outcome.totalXp,
+                sealsAwarded: outcome.sealsAwarded,
                 rankBefore: outcome.rankBefore,
                 rankAfter: outcome.rankAfter,
                 rankedUp: outcome.rankBefore !== outcome.rankAfter,
+                ...(chainCompleted
+                    ? { chainKey: outcome.chainProgress!.chainKey }
+                    : {}),
             },
             hasUnseenBoard: outcome.hasUnseenBoard,
         };
@@ -564,10 +781,177 @@ export class GuildContractsService {
             globalXpAwarded: outcome.globalXpAwarded,
             rankBefore: outcome.rankBefore,
             rankAfter: outcome.rankAfter,
+            sealsAwarded: outcome.sealsAwarded,
+            bonusCompleted: outcome.bonusCompleted,
             unlockedRewards: outcome.unlockedRewards,
             chestResult: outcome.chestResult,
+            promotionRewards: outcome.promotionRewards,
+            prestigeRewards: outcome.prestigeRewards,
+            passportMonth: outcome.passportMonth,
+            chainProgress: outcome.chainProgress,
             lina,
         };
+    }
+
+    /**
+     * Intentional bonus objectives are re-checked at claim time so a review written
+     * after the game was finished still counts (design 4). Collection ids are kept
+     * for the 30-day anti-farming cooldown.
+     */
+    private async recheckClaimObjectives(
+        manager: EntityManager,
+        contract: GuildContract,
+        now: Date,
+    ): Promise<{ bonusCompleted: boolean; creditedCollectionIds: string[] }> {
+        const needsEvaluation =
+            contract.objectiveType === GuildObjectiveType.CURATE_COLLECTION ||
+            contract.bonusObjective?.type === "also_write_review";
+        let creditedCollectionIds: string[] = [];
+        let bonusCompleted = contract.bonusCompleted === true;
+        if (!needsEvaluation) return { bonusCompleted, creditedCollectionIds };
+
+        try {
+            const evaluation =
+                await this.evaluatorService.evaluateContractWithManager(
+                    manager,
+                    contract,
+                    now,
+                );
+            if (
+                contract.objectiveType === GuildObjectiveType.CURATE_COLLECTION
+            ) {
+                creditedCollectionIds = evaluation.sourceKeys;
+            }
+            if (
+                contract.bonusObjective?.type === "also_write_review" &&
+                !bonusCompleted
+            ) {
+                bonusCompleted = await evaluateGuildBonusObjective({
+                    query: manager,
+                    contract,
+                    evaluation,
+                    now,
+                });
+            }
+        } catch (error) {
+            // A bonus/evaluation failure must never block the base claim.
+            this.logger.warn(
+                `Guild claim-time evaluation failed for contract ${contract.id}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+        }
+        return { bonusCompleted, creditedCollectionIds };
+    }
+
+    public async extendContract(
+        userId: string,
+        contractId: string,
+        now = new Date(),
+    ): Promise<ExtendGuildContractResponseDto> {
+        return this.dataSource.transaction(async (manager) => {
+            // Design 6 lock order: contract, then profile.
+            const [locked] = await manager.query(
+                "SELECT id, status, expiresAt, extendedCount, eventId FROM guild_contract WHERE id = ? AND profileUserId = ? FOR UPDATE",
+                [contractId, userId],
+            );
+            if (!locked) {
+                throw new NotFoundException("Contract not found.");
+            }
+            if (locked.status !== GuildContractStatus.ACTIVE) {
+                throw new ConflictException({
+                    message: "Only active contracts can be extended.",
+                    code: "guild_contract_not_active",
+                });
+            }
+            if (
+                locked.expiresAt !== null &&
+                new Date(locked.expiresAt) <= now
+            ) {
+                throw new ConflictException({
+                    message: "This contract has already expired.",
+                    code: "guild_contract_expired",
+                });
+            }
+            if (Number(locked.extendedCount) > 0) {
+                throw new ConflictException({
+                    message: "This contract was already extended.",
+                    code: "guild_contract_already_extended",
+                });
+            }
+
+            await manager.query(
+                "SELECT profileUserId FROM guild_profile WHERE profileUserId = ? FOR UPDATE",
+                [userId],
+            );
+            const [profile] = await manager.query(
+                "SELECT `rank` AS guildRank, freeHourglassMonthKey FROM guild_profile WHERE profileUserId = ?",
+                [userId],
+            );
+            const monthKey = currentMonthKey(now);
+            const freeHourglassAvailable =
+                getGuildRankPerks(profile?.guildRank ?? GuildRank.E)
+                    .monthlyFreeHourglass > 0 &&
+                profile?.freeHourglassMonthKey !== monthKey;
+            let usedFreeMonthlyHourglass = false;
+            if (freeHourglassAvailable) {
+                await manager.query(
+                    "UPDATE guild_profile SET freeHourglassMonthKey = ? WHERE profileUserId = ?",
+                    [monthKey, userId],
+                );
+                usedFreeMonthlyHourglass = true;
+            } else {
+                // Throws 409 guild_consumable_not_owned when the inventory is empty.
+                await this.sealsService.consumeConsumableWithManager(
+                    manager,
+                    userId,
+                    GuildConsumableKey.HOURGLASS,
+                );
+            }
+
+            const baseExpiresAt =
+                locked.expiresAt === null ? now : new Date(locked.expiresAt);
+            let expiresAt = new Date(baseExpiresAt.getTime() + 7 * DAY_MS);
+            if (locked.eventId) {
+                const [event] = await manager.query(
+                    "SELECT endsAt FROM guild_event WHERE id = ?",
+                    [locked.eventId],
+                );
+                if (event?.endsAt) {
+                    const cap = new Date(
+                        new Date(event.endsAt).getTime() + 7 * DAY_MS,
+                    );
+                    if (expiresAt > cap) expiresAt = cap;
+                }
+            }
+
+            await manager.query(
+                "UPDATE guild_contract SET expiresAt = ?, extendedCount = 1, expiringNotifiedAt = NULL WHERE id = ?",
+                [expiresAt, contractId],
+            );
+            const contract = await manager
+                .getRepository(GuildContract)
+                .findOneOrFail({
+                    where: { id: contractId },
+                    relations: CONTRACT_RELATIONS,
+                });
+            const [contractDto] = await this.enrichContracts(
+                userId,
+                [contract],
+                now,
+                manager,
+            );
+            const balances = await this.sealsService.getConsumableBalances(
+                userId,
+                manager,
+            );
+            return {
+                contract: contractDto,
+                extensionDays: 7,
+                usedFreeMonthlyHourglass,
+                remainingHourglasses: balances[GuildConsumableKey.HOURGLASS],
+            };
+        });
     }
 
     public async abandonContract(
@@ -589,25 +973,35 @@ export class GuildContractsService {
             });
         }
 
-        const result = await repository.update(
-            {
-                id: contractId,
-                profileUserId: userId,
-                status: GuildContractStatus.ACTIVE,
-            },
-            { status: GuildContractStatus.ABANDONED },
-        );
-        if (!result.affected) {
-            throw new ConflictException({
-                message: "Only active contracts can be abandoned.",
-                code: "guild_contract_not_active",
+        const updated = await this.dataSource.transaction(async (manager) => {
+            const repository = manager.getRepository(GuildContract);
+            const result = await repository.update(
+                {
+                    id: contractId,
+                    profileUserId: userId,
+                    status: GuildContractStatus.ACTIVE,
+                },
+                { status: GuildContractStatus.ABANDONED },
+            );
+            if (!result.affected) {
+                throw new ConflictException({
+                    message: "Only active contracts can be abandoned.",
+                    code: "guild_contract_not_active",
+                });
+            }
+            // Same transaction: a chain stage never points at an abandoned contract.
+            if (contract.chainProgressId) {
+                await manager.query(
+                    "UPDATE guild_user_chain SET activeContractId = NULL WHERE id = ? AND activeContractId = ?",
+                    [contract.chainProgressId, contractId],
+                );
+            }
+            return repository.findOneOrFail({
+                where: { id: contractId },
+                relations: CONTRACT_RELATIONS,
             });
-        }
-
-        const updated = await repository.findOneOrFail({
-            where: { id: contractId },
-            relations: CONTRACT_RELATIONS,
         });
+
         const [contractDto] = await this.enrichContracts(
             userId,
             [updated],
@@ -720,15 +1114,35 @@ export class GuildContractsService {
                 );
             }
 
-            if (templateKey === "forgotten_relic") {
+            if (templateKey === "recent_dust") {
                 await this.assertStaleBacklogGame(
                     userId,
                     targetGameId,
                     now,
                     manager,
+                    RECENT_DUST_DAYS,
+                );
+            } else if (templateKey === "forgotten_relic") {
+                await this.assertStaleBacklogGame(
+                    userId,
+                    targetGameId,
+                    now,
+                    manager,
+                    STALE_BACKLOG_DAYS,
+                );
+            } else if (templateKey === "ancient_fossil") {
+                await this.assertStaleBacklogGame(
+                    userId,
+                    targetGameId,
+                    now,
+                    manager,
+                    await this.ancientFossilDays(userId, now, manager),
                 );
             } else if (templateKey === "deep_dive") {
-                if (libraryEntry?.status !== CollectionEntryStatus.PLAYING) {
+                if (
+                    libraryEntry?.status !== CollectionEntryStatus.PLAYING &&
+                    libraryEntry?.status !== CollectionEntryStatus.ONGOING
+                ) {
                     throw new BadRequestException(
                         "This quest requires a game you are currently playing.",
                     );
@@ -736,12 +1150,24 @@ export class GuildContractsService {
             }
         }
 
-        await this.assertGameMatchesCriteria(
+        const matches = await gameMatchesGuildCriteria(
+            manager,
             targetGameId,
             criteria,
-            now,
-            manager,
+            {
+                now,
+                timeToBeat: this.guildTimeToBeatService,
+                userId,
+                libraryStatuses: criteria.status
+                    ? [criteria.status]
+                    : undefined,
+            },
         );
+        if (!matches) {
+            throw new BadRequestException(
+                "This game does not match the quest criteria.",
+            );
+        }
     }
 
     private async assertStaleBacklogGame(
@@ -749,8 +1175,9 @@ export class GuildContractsService {
         gameId: number,
         now: Date,
         manager: EntityManager,
+        staleDays: number,
     ): Promise<void> {
-        const cutoff = new Date(now.getTime() - STALE_BACKLOG_DAYS * DAY_MS);
+        const cutoff = new Date(now.getTime() - staleDays * DAY_MS);
         const [eligible] = await manager.query(
             `SELECT ce.id FROM collection_entry ce
              WHERE ce.libraryUserId = ? AND ce.gameId = ?
@@ -779,71 +1206,22 @@ export class GuildContractsService {
         }
     }
 
-    private async assertGameMatchesCriteria(
-        gameId: number,
-        criteria: GuildCriteria,
+    /** Mirrors `GuildProceduralBoardService`: 2+ year libraries accept 730-day games. */
+    private async ancientFossilDays(
+        userId: string,
         now: Date,
         manager: EntityManager,
-    ): Promise<void> {
-        if (criteria.gameIds?.length && !criteria.gameIds.includes(gameId)) {
-            throw new BadRequestException(
-                "This game does not match the quest criteria.",
-            );
-        }
-
-        const relationChecks: Array<[string, string, number[] | undefined]> = [
-            ["game_genres_game_genre", "gameGenreId", criteria.genreIds],
-            ["game_themes_game_theme", "gameThemeId", criteria.themeIds],
-            [
-                "game_keywords_game_keyword",
-                "gameKeywordId",
-                criteria.keywordIds,
-            ],
-        ];
-        for (const [table, column, values] of relationChecks) {
-            if (!values?.length) continue;
-            const [match] = await manager.query(
-                `SELECT 1 AS ok FROM ${table}
-                 WHERE gameId = ? AND ${column} IN (${values.map(() => "?").join(",")})
-                 LIMIT 1`,
-                [gameId, ...values],
-            );
-            if (!match) {
-                throw new BadRequestException(
-                    "This game does not match the quest criteria.",
-                );
-            }
-        }
-
-        if (criteria.maxTimeToBeatHours != null) {
-            const [row] = await manager.query(
-                "SELECT hastilySeconds, normallySeconds, fetchedAt FROM game_time_to_beat WHERE gameId = ?",
-                [gameId],
-            );
-            // The pre-accept warm-up keeps this local; only a missing or stale row reaches IGDB.
-            const fresh =
-                row &&
-                now.getTime() - new Date(row.fetchedAt).getTime() <
-                    GUILD_TTB_TTL_DAYS * DAY_MS;
-            const cached = fresh
-                ? row
-                : (
-                      await this.guildTimeToBeatService.getForGameIds(
-                          [gameId],
-                          now,
-                      )
-                  ).get(gameId);
-            const seconds = getEffectiveTtbSeconds(cached);
-            if (
-                seconds === null ||
-                seconds <= 0 ||
-                seconds > criteria.maxTimeToBeatHours * 60 * 60
-            ) {
-                throw new BadRequestException(
-                    "This game does not match the quest criteria.",
-                );
-            }
-        }
+    ): Promise<number> {
+        const [profile] = await manager.query(
+            "SELECT createdAt FROM profile WHERE userId = ?",
+            [userId],
+        );
+        const libraryAgeDays = profile
+            ? (now.getTime() - new Date(profile.createdAt).getTime()) / DAY_MS
+            : 0;
+        return libraryAgeDays >= VETERAN_LIBRARY_DAYS
+            ? VETERAN_LIBRARY_DAYS
+            : ANCIENT_FOSSIL_DAYS;
     }
 
     private async enrichContracts(
@@ -998,8 +1376,13 @@ export class GuildContractsService {
             templateKey: contract.templateKey,
             rank: contract.rank,
             xpReward: contract.xpReward,
+            sealsReward: contract.sealsReward,
             objectiveType: contract.objectiveType,
             criteria: contract.criteria,
+            bonusObjective: contract.bonusObjective,
+            bonusCompleted: contract.bonusCompleted,
+            extendedCount: contract.extendedCount,
+            chainProgressId: contract.chainProgressId,
             targetGameId,
             targetGame:
                 targetGameId === null

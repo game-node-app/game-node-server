@@ -20,6 +20,8 @@ function fixture(count: number, isSupporter = jest.fn(async () => false)) {
         count: jest.fn().mockResolvedValue(count),
         create: jest.fn((entity) => entity),
         save: jest.fn(async (entity) => entity),
+        findOne: jest.fn(),
+        merge: jest.fn((collection, dto) => ({ ...collection, ...dto })),
     };
     const libraryRepository = {
         findOne: jest.fn().mockResolvedValue({ userId: "owner" }),
@@ -32,11 +34,13 @@ function fixture(count: number, isSupporter = jest.fn(async () => false)) {
             callback(manager),
         ),
     };
+    const guildQueue = { enqueueEvaluation: jest.fn() };
     const service = new CollectionsService(
         { manager } as any,
         { isSupporter } as any,
         undefined,
         {} as any,
+        guildQueue as any,
     );
 
     return {
@@ -44,6 +48,7 @@ function fixture(count: number, isSupporter = jest.fn(async () => false)) {
         collectionsRepository,
         libraryRepository,
         isSupporter,
+        guildQueue,
     };
 }
 
@@ -165,6 +170,93 @@ describe("CollectionsService.create limit", () => {
         expect(error).toBeInstanceOf(HttpException);
         expect(error.getStatus()).toBe(HttpStatus.NOT_FOUND);
         expect(collectionsRepository.save).not.toHaveBeenCalled();
+    });
+});
+
+describe("CollectionsService guild contract evaluation hook", () => {
+    it("schedules evaluation after creating a public collection", async () => {
+        const { service, collectionsRepository, guildQueue } = fixture(0);
+
+        await service.create("owner", {
+            name: "Favorites",
+            isPublic: true,
+        } as any);
+
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "owner",
+            "collection",
+        );
+        expect(
+            collectionsRepository.save.mock.invocationCallOrder[0],
+        ).toBeLessThan(
+            guildQueue.enqueueEvaluation.mock.invocationCallOrder[0],
+        );
+    });
+
+    it("does not schedule evaluation for a private collection", async () => {
+        const { service, guildQueue } = fixture(0);
+
+        await service.create("owner", createDto);
+
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+    });
+
+    it("schedules evaluation when an update leaves the collection public", async () => {
+        const { service, collectionsRepository, guildQueue } = fixture(0);
+        collectionsRepository.findOne.mockResolvedValue({
+            id: "collection",
+            libraryUserId: "owner",
+            isPublic: false,
+            isFeatured: false,
+        });
+
+        await service.update("owner", "collection", {
+            isPublic: true,
+        } as any);
+
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "owner",
+            "collection",
+        );
+    });
+
+    it("does not schedule evaluation when an update makes the collection private", async () => {
+        const { service, collectionsRepository, guildQueue } = fixture(0);
+        collectionsRepository.findOne.mockResolvedValue({
+            id: "collection",
+            libraryUserId: "owner",
+            isPublic: true,
+            isFeatured: false,
+        });
+
+        await service.update("owner", "collection", {
+            isPublic: false,
+        } as any);
+
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+    });
+
+    it("does not schedule evaluation when the write transaction rolls back", async () => {
+        const { service, guildQueue } = fixture(0);
+        const failure = new Error("deadlock");
+        (
+            service as any
+        ).collectionsRepository.manager.transaction.mockRejectedValue(failure);
+
+        await expect(
+            service.create("owner", { name: "Public", isPublic: true } as any),
+        ).rejects.toBe(failure);
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+    });
+
+    it("does not wait for the evaluation queue before committing", async () => {
+        const { service, guildQueue } = fixture(0);
+        guildQueue.enqueueEvaluation.mockReturnValue(new Promise(() => {}));
+
+        await expect(
+            service.create("owner", { name: "Public", isPublic: true } as any),
+        ).resolves.toBeUndefined();
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledTimes(1);
     });
 });
 

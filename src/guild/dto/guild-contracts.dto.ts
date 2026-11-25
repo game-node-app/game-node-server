@@ -11,6 +11,7 @@ import {
 } from "class-validator";
 import { PaginationInfo } from "../../utils/pagination/pagination-response.dto";
 import {
+    GuildBonusObjective,
     GuildCategory,
     GuildContractStatus,
     GuildCriteria,
@@ -18,6 +19,11 @@ import {
     GuildRank,
 } from "../guild.constants";
 import { GuildBoardEventTranslationDto } from "./guild-board.dto";
+import {
+    GuildActiveChainSummaryDto,
+    GuildChainClaimProgressDto,
+} from "./guild-chains.dto";
+import { GuildPassportSummaryDto } from "./guild-passport.dto";
 import {
     GuildChestResultDto,
     GuildRewardDescriptorDto,
@@ -161,11 +167,26 @@ export class GuildContractDto {
     @ApiProperty({ example: 250 })
     xpReward: number;
 
+    @ApiProperty({ example: 35 })
+    sealsReward: number;
+
     @ApiProperty({ enum: GuildObjectiveType })
     objectiveType: GuildObjectiveType;
 
     @ApiProperty({ type: Object, example: {} })
     criteria: GuildCriteria;
+
+    @ApiProperty({ type: Object, nullable: true, example: null })
+    bonusObjective: GuildBonusObjective | null;
+
+    @ApiProperty({ example: false })
+    bonusCompleted: boolean;
+
+    @ApiProperty({ example: 0 })
+    extendedCount: number;
+
+    @ApiProperty({ type: String, nullable: true, example: null })
+    chainProgressId: string | null;
 
     @ApiProperty({ type: Number, nullable: true, example: 1029 })
     targetGameId: number | null;
@@ -232,6 +253,14 @@ export class AcceptGuildContractResponseDto {
     lina: LinaReceptionDto;
 }
 
+export class GuildContractPassportMonthDto {
+    @ApiProperty({ example: "2026-11" })
+    monthKey: string;
+
+    @ApiProperty({ example: 1 })
+    completedContractsCount: number;
+}
+
 export class ClaimGuildContractResponseDto {
     @ApiProperty({ type: () => GuildContractDto })
     contract: GuildContractDto;
@@ -251,14 +280,61 @@ export class ClaimGuildContractResponseDto {
     @ApiProperty({ enum: GuildRank })
     rankAfter: GuildRank;
 
+    @ApiProperty({
+        description:
+            "Every Seal credited by this claim (contract + bonus + chest + prestige + chain)",
+        example: 95,
+    })
+    sealsAwarded: number;
+
+    @ApiProperty({ example: false })
+    bonusCompleted: boolean;
+
     @ApiProperty({ type: () => GuildRewardDescriptorDto, isArray: true })
     unlockedRewards: GuildRewardDescriptorDto[];
 
     @ApiProperty({ type: () => GuildChestResultDto, nullable: true })
     chestResult: GuildChestResultDto | null;
 
+    @ApiProperty({
+        description: "Rank promotion packages crossed by this claim",
+        type: () => GuildRewardDescriptorDto,
+        isArray: true,
+    })
+    promotionRewards: GuildRewardDescriptorDto[];
+
+    @ApiProperty({
+        description: "Relic chests opened by newly reached Prestige stars",
+        type: () => GuildChestResultDto,
+        isArray: true,
+    })
+    prestigeRewards: GuildChestResultDto[];
+
+    @ApiProperty({ type: () => GuildContractPassportMonthDto })
+    passportMonth: GuildContractPassportMonthDto;
+
+    @ApiProperty({
+        type: () => GuildChainClaimProgressDto,
+        nullable: true,
+    })
+    chainProgress: GuildChainClaimProgressDto | null;
+
     @ApiProperty({ type: () => LinaReceptionDto })
     lina: LinaReceptionDto;
+}
+
+export class ExtendGuildContractResponseDto {
+    @ApiProperty({ type: () => GuildContractDto })
+    contract: GuildContractDto;
+
+    @ApiProperty({ example: 7 })
+    extensionDays: number;
+
+    @ApiProperty({ example: false })
+    usedFreeMonthlyHourglass: boolean;
+
+    @ApiProperty({ example: 0 })
+    remainingHourglasses: number;
 }
 
 export class GuildOverviewCountsDto {
@@ -300,4 +376,13 @@ export class GuildOverviewResponseDto {
 
     @ApiProperty({ type: () => LinaReceptionDto })
     lina: LinaReceptionDto;
+
+    @ApiProperty({ type: () => GuildPassportSummaryDto })
+    passport: GuildPassportSummaryDto;
+
+    @ApiProperty({ type: () => GuildActiveChainSummaryDto, nullable: true })
+    activeChain: GuildActiveChainSummaryDto | null;
+
+    @ApiProperty({ example: 2 })
+    activeBountiesCount: number;
 }

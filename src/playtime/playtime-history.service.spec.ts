@@ -396,3 +396,75 @@ test("daily period grouping attributes increments to the observed UTC day", asyn
         { userId: "user" },
     );
 });
+
+const playtimeQueryBuilder = (rows: unknown[] = []) => {
+    const queryBuilder: any = {};
+    const chain = jest.fn(() => queryBuilder);
+    Object.assign(queryBuilder, {
+        select: chain,
+        addSelect: chain,
+        groupBy: chain,
+        addGroupBy: chain,
+        where: chain,
+        andWhere: chain,
+        subQuery: chain,
+        from: chain,
+        useIndex: chain,
+        orderBy: chain,
+        addOrderBy: chain,
+        limit: chain,
+        getQuery: jest.fn(() => "(SELECT previous.totalPlaytimeSeconds)"),
+        getRawMany: jest.fn().mockResolvedValue(rows),
+    });
+    return queryBuilder;
+};
+
+test("guild mode sums only observations with a prior baseline", async () => {
+    const queryBuilder = playtimeQueryBuilder();
+    const createQueryBuilder = jest.fn(() => queryBuilder);
+    const service = new PlaytimeHistoryService(
+        { createQueryBuilder } as any,
+        {} as any,
+    );
+
+    await service.getTotalPlaytimeForPeriod(
+        {
+            userId: "user",
+            startDate: new Date("2026-11-01T00:00:00Z"),
+            endDate: new Date("2026-12-01T00:00:00Z"),
+        },
+        { excludeInitialObservations: true },
+    );
+
+    // No first-observation estimate query: an initial lifetime import contributes zero.
+    expect(createQueryBuilder).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining("IS NOT NULL"),
+    );
+});
+
+test("São Paulo day mode groups deltas by the fixed UTC-3 date", async () => {
+    const queryBuilder = playtimeQueryBuilder();
+    const service = new PlaytimeHistoryService(
+        { createQueryBuilder: jest.fn(() => queryBuilder) } as any,
+        {} as any,
+    );
+
+    await service.getDailyPlaytimeForPeriod(
+        "user",
+        new Date("2026-11-01T00:00:00Z"),
+        new Date("2026-12-01T00:00:00Z"),
+        { excludeInitialObservations: true, saoPauloDays: true },
+    );
+
+    expect(queryBuilder.select).toHaveBeenCalledWith(
+        "DATE_FORMAT(CONVERT_TZ(ph.createdAt, '+00:00', '-03:00'), '%Y-%m-%d')",
+        "day",
+    );
+    expect(queryBuilder.groupBy).toHaveBeenCalledWith(
+        expect.stringContaining("CONVERT_TZ(ph.createdAt, '+00:00', '-03:00')"),
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining("IS NOT NULL"),
+    );
+});

@@ -181,3 +181,90 @@ it("GOG progress uses the syncing account and stable definition identity", async
         second.every((item) => !item.isObtained && item.obtainedAt === null),
     ).toBe(true);
 });
+
+describe("GameObtainedAchievementService guild contract evaluation hook", () => {
+    const achievement = {
+        externalGameId: 10,
+        gameId: 20,
+        externalId: "trophy-1",
+        isObtained: true,
+        obtainedAt: new Date("2026-10-25T00:00:00Z"),
+        source: EGameExternalGameCategory.PlaystationStoreUs,
+    };
+
+    function fixture(guildQueue: { enqueueEvaluation: jest.Mock }) {
+        const repository = {
+            findBy: jest.fn().mockResolvedValue([]),
+            create: jest.fn((row) => row),
+            save: jest.fn(async (rows) => rows),
+        };
+        const service = new GameObtainedAchievementService(
+            repository as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            new ConnectionProviderRegistry(),
+            {} as any,
+            guildQueue as any,
+        );
+        return { service, repository };
+    }
+
+    it("schedules evaluation after new achievements commit", async () => {
+        const guildQueue = { enqueueEvaluation: jest.fn() };
+        const { service, repository } = fixture(guildQueue);
+
+        await service.persistObtainedAchievements("user", [achievement]);
+
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "user",
+            "game_achievement",
+        );
+        expect(repository.save.mock.invocationCallOrder[0]).toBeLessThan(
+            guildQueue.enqueueEvaluation.mock.invocationCallOrder[0],
+        );
+    });
+
+    it("does not schedule evaluation when nothing new was persisted", async () => {
+        const guildQueue = { enqueueEvaluation: jest.fn() };
+        const { service, repository } = fixture(guildQueue);
+        repository.findBy.mockResolvedValue([
+            { externalAchievementId: achievement.externalId },
+        ]);
+
+        await service.persistObtainedAchievements("user", [achievement]);
+
+        expect(repository.save).not.toHaveBeenCalled();
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+    });
+
+    it("defers evaluation to the transaction owner when a manager is supplied", async () => {
+        const guildQueue = { enqueueEvaluation: jest.fn() };
+        const { service, repository } = fixture(guildQueue);
+        const manager = { getRepository: jest.fn(() => repository) };
+
+        await service.persistObtainedAchievements(
+            "user",
+            [achievement],
+            manager as any,
+        );
+
+        expect(repository.save).toHaveBeenCalled();
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+    });
+
+    it("does not wait for the evaluation queue before returning", async () => {
+        const guildQueue = {
+            enqueueEvaluation: jest.fn(() => new Promise(() => {})),
+        };
+        const { service } = fixture(guildQueue);
+
+        await expect(
+            service.persistObtainedAchievements("user", [achievement]),
+        ).resolves.toHaveLength(1);
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledTimes(1);
+    });
+});

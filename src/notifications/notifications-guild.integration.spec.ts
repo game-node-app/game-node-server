@@ -17,6 +17,7 @@ import {
     validateNotificationIntent,
 } from "./notifications-outbox.service";
 import {
+    GuildCommunityBountyReadyPayload,
     GuildContractReadyPayload,
     GuildContractExpiringPayload,
     NotificationEventIntent,
@@ -525,6 +526,216 @@ describe("guild.contract-expiring notifications (integration)", () => {
                     ...expiringPayload(randomUUID()),
                     ...overrides,
                 } as GuildContractExpiringPayload),
+            ),
+        ).toThrow();
+    });
+});
+
+describe("guild.community-bounty-ready notifications (integration)", () => {
+    let dataSource: DataSource;
+    let projector: NotificationsProjectorService;
+    let notifications: NotificationsService;
+
+    beforeAll(async () => {
+        dataSource = await createNotificationTestDataSource();
+        projector = new NotificationsProjectorService(
+            dataSource,
+            new NotificationsRelayService(
+                dataSource,
+                dataSource.getRepository(NotificationOutbox),
+                { add: jest.fn() } as any,
+            ),
+            createLibraryAccessService(dataSource),
+        );
+        notifications = new NotificationsService(
+            dataSource.getRepository(NotificationInbox),
+            dataSource.getRepository(Profile),
+            dataSource,
+        );
+    });
+
+    afterAll(() => dataSource?.destroy());
+
+    async function recipient() {
+        const userId = randomUUID();
+        await dataSource.query(
+            "INSERT INTO profile (userId, username) VALUES (?, ?)",
+            [userId, `u${userId.slice(0, 18)}`],
+        );
+        return userId;
+    }
+
+    function bountyPayload(bountyId: string): GuildCommunityBountyReadyPayload {
+        return { bountyId };
+    }
+
+    function intent(
+        payload: GuildCommunityBountyReadyPayload,
+        overrides: Record<string, unknown> = {},
+    ): NotificationEventIntent {
+        return {
+            eventType: "guild.community-bounty-ready",
+            eventVersion: 1,
+            recipientUserId: randomUUID(),
+            actorUserId: null,
+            payload,
+            ...overrides,
+        } as NotificationEventIntent;
+    }
+
+    async function deliver(recipientUserId: string, bountyId: string) {
+        const id = randomUUID();
+        const token = randomUUID();
+        await dataSource.getRepository(NotificationOutbox).save({
+            id,
+            eventType: "guild.community-bounty-ready",
+            eventVersion: 1,
+            occurredAt: new Date(),
+            recipientUserId,
+            actorUserId: null,
+            payload: bountyPayload(bountyId),
+            state: "processing",
+            ownerToken: token,
+            ownerExpiresAt: new Date(Date.now() + 30_000),
+            attempts: 1,
+            nextAttemptAt: new Date(),
+        });
+        expect(await projector.projectEvent(id, token)).toBe(true);
+        return id;
+    }
+
+    const inboxOf = (userId: string) =>
+        notifications.findAll(userId, { limit: 10 } as any);
+
+    it("commits the intent inside the calling transaction", async () => {
+        const userId = await recipient();
+        const bountyId = randomUUID();
+
+        await dataSource.transaction(async (manager) => {
+            await appendNotificationIntent(
+                manager,
+                intent(bountyPayload(bountyId), { recipientUserId: userId }),
+            );
+        });
+
+        const rows = await dataSource
+            .getRepository(NotificationOutbox)
+            .findBy({ recipientUserId: userId });
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({
+            eventType: "guild.community-bounty-ready",
+            eventVersion: 1,
+            actorUserId: null,
+            state: "pending",
+            payload: bountyPayload(bountyId),
+        });
+    });
+
+    it("materializes one individual inbox item targeting the guild bounty", async () => {
+        const userId = await recipient();
+        const bountyId = randomUUID();
+        await deliver(userId, bountyId);
+
+        const { data, unreadCount } = await inboxOf(userId);
+        expect(unreadCount).toBe(1);
+        expect(data).toHaveLength(1);
+        expect(data[0]).toMatchObject({
+            type: "guild.community-bounty-ready",
+            target: { type: "guild", bountyId },
+            preview: {
+                text: "A Community Bounty reached its goal. Claim your reward.",
+            },
+            eventCount: 1,
+            actorCount: 0,
+            actors: [],
+        });
+
+        const inbox = await dataSource
+            .getRepository(NotificationInbox)
+            .findOneByOrFail({ recipientUserId: userId });
+        expect(inbox).toMatchObject({
+            subjectType: "guild_community_bounty",
+            subjectId: bountyId,
+            rootType: "guild",
+            rootId: bountyId,
+        });
+    });
+
+    it("delivers at most once per (bountyId, recipientUserId)", async () => {
+        const userId = await recipient();
+        const bountyId = randomUUID();
+
+        await deliver(userId, bountyId);
+        const duplicateOutboxId = await deliver(userId, bountyId);
+
+        const duplicateOutbox = await dataSource
+            .getRepository(NotificationOutbox)
+            .findOneByOrFail({ id: duplicateOutboxId });
+        expect(duplicateOutbox).toMatchObject({
+            state: "suppressed",
+            lastError: "duplicate_community_bounty_notification",
+        });
+
+        const { data, unreadCount } = await inboxOf(userId);
+        expect(data).toHaveLength(1);
+        expect(unreadCount).toBe(1);
+        expect(data[0]).toMatchObject({
+            target: { type: "guild", bountyId },
+            eventCount: 1,
+            version: 1,
+        });
+        expect(
+            await dataSource.getRepository(NotificationEvent).countBy({
+                recipientUserId: userId,
+                eventType: "guild.community-bounty-ready",
+                subjectId: bountyId,
+            }),
+        ).toBe(1);
+    });
+
+    it("keeps a separate notification per recipient and per bounty", async () => {
+        const firstRecipient = await recipient();
+        const secondRecipient = await recipient();
+        const bountyId = randomUUID();
+        const otherBountyId = randomUUID();
+
+        await deliver(firstRecipient, bountyId);
+        await deliver(secondRecipient, bountyId);
+        await deliver(firstRecipient, otherBountyId);
+
+        expect((await inboxOf(firstRecipient)).data).toHaveLength(2);
+        expect((await inboxOf(secondRecipient)).data).toHaveLength(1);
+    });
+
+    it("accepts a valid payload", () => {
+        expect(() =>
+            validateNotificationIntent(intent(bountyPayload(randomUUID()))),
+        ).not.toThrow();
+    });
+
+    it.each([
+        ["a missing recipient", { recipientUserId: null }],
+        ["a system actor supplied", { actorUserId: randomUUID() }],
+    ])("rejects %s", (_label, overrides) => {
+        expect(() =>
+            validateNotificationIntent(
+                intent(bountyPayload(randomUUID()), overrides),
+            ),
+        ).toThrow();
+    });
+
+    it.each([
+        ["an empty bountyId", { bountyId: "" }],
+        ["a numeric bountyId", { bountyId: 7 }],
+        ["a missing bountyId", { bountyId: undefined }],
+        ["an extra field", { extra: true }],
+    ])("rejects %s", (_label, overrides) => {
+        expect(() =>
+            validateNotificationIntent(
+                intent({
+                    ...bountyPayload(randomUUID()),
+                    ...overrides,
+                } as GuildCommunityBountyReadyPayload),
             ),
         ).toThrow();
     });

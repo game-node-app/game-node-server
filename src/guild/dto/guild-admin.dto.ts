@@ -16,12 +16,15 @@ import {
     ValidateNested,
 } from "class-validator";
 import {
+    GuildBonusObjective,
+    GuildConsumableKey,
     GuildCriteria,
     GuildEventStatus,
     GuildLocale,
     GuildObjectiveType,
     GuildRank,
     GuildRewardKind,
+    GuildRewardRarity,
 } from "../guild.constants";
 import { GuildRewardDescriptorDto } from "./guild-rewards.dto";
 
@@ -71,6 +74,25 @@ export class CreateGuildEventDto {
     @ApiProperty({ enum: GuildObjectiveType })
     @IsEnum(GuildObjectiveType)
     objectiveType: GuildObjectiveType;
+
+    @ApiPropertyOptional({
+        minimum: 0,
+        description:
+            "Defaults to the rank economy payout (defaultSealsForRank).",
+    })
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    sealsReward?: number;
+
+    @ApiPropertyOptional({
+        type: Object,
+        description:
+            "Optional contract bonus objective; see validateGuildBonusObjective.",
+    })
+    @IsOptional()
+    @IsObject()
+    bonusObjective?: GuildBonusObjective;
 
     @ApiPropertyOptional({ default: 1, minimum: 1 })
     @IsOptional()
@@ -128,8 +150,12 @@ export class GuildAdminEventResponseDto {
     @ApiProperty() xpReward: number;
     @ApiProperty({ enum: GuildObjectiveType })
     objectiveType: GuildObjectiveType;
+    @ApiProperty() sealsReward: number;
     @ApiProperty() targetCount: number;
     @ApiProperty({ type: Object }) criteria: GuildCriteria;
+
+    @ApiProperty({ type: Object, nullable: true })
+    bonusObjective: GuildBonusObjective | null;
 
     @ApiProperty({ type: () => GuildRewardDescriptorDto, nullable: true })
     reward: GuildRewardDescriptorDto | null;
@@ -178,6 +204,28 @@ export class CreateGuildRewardDto {
     @Min(0)
     chestBonusXp?: number;
 
+    @ApiPropertyOptional({ default: 0, minimum: 0 })
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    chestBonusSeals?: number;
+
+    @ApiPropertyOptional({
+        enum: GuildRewardRarity,
+        default: GuildRewardRarity.COMMON,
+    })
+    @IsOptional()
+    @IsEnum(GuildRewardRarity)
+    rarity?: GuildRewardRarity;
+
+    @ApiPropertyOptional({
+        enum: GuildConsumableKey,
+        description: "Required when kind is consumable.",
+    })
+    @IsOptional()
+    @IsEnum(GuildConsumableKey)
+    consumableKey?: GuildConsumableKey;
+
     @ApiPropertyOptional({ default: true })
     @IsOptional()
     @IsBoolean()
@@ -201,6 +249,10 @@ export class GuildAdminRewardResponseDto {
 
     @ApiProperty() inChestPool: boolean;
     @ApiProperty() chestBonusXp: number;
+    @ApiProperty() chestBonusSeals: number;
+    @ApiProperty({ enum: GuildRewardRarity }) rarity: GuildRewardRarity;
+    @ApiProperty({ enum: GuildConsumableKey, nullable: true })
+    consumableKey: GuildConsumableKey | null;
     @ApiProperty() isActive: boolean;
     @ApiProperty({ type: Date }) createdAt: Date;
     @ApiProperty({ type: Date }) updatedAt: Date;

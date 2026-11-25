@@ -22,7 +22,7 @@ import {
     isValidXboxProductId,
 } from "./game-achievement.utils";
 import { GameExternalGame } from "../external-game/entity/game-external-game.entity";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import { UnsupportedGameAchievementSourceError } from "./game-achievement.errors";
 import { UserThinTrophy } from "psn-api";
@@ -32,6 +32,7 @@ import {
 } from "./game-achievement.constants";
 import { TPaginationData } from "../../utils/pagination/pagination-response.dto";
 import { buildBaseFindOptions } from "../../utils/buildBaseFindOptions";
+import { GuildQueueService } from "../../guild/guild-queue/guild-queue.service";
 
 @Injectable()
 export class GameObtainedAchievementService {
@@ -52,6 +53,8 @@ export class GameObtainedAchievementService {
         private readonly syncQueue: GameAchievementSyncQueueService,
         private readonly providerRegistry: ConnectionProviderRegistry,
         private readonly gogSyncService: GogSyncService,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {
         providerRegistry.registerSyncHandlers(EConnectionType.GOG, {
             fetchObtainedAchievements: (userId, game) =>
@@ -389,6 +392,13 @@ export class GameObtainedAchievementService {
                 persistedEntities.push(...result);
             }
         }
+
+        // With a manager the caller owns the transaction and evaluates after its commit.
+        if (!manager && persistedEntities.length > 0)
+            this.guildQueueService?.enqueueEvaluation(
+                userId,
+                "game_achievement",
+            );
 
         return persistedEntities;
     }

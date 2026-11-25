@@ -49,6 +49,19 @@ describe("GuildQueueService", () => {
         );
     });
 
+    it.each(["daily", "post", "collection", "game_achievement"] as const)(
+        "forwards the %s trigger",
+        async (trigger) => {
+            await service.enqueueEvaluation("u1", trigger);
+
+            expect(queue.add).toHaveBeenCalledWith(
+                GUILD_EVALUATE_JOB_NAME,
+                { userId: "u1", trigger },
+                expect.any(Object),
+            );
+        },
+    );
+
     it("never rejects when the queue is unavailable", async () => {
         queue.add.mockRejectedValue(new Error("redis down"));
 

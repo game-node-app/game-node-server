@@ -13,7 +13,8 @@ export type NotificationEventType =
     | "recap.milestone"
     | "goal.reminder"
     | "guild.contract-ready"
-    | "guild.contract-expiring";
+    | "guild.contract-expiring"
+    | "guild.community-bounty-ready";
 
 export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "content.liked",
@@ -29,6 +30,7 @@ export const SUPPORTED_EVENT_TYPES: readonly NotificationEventType[] = [
     "goal.reminder",
     "guild.contract-ready",
     "guild.contract-expiring",
+    "guild.community-bounty-ready",
 ] as const;
 
 export const SUPPORTED_EVENT_VERSION = 1;
@@ -145,6 +147,10 @@ export interface GuildContractExpiringPayload {
     expiresAt: string;
 }
 
+export interface GuildCommunityBountyReadyPayload {
+    bountyId: string;
+}
+
 export type NotificationEventIntent =
     | BaseNotificationEventIntent<"content.liked", ContentLikedPayload>
     | BaseNotificationEventIntent<"comment.created", CommentCreatedPayload>
@@ -176,6 +182,10 @@ export type NotificationEventIntent =
     | BaseNotificationEventIntent<
           "guild.contract-expiring",
           GuildContractExpiringPayload
+      >
+    | BaseNotificationEventIntent<
+          "guild.community-bounty-ready",
+          GuildCommunityBountyReadyPayload
       >;
 
 export interface NotificationGameContext {
@@ -219,4 +229,5 @@ export type NotificationTarget =
       }
     | { type: "recap"; userId: string; year: number }
     | { type: "goal"; year: number }
-    | { type: "guild"; contractId: string };
+    | { type: "guild"; contractId: string }
+    | { type: "guild"; bountyId: string };

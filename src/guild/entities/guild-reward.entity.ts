@@ -9,9 +9,13 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 import { AchievementDefinition } from "../../achievements/entities/achievement-definition.entity";
-import { GuildRewardKind } from "../guild.constants";
+import {
+    GuildConsumableKey,
+    GuildRewardKind,
+    GuildRewardRarity,
+} from "../guild.constants";
 
-/** A Guild badge, title, avatar frame or weekly chest (design 1). */
+/** A Guild badge, cosmetic, consumable or tiered chest (design 1). */
 @Entity()
 @Unique("UQ_guild_reward_key", ["key"])
 export class GuildReward {
@@ -42,6 +46,19 @@ export class GuildReward {
 
     @Column({ type: "int", unsigned: true, default: 0 })
     chestBonusXp: number;
+
+    @Column({ type: "int", unsigned: true, default: 0 })
+    chestBonusSeals: number;
+
+    @Column({
+        type: "varchar",
+        length: 16,
+        default: GuildRewardRarity.COMMON,
+    })
+    rarity: GuildRewardRarity;
+
+    @Column({ type: "varchar", length: 32, nullable: true, default: null })
+    consumableKey: GuildConsumableKey | null;
 
     @Column({ type: "boolean", default: true })
     isActive: boolean;

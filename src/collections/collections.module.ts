@@ -8,6 +8,7 @@ import { CollectionsEntriesModule } from "./collections-entries/collections-entr
 import { NotificationsModule } from "../notifications/notifications.module";
 import { BillingModule } from "../billing/billing.module";
 import { LibrariesModule } from "../libraries/libraries.module";
+import { GuildQueueModule } from "../guild/guild-queue/guild-queue.module";
 
 @Module({
     imports: [
@@ -16,6 +17,7 @@ import { LibrariesModule } from "../libraries/libraries.module";
         NotificationsModule,
         BillingModule,
         LibrariesModule,
+        GuildQueueModule,
     ],
     controllers: [CollectionsController],
     providers: [CollectionsService],

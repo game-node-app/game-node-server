@@ -99,6 +99,11 @@ export class NotificationGuildTargetDto {
     @ApiProperty() contractId: string;
 }
 
+export class NotificationGuildBountyTargetDto {
+    @ApiProperty({ enum: ["guild"] }) type: "guild";
+    @ApiProperty() bountyId: string;
+}
+
 export class NotificationTextPreviewDto {
     @ApiProperty({ maxLength: 240 }) text: string;
     @ApiPropertyOptional({ enum: ["alert", "suspension", "ban"] })
@@ -176,6 +181,7 @@ export class NotificationActorDto {
     NotificationRecapTargetDto,
     NotificationGoalTargetDto,
     NotificationGuildTargetDto,
+    NotificationGuildBountyTargetDto,
     NotificationTextPreviewDto,
     NotificationImportPreviewDto,
 )
@@ -210,6 +216,7 @@ export class NotificationInboxItemDto {
             NotificationRecapTargetDto,
             NotificationGoalTargetDto,
             NotificationGuildTargetDto,
+            NotificationGuildBountyTargetDto,
         ].map((type) => ({ $ref: getSchemaPath(type) })),
     })
     target: NotificationTarget | null;

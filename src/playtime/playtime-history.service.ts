@@ -115,6 +115,16 @@ export interface DailyPlaytime {
     seconds: number;
 }
 
+export interface PlaytimePeriodOptions {
+    /**
+     * Sum only observations with an earlier baseline (`previous IS NOT NULL`),
+     * so a first lifetime import from Steam/PSN/Xbox contributes zero.
+     */
+    excludeInitialObservations?: boolean;
+    /** Group daily deltas by America/Sao_Paulo dates instead of UTC ones. */
+    saoPauloDays?: boolean;
+}
+
 @Injectable()
 export class PlaytimeHistoryService {
     constructor(
@@ -173,7 +183,10 @@ export class PlaytimeHistoryService {
             .getQuery();
     }
 
-    public async getTotalPlaytimeForPeriod(dto: GetTotalPlaytimePeriodDto) {
+    public async getTotalPlaytimeForPeriod(
+        dto: GetTotalPlaytimePeriodDto,
+        options: PlaytimePeriodOptions = {},
+    ) {
         const { userId, source, platformId, startDate, endDate } = dto;
         const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
         const previous = this.previousPlaytimeSubQuery(qb);
@@ -198,9 +211,15 @@ export class PlaytimeHistoryService {
         if (platformId) {
             qb.andWhere("ph.platformId = :platformId", { platformId });
         }
+        if (options.excludeInitialObservations) {
+            qb.andWhere(`${previous} IS NOT NULL`);
+        }
 
         const totals = await qb.getRawMany<PlaytimeInPeriod>();
-        const estimates = await this.getFirstObservations(dto);
+        // First observations are initial lifetime imports, which this mode never counts.
+        const estimates = options.excludeInitialObservations
+            ? []
+            : await this.getFirstObservations(dto);
         const merged = new Map<string, PlaytimeInPeriod>();
         for (const total of totals) {
             const gameId = Number(total.gameId);
@@ -338,26 +357,32 @@ export class PlaytimeHistoryService {
         userId: string,
         start: Date,
         end: Date,
+        options: PlaytimePeriodOptions = {},
     ): Promise<DailyPlaytime[]> {
         const qb = this.playtimeHistoryRepository.createQueryBuilder("ph");
         const previous = this.previousPlaytimeSubQuery(qb);
+        // Fixed UTC-3 offset, matching DAILY_TIME_ZONE's shortcut.
+        const dayExpression = options.saoPauloDays
+            ? "DATE_FORMAT(CONVERT_TZ(ph.createdAt, '+00:00', '-03:00'), '%Y-%m-%d')"
+            : "DATE_FORMAT(ph.createdAt, '%Y-%m-%d')";
 
-        qb.select("DATE_FORMAT(ph.createdAt, '%Y-%m-%d')", "day")
+        qb.select(dayExpression, "day")
             .addSelect("ph.gameId", "gameId")
             .addSelect("ph.platformId", "platformId")
             .addSelect(
-                // Same attribution rule as getTotalPlaytimeForPeriod, split per observed UTC day.
+                // Same attribution rule as getTotalPlaytimeForPeriod, split per observed day.
                 `COALESCE(SUM(GREATEST(ph.totalPlaytimeSeconds - ${previous}, 0)), 0)`,
                 "seconds",
             )
-            .groupBy(
-                "DATE_FORMAT(ph.createdAt, '%Y-%m-%d'), ph.gameId, ph.platformId",
-            )
+            .groupBy(`${dayExpression}, ph.gameId, ph.platformId`)
             .where("ph.createdAt > :start AND ph.createdAt <= :end", {
                 start,
                 end,
             })
             .andWhere("ph.profileUserId = :userId", { userId });
+        if (options.excludeInitialObservations) {
+            qb.andWhere(`${previous} IS NOT NULL`);
+        }
 
         const rows = await qb.getRawMany<DailyPlaytime>();
         // MySQL returns SUM as a decimal string, while callers add numeric seconds.

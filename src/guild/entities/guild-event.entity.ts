@@ -11,6 +11,7 @@ import {
     UpdateDateColumn,
 } from "typeorm";
 import {
+    GuildBonusObjective,
     GuildCriteria,
     GuildEventStatus,
     GuildObjectiveType,
@@ -42,6 +43,9 @@ export class GuildEvent {
     @Column({ type: "int", unsigned: true })
     xpReward: number;
 
+    @Column({ type: "int", unsigned: true, default: 0 })
+    sealsReward: number;
+
     @Column({ type: "varchar", length: 32 })
     objectiveType: GuildObjectiveType;
 
@@ -50,6 +54,9 @@ export class GuildEvent {
 
     @Column({ type: "json" })
     criteria: GuildCriteria;
+
+    @Column({ type: "json", nullable: true, default: null })
+    bonusObjective: GuildBonusObjective | null;
 
     @ManyToOne(() => GuildReward, { nullable: true, onDelete: "SET NULL" })
     @JoinColumn({

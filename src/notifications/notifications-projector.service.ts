@@ -230,6 +230,31 @@ export class NotificationsProjectorService {
                     return true;
                 }
 
+                // One bounty-ready inbox item per (bountyId, recipientUserId).
+                if (
+                    outbox.eventType === "guild.community-bounty-ready" &&
+                    (
+                        await manager.query(
+                            `SELECT id FROM notification_event WHERE recipientUserId = ? AND eventType = ? AND subjectType = ? AND subjectId = ? LIMIT 1 FOR UPDATE`,
+                            [
+                                recipientUserId,
+                                outbox.eventType,
+                                subjectType,
+                                subjectId,
+                            ],
+                        )
+                    ).length > 0
+                ) {
+                    await this.completeOwnedOutbox(
+                        manager,
+                        eventId,
+                        attemptToken,
+                        "suppressed",
+                        "duplicate_community_bounty_notification",
+                    );
+                    return true;
+                }
+
                 // Calculate Group Key with UTC calendar day
                 const occurredAt = outbox.occurredAt || new Date();
                 const utcDate = occurredAt.toISOString().slice(0, 10);
@@ -241,6 +266,10 @@ export class NotificationsProjectorService {
                     groupKey = `${recipientUserId}:comment.created:${rootType}:${rootId}:${utcDate}`;
                 } else if (outbox.eventType === "comment.replied") {
                     groupKey = `${recipientUserId}:comment.replied:comment:${subjectId}:${utcDate}`;
+                } else if (
+                    outbox.eventType === "guild.community-bounty-ready"
+                ) {
+                    groupKey = `${recipientUserId}:guild.community-bounty-ready:${subjectId}`;
                 } else {
                     groupKey = `${recipientUserId}:${outbox.eventType}:${outbox.id}`;
                 }
@@ -877,6 +906,30 @@ export class NotificationsProjectorService {
                         ...(game ? { game } : {}),
                     },
                     target: { type: "guild", contractId },
+                };
+            }
+
+            case "guild.community-bounty-ready": {
+                const { bountyId } = payload;
+                const recipientUserId = outbox.recipientUserId;
+                if (!recipientUserId) {
+                    return {
+                        isSuppressed: true,
+                        suppressionReason:
+                            "guild_community_bounty_ready_no_recipient",
+                    } as ResolvedEventDetails;
+                }
+                return {
+                    recipientUserId,
+                    actorUserId: null, // system actor
+                    subjectType: "guild_community_bounty",
+                    subjectId: bountyId,
+                    rootType: "guild",
+                    rootId: bountyId,
+                    preview: {
+                        text: "A Community Bounty reached its goal. Claim your reward.",
+                    },
+                    target: { type: "guild", bountyId },
                 };
             }
 

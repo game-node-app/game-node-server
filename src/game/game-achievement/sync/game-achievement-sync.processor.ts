@@ -13,7 +13,7 @@ import {
     assertPlayerSyncActive,
 } from "../../../sync/player-sync-attempt";
 import { WorkerHostProcessor } from "../../../utils/WorkerHostProcessor";
-import { Logger } from "@nestjs/common";
+import { Logger, Optional } from "@nestjs/common";
 import { Job, UnrecoverableError } from "bullmq";
 import {
     GAME_ACHIEVEMENT_GOG_JOB_NAME,
@@ -37,6 +37,7 @@ import { GameObtainedAchievementDto } from "../dto/game-obtained-achievement.dto
 import { GameAchievementStatusService } from "../game-achievement-status.service";
 import { UnsupportedGameAchievementSourceError } from "../game-achievement.errors";
 import { DataSource, EntityManager } from "typeorm";
+import { GuildQueueService } from "../../../guild/guild-queue/guild-queue.service";
 
 @Processor(GAME_ACHIEVEMENT_SYNC_QUEUE_NAME)
 export class GameAchievementSyncProcessor extends WorkerHostProcessor {
@@ -49,6 +50,8 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
         private readonly gameAchievementStatusService: GameAchievementStatusService,
         private readonly state: PlayerSyncStateService,
         private readonly dataSource: DataSource,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {
         super();
     }
@@ -156,6 +159,7 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
         assertPlayerSyncActive();
         const runner = this.dataSource.createQueryRunner();
         let lockAcquired = false;
+        let completionChanged = false;
         let activity:
             | Awaited<ReturnType<GameAchievementActivityService["save"]>>
             | undefined;
@@ -183,13 +187,14 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
                     manager,
                 );
 
-            await this.gameAchievementStatusService.updateGameCompletionStatus(
-                userId,
-                externalGameId,
-                gameAchievements,
-                actuallyObtainedAchievementsInGame,
-                manager,
-            );
+            completionChanged =
+                await this.gameAchievementStatusService.updateGameCompletionStatus(
+                    userId,
+                    externalGameId,
+                    gameAchievements,
+                    actuallyObtainedAchievementsInGame,
+                    manager,
+                );
 
             if (persistedEntities.length === 0) {
                 this.logger.log(
@@ -219,6 +224,11 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
             );
             assertPlayerSyncActive();
             await runner.commitTransaction();
+            if (persistedEntities.length > 0 || completionChanged)
+                this.guildQueueService?.enqueueEvaluation(
+                    userId,
+                    "game_achievement",
+                );
             recordPlayerSyncStats({
                 gamesChanged: persistedEntities.length ? 1 : 0,
                 stagesSucceeded: 1,

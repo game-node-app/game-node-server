@@ -42,7 +42,7 @@ describe("NotificationsController", () => {
             >;
             expect(
                 schemas.NotificationInboxItemDto.properties.target.oneOf,
-            ).toHaveLength(10);
+            ).toHaveLength(11);
             expect(schemas.NotificationConnectionTargetDto.required).toEqual(
                 expect.arrayContaining(["type", "id", "provider"]),
             );
@@ -90,6 +90,12 @@ describe("NotificationsController", () => {
             );
             expect(
                 schemas.NotificationGuildTargetDto.properties.type.enum,
+            ).toEqual(["guild"]);
+            expect(schemas.NotificationGuildBountyTargetDto.required).toEqual(
+                expect.arrayContaining(["type", "bountyId"]),
+            );
+            expect(
+                schemas.NotificationGuildBountyTargetDto.properties.type.enum,
             ).toEqual(["guild"]);
             expect(
                 schemas.NotificationContentTargetDto.properties,

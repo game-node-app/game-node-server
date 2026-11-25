@@ -24,20 +24,35 @@ import { GuildEventTranslation } from "./entities/guild-event-translation.entity
 import { GuildEvent } from "./entities/guild-event.entity";
 import { GuildReward } from "./entities/guild-reward.entity";
 import {
+    GuildConsumableKey,
     GuildCriteria,
     GuildContractStatus,
     GuildEventStatus,
     GuildObjectiveType,
     GuildRewardKind,
+    GuildRewardRarity,
+    defaultSealsForRank,
     toRewardDescriptor,
 } from "./guild.constants";
-import { validateGuildQuestRules } from "./guild-templates.constants";
+import {
+    validateGuildBonusObjective,
+    validateGuildQuestRules,
+} from "./guild-templates.constants";
 
 /** A closed contract must keep the rules it was accepted under (spec: curated events). */
 const RULES_LOCKED = {
     message: "This event's quest rules are locked by an accepted contract.",
     code: "guild_event_rules_locked",
 };
+
+/** Permanent equippable cosmetics are the only rewards a chest may roll. */
+const CHEST_POOL_KINDS: ReadonlySet<GuildRewardKind> = new Set([
+    GuildRewardKind.TITLE,
+    GuildRewardKind.AVATAR_FRAME,
+    GuildRewardKind.LICENSE_THEME,
+    GuildRewardKind.STAMP_STYLE,
+    GuildRewardKind.TAVERN_DECOR,
+]);
 
 function badRequest(message: string): never {
     throw new BadRequestException(message);
@@ -57,6 +72,9 @@ function toRewardDto(reward: GuildReward): GuildAdminRewardResponseDto {
         achievementId: reward.achievementId,
         inChestPool: reward.inChestPool,
         chestBonusXp: reward.chestBonusXp,
+        chestBonusSeals: reward.chestBonusSeals,
+        rarity: reward.rarity,
+        consumableKey: reward.consumableKey,
         isActive: reward.isActive,
         createdAt: reward.createdAt,
         updatedAt: reward.updatedAt,
@@ -97,9 +115,11 @@ export class GuildAdminService {
         const description = trimRequired(dto.description, "description");
         const targetCount = dto.targetCount ?? 1;
         const criteria = dto.criteria ?? {};
+        const sealsReward = dto.sealsReward ?? defaultSealsForRank(dto.rank);
 
         this.assertWindow(dto.startsAt, dto.endsAt);
         this.assertQuestRules(dto.objectiveType, targetCount, criteria);
+        this.assertBonusObjective(dto.bonusObjective);
         if (dto.rewardId !== undefined) {
             await this.assertActiveReward(dto.rewardId);
         }
@@ -116,9 +136,11 @@ export class GuildAdminService {
                 description,
                 rank: dto.rank,
                 xpReward: dto.xpReward,
+                sealsReward,
                 objectiveType: dto.objectiveType,
                 targetCount,
                 criteria,
+                bonusObjective: dto.bonusObjective ?? null,
                 rewardId: dto.rewardId ?? null,
                 startsAt: dto.startsAt,
                 endsAt: dto.endsAt,
@@ -154,6 +176,7 @@ export class GuildAdminService {
 
             this.assertWindow(startsAt, endsAt);
             this.assertQuestRules(objectiveType, targetCount, criteria);
+            this.assertBonusObjective(dto.bonusObjective);
             if (dto.rewardId !== undefined) {
                 const reward = await this.assertActiveReward(dto.rewardId);
                 // A published event must not gain a badge whose achievement is still a draft.
@@ -184,6 +207,12 @@ export class GuildAdminService {
             if (dto.slug !== undefined) changes.slug = dto.slug;
             if (dto.rank !== undefined) changes.rank = dto.rank;
             if (dto.xpReward !== undefined) changes.xpReward = dto.xpReward;
+            if (dto.sealsReward !== undefined) {
+                changes.sealsReward = dto.sealsReward;
+            }
+            if (dto.bonusObjective !== undefined) {
+                changes.bonusObjective = dto.bonusObjective;
+            }
             if (dto.objectiveType !== undefined) {
                 changes.objectiveType = dto.objectiveType;
             }
@@ -282,10 +311,12 @@ export class GuildAdminService {
         await this.assertKeyAvailable(dto.key);
         const achievementId = dto.achievementId ?? null;
         const inChestPool = dto.inChestPool ?? false;
+        const consumableKey = dto.consumableKey ?? null;
         await this.assertRewardCatalogRules(
             dto.kind,
             achievementId,
             inChestPool,
+            consumableKey,
         );
 
         const reward = this.rewardRepository.create({
@@ -295,6 +326,9 @@ export class GuildAdminService {
             achievementId,
             inChestPool,
             chestBonusXp: dto.chestBonusXp ?? 0,
+            chestBonusSeals: dto.chestBonusSeals ?? 0,
+            rarity: dto.rarity ?? GuildRewardRarity.COMMON,
+            consumableKey,
             isActive: dto.isActive ?? true,
         });
         return toRewardDto(await this.rewardRepository.save(reward));
@@ -338,10 +372,15 @@ export class GuildAdminService {
                     ? dto.achievementId
                     : reward.achievementId;
             const inChestPool = dto.inChestPool ?? reward.inChestPool;
+            const consumableKey =
+                dto.consumableKey !== undefined
+                    ? (dto.consumableKey ?? null)
+                    : reward.consumableKey;
             await this.assertRewardCatalogRules(
                 kind,
                 achievementId,
                 inChestPool,
+                consumableKey,
             );
             if (
                 kind === GuildRewardKind.BADGE &&
@@ -365,6 +404,13 @@ export class GuildAdminService {
             }
             if (dto.chestBonusXp !== undefined) {
                 reward.chestBonusXp = dto.chestBonusXp;
+            }
+            if (dto.chestBonusSeals !== undefined) {
+                reward.chestBonusSeals = dto.chestBonusSeals;
+            }
+            if (dto.rarity !== undefined) reward.rarity = dto.rarity;
+            if (dto.consumableKey !== undefined) {
+                reward.consumableKey = dto.consumableKey ?? null;
             }
             if (dto.isActive !== undefined) reward.isActive = dto.isActive;
             return toRewardDto(
@@ -422,9 +468,11 @@ export class GuildAdminService {
             description: event.description,
             rank: event.rank,
             xpReward: event.xpReward,
+            sealsReward: event.sealsReward,
             objectiveType: event.objectiveType,
             targetCount: event.targetCount,
             criteria: event.criteria,
+            bonusObjective: event.bonusObjective,
             reward: event.reward ? toRewardDescriptor(event.reward) : null,
             startsAt: event.startsAt,
             endsAt: event.endsAt,
@@ -480,6 +528,16 @@ export class GuildAdminService {
         }
     }
 
+    private assertBonusObjective(bonusObjective: unknown) {
+        const errors = validateGuildBonusObjective(bonusObjective);
+        if (errors.length > 0) {
+            throw new BadRequestException({
+                message: "Invalid bonus objective.",
+                errors,
+            });
+        }
+    }
+
     private async assertActiveReward(rewardId: string) {
         const reward = await this.rewardRepository.findOneBy({ id: rewardId });
         if (!reward || !reward.isActive) {
@@ -505,6 +563,7 @@ export class GuildAdminService {
         kind: GuildRewardKind,
         achievementId: string | null,
         inChestPool: boolean,
+        consumableKey: GuildConsumableKey | null,
     ) {
         if (kind === GuildRewardKind.BADGE) {
             if (!achievementId) {
@@ -520,13 +579,12 @@ export class GuildAdminService {
                 );
             }
         }
-        if (
-            inChestPool &&
-            kind !== GuildRewardKind.TITLE &&
-            kind !== GuildRewardKind.AVATAR_FRAME
-        ) {
+        if (kind === GuildRewardKind.CONSUMABLE && !consumableKey) {
+            badRequest("Consumable rewards require a consumableKey.");
+        }
+        if (inChestPool && !CHEST_POOL_KINDS.has(kind)) {
             badRequest(
-                "inChestPool is only supported for title and avatar_frame rewards.",
+                "inChestPool is only supported for permanent equippable cosmetics (title, avatar_frame, license_theme, stamp_style, tavern_decor).",
             );
         }
     }
@@ -557,6 +615,18 @@ export class GuildAdminService {
         }
         if (dto.xpReward !== undefined && dto.xpReward !== saved.xpReward) {
             changed.push("xpReward");
+        }
+        if (
+            dto.sealsReward !== undefined &&
+            dto.sealsReward !== saved.sealsReward
+        ) {
+            changed.push("sealsReward");
+        }
+        if (
+            dto.bonusObjective !== undefined &&
+            !isDeepStrictEqual(dto.bonusObjective, saved.bonusObjective)
+        ) {
+            changed.push("bonusObjective");
         }
         if (dto.rewardId !== undefined && dto.rewardId !== saved.rewardId) {
             changed.push("rewardId");
