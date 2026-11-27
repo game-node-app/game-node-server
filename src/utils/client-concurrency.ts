@@ -1,67 +1,97 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type Redis from "ioredis";
 import {
     clientIp,
     isTrustedForwarder,
     TRUSTED_FORWARDER_MULTIPLIER,
 } from "./client-ip";
+import {
+    limiterRedis,
+    releaseSlot,
+    tryAcquireSlot,
+    waitForSlot,
+} from "./redis-semaphore";
 
-/** Requests one client may have running at once; the rest wait in line. */
+/** Requests one client may have running at once, across every API process; the rest wait in line. */
 export const MAX_ACTIVE_PER_CLIENT = 8;
 /** Requests one client may have waiting; past this it gets 429 right away. */
 export const MAX_QUEUED_PER_CLIENT = 32;
+/** How long a request waits for a slot before giving up with 429. */
+export const MAX_WAIT_MS = 30_000;
+/** A slot held longer than this is presumed leaked (its process died) and freed; Cloudflare gives up at 100s. */
+const ACTIVE_STALE_MS = 120_000;
+const POLL_MS = 50;
 
-interface ClientSlot {
-    active: number;
-    queue: Array<() => void>;
+function tooMany(res: Response) {
+    res.status(429).json({
+        statusCode: 429,
+        message: "Too many concurrent requests",
+    });
 }
 
 /**
  * Caps the requests a single client has in flight, so a burst of expensive requests from one IP can't take
  * every DB connection or the whole event loop. The rate limit counts requests, this counts concurrency.
- * shortcut: per process, so with API_PROCESSES > 1 the cap is per process; move to Redis if that matters.
+ * Slots live in Redis, so the cap holds across API processes and containers.
  */
-export function limitConcurrencyPerClient(): RequestHandler {
-    const slots = new Map<string, ClientSlot>();
+export function limitConcurrencyPerClient(
+    redis: Redis = limiterRedis(),
+): RequestHandler {
+    return (req: Request, res: Response, next: NextFunction) =>
+        admit(redis, req, res, next).catch(next);
+}
 
-    return (req: Request, res: Response, next: NextFunction) => {
-        const key = clientIp(req);
-        const multiplier = isTrustedForwarder(req)
-            ? TRUSTED_FORWARDER_MULTIPLIER
-            : 1;
-        let slot = slots.get(key);
-        if (!slot) {
-            slot = { active: 0, queue: [] };
-            slots.set(key, slot);
-        }
-        const current = slot;
+async function admit(
+    redis: Redis,
+    req: Request,
+    res: Response,
+    next: NextFunction,
+) {
+    const ip = clientIp(req);
+    const multiplier = isTrustedForwarder(req)
+        ? TRUSTED_FORWARDER_MULTIPLIER
+        : 1;
+    const activeKey = `client-concurrency:active:${ip}`;
+    const maxActive = MAX_ACTIVE_PER_CLIENT * multiplier;
+    let closed = false;
+    res.once("close", () => (closed = true));
 
-        // The finished request's place goes straight to the next one in line.
-        const release = () => {
-            const waiter = current.queue.shift();
-            if (waiter) waiter();
-            else if (--current.active === 0) slots.delete(key);
-        };
-        const start = () => {
-            res.once("close", release);
-            next();
-        };
+    let slot = await tryAcquireSlot(
+        redis,
+        activeKey,
+        maxActive,
+        ACTIVE_STALE_MS,
+    );
+    if (!slot) {
+        const waitingKey = `client-concurrency:waiting:${ip}`;
+        const ticket = await tryAcquireSlot(
+            redis,
+            waitingKey,
+            MAX_QUEUED_PER_CLIENT * multiplier,
+            MAX_WAIT_MS + 5_000,
+        );
+        if (!ticket) return tooMany(res);
+        try {
+            slot = await waitForSlot(
+                redis,
+                activeKey,
+                maxActive,
+                ACTIVE_STALE_MS,
+                // A client that gives up while waiting leaves the line.
+                {
+                    timeoutMs: MAX_WAIT_MS,
+                    pollMs: POLL_MS,
+                    cancelled: () => closed,
+                },
+            );
+        } finally {
+            await releaseSlot(redis, waitingKey, ticket);
+        }
+        if (!slot) return closed ? undefined : tooMany(res);
+    }
 
-        if (current.active < MAX_ACTIVE_PER_CLIENT * multiplier) {
-            current.active++;
-            return start();
-        }
-        if (current.queue.length >= MAX_QUEUED_PER_CLIENT * multiplier) {
-            res.status(429).json({
-                statusCode: 429,
-                message: "Too many concurrent requests",
-            });
-            return;
-        }
-        current.queue.push(start);
-        // A client that gives up while waiting leaves the line.
-        res.once("close", () => {
-            const index = current.queue.indexOf(start);
-            if (index !== -1) current.queue.splice(index, 1);
-        });
-    };
+    const acquired = slot;
+    if (closed) return releaseSlot(redis, activeKey, acquired);
+    res.once("close", () => void releaseSlot(redis, activeKey, acquired));
+    next();
 }

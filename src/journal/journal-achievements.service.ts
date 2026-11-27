@@ -6,7 +6,11 @@ import {
     JournalAchievementsMonthGroup,
     JournalAchievementsYearGroup,
 } from "./dto/get-obtained-achievements-journal.dto";
-import { Injectable, Logger } from "@nestjs/common";
+import {
+    Injectable,
+    Logger,
+    ServiceUnavailableException,
+} from "@nestjs/common";
 import { GameAchievementDto } from "../game/game-achievement/dto/game-achievement.dto";
 import {
     GameAchievementWithObtainedInfo,
@@ -22,13 +26,20 @@ import {
     checkIfGameIsPlatinum,
 } from "../game/game-achievement/game-achievement.utils";
 import { Cacheable } from "../utils/cacheable";
+import {
+    limiterRedis,
+    releaseSlot,
+    waitForSlot,
+} from "../utils/redis-semaphore";
 import { minutes } from "@nestjs/throttler";
 
 const FAN_OUT_BATCH_SIZE = 5;
-/** Cold builds query every game's store; a crawl of many profiles shares these few slots (per API process) instead of the DB pool. */
-const MAX_CONCURRENT_BUILDS = 2;
-let activeBuilds = 0;
-const waitingBuilds: Array<() => void> = [];
+/** Cold builds query every game's store; a crawl of many profiles shares these few slots instead of the DB pool. */
+const MAX_CONCURRENT_BUILDS = 4;
+/** Redis key of the build slots, shared by every API process. */
+export const JOURNAL_BUILDS_KEY = "journal-achievements:builds";
+/** A build holding its slot longer than this is presumed dead (its process exited) and the slot freed. */
+const BUILD_STALE_MS = minutes(5);
 
 @Injectable()
 export class JournalAchievementsService {
@@ -43,15 +54,22 @@ export class JournalAchievementsService {
     public async buildObtainedAchievementsJournal(
         userId: string,
     ): Promise<GetObtainedAchievementsJournalResponseDto> {
-        if (activeBuilds < MAX_CONCURRENT_BUILDS) activeBuilds++;
-        else await new Promise<void>((resolve) => waitingBuilds.push(resolve));
+        const redis = limiterRedis();
+        const slot = await waitForSlot(
+            redis,
+            JOURNAL_BUILDS_KEY,
+            MAX_CONCURRENT_BUILDS,
+            BUILD_STALE_MS,
+            { timeoutMs: minutes(1), pollMs: 250 },
+        );
+        if (!slot)
+            throw new ServiceUnavailableException(
+                "Too many journals are being built right now, try again shortly.",
+            );
         try {
             return await this.build(userId);
         } finally {
-            // The slot passes straight to the next waiting build.
-            const next = waitingBuilds.shift();
-            if (next) next();
-            else activeBuilds--;
+            await releaseSlot(redis, JOURNAL_BUILDS_KEY, slot);
         }
     }
 
