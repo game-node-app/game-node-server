@@ -28,6 +28,7 @@ export class PaginationInterceptor<T>
      * @private
      */
     private buildSimplifiedDto(requestObject: any): BaseFindDto<T> {
+        // shortcut: reads the raw limit, so a request above the DTO cap gets hasNextPage=false on a clamped page; pass the clamped DTO here if a client ever paginates above the cap.
         let { offset, limit } = requestObject;
         if (offset == undefined || offset === "") {
             offset = 0;

@@ -21,6 +21,10 @@ import {
     checkIfGameIsComplete,
     checkIfGameIsPlatinum,
 } from "../game/game-achievement/game-achievement.utils";
+import { Cacheable } from "../utils/cacheable";
+import { minutes } from "@nestjs/throttler";
+
+const FAN_OUT_BATCH_SIZE = 5;
 
 @Injectable()
 export class JournalAchievementsService {
@@ -31,6 +35,7 @@ export class JournalAchievementsService {
         private readonly gameObtainedAchievementService: GameObtainedAchievementService,
     ) {}
 
+    @Cacheable(JournalAchievementsService.name, minutes(10))
     public async buildObtainedAchievementsJournal(
         userId: string,
     ): Promise<GetObtainedAchievementsJournalResponseDto> {
@@ -52,17 +57,24 @@ export class JournalAchievementsService {
             GameAchievementDto[]
         >();
 
-        const achievementsPerGamePromises = obtainedByExternalGameId
-            .keys()
-            .map((externalGameId) =>
-                this.gameAchievementService.findAllByExternalGameId(
-                    externalGameId,
-                ),
+        // Batched so one user with hundreds of games can't take the whole DB pool.
+        const externalGameIds = [...obtainedByExternalGameId.keys()];
+        const achievementsPerGameResults: PromiseSettledResult<
+            GameAchievementDto[]
+        >[] = [];
+        for (let i = 0; i < externalGameIds.length; i += FAN_OUT_BATCH_SIZE) {
+            achievementsPerGameResults.push(
+                ...(await Promise.allSettled(
+                    externalGameIds
+                        .slice(i, i + FAN_OUT_BATCH_SIZE)
+                        .map((externalGameId) =>
+                            this.gameAchievementService.findAllByExternalGameId(
+                                externalGameId,
+                            ),
+                        ),
+                )),
             );
-
-        const achievementsPerGameResults = await Promise.allSettled(
-            achievementsPerGamePromises,
-        );
+        }
 
         for (const result of achievementsPerGameResults) {
             if (result.status === "fulfilled") {

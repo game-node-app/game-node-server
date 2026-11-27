@@ -9,11 +9,11 @@ import {
 import { Roles } from "../auth/roles.decorator";
 import { EUserRoles } from "../utils/constants";
 import { Session, SessionContainer } from "../auth/session.decorator";
-import { ThrottlerGuard } from "@nestjs/throttler";
+import { seconds, Throttle } from "@nestjs/throttler";
 
 @Controller("achievements/code")
 @ApiTags("achievements-code")
-@UseGuards(ThrottlerGuard)
+@Throttle({ default: { limit: 10, ttl: seconds(60) } })
 @UseGuards(AuthGuard)
 export class AchievementsCodeController {
     constructor(

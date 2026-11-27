@@ -5,6 +5,7 @@ import {
     IsOptional,
     IsString,
 } from "class-validator";
+import { ClampLimit, MAX_PAGE_LIMIT } from "./request-bounds";
 
 export class BaseCursorFindDto {
     @IsOptional()
@@ -16,5 +17,6 @@ export class BaseCursorFindDto {
     @IsOptional()
     @IsNumber()
     @IsNotEmpty()
+    @ClampLimit(MAX_PAGE_LIMIT)
     limit?: number = 20;
 }
