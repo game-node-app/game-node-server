@@ -46,10 +46,31 @@ Create and review migrations in development against a disposable database, then
 commit them with the application changes. Do not generate migrations inside a
 running production container.
 
-At deployment, the `server_migration` service in `docker-compose.prod.yml` runs
-the committed migrations once and exits; the API starts only after it succeeds,
-so replicas never run migrations concurrently. Its image tag is independent of
-the API's. Back up the database before deploying a new migration.
+At deployment, the `gamenode-migration` Coolify resource
+(`docker-compose.migration.yml`) runs the committed migrations once and exits;
+the Deploy workflow updates the API replicas only after it succeeds, so replicas
+never run migrations concurrently. During the rollout the old and new API run
+side by side, so a migration must stay compatible with the previous release
+(add first, remove in a later release). Back up the database before deploying a
+new migration.
+
+#### Production layout
+
+Each is a separate Coolify resource, so a code deploy never restarts the infra:
+
+| Resource | What | Deployed by |
+| --- | --- | --- |
+| `gamenode-migration` | `docker-compose.migration.yml`, one-shot `pnpm migration:run` | Deploy workflow, first |
+| `gamenode-api-1`, `gamenode-api-2` | Docker Image, `APP_ROLE=api`, 1.5 CPU / 2 GB each | Deploy workflow, one after the other |
+| `gamenode-worker` | Docker Image, `APP_ROLE=worker` (crons, BullMQ, ffmpeg). Keep exactly one | Deploy workflow, last |
+| infra | `docker-compose.prod.yml`: Redis ×2, Manticore, Directus, autoheal | Deploy workflow only when its files change, or `deploy_infra` on a manual run |
+
+Traefik balances `server.gamenode.app` and `search.gamenode.app` across both API
+replicas (label service `gamenode-api`, active check on `/v1/health`); the
+routers live in [docker/traefik/gamenode-api.yaml](docker/traefik/gamenode-api.yaml),
+which must be copied by hand to the proxy's dynamic configuration. The API and
+worker bind-mount the infra stack's `profile-video-tmp` and `blog-cms-public`
+volumes, so all of them must stay on the same server.
 
 The database must use `utf8mb4` with the `utf8mb4_0900_ai_ci` collation (the
 MySQL 8 default). Released migrations create tables without an explicit
