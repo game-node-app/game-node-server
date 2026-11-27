@@ -26,6 +26,7 @@ import { CORS_OPTIONS } from "./auth/cors-options";
 import cluster from "node:cluster";
 import { RUNS_BACKGROUND_WORK } from "./utils/app-role";
 import { limitConcurrencyPerClient } from "./utils/client-concurrency";
+import { dropSpoofedClientIp } from "./utils/client-ip";
 
 dayjs.extend(duration);
 
@@ -58,6 +59,7 @@ async function bootstrap() {
 
     app.enableCors(CORS_OPTIONS);
 
+    app.use(dropSpoofedClientIp);
     app.use(limitConcurrencyPerClient());
 
     mountAuth(app.getHttpAdapter().getInstance(), app.get(AuthService));
