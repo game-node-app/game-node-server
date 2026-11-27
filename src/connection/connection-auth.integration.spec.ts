@@ -96,7 +96,7 @@ integrationDescribe("connection auth on disposable MySQL and Redis", () => {
             await queue.close();
         }
         if (source?.isInitialized) {
-            deleteDataSourceByName(source.name);
+            deleteDataSourceByName("default");
             await source.destroy();
         }
         if (admin?.isInitialized) {

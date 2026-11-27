@@ -634,11 +634,10 @@ describe("library search filter", () => {
             search: "   ",
         });
 
-        expect(repository.findAndCount).toHaveBeenCalledWith(
-            expect.objectContaining({
-                where: expect.objectContaining({ gameId: undefined }),
-            }),
-        );
+        const [{ where }] = repository.findAndCount.mock.calls[0] as [
+            { where: Record<string, unknown> },
+        ];
+        expect(where).not.toHaveProperty("gameId");
     });
 
     test.each(["%%%", "'", "_"])(

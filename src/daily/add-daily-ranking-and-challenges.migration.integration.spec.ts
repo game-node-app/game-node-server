@@ -119,7 +119,7 @@ describe("AddDailyRankingAndChallenges migration", () => {
             database: DATABASE,
             timezone: "Z",
             dateStrings: ["DATE"],
-            entities: [resolve(__dirname, "../../**/*.entity.ts")],
+            entities: [resolve(__dirname, "../**/*.entity.ts")],
             synchronize: false,
         }).initialize();
         await createBaselineTables(source, ["profile", "game"]);

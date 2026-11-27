@@ -59,14 +59,14 @@ export class JournalService {
         if (cached != null) return cached;
 
         const collectionEntries = await this.collectionEntriesRepository.find({
-            select: [
-                "id",
-                "gameId",
-                "startedAt",
-                "finishedAt",
-                "droppedAt",
-                "plannedAt",
-            ],
+            select: {
+                id: true,
+                gameId: true,
+                startedAt: true,
+                finishedAt: true,
+                droppedAt: true,
+                plannedAt: true,
+            },
             where: this.overviewWhere(
                 targetUserId,
                 access.visibleEntryLevels,

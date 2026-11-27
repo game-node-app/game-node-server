@@ -60,11 +60,14 @@ export class GameAchievementStatusService {
         const { onlyCompleted, completedPeriodStart, completedPeriodEnd } = dto;
 
         const filterOptions: FindOptionsWhere<GameCompletionStatus> = {
-            completedAt:
-                completedPeriodStart && completedPeriodEnd
-                    ? Between(completedPeriodStart, completedPeriodEnd)
-                    : undefined,
-            isCompleted: onlyCompleted ? true : undefined,
+            ...(completedPeriodStart &&
+                completedPeriodEnd && {
+                    completedAt: Between(
+                        completedPeriodStart,
+                        completedPeriodEnd,
+                    ),
+                }),
+            ...(onlyCompleted && { isCompleted: true }),
         };
 
         return this.gameCompletionStatusRepository.find({

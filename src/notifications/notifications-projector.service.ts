@@ -626,15 +626,18 @@ export class NotificationsProjectorService {
 
             case "connection.reauth-required": {
                 const { connectionId, provider } = payload;
-                const connection = outbox.recipientUserId
-                    ? await manager.findOne(UserConnection, {
-                          where: {
-                              id: connectionId,
-                              profileUserId: outbox.recipientUserId,
-                              type: provider,
-                          },
-                      })
-                    : null;
+                const connection =
+                    outbox.recipientUserId &&
+                    connectionId != null &&
+                    provider != null
+                        ? await manager.findOne(UserConnection, {
+                              where: {
+                                  id: connectionId,
+                                  profileUserId: outbox.recipientUserId,
+                                  type: provider,
+                              },
+                          })
+                        : null;
                 if (!connection) {
                     return {
                         isSuppressed: true,
