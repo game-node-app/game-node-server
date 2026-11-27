@@ -46,4 +46,28 @@ describe("JournalAchievementsService", () => {
         expect(maxActive).toBeLessThanOrEqual(5);
         expect(first.years[0].totalObtained).toBe(12);
     });
+
+    it("runs at most two cold builds at once across users", async () => {
+        let active = 0;
+        let maxActive = 0;
+        const findAllObtainedByUserId = jest.fn(async () => {
+            maxActive = Math.max(maxActive, ++active);
+            await new Promise((r) => setTimeout(r, 1));
+            active--;
+            return [[], 0];
+        });
+        const service = new JournalAchievementsService(
+            {} as never,
+            { findAllObtainedByUserId } as never,
+        );
+
+        await Promise.all(
+            ["a", "b", "c", "d", "e"].map((user) =>
+                service.buildObtainedAchievementsJournal(user),
+            ),
+        );
+
+        expect(findAllObtainedByUserId).toHaveBeenCalledTimes(5);
+        expect(maxActive).toBe(2);
+    });
 });

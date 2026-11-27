@@ -25,7 +25,9 @@ export class GameRepositoryFindAllDto {
     gameIds: number[];
     @IsOptional()
     @IsObject()
-    @IsBoundedRelations()
+    @IsBoundedRelations<GameRepositoryFindAllDto>(
+        (dto) => dto.gameIds?.length ?? 0,
+    )
     relations?: FindOptionsRelations<Game>;
     @IsOptional()
     @ToBoolean()

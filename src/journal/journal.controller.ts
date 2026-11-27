@@ -8,6 +8,7 @@ import { JournalPlayLogService } from "./journal-play-log.service";
 import { JournalHeatmapService } from "./journal-heatmap.service";
 import { JournalAchievementsService } from "./journal-achievements.service";
 import { GetJournalOverviewQueryDto } from "./dto/get-journal-overview.dto";
+import { seconds, Throttle } from "@nestjs/throttler";
 
 @Controller("journal")
 @ApiTags("journal")
@@ -62,6 +63,8 @@ export class JournalController {
 
     @Get("achievements/:userId")
     @Public()
+    // A cold build is expensive, so one client can't walk through many profiles.
+    @Throttle({ default: { limit: 10, ttl: seconds(60) } })
     public async getObtainedAchievementsJournal(
         @Param("userId") userId: string,
     ) {

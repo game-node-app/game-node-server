@@ -25,6 +25,10 @@ import { Cacheable } from "../utils/cacheable";
 import { minutes } from "@nestjs/throttler";
 
 const FAN_OUT_BATCH_SIZE = 5;
+/** Cold builds query every game's store; a crawl of many profiles shares these few slots (per API process) instead of the DB pool. */
+const MAX_CONCURRENT_BUILDS = 2;
+let activeBuilds = 0;
+const waitingBuilds: Array<() => void> = [];
 
 @Injectable()
 export class JournalAchievementsService {
@@ -37,6 +41,21 @@ export class JournalAchievementsService {
 
     @Cacheable(JournalAchievementsService.name, minutes(10))
     public async buildObtainedAchievementsJournal(
+        userId: string,
+    ): Promise<GetObtainedAchievementsJournalResponseDto> {
+        if (activeBuilds < MAX_CONCURRENT_BUILDS) activeBuilds++;
+        else await new Promise<void>((resolve) => waitingBuilds.push(resolve));
+        try {
+            return await this.build(userId);
+        } finally {
+            // The slot passes straight to the next waiting build.
+            const next = waitingBuilds.shift();
+            if (next) next();
+            else activeBuilds--;
+        }
+    }
+
+    private async build(
         userId: string,
     ): Promise<GetObtainedAchievementsJournalResponseDto> {
         const [userObtainedAchievements] =

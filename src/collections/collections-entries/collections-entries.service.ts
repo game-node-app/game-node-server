@@ -476,6 +476,18 @@ export class CollectionsEntriesService {
         ];
     }
 
+    /** Start and finish dates of every entry the viewer can see, for stats that only count them. */
+    async findPlayDatesForLibrary(targetUserId: string, access: LibraryAccess) {
+        if (!access.canViewLibrary) return [];
+        return this.collectionEntriesRepository.find({
+            select: { startedAt: true, finishedAt: true },
+            where: {
+                libraryUserId: targetUserId,
+                visibility: In(access.visibleEntryLevels),
+            },
+        });
+    }
+
     async findAllByUserIdWithPermissions(
         userId: string | undefined,
         targetUserId: string,

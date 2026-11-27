@@ -10,6 +10,7 @@ import {
     ValidateBy,
     ValidateNested,
 } from "class-validator";
+import { MAX_OFFSET } from "../../utils/request-bounds";
 import { Type } from "class-transformer";
 import { ApiProperty, PickType } from "@nestjs/swagger";
 import { BaseFindDto } from "../../utils/base-find.dto";
@@ -102,6 +103,7 @@ export class DailyRankingRequestDto {
     @IsOptional()
     @IsInt()
     @Min(0)
+    @Max(MAX_OFFSET)
     offset?: number = 0;
     @IsOptional()
     @IsInt()

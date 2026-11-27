@@ -9,6 +9,8 @@ x-server-environment: &server-environment
   DOMAIN_API: https://server.gamenode.app
   DOMAIN_WEBSITE: https://gamenode.app
   TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
+  # Public IPs of our own servers that call the API for many visitors (the web SSR); they get 10x the per-IP limits.
+  TRUSTED_FORWARDER_IPS: ${TRUSTED_FORWARDER_IPS:-}
   DB_HOST: ${DB_HOST:?set DB_HOST}
   DB_DATABASE: gamenode
   DB_PASS: ${DB_PASS}

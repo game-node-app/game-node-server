@@ -23,34 +23,28 @@ export class ProfileMetricsService {
             userId,
         );
 
-        const [
-            collections,
-            [collectionEntries, totalCollectionEntries],
-            totalEstimatedPlaytime,
-        ] = await Promise.all([
-            this.collectionsService.findAllByUserIdWithPermissions(
-                viewerId,
-                userId,
-            ),
-            this.collectionsEntriesService.findAllByUserIdWithPermissions(
-                viewerId,
-                userId,
-                {
-                    limit: 9999999,
-                    offset: 0,
-                },
-            ),
-            this.playtimeService.getTotalPlaytimeByUserId(
-                userId,
-                "totalPlaytimeSeconds",
-                undefined,
-                undefined,
-                access,
-            ),
-        ]);
+        const [collections, collectionEntries, totalEstimatedPlaytime] =
+            await Promise.all([
+                this.collectionsService.findAllByUserIdWithPermissions(
+                    viewerId,
+                    userId,
+                ),
+                // Only the dates: loading whole entries with their games made this a multi-second request.
+                this.collectionsEntriesService.findPlayDatesForLibrary(
+                    userId,
+                    access,
+                ),
+                this.playtimeService.getTotalPlaytimeByUserId(
+                    userId,
+                    "totalPlaytimeSeconds",
+                    undefined,
+                    undefined,
+                    access,
+                ),
+            ]);
 
         const statsOverview: ProfileMetricsOverviewDto = {
-            totalGames: totalCollectionEntries,
+            totalGames: collectionEntries.length,
             totalCollections: collections.length,
             totalEstimatedPlaytime,
             totalFinishedGames: 0,
