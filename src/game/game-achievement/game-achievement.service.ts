@@ -171,11 +171,17 @@ export class GameAchievementService {
     }
 
     private readonly refreshQueue = new Set<number>();
+    /** Ids being fetched now, so reads of the same stale game don't start a second store call. */
+    private readonly refreshing = new Set<number>();
     private activeRefreshes = 0;
 
     /** Refreshes stale catalogs in the background, a few at a time, so a read never waits on a store for them. */
     private queueRefresh(externalGameId: number) {
-        if (this.refreshQueue.size >= MAX_QUEUED_REFRESHES) return;
+        if (
+            this.refreshQueue.size >= MAX_QUEUED_REFRESHES ||
+            this.refreshing.has(externalGameId)
+        )
+            return;
         this.refreshQueue.add(externalGameId);
         while (
             this.activeRefreshes < MAX_CONCURRENT_REFRESHES &&
@@ -189,12 +195,15 @@ export class GameAchievementService {
         try {
             for (const id of this.refreshQueue) {
                 this.refreshQueue.delete(id);
+                this.refreshing.add(id);
                 // A failed refresh keeps the stored catalog; the next read past the window tries again.
-                await this.fetchCatalog(id).catch((error: unknown) =>
-                    this.logger.warn(
-                        `Achievement catalog refresh failed for external game ${id}: ${error}`,
-                    ),
-                );
+                await this.fetchCatalog(id)
+                    .catch((error: unknown) =>
+                        this.logger.warn(
+                            `Achievement catalog refresh failed for external game ${id}: ${error}`,
+                        ),
+                    )
+                    .finally(() => this.refreshing.delete(id));
             }
         } finally {
             this.activeRefreshes--;

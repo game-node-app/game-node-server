@@ -418,3 +418,48 @@ describe("warming catalogs from sync", () => {
         expect(catalogs.rows.get(1).achievements[0].externalId).toBe("a1");
     });
 });
+
+test("a stale game read again while its refresh runs is fetched once", async () => {
+    const catalogs = catalogRepository();
+    catalogs.rows.set(1, {
+        externalGameId: 1,
+        achievements: [{ externalId: "old" }],
+        fetchedAt: new Date(0),
+    });
+    let finish!: () => void;
+    const getAvailableAchievements = jest.fn(
+        () =>
+            new Promise((resolve) => {
+                finish = () =>
+                    resolve([{ name: "a1", displayName: "A", icon: "i" }]);
+            }),
+    );
+    const service = new GameAchievementService(
+        {
+            findOneByIdOrFail: async (id: number) => ({
+                id,
+                gameId: 10,
+                uid: "1",
+                category: EGameExternalGameCategory.Steam,
+            }),
+        } as any,
+        {
+            getAvailableAchievements,
+            getAchievementsPercentage: async () => [],
+        } as any,
+        {} as any,
+        {} as any,
+        { getGamePlatformsMap: async () => new Map() } as any,
+        {} as any,
+        {} as any,
+        catalogs,
+    );
+    await service.findAllByExternalGameId(1);
+    await new Promise((r) => setTimeout(r, 0));
+    await service.findAllByExternalGameId(1);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getAvailableAchievements).toHaveBeenCalledTimes(1);
+    finish();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(catalogs.rows.get(1).achievements[0].externalId).toBe("a1");
+});
