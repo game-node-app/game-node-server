@@ -52,6 +52,8 @@ import { BillingModule } from "./billing/billing.module";
 import { SupportersModule } from "./supporters/supporters.module";
 import { ProfilePresenceModule } from "./profile/profile-presence/profile-presence.module";
 import { GuildModule } from "./guild/guild.module";
+import { RUNS_BACKGROUND_WORK } from "./utils/app-role";
+import { API_MAX_SELECT_MS, limitSelectTime } from "./utils/limit-select-time";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -63,7 +65,8 @@ import { GuildModule } from "./guild/guild.module";
         ConfigModule.forRoot({
             isGlobal: true,
         }),
-        ScheduleModule.forRoot(),
+        // Without ScheduleModule the @Cron/@Interval decorators stay inert.
+        ...(RUNS_BACKGROUND_WORK ? [ScheduleModule.forRoot()] : []),
         LoggerModule.forRoot(),
         AuthModule,
         HealthModule,
@@ -118,7 +121,13 @@ import { GuildModule } from "./guild/guild.module";
                 if (!options) {
                     throw new Error("Invalid datasource config");
                 }
-                return addTransactionalDataSource(new DataSource(options));
+                const dataSource = new DataSource(options);
+                if (!RUNS_BACKGROUND_WORK) {
+                    // The pool only exists after initialize; registering afterwards keeps retries safe.
+                    await dataSource.initialize();
+                    limitSelectTime(dataSource, API_MAX_SELECT_MS);
+                }
+                return addTransactionalDataSource(dataSource);
             },
         }),
         CacheModule.registerAsync({
@@ -133,6 +142,8 @@ import { GuildModule } from "./guild/guild.module";
             },
         }),
         BullModule.forRootAsync({
+            // API instances only enqueue; no queue workers start there.
+            extraOptions: { manualRegistration: !RUNS_BACKGROUND_WORK },
             inject: [ConfigService],
             useFactory: async () => {
                 const { port, host } = getRedisConfig("bullmq");

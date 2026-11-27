@@ -23,6 +23,7 @@ import {
 } from "./igdb-catalog.constants";
 
 import { IgdbDeltaService } from "./igdb-delta.service";
+import { RUNS_BACKGROUND_WORK } from "../../../utils/app-role";
 
 @Injectable()
 export class IgdbCatalogSchedulerService
@@ -38,6 +39,7 @@ export class IgdbCatalogSchedulerService
         @Optional() private readonly delta?: IgdbDeltaService,
     ) {}
     async onModuleInit() {
+        if (!RUNS_BACKGROUND_WORK) return;
         await this.tick();
     }
     async onModuleDestroy() {

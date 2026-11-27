@@ -1,3 +1,64 @@
+# Shared by the API and worker services; only variables listed here reach the containers,
+# and Coolify uses its env values for interpolation.
+x-server-environment: &server-environment
+  NODE_ENV: production
+  REDIS_URL: redis://server-redis:6379
+  BULLMQ_REDIS_URL: redis://server-redis-bullmq:6379
+  MANTICORE_URL: http://manticore:9308
+  SERVER_PORT: 5000
+  DOMAIN_API: https://server.gamenode.app
+  DOMAIN_WEBSITE: https://gamenode.app
+  TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
+  DB_HOST: ${DB_HOST:?set DB_HOST}
+  DB_DATABASE: gamenode
+  DB_PASS: ${DB_PASS}
+  DB_USER: ${DB_USER}
+  DB_PORT: 3306
+  PROVIDER_GOOGLE_CLIENT_ID: ${PROVIDER_GOOGLE_CLIENT_ID}
+  PROVIDER_GOOGLE_CLIENT_SECRET: ${PROVIDER_GOOGLE_CLIENT_SECRET}
+  PROVIDER_DISCORD_CLIENT_ID: ${PROVIDER_DISCORD_CLIENT_ID}
+  PROVIDER_DISCORD_CLIENT_SECRET: ${PROVIDER_DISCORD_CLIENT_SECRET}
+  PROVIDER_TWITTER_CLIENT_ID: ${PROVIDER_TWITTER_CLIENT_ID}
+  PROVIDER_TWITTER_CLIENT_SECRET: ${PROVIDER_TWITTER_CLIENT_SECRET}
+  XBOX_OAUTH_CLIENT_ID: ${XBOX_OAUTH_CLIENT_ID}
+  XBOX_OAUTH_CLIENT_SECRET: ${XBOX_OAUTH_CLIENT_SECRET}
+  XBOX_OAUTH_REDIRECT_URI: ${XBOX_OAUTH_REDIRECT_URI}
+  EPIC_OAUTH_CLIENT_ID: ${EPIC_OAUTH_CLIENT_ID}
+  EPIC_OAUTH_CLIENT_SECRET: ${EPIC_OAUTH_CLIENT_SECRET}
+  STEAM_API_KEY: ${STEAM_API_KEY}
+  TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID}
+  TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET}
+  PSN_NPSSO_KEY: ${PSN_NPSSO_KEY}
+  S3_ENDPOINT: ${S3_ENDPOINT}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+  BLOG_CMS_URL: http://blog-cms:8055
+  BLOG_CMS_PUBLIC_URL: ${BLOG_CMS_PUBLIC_URL}
+  BLOG_CMS_DELIVERY_TOKEN: ${BLOG_CMS_DELIVERY_TOKEN}
+  BLOG_CMS_PREVIEW_TOKEN: ${BLOG_CMS_PREVIEW_TOKEN}
+  BLOG_PUBLIC_MEDIA_PATH: /app/blog-public-media
+  CONNECTION_CREDENTIAL_ENCRYPTION_KEY: ${CONNECTION_CREDENTIAL_ENCRYPTION_KEY:?set CONNECTION_CREDENTIAL_ENCRYPTION_KEY}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+  DAILY_IMAGE_SECRET: ${DAILY_IMAGE_SECRET:?set DAILY_IMAGE_SECRET}
+  # Supporter billing; set all four to enable it. Without them the API boots and billing returns 503.
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  STRIPE_PRICE_SUPPORTER_MONTHLY: ${STRIPE_PRICE_SUPPORTER_MONTHLY:-}
+  STRIPE_PRICE_SUPPORTER_YEARLY: ${STRIPE_PRICE_SUPPORTER_YEARLY:-}
+  # Starts paused for the initial validation; set true in Coolify after the smoke tests.
+  PLAYER_DATA_SYNC_ENABLED: ${PLAYER_DATA_SYNC_ENABLED:-false}
+  # Adventurers Guild rollout gate; supporters restricts it to active supporters and editors.
+  GUILD_ACCESS_MODE: ${GUILD_ACCESS_MODE:-public}
+  # Telemetry to PostHog; disabled while the endpoint is empty. See docs/observability.md.
+  OTEL_SERVICE_NAME: game-node-server
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}
+  OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER:-none}
+  OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+  OTEL_TRACES_SAMPLER: parentbased_traceidratio
+  OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1}
+
 services:
   # Redis server for caching; disposable, so no persistence.
   redis:
@@ -137,65 +198,13 @@ services:
     image: lamarcke/game-node-server:${SERVER_IMAGE_TAG:?set SERVER_IMAGE_TAG}
     hostname: server
 
-    # Only variables listed here reach the container; Coolify uses its env values for interpolation.
     environment:
-      NODE_ENV: production
-      REDIS_URL: redis://server-redis:6379
-      BULLMQ_REDIS_URL: redis://server-redis-bullmq:6379
-      MANTICORE_URL: http://manticore:9308
-      SERVER_PORT: 5000
-      DOMAIN_API: https://server.gamenode.app
-      DOMAIN_WEBSITE: https://gamenode.app
-      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
-      DB_HOST: ${DB_HOST:?set DB_HOST}
-      DB_DATABASE: gamenode
-      DB_PASS: ${DB_PASS}
-      DB_USER: ${DB_USER}
-      DB_PORT: 3306
-      PROVIDER_GOOGLE_CLIENT_ID: ${PROVIDER_GOOGLE_CLIENT_ID}
-      PROVIDER_GOOGLE_CLIENT_SECRET: ${PROVIDER_GOOGLE_CLIENT_SECRET}
-      PROVIDER_DISCORD_CLIENT_ID: ${PROVIDER_DISCORD_CLIENT_ID}
-      PROVIDER_DISCORD_CLIENT_SECRET: ${PROVIDER_DISCORD_CLIENT_SECRET}
-      PROVIDER_TWITTER_CLIENT_ID: ${PROVIDER_TWITTER_CLIENT_ID}
-      PROVIDER_TWITTER_CLIENT_SECRET: ${PROVIDER_TWITTER_CLIENT_SECRET}
-      XBOX_OAUTH_CLIENT_ID: ${XBOX_OAUTH_CLIENT_ID}
-      XBOX_OAUTH_CLIENT_SECRET: ${XBOX_OAUTH_CLIENT_SECRET}
-      XBOX_OAUTH_REDIRECT_URI: ${XBOX_OAUTH_REDIRECT_URI}
-      EPIC_OAUTH_CLIENT_ID: ${EPIC_OAUTH_CLIENT_ID}
-      EPIC_OAUTH_CLIENT_SECRET: ${EPIC_OAUTH_CLIENT_SECRET}
-      STEAM_API_KEY: ${STEAM_API_KEY}
-      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID}
-      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET}
-      PSN_NPSSO_KEY: ${PSN_NPSSO_KEY}
-      S3_ENDPOINT: ${S3_ENDPOINT}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      BLOG_CMS_URL: http://blog-cms:8055
-      BLOG_CMS_PUBLIC_URL: ${BLOG_CMS_PUBLIC_URL}
-      BLOG_CMS_DELIVERY_TOKEN: ${BLOG_CMS_DELIVERY_TOKEN}
-      BLOG_CMS_PREVIEW_TOKEN: ${BLOG_CMS_PREVIEW_TOKEN}
-      BLOG_PUBLIC_MEDIA_PATH: /app/blog-public-media
-      CONNECTION_CREDENTIAL_ENCRYPTION_KEY: ${CONNECTION_CREDENTIAL_ENCRYPTION_KEY:?set CONNECTION_CREDENTIAL_ENCRYPTION_KEY}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
-      DAILY_IMAGE_SECRET: ${DAILY_IMAGE_SECRET:?set DAILY_IMAGE_SECRET}
-      # Supporter billing; set all four to enable it. Without them the API boots and billing returns 503.
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-      STRIPE_PRICE_SUPPORTER_MONTHLY: ${STRIPE_PRICE_SUPPORTER_MONTHLY:-}
-      STRIPE_PRICE_SUPPORTER_YEARLY: ${STRIPE_PRICE_SUPPORTER_YEARLY:-}
-      # Starts paused for the initial validation; set true in Coolify after the smoke tests.
-      PLAYER_DATA_SYNC_ENABLED: ${PLAYER_DATA_SYNC_ENABLED:-false}
-      # Adventurers Guild rollout gate; supporters restricts it to active supporters and editors.
-      GUILD_ACCESS_MODE: ${GUILD_ACCESS_MODE:-public}
-      # Telemetry to PostHog; disabled while the endpoint is empty. See docs/observability.md.
-      OTEL_SERVICE_NAME: game-node-server
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
-      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}
-      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER:-none}
-      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
-      OTEL_TRACES_SAMPLER: parentbased_traceidratio
-      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1}
+      <<: *server-environment
+      # HTTP only; crons, queue workers and boot jobs run in server_worker.
+      APP_ROLE: api
+      # Processes sharing port 5000, so one blocked event loop doesn't stall every request.
+      API_PROCESSES: 2
+      PROFILE_VIDEO_TEMP_DIR: /app/profile-video-tmp
 
 
     healthcheck:
@@ -206,6 +215,10 @@ services:
 
     restart: always
 
+    # Restarted by the autoheal service when the healthcheck marks it unhealthy.
+    labels:
+      autoheal: "true"
+
     deploy:
       replicas: 1
 
@@ -213,10 +226,56 @@ services:
 
     volumes:
       - blog-cms-public:/app/blog-public-media:ro
+      # Uploads land here and server_worker's ffmpeg job reads them, so both mount it.
+      - profile-video-tmp:/app/profile-video-tmp
 
     networks:
       - game_node_app
       - gamenode
+
+  # Crons, BullMQ workers and boot-time jobs. Keep exactly one and give it no domain in Coolify.
+  server_worker:
+    depends_on:
+      server_migration:
+        condition: service_completed_successfully
+    image: lamarcke/game-node-server:${SERVER_IMAGE_TAG:?set SERVER_IMAGE_TAG}
+    hostname: server-worker
+    environment:
+      <<: *server-environment
+      APP_ROLE: worker
+      PROFILE_VIDEO_TEMP_DIR: /app/profile-video-tmp
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pnpm run healthcheck" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    restart: always
+
+    # Restarted by the autoheal service when the healthcheck marks it unhealthy.
+    labels:
+      autoheal: "true"
+
+    command: "pnpm start:prod"
+
+    volumes:
+      - profile-video-tmp:/app/profile-video-tmp
+
+    networks:
+      - game_node_app
+      - gamenode
+
+  # Docker alone never restarts an unhealthy container; this restarts the services labelled autoheal=true.
+  # The socket mount gives it control of the host's Docker, so it is pinned and scoped by label.
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
 
   # Runs pending migrations once per deploy; the server only starts after it exits successfully.
   # Uses the same SERVER_IMAGE_TAG as the server, set by the Deploy workflow.
@@ -249,6 +308,7 @@ networks:
 
 volumes:
   redis_bullmq:
+  profile-video-tmp:
   manticore:
   blog-cms-private:
   blog-cms-public:
