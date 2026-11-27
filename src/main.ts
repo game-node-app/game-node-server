@@ -25,6 +25,8 @@ import { setCacheManager } from "./utils/cacheable";
 import { CORS_OPTIONS } from "./auth/cors-options";
 import cluster from "node:cluster";
 import { RUNS_BACKGROUND_WORK } from "./utils/app-role";
+import { limitConcurrencyPerClient } from "./utils/client-concurrency";
+import { dropSpoofedClientIp } from "./utils/client-ip";
 
 dayjs.extend(duration);
 
@@ -57,9 +59,13 @@ async function bootstrap() {
 
     app.enableCors(CORS_OPTIONS);
 
+    app.use(dropSpoofedClientIp);
+    app.use(limitConcurrencyPerClient());
+
     mountAuth(app.getHttpAdapter().getInstance(), app.get(AuthService));
 
-    app.use(json({ limit: "15mb" }));
+    // No JSON body needs more; a larger one costs real CPU to parse and validate before any check can reject it.
+    app.use(json({ limit: "1mb" }));
     app.use(urlencoded({ extended: true }));
 
     app.useGlobalPipes(
@@ -110,7 +116,8 @@ function runApiProcesses(count: number) {
     for (let i = 0; i < count; i++) cluster.fork();
     cluster.on("exit", (worker, code, signal) => {
         if (stopping) {
-            if (Object.keys(cluster.workers ?? {}).length === 0) process.exit(0);
+            if (Object.keys(cluster.workers ?? {}).length === 0)
+                process.exit(0);
             return;
         }
         console.error(

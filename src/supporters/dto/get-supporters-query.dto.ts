@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { IsInt, IsOptional, Max, Min } from "class-validator";
+import { MAX_OFFSET } from "../../utils/request-bounds";
 
 export class GetSupportersQueryDto {
     @ApiPropertyOptional({
@@ -12,6 +13,7 @@ export class GetSupportersQueryDto {
     @Type(() => Number)
     @IsInt()
     @Min(0)
+    @Max(MAX_OFFSET)
     offset?: number = 0;
 
     @ApiPropertyOptional({

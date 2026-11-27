@@ -7,6 +7,7 @@ export class FindAllReviewsByIdDto {
     @IsString({
         each: true,
     })
-    @MaxListSize()
+    // Each review loads its relations; clients batch at most 100 ids per request.
+    @MaxListSize(100)
     reviewsIds: string[];
 }

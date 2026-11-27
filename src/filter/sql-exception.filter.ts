@@ -14,7 +14,7 @@ const ExceptionNameToHttpCode = {
     NotFoundError: HttpStatus.NOT_FOUND,
     ForbiddenError: HttpStatus.FORBIDDEN,
     BadRequestError: HttpStatus.BAD_REQUEST,
-    EntityNotFound: HttpStatus.NOT_FOUND,
+    EntityNotFoundError: HttpStatus.NOT_FOUND,
 } as const
 
 interface MySQLError extends Error {

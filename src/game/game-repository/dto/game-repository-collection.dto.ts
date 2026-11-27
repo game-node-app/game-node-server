@@ -7,7 +7,11 @@ import {
     PaginationInfo,
     PaginationResponseDto,
 } from "../../../utils/pagination/pagination-response.dto";
-import { IsBoundedRelations, ClampLimit, MAX_LARGE_PAGE_LIMIT } from "../../../utils/request-bounds";
+import {
+    IsBoundedRelations,
+    ClampLimit,
+    MAX_LARGE_PAGE_LIMIT,
+} from "../../../utils/request-bounds";
 
 export enum GameRepositoryCollectionType {
     UPCOMING = "upcoming",
@@ -31,7 +35,10 @@ export class FindGamesByCollectionTypeRequestDto extends PickType(BaseFindDto, [
     to?: string;
     @IsOptional()
     @IsObject()
-    @IsBoundedRelations()
+    @IsBoundedRelations<FindGamesByCollectionTypeRequestDto>(
+        // Same fallback as buildBaseFindOptions, so limit: 0 counts the 20 games it loads.
+        (dto) => dto.limit || 20,
+    )
     relations?: FindOptionsRelations<Game>;
 }
 

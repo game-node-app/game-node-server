@@ -26,14 +26,17 @@ describe("request bounds", () => {
         [{ limit: "500" }, 100],
         [{ limit: "50" }, 50],
         [{}, 20],
-    ])("clamps the base page limit from the query: %j", async (query, limit) => {
-        await expect(
-            transform(BaseFindDto, query, "query"),
-        ).resolves.toMatchObject({ limit });
-        await expect(
-            transform(BaseCursorFindDto, query, "query"),
-        ).resolves.toMatchObject({ limit });
-    });
+    ])(
+        "clamps the base page limit from the query: %j",
+        async (query, limit) => {
+            await expect(
+                transform(BaseFindDto, query, "query"),
+            ).resolves.toMatchObject({ limit });
+            await expect(
+                transform(BaseCursorFindDto, query, "query"),
+            ).resolves.toMatchObject({ limit });
+        },
+    );
 
     it("still rejects a non-numeric limit", async () => {
         await expect(
@@ -76,13 +79,27 @@ describe("request bounds", () => {
             ].map((key) => [key, { cover: true }]),
         );
         const gameIds = Array.from({ length: 1000 }, (_, i) => i + 1);
-        await expect(
-            transform(GameRepositoryFindAllDto, { gameIds, relations }),
-        ).resolves.toBeDefined();
+        // What clients send: the carousel for one game, and whole collections with covers and platforms.
+        for (const body of [
+            { gameIds: [1], relations },
+            { gameIds, relations: { cover: true, platforms: true } },
+        ])
+            await expect(
+                transform(GameRepositoryFindAllDto, body),
+            ).resolves.toBeDefined();
 
         for (const body of [
             { gameIds: [...gameIds, 1001] },
+            // The request that took the API down: many games, each with nested relations.
+            { gameIds, relations },
+            { gameIds: gameIds.slice(0, 100), relations },
+            {
+                gameIds,
+                relations: { cover: true, platforms: true, genres: true },
+            },
             { gameIds: [1], relations: { a: { b: { c: true } } } },
+            // Game lists fan out even without nested relations.
+            { gameIds, relations: { similarGames: true, dlcs: true } },
             {
                 gameIds: [1],
                 relations: {
@@ -95,6 +112,26 @@ describe("request bounds", () => {
             await expect(
                 transform(GameRepositoryFindAllDto, body),
             ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("bounds the release calendar's rows and the page offset", async () => {
+        await expect(
+            transform(FindGamesByCollectionTypeRequestDto, {
+                collectionType: "upcoming",
+                limit: 1000,
+                relations: { cover: true, platforms: true },
+            }),
+        ).resolves.toBeDefined();
+        await expect(
+            transform(FindGamesByCollectionTypeRequestDto, {
+                collectionType: "upcoming",
+                limit: 1000,
+                relations: { similarGames: { cover: true } },
+            }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        await expect(
+            transform(BaseFindDto, { offset: "10001" }, "query"),
+        ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it("leaves non-array values to the existing validators", async () => {
