@@ -78,6 +78,11 @@ export class PlayerDataProcessor extends WorkerHostProcessor {
                             throw error;
                         recordPlayerSyncStats({ stagesFailed: 1 });
                         const current = providerFailure("Player", error);
+                        // Stack only: raw provider errors carry request credentials.
+                        const cause = current.cause ?? current;
+                        this.logger.error(
+                            `Stage ${stage} failed for ${owner.source} connection ${owner.connectionId}: ${cause instanceof Error ? cause.stack : String(cause)}`,
+                        );
                         await this.state.failStage(owner, stage, current);
                         if (current.outcome === "reauth_required") {
                             await this.state.finish(owner, current);

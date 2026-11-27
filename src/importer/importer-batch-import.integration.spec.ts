@@ -38,10 +38,7 @@ import { PlayerConnectionSync } from "../sync/player-data/entity/player-connecti
 import { EImporterSource } from "./importer.constants";
 import { LibraryVisibility } from "../libraries/library-visibility.constants";
 
-const mysqlDescribe = process.env.IGDB_TEST_MYSQL_PORT
-    ? describe
-    : describe.skip;
-mysqlDescribe("batch import transactions", () => {
+describe("batch import transactions", () => {
     let source: DataSource;
     const users: string[] = [];
     beforeAll(async () => {

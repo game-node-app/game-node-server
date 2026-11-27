@@ -52,6 +52,26 @@ test("an obsolete owner skips before either stage or provider access", async () 
     expect(importer.run).not.toHaveBeenCalled();
 });
 
+test("a failed stage logs the underlying error without its request data", async () => {
+    const { playtime, processor, job } = fixture();
+    const log = jest.spyOn(processor.logger, "error").mockImplementation();
+    playtime.updateSteamPlaytimeInfo.mockRejectedValue(
+        Object.assign(new TypeError("fixture lookup failure"), {
+            config: { headers: { Authorization: "fixture-secret" } },
+        }),
+    );
+    await expect(processor.process(job)).rejects.toMatchObject({
+        outcome: "failed",
+    });
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0]).toEqual([
+        expect.stringContaining(
+            "Stage playtime failed for steam connection 1: TypeError: fixture lookup failure\n    at ",
+        ),
+    ]);
+    expect(log.mock.calls[0][0]).not.toContain("fixture-secret");
+});
+
 test("stages reuse one complete library and a failed stage retries independently", async () => {
     const { state, playtime, importer, processor, job } = fixture();
     const owned = jest.fn().mockResolvedValue([{ game: { id: 1 } }]);

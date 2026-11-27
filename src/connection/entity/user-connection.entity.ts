@@ -17,6 +17,7 @@ export class UserConnection {
     @PrimaryGeneratedColumn()
     id: number;
     @Column({
+        type: String,
         nullable: false,
     })
     type: EConnectionType;

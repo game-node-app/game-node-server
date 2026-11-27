@@ -26,6 +26,7 @@ export class ImporterWatchNotification {
     libraryUserId: string;
 
     @Column({
+        type: String,
         nullable: false,
     })
     source: EImporterSource;

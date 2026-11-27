@@ -1,3 +1,4 @@
+import { testEnvironment } from "../../../../test/igdb/helpers/test-environment";
 import { EConnectionType } from "../../../connection/connections.constants";
 import { randomUUID } from "node:crypto";
 import { DataSource } from "typeorm";
@@ -14,19 +15,15 @@ import {
     playerStateFixture,
 } from "../../../sync/player-data/player-sync.fixture";
 
-const mysqlDescribe = process.env.PLAYER_IMPORT_TEST_MYSQL_PORT
-    ? describe
-    : describe.skip;
-
 const providers = [EConnectionType.STEAM, EConnectionType.GOG];
-mysqlDescribe.each(providers)("achievement commit %s", (provider) => {
+describe.each(providers)("achievement commit %s", (provider) => {
     const database = `player_achievement_tx_${randomUUID().replaceAll("-", "")}`;
     const options = {
         type: "mysql" as const,
         host: "127.0.0.1",
-        port: Number(process.env.PLAYER_IMPORT_TEST_MYSQL_PORT),
+        port: testEnvironment(process.env).mysql.port,
         username: "root",
-        password: "",
+        password: "igdb-test-root",
         timezone: "Z",
         connectTimeout: 5000,
     };
@@ -430,6 +427,7 @@ mysqlDescribe.each(providers)("achievement commit %s", (provider) => {
         );
         return new GameAchievementSyncProcessor(
             {
+                warmCatalog: jest.fn(),
                 findAllByExternalGameIdForSync: jest.fn(async () => {
                     events.push("catalogue snapshot");
                     return (

@@ -3,7 +3,7 @@ import { GameExternalGame } from "../entity/game-external-game.entity";
 import { ApiPropertyOptional, PickType } from "@nestjs/swagger";
 import { BaseFindDto } from "../../../utils/base-find.dto";
 import { EGameExternalGameCategory } from "../../game-repository/game-repository.constants";
-import { Transform } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
     ArrayMaxSize,
     ArrayMinSize,
@@ -28,6 +28,8 @@ export class FindExternalGamesRequestDto extends PickType(
         description: "Lookup: required together with uids.",
     })
     @ValidateIf(lookupRequested)
+    // Explicit: transpile-only test builds cannot infer Number from an imported enum.
+    @Type(() => Number)
     @IsEnum(EGameExternalGameCategory)
     category?: EGameExternalGameCategory;
 
