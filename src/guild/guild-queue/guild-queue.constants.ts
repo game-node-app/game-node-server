@@ -4,7 +4,14 @@ export const GUILD_EVALUATE_JOB_NAME = "evaluate-user-contracts";
 
 export const GUILD_EVAL_DELAY_MS = 2000;
 
-export type GuildEvaluationTrigger = "collection_entry" | "review" | "playtime";
+export type GuildEvaluationTrigger =
+    | "collection_entry"
+    | "review"
+    | "playtime"
+    | "daily"
+    | "post"
+    | "collection"
+    | "game_achievement";
 
 export interface GuildEvaluationJobData {
     userId: string;

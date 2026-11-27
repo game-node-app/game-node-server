@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, Repository } from "typeorm";
 import { CollectionEntryStatus } from "../collections/collections-entries/collections-entries.constants";
@@ -12,7 +12,14 @@ import {
     GuildYearGoalDto,
 } from "./dto/guild-profile.dto";
 import { GuildProfile } from "./entities/guild-profile.entity";
-import { computeGuildRank } from "./guild.constants";
+import { resolveActiveContractLimit } from "./guild-chains.service";
+import {
+    computeGuildPrestige,
+    computeGuildRank,
+    currentWeekStart,
+    getGuildRankPerks,
+} from "./guild.constants";
+import { GuildRankProgressionService } from "./guild-rank-progression.service";
 
 /** Visits closer together than this don't rewrite lastVisitedAt (design 17). */
 const LAST_VISITED_WRITE_INTERVAL_MS = 60 * 60 * 1000;
@@ -26,6 +33,8 @@ export class GuildProfileService {
         private readonly profileRepository: Repository<Profile>,
         private readonly dataSource: DataSource,
         private readonly recapGoalsService: RecapGoalsService,
+        @Optional()
+        private readonly rankProgressionService?: GuildRankProgressionService,
     ) {}
 
     /**
@@ -50,20 +59,41 @@ export class GuildProfileService {
     public async getLicense(
         userId: string,
         guildProfile?: GuildProfile,
+        now = new Date(),
     ): Promise<GuildLicenseDto> {
         const [member, profile, stats] = await Promise.all([
             guildProfile ?? this.ensureProfile(userId),
             this.profileRepository.findOneByOrFail({ userId }),
             this.getStats(userId),
         ]);
+        // Pre-migration members get any missed Rank packages on their first read.
+        await this.rankProgressionService?.reconcileRankPromotionsIfNeeded(
+            userId,
+        );
 
+        const rankProgress = computeGuildRank(member.xp);
+        const { rank } = rankProgress;
         return {
             licenseNumber: member.licenseNumber,
             xp: member.xp,
-            ...computeGuildRank(member.xp),
+            ...rankProgress,
             memberSince: profile.createdAt,
             equippedTitleKey: profile.guildTitleKey,
             equippedFrameKey: profile.guildFrameKey,
+            sealsBalance: member.sealsBalance,
+            ...computeGuildPrestige(member.xp),
+            perks: {
+                ...getGuildRankPerks(rank),
+                maxActiveContracts: resolveActiveContractLimit(
+                    rank,
+                    member.extraSlotPermitWeekStart,
+                    currentWeekStart(now),
+                ),
+            },
+            equippedLicenseThemeKey: member.equippedLicenseThemeKey,
+            equippedStampStyleKey: member.equippedStampStyleKey,
+            equippedDecorKeys: member.equippedDecorKeys ?? [],
+            showcaseBadgeIds: member.showcaseBadgeIds ?? [],
             stats,
         };
     }

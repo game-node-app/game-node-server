@@ -14,10 +14,22 @@ import {
     AchievementCategory,
     AchievementStatus,
 } from "../achievements/achievements.constants";
+import { AchievementsProgressService } from "../achievements/achievements-progress.service";
 import { AchievementDefinition } from "../achievements/entities/achievement-definition.entity";
 import { AuthService } from "../auth/auth.service";
+import { UserLevel } from "../level/entities/user-level.entity";
+import { LevelService } from "../level/level.service";
+import { UserPlaytimeHistory } from "../playtime/entity/user-playtime-history.entity";
+import { PlaytimeHistoryService } from "../playtime/playtime-history.service";
 import { GuildAdminController } from "./guild-admin.controller";
 import { GuildAdminService } from "./guild-admin.service";
+import { GuildBountiesService } from "./guild-bounties.service";
+import { GuildEmporiumService } from "./guild-emporium.service";
+import { GuildRankProgressionService } from "./guild-rank-progression.service";
+import { GuildRewardsService } from "./guild-rewards.service";
+import { GuildSealsService } from "./guild-seals.service";
+import { GuildTimeToBeatService } from "./guild-time-to-beat.service";
+import { GameTimeToBeat } from "./entities/game-time-to-beat.entity";
 import { GuildEvent } from "./entities/guild-event.entity";
 import { GuildReward } from "./entities/guild-reward.entity";
 
@@ -103,6 +115,32 @@ describe("Guild admin catalog (integration)", () => {
             .post(`/v1/guild/admin/events/${id}/publish`)
             .set("Authorization", as("editor"));
 
+    const postEmporiumItem = (body: Record<string, unknown>) =>
+        request(server())
+            .post("/v1/guild/admin/emporium")
+            .set("Authorization", as("editor"))
+            .send(body);
+
+    const bountyPayload = (overrides: Record<string, unknown> = {}) => ({
+        slug: `bounty-${randomUUID().slice(0, 8)}`,
+        title: "Spooky October",
+        description: "Finish a horror game this month.",
+        objectiveType: "finish_game",
+        criteria: { genreIds: [12] },
+        targetTotal: 500,
+        maxUserContributionCap: 10,
+        startsAt: "2099-01-01T00:00:00.000Z",
+        endsAt: "2099-02-01T00:00:00.000Z",
+        translations: [EN, PT_BR],
+        ...overrides,
+    });
+
+    const postBounty = (body: Record<string, unknown>) =>
+        request(server())
+            .post("/v1/guild/admin/bounties")
+            .set("Authorization", as("editor"))
+            .send(body);
+
     const createEvent = async (overrides: Record<string, unknown> = {}) => {
         const response = await postEvent(eventPayload(overrides)).expect(201);
         return response.body;
@@ -131,6 +169,33 @@ describe("Guild admin catalog (integration)", () => {
     beforeAll(async () => {
         db = await createAwardsTestDatabase(DATABASE);
         source = db.source;
+
+        const seals = new GuildSealsService(source);
+        const level = new LevelService(source.getRepository(UserLevel));
+        const achievements = new AchievementsProgressService(source, level, {
+            register: jest.fn(),
+        } as any);
+        const rewards = new GuildRewardsService(source, achievements, seals);
+        const emporium = new GuildEmporiumService(
+            source,
+            seals,
+            rewards,
+            achievements,
+        );
+        const bounties = new GuildBountiesService(
+            source,
+            new GuildTimeToBeatService(source.getRepository(GameTimeToBeat), {
+                getTimesToBeat: jest.fn().mockResolvedValue([]),
+            } as any),
+            new PlaytimeHistoryService(
+                source.getRepository(UserPlaytimeHistory),
+                {} as any,
+            ),
+            rewards,
+            seals,
+            new GuildRankProgressionService(source, rewards),
+            level,
+        );
 
         const definitions = source.getRepository(AchievementDefinition);
         await definitions.insert({
@@ -188,6 +253,8 @@ describe("Guild admin catalog (integration)", () => {
             controllers: [GuildAdminController],
             providers: [
                 GuildAdminService,
+                { provide: GuildEmporiumService, useValue: emporium },
+                { provide: GuildBountiesService, useValue: bounties },
                 {
                     provide: getRepositoryToken(GuildEvent),
                     useValue: source.getRepository(GuildEvent),
@@ -242,6 +309,8 @@ describe("Guild admin catalog (integration)", () => {
         it("requires authentication on every catalog route", async () => {
             await request(server()).get("/v1/guild/admin/events").expect(401);
             await request(server()).get("/v1/guild/admin/rewards").expect(401);
+            await request(server()).get("/v1/guild/admin/emporium").expect(401);
+            await request(server()).get("/v1/guild/admin/bounties").expect(401);
             await request(server())
                 .post("/v1/guild/admin/events")
                 .send(eventPayload())
@@ -258,6 +327,15 @@ describe("Guild admin catalog (integration)", () => {
                 .set("Authorization", as("reader"))
                 .send(rewardPayload())
                 .expect(403);
+            await request(server())
+                .get("/v1/guild/admin/emporium")
+                .set("Authorization", as("reader"))
+                .expect(403);
+            await request(server())
+                .post("/v1/guild/admin/bounties")
+                .set("Authorization", as("reader"))
+                .send(bountyPayload())
+                .expect(403);
         });
 
         it("allows admins and editors to read", async () => {
@@ -267,6 +345,14 @@ describe("Guild admin catalog (integration)", () => {
                 .expect(200);
             await request(server())
                 .get("/v1/guild/admin/rewards")
+                .set("Authorization", as("editor"))
+                .expect(200);
+            await request(server())
+                .get("/v1/guild/admin/emporium")
+                .set("Authorization", as("admin"))
+                .expect(200);
+            await request(server())
+                .get("/v1/guild/admin/bounties")
                 .set("Authorization", as("editor"))
                 .expect(200);
         });
@@ -350,6 +436,109 @@ describe("Guild admin catalog (integration)", () => {
                 .expect(200)
                 .expect(({ body }) => expect(body.isActive).toBe(true));
         });
+
+        it("creates a seasonal tavern_decor cosmetic with its rarity", async () => {
+            const reward = await createReward({
+                key: "decor_autumn_lantern",
+                kind: "tavern_decor",
+                rarity: "epic",
+                inChestPool: false,
+            });
+            expect(reward).toMatchObject({
+                kind: "tavern_decor",
+                rarity: "epic",
+                inChestPool: false,
+                chestBonusSeals: 0,
+                consumableKey: null,
+            });
+        });
+
+        it("creates tiered chests and consumables with catalog metadata", async () => {
+            const chest = await createReward({
+                kind: "chest_gold",
+                rarity: "rare",
+                chestBonusSeals: 60,
+            });
+            expect(chest).toMatchObject({
+                kind: "chest_gold",
+                rarity: "rare",
+                chestBonusSeals: 60,
+                consumableKey: null,
+            });
+
+            const consumable = await createReward({
+                kind: "consumable",
+                consumableKey: "hourglass",
+                rarity: "uncommon",
+                chestBonusSeals: 15,
+            });
+            expect(consumable).toMatchObject({
+                kind: "consumable",
+                consumableKey: "hourglass",
+                rarity: "uncommon",
+                chestBonusSeals: 15,
+            });
+
+            await request(server())
+                .patch(`/v1/guild/admin/rewards/${consumable.id}`)
+                .set("Authorization", as("editor"))
+                .send({ consumableKey: "reroll_charter", rarity: "rare" })
+                .expect(200)
+                .expect(({ body }) =>
+                    expect(body).toMatchObject({
+                        consumableKey: "reroll_charter",
+                        rarity: "rare",
+                    }),
+                );
+        });
+
+        it("requires a consumableKey for consumable rewards", async () => {
+            await postReward({
+                key: `consumable_${randomUUID().slice(0, 8)}`,
+                kind: "consumable",
+            }).expect(400);
+            await postReward({
+                key: `consumable_${randomUUID().slice(0, 8)}`,
+                kind: "consumable",
+                consumableKey: "stopwatch",
+            }).expect(400);
+        });
+
+        it.each([
+            ["title", "title"],
+            ["avatar_frame", "avatar_frame"],
+            ["license_theme", "license_theme"],
+            ["stamp_style", "stamp_style"],
+            ["tavern_decor", "tavern_decor"],
+        ])("allows inChestPool on %s", async (_label, kind) => {
+            await postReward({
+                key: `${kind}_${randomUUID().slice(0, 8)}`,
+                kind,
+                inChestPool: true,
+            })
+                .expect(201)
+                .expect(({ body }) => expect(body.inChestPool).toBe(true));
+        });
+
+        it.each([
+            [
+                "a consumable in the chest pool",
+                {
+                    kind: "consumable",
+                    consumableKey: "hourglass",
+                    inChestPool: true,
+                },
+            ],
+            [
+                "a tiered chest in the chest pool",
+                { kind: "chest_gold", inChestPool: true },
+            ],
+        ])("rejects %s with 400", async (_label, overrides) => {
+            await postReward({
+                key: `invalid_${randomUUID().slice(0, 8)}`,
+                ...overrides,
+            }).expect(400);
+        });
     });
 
     describe("events", () => {
@@ -401,6 +590,65 @@ describe("Guild admin catalog (integration)", () => {
             expect(event.translations).toEqual([]);
         });
 
+        it("creates a decade-scoped RPG playtime event with a bonus objective", async () => {
+            const bonusObjective = {
+                type: "also_write_review",
+                minChars: 150,
+                bonusSeals: 30,
+            };
+            const event = await createEvent({
+                objectiveType: "log_playtime",
+                targetCount: 300,
+                criteria: {
+                    genreIds: [12],
+                    releaseYearMin: 1990,
+                    releaseYearMax: 1999,
+                },
+                sealsReward: 80,
+                bonusObjective,
+            });
+
+            expect(event).toMatchObject({
+                status: "draft",
+                objectiveType: "log_playtime",
+                targetCount: 300,
+                criteria: {
+                    genreIds: [12],
+                    releaseYearMin: 1990,
+                    releaseYearMax: 1999,
+                },
+                sealsReward: 80,
+                bonusObjective,
+            });
+        });
+
+        it("defaults sealsReward from the rank economy", async () => {
+            const event = await createEvent({ rank: "C" });
+            expect(event.sealsReward).toBe(35);
+            expect(event.bonusObjective).toBeNull();
+        });
+
+        it("updates sealsReward and bonusObjective before acceptance", async () => {
+            const event = await createEvent();
+            const bonusObjective = {
+                type: "finish_before_half_deadline",
+                bonusXp: 50,
+                upgradeChestTier: true,
+            };
+
+            await patchEvent(event.id, {
+                sealsReward: 150,
+                bonusObjective,
+            })
+                .expect(200)
+                .expect(({ body }) =>
+                    expect(body).toMatchObject({
+                        sealsReward: 150,
+                        bonusObjective,
+                    }),
+                );
+        });
+
         it("rejects a duplicate slug with 409", async () => {
             const event = await createEvent();
             await postEvent(eventPayload({ slug: event.slug })).expect(409);
@@ -412,12 +660,35 @@ describe("Guild admin catalog (integration)", () => {
         it.each([
             ["an inverted window", { endsAt: "2098-11-30T00:00:00.000Z" }],
             [
-                "a write_review event with maxTimeToBeatHours",
+                "a write_review event with minPostChars",
                 {
                     objectiveType: "write_review",
-                    criteria: { maxTimeToBeatHours: 8 },
+                    criteria: { minPostChars: 100 },
                 },
             ],
+            [
+                "a daily_challenge event with minTimeToBeatHours",
+                {
+                    objectiveType: "daily_challenge",
+                    criteria: { minTimeToBeatHours: 40 },
+                },
+            ],
+            [
+                "a log_playtime event with finishedInCurrentMonth",
+                {
+                    objectiveType: "log_playtime",
+                    criteria: { finishedInCurrentMonth: true },
+                },
+            ],
+            [
+                "an unknown bonus objective type",
+                { bonusObjective: { type: "finish_it" } },
+            ],
+            [
+                "a bonus objective with an unsupported key",
+                { bonusObjective: { type: "also_write_review", minWords: 10 } },
+            ],
+            ["a negative sealsReward", { sealsReward: -1 }],
             ["an unknown rank", { rank: "Z" }],
             ["a non-positive xpReward", { xpReward: 0 }],
             ["a targetCount below 1", { targetCount: 0 }],
@@ -607,6 +878,11 @@ describe("Guild admin catalog (integration)", () => {
 
         it.each([
             ["xpReward", () => ({ xpReward: 999 })],
+            ["sealsReward", () => ({ sealsReward: 1 })],
+            [
+                "bonusObjective",
+                () => ({ bonusObjective: { type: "also_write_review" } }),
+            ],
             ["criteria", () => ({ criteria: { genreIds: [9] } })],
             [
                 "objectiveType",
@@ -869,6 +1145,152 @@ describe("Guild admin catalog (integration)", () => {
                 }
                 await runner.release();
             }
+        });
+    });
+
+    describe("emporium admin", () => {
+        it("creates, lists and updates rotating listings", async () => {
+            const reward = await createReward({
+                key: `license_seasonal_${randomUUID().slice(0, 8)}`,
+                kind: "license_theme",
+                rarity: "epic",
+            });
+
+            const created = await postEmporiumItem({
+                rewardId: reward.id,
+                priceSeals: 140,
+                minRank: "D",
+                isRotating: true,
+            }).expect(201);
+            expect(created.body).toMatchObject({
+                priceSeals: 140,
+                minRank: "D",
+                isRotating: true,
+                isActive: true,
+                maxPurchasesPerMonth: null,
+                reward: { id: reward.id, kind: "license_theme" },
+            });
+
+            const listed = await request(server())
+                .get("/v1/guild/admin/emporium")
+                .set("Authorization", as("editor"))
+                .expect(200);
+            expect(
+                listed.body.find(
+                    ({ id }: { id: string }) => id === created.body.id,
+                ),
+            ).toMatchObject({ isRotating: true });
+
+            await request(server())
+                .patch(`/v1/guild/admin/emporium/${created.body.id}`)
+                .set("Authorization", as("editor"))
+                .send({ priceSeals: 90, isActive: false })
+                .expect(200)
+                .expect(({ body }) =>
+                    expect(body).toMatchObject({
+                        priceSeals: 90,
+                        isActive: false,
+                    }),
+                );
+        });
+
+        it("rejects invalid listings and unknown ids", async () => {
+            const reward = await createReward({
+                key: `license_invalid_${randomUUID().slice(0, 8)}`,
+                kind: "license_theme",
+            });
+            await postEmporiumItem({
+                rewardId: randomUUID(),
+                priceSeals: 10,
+            }).expect(400);
+            await postEmporiumItem({
+                rewardId: reward.id,
+                priceSeals: 0,
+            }).expect(400);
+            await request(server())
+                .patch(`/v1/guild/admin/emporium/${randomUUID()}`)
+                .set("Authorization", as("editor"))
+                .send({ priceSeals: 10 })
+                .expect(404);
+        });
+    });
+
+    describe("community bounty admin", () => {
+        it("creates, reads, updates, publishes and archives a bounty", async () => {
+            const created = await postBounty(bountyPayload()).expect(201);
+            expect(created.body).toMatchObject({
+                status: "draft",
+                currentTotal: 0,
+                targetTotal: 500,
+                minUserContribution: 1,
+                maxUserContributionCap: 10,
+                publishedAt: null,
+                translations: [EN, PT_BR],
+            });
+
+            await request(server())
+                .get(`/v1/guild/admin/bounties/${created.body.id}`)
+                .set("Authorization", as("editor"))
+                .expect(200)
+                .expect(({ body }) =>
+                    expect(body).toMatchObject({ id: created.body.id }),
+                );
+
+            const listed = await request(server())
+                .get("/v1/guild/admin/bounties")
+                .set("Authorization", as("editor"))
+                .expect(200);
+            expect(
+                listed.body.find(
+                    ({ id }: { id: string }) => id === created.body.id,
+                ),
+            ).toMatchObject({ slug: created.body.slug });
+
+            await request(server())
+                .patch(`/v1/guild/admin/bounties/${created.body.id}`)
+                .set("Authorization", as("editor"))
+                .send({ title: "Spooky November" })
+                .expect(200)
+                .expect(({ body }) =>
+                    expect(body.title).toBe("Spooky November"),
+                );
+
+            await request(server())
+                .post(`/v1/guild/admin/bounties/${created.body.id}/publish`)
+                .set("Authorization", as("editor"))
+                .expect(201)
+                .expect(({ body }) => {
+                    expect(body.status).toBe("published");
+                    expect(body.publishedAt).not.toBeNull();
+                });
+
+            await request(server())
+                .post(`/v1/guild/admin/bounties/${created.body.id}/archive`)
+                .set("Authorization", as("editor"))
+                .expect(201)
+                .expect(({ body }) => expect(body.status).toBe("archived"));
+
+            await request(server())
+                .post(`/v1/guild/admin/bounties/${created.body.id}/publish`)
+                .set("Authorization", as("editor"))
+                .expect(409);
+        });
+
+        it("rejects invalid bounty rules", async () => {
+            await postBounty(
+                bountyPayload({
+                    objectiveType: "daily_challenge",
+                    criteria: { minTimeToBeatHours: 40 },
+                }),
+            ).expect(400);
+            await postBounty(
+                bountyPayload({ maxUserContributionCap: 0 }),
+            ).expect(400);
+            await postBounty(bountyPayload({ translations: [EN] })).expect(400);
+            await request(server())
+                .get(`/v1/guild/admin/bounties/${randomUUID()}`)
+                .set("Authorization", as("editor"))
+                .expect(404);
         });
     });
 

@@ -5,8 +5,12 @@ import {
     GuildContractStatus,
     GuildEventStatus,
     GUILD_INACTIVITY_DAYS,
+    computeGuildRank,
+    currentMonthKey,
     currentWeekStart,
     DAY_MS,
+    GuildRank,
+    guildRankAtLeast,
     LinaPose,
     LinaTrigger,
     STALE_BACKLOG_DAYS,
@@ -27,6 +31,8 @@ export interface EvaluateReceptionOptions {
     readyContract?: GuildContract | null;
     now?: Date;
     updateLastVisited?: boolean;
+    /** Computed by the overview from `GuildBountiesService.getBountiesSummary`. */
+    hasClaimableCommunityBounty?: boolean;
 }
 
 @Injectable()
@@ -149,6 +155,13 @@ export class LinaReceptionService {
                 },
                 hasUnseenBoard,
             };
+        } else if (options.hasClaimableCommunityBounty) {
+            reception = {
+                trigger: LinaTrigger.COMMUNITY_BOUNTY_READY,
+                pose: LinaPose.HAPPY,
+                context: {},
+                hasUnseenBoard,
+            };
         } else {
             const inactiveDays = await this.returningInactiveDays(
                 guildProfile,
@@ -164,6 +177,13 @@ export class LinaReceptionService {
             } else if (hasUnseenBoard) {
                 reception = {
                     trigger: LinaTrigger.WEEKLY_BOARD_REFRESHED,
+                    pose: LinaPose.NEUTRAL,
+                    context: {},
+                    hasUnseenBoard,
+                };
+            } else if (this.isMonthlyExpeditionRefresh(guildProfile, now)) {
+                reception = {
+                    trigger: LinaTrigger.MONTHLY_EXPEDITION_REFRESHED,
                     pose: LinaPose.NEUTRAL,
                     context: {},
                     hasUnseenBoard,
@@ -195,6 +215,20 @@ export class LinaReceptionService {
         }
 
         return reception;
+    }
+
+    /** Rank C+ member whose previous visit was in an earlier São Paulo month. */
+    private isMonthlyExpeditionRefresh(
+        guildProfile: GuildProfile,
+        now: Date,
+    ): boolean {
+        const rank = computeGuildRank(guildProfile.xp).rank;
+        if (!guildRankAtLeast(rank, GuildRank.C)) return false;
+        const previousVisitAt = guildProfile.lastVisitedAt;
+        return (
+            previousVisitAt !== null &&
+            currentMonthKey(previousVisitAt) !== currentMonthKey(now)
+        );
     }
 
     /** Days since the last Guild visit when no platform activity happened meanwhile. */

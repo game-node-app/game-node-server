@@ -604,3 +604,88 @@ describe("GOG achievement job identity", () => {
         expect(catalogue.findAllByExternalGameIdForSync).not.toHaveBeenCalled();
     });
 });
+
+describe("achievement guild contract evaluation hook", () => {
+    const achievement = {
+        externalGameId: 1,
+        gameId: 1,
+        externalId: "guild-achievement",
+        source: EGameExternalGameCategory.Steam,
+        isObtained: true,
+        obtainedAt: new Date("2026-10-25T00:00:00Z"),
+    };
+
+    function fixture(
+        status: jest.Mock,
+        events: string[] = [],
+        guildQueue = { enqueueEvaluation: jest.fn() },
+    ) {
+        const processor = new GameAchievementSyncProcessor(
+            {
+                warmCatalog: jest.fn(),
+                findAllByExternalGameIdForSync: jest
+                    .fn()
+                    .mockResolvedValue([{ externalId: "guild-achievement" }]),
+            } as any,
+            {
+                fetchObtainedByExternalGameId: jest
+                    .fn()
+                    .mockResolvedValue([achievement]),
+                persistObtainedAchievements: jest
+                    .fn()
+                    .mockResolvedValue([{ externalAchievementId: "award" }]),
+            } as any,
+            { save: jest.fn(), publish: jest.fn() } as any,
+            { updateGameCompletionStatus: status } as any,
+            playerStateFixture() as any,
+            localDataSource(events) as any,
+            guildQueue as any,
+        );
+        return { processor, guildQueue };
+    }
+
+    const job = {
+        name: GAME_ACHIEVEMENT_STEAM_JOB_NAME,
+        data: {
+            userId: "user",
+            externalGameId: 1,
+            owner: playerOwner("user", "steam", 1),
+        },
+    } as any;
+
+    it("schedules evaluation only after the achievement transaction commits", async () => {
+        const events: string[] = [];
+        const { processor, guildQueue } = fixture(
+            jest.fn().mockResolvedValue(false),
+            events,
+        );
+        guildQueue.enqueueEvaluation.mockImplementation(() => {
+            events.push("guild:evaluate");
+        });
+
+        await processor.process(job);
+
+        expect(events).toEqual([
+            "transaction:start",
+            "transaction:commit",
+            "guild:evaluate",
+        ]);
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "user",
+            "game_achievement",
+        );
+    });
+
+    it("does not schedule evaluation when the achievement transaction rolls back", async () => {
+        const events: string[] = [];
+        const failure = new Error("completion write failed");
+        const { processor, guildQueue } = fixture(
+            jest.fn().mockRejectedValue(failure),
+            events,
+        );
+
+        await expect(processor.process(job)).rejects.toBe(failure);
+        expect(events).toContain("transaction:rollback");
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+    });
+});

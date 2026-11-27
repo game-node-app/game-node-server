@@ -22,6 +22,8 @@ import { CollectionEntryStatus } from "../collections/collections-entries/collec
 import type { CollectionEntryStatusHistorySource } from "../collections/collections-entries/collections-entries.constants";
 import { LevelService } from "../level/level.service";
 import { UserLevel } from "../level/entities/user-level.entity";
+import { PlaytimeHistoryService } from "../playtime/playtime-history.service";
+import { UserPlaytimeHistory } from "../playtime/entity/user-playtime-history.entity";
 import { Profile } from "../profile/entities/profile.entity";
 import { YearGoal } from "../recap/entity/year-goal.entity";
 import { RecapGoalsService } from "../recap/recap-goals.service";
@@ -34,15 +36,25 @@ import { GuildReward } from "./entities/guild-reward.entity";
 import { GuildAccessGuard } from "./guild-access.guard";
 import { GuildAccessService } from "./guild-access.service";
 import { GuildBoardService } from "./guild-board.service";
+import { GuildBountiesService } from "./guild-bounties.service";
+import { GuildChainsService } from "./guild-chains.service";
 import { GuildContractEvaluatorService } from "./guild-contract-evaluator.service";
 import { GuildContractsService } from "./guild-contracts.service";
+import { GuildEmporiumService } from "./guild-emporium.service";
+import { GuildPassportService } from "./guild-passport.service";
 import {
+    GuildBoardCycle,
     GuildCategory,
+    GuildConsumableKey,
     GuildContractStatus,
     GuildEventStatus,
     GuildObjectiveType,
     GuildRank,
     GuildRewardKind,
+    GuildRewardRarity,
+    GUILD_RANK_PROMOTION_REWARDS,
+    GuildSealReason,
+    currentMonthKey,
     currentWeekStart,
     DAY_MS,
     LinaPose,
@@ -77,6 +89,14 @@ const rejectionOf = (promise: Promise<unknown>) =>
         () => null,
         (error) => error,
     );
+
+const kindForRewardKey = (key: string): GuildRewardKind => {
+    if (key.startsWith("frame_")) return GuildRewardKind.AVATAR_FRAME;
+    if (key.startsWith("decor_")) return GuildRewardKind.TAVERN_DECOR;
+    if (key.startsWith("license_")) return GuildRewardKind.LICENSE_THEME;
+    if (key.startsWith("stamp_")) return GuildRewardKind.STAMP_STYLE;
+    return GuildRewardKind.TITLE;
+};
 
 describe("Guild contracts (integration)", () => {
     jest.setTimeout(120000);
@@ -121,7 +141,14 @@ describe("Guild contracts (integration)", () => {
         );
         board = new GuildBoardService(source, timeToBeat);
         rewards = new GuildRewardsService(source, achievements);
-        evaluator = new GuildContractEvaluatorService(source, timeToBeat);
+        evaluator = new GuildContractEvaluatorService(
+            source,
+            timeToBeat,
+            new PlaytimeHistoryService(
+                source.getRepository(UserPlaytimeHistory),
+                {} as any,
+            ),
+        );
         contracts = new GuildContractsService(
             source,
             profiles,
@@ -134,6 +161,25 @@ describe("Guild contracts (integration)", () => {
             timeToBeat,
         );
 
+        // The test schema is synchronized from entities, so the migration's Rank
+        // promotion packages are recreated here for claim receipts.
+        for (const keys of Object.values(GUILD_RANK_PROMOTION_REWARDS)) {
+            for (const key of keys) {
+                await source.getRepository(GuildReward).save({
+                    id: randomUUID(),
+                    key,
+                    kind: kindForRewardKey(key),
+                    achievementId: null,
+                    inChestPool: false,
+                    chestBonusXp: 0,
+                    chestBonusSeals: 0,
+                    rarity: GuildRewardRarity.RARE,
+                    consumableKey: null,
+                    isActive: true,
+                });
+            }
+        }
+
         const access = new GuildAccessService(new ConfigService({}), {
             isSupporter: jest.fn(async () => false),
         } as unknown as BillingService);
@@ -145,6 +191,10 @@ describe("Guild contracts (integration)", () => {
                 { provide: GuildBoardService, useValue: board },
                 { provide: GuildProfileService, useValue: profiles },
                 { provide: GuildRewardsService, useValue: rewards },
+                { provide: GuildEmporiumService, useValue: {} },
+                { provide: GuildPassportService, useValue: {} },
+                { provide: GuildChainsService, useValue: {} },
+                { provide: GuildBountiesService, useValue: {} },
                 GuildAccessGuard,
             ],
         })
@@ -323,6 +373,39 @@ describe("Guild contracts (integration)", () => {
         );
     }
 
+    async function platform() {
+        const id = nextPlatformId++;
+        await source.query(
+            "INSERT IGNORE INTO game_platform (id, name) VALUES (?, ?)",
+            [id, "PC"],
+        );
+        return id;
+    }
+
+    async function observation(
+        userId: string,
+        gameId: number,
+        platformId: number,
+        totalPlaytimeSeconds: number,
+        createdAt: Date,
+    ) {
+        await source.query(
+            `INSERT INTO user_playtime_history
+                (source, profileUserId, gameId, totalPlaytimeSeconds, recentPlaytimeSeconds,
+                 lastPlayedDate, firstPlayedDate, totalPlayCount, platformId, checksum, createdAt, updatedAt)
+             VALUES ('steam', ?, ?, ?, 0, ?, NULL, 1, ?, NULL, ?, ?)`,
+            [
+                userId,
+                gameId,
+                totalPlaytimeSeconds,
+                createdAt,
+                platformId,
+                createdAt,
+                createdAt,
+            ],
+        );
+    }
+
     async function gameGenre(gameId: number) {
         const id = nextTaxonomyId++;
         await source.query("INSERT INTO game_genre (id, name) VALUES (?, ?)", [
@@ -413,13 +496,17 @@ describe("Guild contracts (integration)", () => {
             category?: GuildCategory;
             rank?: GuildRank;
             xpReward?: number;
+            sealsReward?: number;
             objectiveType?: GuildObjectiveType;
             targetCount?: number;
             criteria?: Record<string, unknown>;
+            bonusObjective?: Record<string, unknown> | null;
             requiresTargetGame?: boolean;
             rewardId?: string | null;
             isQuick?: boolean;
             weekStart?: string;
+            cycle?: GuildBoardCycle;
+            periodKey?: string;
             expiresAt?: Date;
         } = {},
     ) {
@@ -430,22 +517,28 @@ describe("Guild contracts (integration)", () => {
         slots.set(slotKey, slotIndex + 1);
         await source.query(
             `INSERT INTO guild_board_entry
-                (id, profileUserId, weekStart, slotIndex, category, templateKey, \`rank\`, xpReward,
-                 objectiveType, targetCount, criteria, candidateGames, requiresTargetGame, rewardId,
-                 isRecommended, isQuick, expiresAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, 0, ?, ?)`,
+                (id, profileUserId, weekStart, cycle, periodKey, slotIndex, category, templateKey, \`rank\`, xpReward,
+                 sealsReward, objectiveType, targetCount, criteria, bonusObjective, candidateGames,
+                 requiresTargetGame, rewardId, isRecommended, isQuick, expiresAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, 0, ?, ?)`,
             [
                 id,
                 userId,
                 weekStart,
+                overrides.cycle ?? GuildBoardCycle.WEEKLY,
+                overrides.periodKey ?? null,
                 slotIndex,
                 overrides.category ?? GuildCategory.WEEKLY,
                 overrides.templateKey ?? "weekend_sprint",
                 overrides.rank ?? GuildRank.D,
                 overrides.xpReward ?? 140,
+                overrides.sealsReward ?? 0,
                 overrides.objectiveType ?? GuildObjectiveType.FINISH_GAME,
                 overrides.targetCount ?? 1,
                 JSON.stringify(overrides.criteria ?? {}),
+                overrides.bonusObjective
+                    ? JSON.stringify(overrides.bonusObjective)
+                    : null,
                 overrides.requiresTargetGame ?? false,
                 overrides.rewardId ?? null,
                 overrides.isQuick ?? true,
@@ -499,10 +592,15 @@ describe("Guild contracts (integration)", () => {
             status?: GuildContractStatus;
             expiresAt?: Date | null;
             xpReward?: number;
+            sealsReward?: number;
             objectiveType?: GuildObjectiveType;
             progressCurrent?: number;
             progressTarget?: number;
             readyAt?: Date | null;
+            bonusObjective?: Record<string, unknown> | null;
+            bonusCompleted?: boolean;
+            eventId?: string | null;
+            targetGameId?: number | null;
         } = {},
     ) {
         const id = randomUUID();
@@ -510,17 +608,25 @@ describe("Guild contracts (integration)", () => {
         await source.query(
             `INSERT INTO guild_contract
                 (id, profileUserId, boardEntryId, eventId, category, templateKey, \`rank\`, xpReward,
-                 objectiveType, criteria, targetGameId, progressCurrent, progressTarget, status, rewardId,
-                 claimPayload, acceptedAt, readyAt, claimedAt, expiresAt)
-             VALUES (?, ?, NULL, NULL, ?, 'weekend_sprint', ?, ?, ?, '{}', NULL, ?, ?, ?, NULL,
+                 sealsReward, objectiveType, criteria, bonusObjective, bonusCompleted, targetGameId,
+                 progressCurrent, progressTarget, status, rewardId, claimPayload, acceptedAt, readyAt,
+                 claimedAt, expiresAt)
+             VALUES (?, ?, NULL, ?, ?, 'weekend_sprint', ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?, NULL,
                      NULL, ?, ?, NULL, ?)`,
             [
                 id,
                 userId,
+                values.eventId ?? null,
                 GuildCategory.WEEKLY,
                 GuildRank.D,
                 values.xpReward ?? 140,
+                values.sealsReward ?? 0,
                 values.objectiveType ?? GuildObjectiveType.FINISH_GAME,
+                values.bonusObjective
+                    ? JSON.stringify(values.bonusObjective)
+                    : null,
+                values.bonusCompleted ? 1 : 0,
+                values.targetGameId ?? null,
                 values.progressCurrent ?? 0,
                 values.progressTarget ?? 1,
                 status,
@@ -941,6 +1047,442 @@ describe("Guild contracts (integration)", () => {
             );
             expect(bound.contract.targetGameId).toBe(singleGameId);
         });
+
+        it("enforces recent_dust staleness and criteria.status on accept", async () => {
+            const userId = await user();
+            const fresh = await game();
+            await entry(userId, fresh, {
+                status: CollectionEntryStatus.PLANNED,
+                plannedAt: new Date(NOW.getTime() - 30 * DAY_MS),
+            });
+            const quest = await boardEntry(userId, {
+                templateKey: "recent_dust",
+                category: GuildCategory.LIBRARY,
+                objectiveType: GuildObjectiveType.FINISH_GAME,
+                requiresTargetGame: true,
+            });
+
+            const tooFresh = await rejectionOf(
+                contracts.acceptContract(
+                    userId,
+                    { boardEntryId: quest.id, targetGameId: fresh },
+                    NOW,
+                ),
+            );
+            expect(tooFresh).toBeInstanceOf(BadRequestException);
+            expect(tooFresh.message).toBe(
+                "This game is not an eligible stale backlog game.",
+            );
+
+            const dusty = await game();
+            await entry(userId, dusty, {
+                status: CollectionEntryStatus.PLANNED,
+                plannedAt: new Date(NOW.getTime() - 120 * DAY_MS),
+            });
+            const accepted = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id, targetGameId: dusty },
+                NOW,
+            );
+            expect(accepted.contract.targetGameId).toBe(dusty);
+
+            // `criteria.status` is enforced against the library entry on accept.
+            const droppedOnly = await boardEntry(userId, {
+                templateKey: "recent_dust",
+                category: GuildCategory.LIBRARY,
+                objectiveType: GuildObjectiveType.FINISH_GAME,
+                requiresTargetGame: true,
+                criteria: { status: CollectionEntryStatus.DROPPED },
+            });
+            const wrongStatus = await rejectionOf(
+                contracts.acceptContract(
+                    userId,
+                    { boardEntryId: droppedOnly.id, targetGameId: dusty },
+                    NOW,
+                ),
+            );
+            expect(wrongStatus).toBeInstanceOf(BadRequestException);
+            expect(wrongStatus.message).toBe(
+                "This game does not match the quest criteria.",
+            );
+        });
+
+        it("enforces ancient_fossil staleness with the veteran-library fallback", async () => {
+            const userId = await user();
+            // A six-month-old account: the 730-day veteran fallback never applies.
+            await source.query(
+                "UPDATE profile SET createdAt = ? WHERE userId = ?",
+                [new Date(NOW.getTime() - 180 * DAY_MS), userId],
+            );
+            const quest = await boardEntry(userId, {
+                templateKey: "ancient_fossil",
+                category: GuildCategory.MONTHLY,
+                cycle: GuildBoardCycle.MONTHLY,
+                periodKey: currentMonthKey(NOW),
+                weekStart: `${currentMonthKey(NOW)}-01`,
+                expiresAt: new Date(NOW.getTime() + 30 * DAY_MS),
+                rank: GuildRank.A,
+                objectiveType: GuildObjectiveType.FINISH_GAME,
+                requiresTargetGame: true,
+            });
+            const oneYear = await game();
+            await entry(userId, oneYear, {
+                status: CollectionEntryStatus.PLANNED,
+                plannedAt: new Date(NOW.getTime() - 365 * DAY_MS),
+            });
+            const tooYoung = await rejectionOf(
+                contracts.acceptContract(
+                    userId,
+                    { boardEntryId: quest.id, targetGameId: oneYear },
+                    NOW,
+                ),
+            );
+            expect(tooYoung).toBeInstanceOf(BadRequestException);
+            expect(tooYoung.message).toBe(
+                "This game is not an eligible stale backlog game.",
+            );
+
+            // A library older than 2 years accepts a 730-day untouched game.
+            const veteranId = await user();
+            await source.query(
+                "UPDATE profile SET createdAt = ? WHERE userId = ?",
+                [new Date(NOW.getTime() - 800 * DAY_MS), veteranId],
+            );
+            const twoYears = await game();
+            await entry(veteranId, twoYears, {
+                status: CollectionEntryStatus.DROPPED,
+                plannedAt: new Date(NOW.getTime() - 740 * DAY_MS),
+            });
+            const veteranQuest = await boardEntry(veteranId, {
+                templateKey: "ancient_fossil",
+                category: GuildCategory.MONTHLY,
+                cycle: GuildBoardCycle.MONTHLY,
+                periodKey: currentMonthKey(NOW),
+                weekStart: `${currentMonthKey(NOW)}-01`,
+                expiresAt: new Date(NOW.getTime() + 30 * DAY_MS),
+                rank: GuildRank.A,
+                objectiveType: GuildObjectiveType.FINISH_GAME,
+                requiresTargetGame: true,
+            });
+            const accepted = await contracts.acceptContract(
+                veteranId,
+                { boardEntryId: veteranQuest.id, targetGameId: twoYears },
+                NOW,
+            );
+            expect(accepted.contract.targetGameId).toBe(twoYears);
+        });
+
+        it("accepts an ONGOING game for deep_dive", async () => {
+            const userId = await user();
+            const gameId = await game();
+            await entry(userId, gameId, {
+                status: CollectionEntryStatus.ONGOING,
+            });
+            const quest = await boardEntry(userId, {
+                templateKey: "deep_dive",
+                category: GuildCategory.LIBRARY,
+                objectiveType: GuildObjectiveType.FINISH_GAME,
+                requiresTargetGame: true,
+            });
+
+            const accepted = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id, targetGameId: gameId },
+                NOW,
+            );
+            expect(accepted.contract.targetGameId).toBe(gameId);
+        });
+    });
+
+    describe("dynamic active contract cap", () => {
+        it("allows a Rank B member a 4th contract but not a 5th", async () => {
+            const userId = await user();
+            await source.query(
+                "INSERT INTO guild_profile (profileUserId, xp, `rank`) VALUES (?, ?, ?)",
+                [userId, 2_000, GuildRank.B],
+            );
+            await insertContract(userId);
+            await insertContract(userId);
+            await insertContract(userId);
+
+            const fourthQuest = await boardEntry(userId);
+            const fourth = await contracts.acceptContract(
+                userId,
+                { boardEntryId: fourthQuest.id },
+                NOW,
+            );
+            expect(fourth.contract.status).toBe(GuildContractStatus.ACTIVE);
+
+            const fifthQuest = await boardEntry(userId);
+            const error = await rejectionOf(
+                contracts.acceptContract(
+                    userId,
+                    { boardEntryId: fifthQuest.id },
+                    NOW,
+                ),
+            );
+            expect(error).toBeInstanceOf(ConflictException);
+            expect((error.getResponse() as { code?: string }).code).toBe(
+                "guild_active_contract_limit_reached",
+            );
+        });
+
+        it("grants a temporary 5th slot with an active extra_slot_permit", async () => {
+            const userId = await user();
+            await source.query(
+                "INSERT INTO guild_profile (profileUserId, xp, `rank`, extraSlotPermitWeekStart) VALUES (?, ?, ?, ?)",
+                [userId, 2_000, GuildRank.B, currentWeekStart(NOW)],
+            );
+            await insertContract(userId);
+            await insertContract(userId);
+            await insertContract(userId);
+
+            for (let index = 0; index < 2; index++) {
+                const quest = await boardEntry(userId);
+                await contracts.acceptContract(
+                    userId,
+                    { boardEntryId: quest.id },
+                    NOW,
+                );
+            }
+
+            const sixthQuest = await boardEntry(userId);
+            const error = await rejectionOf(
+                contracts.acceptContract(
+                    userId,
+                    { boardEntryId: sixthQuest.id },
+                    NOW,
+                ),
+            );
+            expect(error).toBeInstanceOf(ConflictException);
+            expect((error.getResponse() as { code?: string }).code).toBe(
+                "guild_active_contract_limit_reached",
+            );
+        });
+    });
+
+    describe("Monthly Expeditions and extended criteria", () => {
+        it("accepts the current Monthly Expedition and rejects a past month", async () => {
+            const userId = await user();
+            const monthKey = currentMonthKey(NOW);
+            const monthly = await boardEntry(userId, {
+                templateKey: "deep_critic_anthology",
+                category: GuildCategory.MONTHLY,
+                rank: GuildRank.A,
+                xpReward: 650,
+                sealsReward: 100,
+                objectiveType: GuildObjectiveType.WRITE_REVIEW,
+                targetCount: 5,
+                criteria: { minReviewChars: 250 },
+                cycle: GuildBoardCycle.MONTHLY,
+                periodKey: monthKey,
+                weekStart: `${monthKey}-01`,
+                expiresAt: new Date(NOW.getTime() + 30 * DAY_MS),
+            });
+
+            const accepted = await contracts.acceptContract(
+                userId,
+                { boardEntryId: monthly.id },
+                NOW,
+            );
+            expect(accepted.contract.status).toBe(GuildContractStatus.ACTIVE);
+            expect(accepted.contract.sealsReward).toBe(100);
+
+            const stale = await boardEntry(userId, {
+                category: GuildCategory.MONTHLY,
+                cycle: GuildBoardCycle.MONTHLY,
+                periodKey: "2026-05",
+                weekStart: "2026-05-01",
+                expiresAt: new Date(NOW.getTime() + 30 * DAY_MS),
+            });
+            const error = await rejectionOf(
+                contracts.acceptContract(
+                    userId,
+                    { boardEntryId: stale.id },
+                    NOW,
+                ),
+            );
+            expect(error).toBeInstanceOf(BadRequestException);
+        });
+
+        it("rejects a target game outside the extended criteria", async () => {
+            const userId = await user();
+            const shortGame = await game();
+            await timeToBeat(shortGame, 10 * 60 * 60);
+            const longGame = await game();
+            await timeToBeat(longGame, 40 * 60 * 60);
+            const quest = await boardEntry(userId, {
+                templateKey: "the_colossus",
+                category: GuildCategory.MONTHLY,
+                rank: GuildRank.A,
+                xpReward: 750,
+                requiresTargetGame: true,
+                criteria: { minTimeToBeatHours: 35 },
+            });
+
+            const error = await rejectionOf(
+                contracts.acceptContract(
+                    userId,
+                    { boardEntryId: quest.id, targetGameId: shortGame },
+                    NOW,
+                ),
+            );
+            expect(error).toBeInstanceOf(BadRequestException);
+
+            const accepted = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id, targetGameId: longGame },
+                NOW,
+            );
+            expect(accepted.contract.targetGameId).toBe(longGame);
+        });
+
+        it("snapshots Seals and bonus objectives on accept, defaulting legacy events by rank", async () => {
+            const userId = await user();
+            const quest = await boardEntry(userId, {
+                sealsReward: 35,
+                bonusObjective: {
+                    type: "finish_before_half_deadline",
+                    bonusXp: 30,
+                    bonusSeals: 10,
+                },
+            });
+            const accepted = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id },
+                NOW,
+            );
+            expect(accepted.contract.sealsReward).toBe(35);
+            expect(accepted.contract.bonusObjective).toMatchObject({
+                type: "finish_before_half_deadline",
+                bonusSeals: 10,
+            });
+            expect(accepted.contract.bonusCompleted).toBe(false);
+            expect(accepted.contract.extendedCount).toBe(0);
+
+            const legacyEvent = await event({ xpReward: 120 });
+            const eventAccepted = await contracts.acceptContract(
+                userId,
+                { eventId: legacyEvent },
+                NOW,
+            );
+            expect(eventAccepted.contract.sealsReward).toBe(20);
+            expect(eventAccepted.contract.bonusObjective).toBeNull();
+        });
+    });
+
+    describe("Hourglass extensions", () => {
+        const grantHourglass = (userId: string, quantity = 1) =>
+            source.query(
+                `INSERT INTO guild_consumable_inventory (profileUserId, consumableKey, quantity, updatedAt)
+                 VALUES (?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)`,
+                [userId, GuildConsumableKey.HOURGLASS, quantity, NOW],
+            );
+
+        it("adds 7 days once, consumes one hourglass and resets expiringNotifiedAt", async () => {
+            const userId = await user();
+            await profiles.ensureProfile(userId);
+            const expiresAt = new Date(NOW.getTime() + 2 * DAY_MS);
+            const contractId = await insertContract(userId, { expiresAt });
+            await source.query(
+                "UPDATE guild_contract SET expiringNotifiedAt = ? WHERE id = ?",
+                [NOW, contractId],
+            );
+            await grantHourglass(userId);
+
+            const extended = await contracts.extendContract(
+                userId,
+                contractId,
+                NOW,
+            );
+            expect(extended.contract.expiresAt!.getTime()).toBe(
+                expiresAt.getTime() + 7 * DAY_MS,
+            );
+            expect(extended.contract.extendedCount).toBe(1);
+            const [stored] = await source.query(
+                "SELECT expiringNotifiedAt FROM guild_contract WHERE id = ?",
+                [contractId],
+            );
+            expect(stored.expiringNotifiedAt).toBeNull();
+            expect(extended.usedFreeMonthlyHourglass).toBe(false);
+            expect(extended.remainingHourglasses).toBe(0);
+
+            const second = await rejectionOf(
+                contracts.extendContract(userId, contractId, NOW),
+            );
+            expect(second).toBeInstanceOf(ConflictException);
+            expect((second.getResponse() as { code?: string }).code).toBe(
+                "guild_contract_already_extended",
+            );
+        });
+
+        it("uses the free Rank A monthly Hourglass only once per month", async () => {
+            const userId = await user();
+            await source.query(
+                "INSERT INTO guild_profile (profileUserId, xp, `rank`) VALUES (?, ?, ?)",
+                [userId, 4_000, GuildRank.A],
+            );
+            const first = await insertContract(userId, {
+                expiresAt: new Date(NOW.getTime() + DAY_MS),
+            });
+            const free = await contracts.extendContract(userId, first, NOW);
+            expect(free.usedFreeMonthlyHourglass).toBe(true);
+            expect(free.remainingHourglasses).toBe(0);
+
+            const [profile] = await source.query(
+                "SELECT freeHourglassMonthKey FROM guild_profile WHERE profileUserId = ?",
+                [userId],
+            );
+            expect(profile.freeHourglassMonthKey).toBe(currentMonthKey(NOW));
+
+            const second = await insertContract(userId, {
+                expiresAt: new Date(NOW.getTime() + DAY_MS),
+            });
+            const error = await rejectionOf(
+                contracts.extendContract(userId, second, NOW),
+            );
+            expect(error).toBeInstanceOf(ConflictException);
+            expect((error.getResponse() as { code?: string }).code).toBe(
+                "guild_consumable_not_owned",
+            );
+        });
+
+        it("caps event contract extensions at endsAt + 7 days", async () => {
+            const userId = await user();
+            await profiles.ensureProfile(userId);
+            const endsAt = new Date(NOW.getTime() + 2 * DAY_MS);
+            const eventId = await event({ endsAt });
+            const contractId = await insertContract(userId, {
+                eventId,
+                expiresAt: endsAt,
+            });
+            await grantHourglass(userId);
+
+            const extended = await contracts.extendContract(
+                userId,
+                contractId,
+                NOW,
+            );
+            expect(extended.contract.expiresAt!.getTime()).toBe(
+                endsAt.getTime() + 7 * DAY_MS,
+            );
+        });
+
+        it("rejects the extension when no Hourglass is available", async () => {
+            const userId = await user();
+            await profiles.ensureProfile(userId);
+            const contractId = await insertContract(userId, {
+                expiresAt: new Date(NOW.getTime() + DAY_MS),
+            });
+            const error = await rejectionOf(
+                contracts.extendContract(userId, contractId, NOW),
+            );
+            expect(error).toBeInstanceOf(ConflictException);
+            expect((error.getResponse() as { code?: string }).code).toBe(
+                "guild_consumable_not_owned",
+            );
+        });
     });
 
     describe("Lina contract triggers", () => {
@@ -1006,7 +1548,7 @@ describe("Guild contracts (integration)", () => {
             );
 
             expect(claim.lina).toMatchObject({
-                trigger: LinaTrigger.CONTRACT_CLAIMED,
+                trigger: LinaTrigger.RANK_PROMOTED,
                 pose: LinaPose.HAPPY,
                 context: {
                     contractId,
@@ -1739,7 +2281,7 @@ describe("Guild contracts (integration)", () => {
                 "SELECT xp FROM guild_profile WHERE profileUserId = ?",
                 [userId],
             );
-            expect(Number(afterSecond.xp)).toBe(2_400);
+            expect(Number(afterSecond.xp)).toBe(2_450);
             const obtainedAfter: Array<{ total: number }> = await source.query(
                 "SELECT COUNT(*) AS total FROM obtained_achievement WHERE profileUserId = ? AND achievementId = ?",
                 [userId, badge.achievementId],
@@ -1796,12 +2338,14 @@ describe("Guild contracts (integration)", () => {
             );
             expect(claim.xpAwarded).toBe(225);
             expect(claim.globalXpAwarded).toBe(56);
-            expect(claim.chestResult).toEqual({
-                bonusXp: 75,
-                unlockedCosmetic: expect.objectContaining({
-                    id: poolCosmetic.id,
+            expect(claim.chestResult).toEqual(
+                expect.objectContaining({
+                    bonusXp: 75,
+                    unlockedCosmetic: expect.objectContaining({
+                        id: poolCosmetic.id,
+                    }),
                 }),
-            });
+            );
             const unlocked: Array<{ total: number }> = await source.query(
                 "SELECT COUNT(*) AS total FROM user_guild_reward WHERE profileUserId = ? AND rewardId = ?",
                 [userId, poolCosmetic.id],
@@ -1921,6 +2465,299 @@ describe("Guild contracts (integration)", () => {
                 .post(`/v1/guild/contracts/${contractId}/claim`)
                 .set("x-test-user", userId)
                 .expect(409);
+        });
+    });
+
+    describe("claim economy receipts", () => {
+        it("re-checks also_write_review at claim time and upgrades the chest tier", async () => {
+            const userId = await user();
+            const gameId = await game();
+            const collectionEntryId = await entry(userId, gameId, {
+                status: CollectionEntryStatus.PLAYING,
+            });
+            const chest = await makeReward(GuildRewardKind.CHEST_BRONZE, {
+                chestBonusXp: 40,
+                chestBonusSeals: 15,
+            });
+            const quest = await boardEntry(userId, {
+                templateKey: "deep_dive",
+                category: GuildCategory.LIBRARY,
+                rank: GuildRank.B,
+                xpReward: 250,
+                sealsReward: 35,
+                requiresTargetGame: true,
+                isQuick: false,
+                rewardId: chest.id,
+                bonusObjective: {
+                    type: "also_write_review",
+                    minChars: 80,
+                    bonusXp: 40,
+                    bonusSeals: 15,
+                    upgradeChestTier: true,
+                },
+            });
+            const { contract } = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id, targetGameId: gameId },
+                NOW,
+            );
+            await finishEntry(userId, gameId, new Date(NOW.getTime() + 60_000));
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(NOW.getTime() + 120_000),
+            );
+            const ready = await contractOf(contract.id);
+            expect(ready.status).toBe(GuildContractStatus.READY_TO_CLAIM);
+            expect(ready.bonusCompleted).toBe(false);
+
+            // The review lands after the contract is ready but before the turn-in.
+            await review(
+                userId,
+                gameId,
+                collectionEntryId,
+                new Date(NOW.getTime() + 180_000),
+            );
+            const claim = await contracts.claimContract(
+                userId,
+                contract.id,
+                new Date(NOW.getTime() + 240_000),
+            );
+
+            expect(claim.bonusCompleted).toBe(true);
+            expect(claim.contract.bonusCompleted).toBe(true);
+            expect(claim.chestResult?.chestKind).toBe(
+                GuildRewardKind.CHEST_SILVER,
+            );
+            expect(claim.sealsAwarded).toBe(
+                35 + 15 + (claim.chestResult?.bonusSeals ?? 0),
+            );
+
+            const ledger: Array<{ reason: string; delta: number }> =
+                await source.query(
+                    "SELECT reason, delta FROM guild_seal_ledger WHERE profileUserId = ? AND referenceId = ? ORDER BY id",
+                    [userId, contract.id],
+                );
+            expect(
+                ledger.filter(
+                    (row) => row.reason === GuildSealReason.CONTRACT_CLAIM,
+                ),
+            ).toEqual([{ reason: GuildSealReason.CONTRACT_CLAIM, delta: 35 }]);
+            expect(
+                ledger.filter(
+                    (row) => row.reason === GuildSealReason.BONUS_OBJECTIVE,
+                ),
+            ).toEqual([{ reason: GuildSealReason.BONUS_OBJECTIVE, delta: 15 }]);
+        });
+
+        it("re-checks also_write_review for a log_playtime contract at claim time", async () => {
+            const userId = await user();
+            const gameId = await game();
+            const collectionEntryId = await entry(userId, gameId, {
+                status: CollectionEntryStatus.PLAYING,
+            });
+            const platformId = await platform();
+            await observation(
+                userId,
+                gameId,
+                platformId,
+                1_000,
+                new Date(NOW.getTime() - 60 * 60_000),
+            );
+
+            const quest = await boardEntry(userId, {
+                category: GuildCategory.LIBRARY,
+                rank: GuildRank.C,
+                xpReward: 200,
+                sealsReward: 0,
+                objectiveType: GuildObjectiveType.LOG_PLAYTIME,
+                targetCount: 120,
+                requiresTargetGame: true,
+                bonusObjective: {
+                    type: "also_write_review",
+                    minChars: 150,
+                    bonusSeals: 30,
+                },
+            });
+            const { contract } = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id, targetGameId: gameId },
+                NOW,
+            );
+            await observation(
+                userId,
+                gameId,
+                platformId,
+                8_200,
+                new Date(NOW.getTime() + 60_000),
+            );
+            await evaluator.evaluateUserContracts(
+                userId,
+                new Date(NOW.getTime() + 120_000),
+            );
+            const ready = await contractOf(contract.id);
+            expect(ready.status).toBe(GuildContractStatus.READY_TO_CLAIM);
+            expect(ready.bonusCompleted).toBe(false);
+
+            await review(
+                userId,
+                gameId,
+                collectionEntryId,
+                new Date(NOW.getTime() + 180_000),
+                "A".repeat(160),
+            );
+            const claim = await contracts.claimContract(
+                userId,
+                contract.id,
+                new Date(NOW.getTime() + 240_000),
+            );
+
+            expect(claim.bonusCompleted).toBe(true);
+            expect(claim.contract.bonusCompleted).toBe(true);
+
+            const ledger: Array<{ reason: string; delta: number }> =
+                await source.query(
+                    "SELECT reason, delta FROM guild_seal_ledger WHERE profileUserId = ? AND referenceId = ? ORDER BY id",
+                    [userId, contract.id],
+                );
+            expect(
+                ledger.filter(
+                    (row) => row.reason === GuildSealReason.BONUS_OBJECTIVE,
+                ),
+            ).toEqual([{ reason: GuildSealReason.BONUS_OBJECTIVE, delta: 30 }]);
+        });
+
+        it("credits contract Seals, Rank promotion packages and the Passport stamp", async () => {
+            const userId = await user();
+            await source.query(
+                "INSERT INTO guild_profile (profileUserId, xp, `rank`) VALUES (?, ?, ?)",
+                [userId, 1_900, GuildRank.C],
+            );
+            const quest = await boardEntry(userId, {
+                rank: GuildRank.B,
+                xpReward: 250,
+                sealsReward: 60,
+            });
+            const { contract } = await contracts.acceptContract(
+                userId,
+                { boardEntryId: quest.id },
+                NOW,
+            );
+            await source.query(
+                "UPDATE guild_contract SET status = ?, readyAt = ? WHERE id = ?",
+                [GuildContractStatus.READY_TO_CLAIM, NOW, contract.id],
+            );
+
+            const claim = await contracts.claimContract(
+                userId,
+                contract.id,
+                NOW,
+            );
+            expect(claim.rankBefore).toBe(GuildRank.C);
+            expect(claim.rankAfter).toBe(GuildRank.B);
+            expect(claim.contract.sealsReward).toBe(60);
+            expect(claim.sealsAwarded).toBe(60);
+            expect(claim.promotionRewards.map((reward) => reward.key)).toEqual(
+                expect.arrayContaining([
+                    "frame_forged_steel",
+                    "decor_sleeping_cat",
+                ]),
+            );
+            expect(claim.passportMonth).toEqual({
+                monthKey: currentMonthKey(NOW),
+                completedContractsCount: 1,
+            });
+            expect(claim.lina.trigger).toBe(LinaTrigger.RANK_PROMOTED);
+
+            const [profile] = await source.query(
+                "SELECT sealsBalance FROM guild_profile WHERE profileUserId = ?",
+                [userId],
+            );
+            expect(Number(profile.sealsBalance)).toBe(60);
+        });
+
+        it("grants Prestige S+ relic chests on claim", async () => {
+            const userId = await user();
+            await source.query(
+                "INSERT INTO guild_profile (profileUserId, xp, `rank`, highestPromotedRank, prestigeLevel) VALUES (?, ?, ?, ?, 0)",
+                [userId, 9_800, GuildRank.S, GuildRank.S],
+            );
+            const contractId = await insertContract(userId, {
+                status: GuildContractStatus.READY_TO_CLAIM,
+                xpReward: 400,
+            });
+
+            const claim = await contracts.claimContract(
+                userId,
+                contractId,
+                NOW,
+            );
+            expect(claim.prestigeRewards).toHaveLength(1);
+            expect(claim.prestigeRewards[0].chestKind).toBe(
+                GuildRewardKind.CHEST_RELIC,
+            );
+            expect(claim.rankAfter).toBe(GuildRank.S);
+
+            const [profile] = await source.query(
+                "SELECT prestigeLevel FROM guild_profile WHERE profileUserId = ?",
+                [userId],
+            );
+            expect(Number(profile.prestigeLevel)).toBe(1);
+        });
+
+        it("records creditedCollectionIds so a collection cannot be farmed twice", async () => {
+            const userId = await user();
+            await profiles.ensureProfile(userId);
+            const collectionId = randomUUID();
+            await source.query(
+                `INSERT INTO collection (id, name, description, isPublic, libraryUserId, createdAt, updatedAt)
+                 VALUES (?, ?, ?, 1, ?, ?, ?)`,
+                [
+                    collectionId,
+                    "Curated",
+                    "A carefully curated collection description.",
+                    userId,
+                    NOW,
+                    new Date(NOW.getTime() + 60_000),
+                ],
+            );
+            for (let index = 0; index < 5; index++) {
+                const gameId = await game();
+                const entryId = await entry(userId, gameId);
+                await source.query(
+                    "INSERT INTO collection_entry_collections_collection (collectionEntryId, collectionId, `order`, createdAt) VALUES (?, ?, ?, ?)",
+                    [entryId, collectionId, index, NOW],
+                );
+            }
+
+            const first = await insertContract(userId, {
+                status: GuildContractStatus.READY_TO_CLAIM,
+                objectiveType: GuildObjectiveType.CURATE_COLLECTION,
+            });
+            await contracts.claimContract(
+                userId,
+                first,
+                new Date(NOW.getTime() + 120_000),
+            );
+            const stored = await contractOf(first);
+            expect(
+                (stored.claimPayload as { creditedCollectionIds?: string[] })
+                    .creditedCollectionIds,
+            ).toEqual([collectionId]);
+
+            const second = await insertContract(userId, {
+                status: GuildContractStatus.READY_TO_CLAIM,
+                objectiveType: GuildObjectiveType.CURATE_COLLECTION,
+            });
+            await contracts.claimContract(
+                userId,
+                second,
+                new Date(NOW.getTime() + 180_000),
+            );
+            const farmed = await contractOf(second);
+            expect(
+                (farmed.claimPayload as { creditedCollectionIds?: string[] })
+                    .creditedCollectionIds,
+            ).toEqual([]);
         });
     });
 

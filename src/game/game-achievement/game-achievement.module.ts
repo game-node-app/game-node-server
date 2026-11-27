@@ -19,6 +19,7 @@ import { GameAchievementActivityService } from "./game-achievement-activity.serv
 import { ActivitiesQueueModule } from "../../activities/activities-queue/activities-queue.module";
 import { GameCompletionStatus } from "./entity/game-completion-status.entity";
 import { GameAchievementStatusService } from "./game-achievement-status.service";
+import { GuildQueueModule } from "../../guild/guild-queue/guild-queue.module";
 import { GameAchievementCatalog } from "./entity/game-achievement-catalog.entity";
 
 @Module({
@@ -39,6 +40,7 @@ import { GameAchievementCatalog } from "./entity/game-achievement-catalog.entity
         forwardRef(() => ConnectionsModule),
         GameRepositoryModule,
         forwardRef(() => ActivitiesQueueModule),
+        GuildQueueModule,
     ],
     providers: [
         GameAchievementService,

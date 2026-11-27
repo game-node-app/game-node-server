@@ -265,6 +265,13 @@ export function validateNotificationIntent(
                 payload.expiresAt.length <= 64 &&
                 Number.isFinite(Date.parse(payload.expiresAt));
             break;
+        case "guild.community-bounty-ready":
+            allowed = ["bountyId"];
+            valid =
+                intent.actorUserId === null &&
+                identity(intent.recipientUserId) &&
+                identity(payload.bountyId);
+            break;
     }
     if (
         !valid ||

@@ -9,6 +9,7 @@ import { UploadService } from "../upload/upload.service";
 import { ActivitiesQueueService } from "../activities/activities-queue/activities-queue.service";
 import { ActivityType } from "../activities/activities-queue/activities-queue.constants";
 import { NotificationsLifecycleService } from "../notifications/notifications-lifecycle.service";
+import { GuildQueueService } from "../guild/guild-queue/guild-queue.service";
 import { StatisticsSourceType } from "../statistics/statistics.constants";
 import {
     deactivateStatisticsContent,
@@ -25,6 +26,8 @@ export class PostsService {
         private readonly activitiesQueueService: ActivitiesQueueService,
         @Optional()
         private readonly notificationsLifecycleService?: NotificationsLifecycleService,
+        @Optional()
+        private readonly guildQueueService?: GuildQueueService,
     ) {}
 
     public async findAll(options: FindManyOptions<Post>) {
@@ -69,6 +72,8 @@ export class PostsService {
             profileUserId: userId,
             sourceId: createdPost.id,
         });
+
+        this.guildQueueService?.enqueueEvaluation(userId, "post");
 
         return createdPost;
     }

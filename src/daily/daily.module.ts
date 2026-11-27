@@ -12,6 +12,7 @@ import { DailyPoolService } from "./daily-pool.service";
 import { DailyPracticeService } from "./daily-practice.service";
 import { DailyScheduler } from "./daily.scheduler";
 import { DailyRankingService } from "./daily-ranking.service";
+import { GuildQueueModule } from "../guild/guild-queue/guild-queue.module";
 
 @Module({
     imports: [
@@ -23,6 +24,7 @@ import { DailyRankingService } from "./daily-ranking.service";
             DailyRankingSnapshot,
         ]),
         BillingModule,
+        GuildQueueModule,
     ],
     providers: [
         DailyService,

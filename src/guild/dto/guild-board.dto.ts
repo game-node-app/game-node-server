@@ -2,7 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
 import { IsBoolean, IsOptional } from "class-validator";
 import {
+    GuildBoardCycle,
+    GuildBonusObjectiveType,
     GuildCategory,
+    GuildConsumableKey,
     GuildCriteria,
     GuildLocale,
     GuildObjectiveType,
@@ -70,6 +73,82 @@ export class GuildBoardQuestMetaDto {
 
     @ApiPropertyOptional({ type: Number, nullable: true, example: 6 })
     estimatedHours?: number | null;
+
+    @ApiPropertyOptional({
+        type: String,
+        nullable: true,
+        description: "Procedural genre name (off_the_map, genre_marathon)",
+        example: "Metroidvania",
+    })
+    genreName?: string | null;
+
+    @ApiPropertyOptional({
+        type: String,
+        nullable: true,
+        description: "Procedural franchise name (continue_the_saga)",
+        example: "Hollow Knight",
+    })
+    franchiseName?: string | null;
+
+    @ApiPropertyOptional({
+        type: String,
+        nullable: true,
+        description: "Procedural theme name (saga_trilogy theme branch)",
+        example: "Fantasy",
+    })
+    themeName?: string | null;
+
+    @ApiPropertyOptional({
+        type: String,
+        nullable: true,
+        description: "Release decade (time_machine)",
+        example: "2010s",
+    })
+    decade?: string | null;
+
+    @ApiPropertyOptional({
+        type: Number,
+        nullable: true,
+        description: "Backlog age in days (recent_dust, forgotten_relic)",
+        example: 420,
+    })
+    staleDays?: number | null;
+}
+
+/** Optional secondary objective; never blocks base completion (design 4). */
+export class GuildBoardBonusObjectiveDto {
+    @ApiProperty({
+        enum: [
+            "also_write_review",
+            "finish_before_half_deadline",
+            "use_stale_backlog_game",
+        ],
+    })
+    type: GuildBonusObjectiveType;
+
+    @ApiPropertyOptional({
+        description: "Minimum plain-text review length (also_write_review)",
+        example: 150,
+    })
+    minChars?: number;
+
+    @ApiPropertyOptional({
+        description: "Backlog age required from the target game",
+        example: 180,
+    })
+    staleDays?: number;
+
+    @ApiPropertyOptional({ example: 40 })
+    bonusXp?: number;
+
+    @ApiPropertyOptional({ example: 15 })
+    bonusSeals?: number;
+
+    @ApiPropertyOptional({
+        description: "Upgrades the contract chest one tier on claim",
+        example: false,
+    })
+    upgradeChestTier?: boolean;
 }
 
 export class GuildBoardQuestDto {
@@ -91,6 +170,14 @@ export class GuildBoardQuestDto {
 
     @ApiProperty({ enum: GuildCategory })
     category: GuildCategory;
+
+    @ApiProperty({
+        enum: GuildBoardCycle,
+        nullable: true,
+        description:
+            "weekly for automatic board quests, monthly for expeditions, null for curated events",
+    })
+    cycle: GuildBoardCycle | null;
 
     @ApiProperty({
         type: String,
@@ -115,6 +202,9 @@ export class GuildBoardQuestDto {
     @ApiProperty({ example: 250 })
     xpReward: number;
 
+    @ApiProperty({ example: 60 })
+    sealsReward: number;
+
     @ApiProperty({ enum: GuildObjectiveType })
     objectiveType: GuildObjectiveType;
 
@@ -129,6 +219,15 @@ export class GuildBoardQuestDto {
 
     @ApiProperty({ type: () => GuildBoardQuestMetaDto, nullable: true })
     meta: GuildBoardQuestMetaDto | null;
+
+    @ApiProperty({ type: () => GuildBoardBonusObjectiveDto, nullable: true })
+    bonusObjective: GuildBoardBonusObjectiveDto | null;
+
+    @ApiProperty({
+        example: 0,
+        description: "How many times this slot was rerolled this week",
+    })
+    rerollCount: number;
 
     @ApiProperty({ example: true })
     requiresTargetGame: boolean;
@@ -169,6 +268,46 @@ export class GuildBoardResponseDto {
     })
     nextRefreshAt: Date;
 
+    @ApiProperty({
+        example: 1,
+        description: "Free weekly rerolls left for the current São Paulo week",
+    })
+    rerollsRemaining: number;
+
+    @ApiProperty({
+        example: 0,
+        description: "Owned `reroll_charter` consumables",
+    })
+    rerollChartersOwned: number;
+
+    @ApiProperty({
+        example: false,
+        description:
+            "True below Rank C, when the Monthly Expedition slot is not generated",
+    })
+    monthlyExpeditionLocked: boolean;
+
     @ApiProperty({ type: () => GuildBoardQuestDto, isArray: true })
     quests: GuildBoardQuestDto[];
+}
+
+/** Response of `POST /v1/guild/board/:entryId/reroll`. */
+export class RerollGuildBoardEntryResponseDto {
+    @ApiProperty({ type: () => GuildBoardQuestDto })
+    quest: GuildBoardQuestDto;
+
+    @ApiProperty({ example: 0 })
+    rerollsRemaining: number;
+
+    @ApiProperty({ example: 1 })
+    rerollChartersOwned: number;
+
+    @ApiProperty({
+        enum: GuildConsumableKey,
+        nullable: true,
+        description:
+            "Consumable spent by this reroll, if free rerolls were exhausted",
+        example: "reroll_charter",
+    })
+    consumableUsed: GuildConsumableKey | null;
 }

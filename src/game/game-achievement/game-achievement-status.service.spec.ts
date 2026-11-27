@@ -208,3 +208,109 @@ test("a complete snapshot that adds an unearned achievement clears completion", 
         expect.objectContaining({ isCompleted: false, completedAt: null }),
     );
 });
+
+describe("GameAchievementStatusService guild contract evaluation hook", () => {
+    const achievements = [{ externalId: "one" }] as any;
+    const obtained = [
+        {
+            externalId: "one",
+            isObtained: true,
+            obtainedAt: new Date("2026-10-25T00:00:00Z"),
+        },
+    ] as any;
+
+    function fixture(guildQueue: { enqueueEvaluation: jest.Mock }) {
+        const repository = {
+            create: jest.fn((row) => row),
+            findOneBy: jest.fn().mockResolvedValue(null),
+            save: jest.fn(),
+        };
+        const service = new GameAchievementStatusService(
+            repository as any,
+            guildQueue as any,
+        );
+        return { service, repository };
+    }
+
+    it("schedules evaluation after a changed completion status commits", async () => {
+        const guildQueue = { enqueueEvaluation: jest.fn() };
+        const { service, repository } = fixture(guildQueue);
+
+        await service.updateGameCompletionStatus(
+            "user",
+            10,
+            achievements,
+            obtained,
+        );
+
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
+            "user",
+            "game_achievement",
+        );
+        expect(repository.save.mock.invocationCallOrder[0]).toBeLessThan(
+            guildQueue.enqueueEvaluation.mock.invocationCallOrder[0],
+        );
+    });
+
+    it("does not schedule evaluation when the checksum is unchanged", async () => {
+        const guildQueue = { enqueueEvaluation: jest.fn() };
+        const { service, repository } = fixture(guildQueue);
+        const existing = {
+            externalGameId: 10,
+            profileUserId: "user",
+            isCompleted: true,
+            isPlatinumObtained: false,
+            totalAvailableAchievements: 1,
+            totalObtainedAchievements: 1,
+            completedAt: new Date("2026-10-25T00:00:00Z"),
+        };
+        repository.findOneBy.mockResolvedValue({
+            ...existing,
+            checksum: checksumFor(existing),
+        });
+
+        await service.updateGameCompletionStatus(
+            "user",
+            10,
+            achievements,
+            obtained,
+        );
+
+        expect(repository.save).not.toHaveBeenCalled();
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+    });
+
+    it("defers evaluation to the transaction owner when a manager is supplied", async () => {
+        const guildQueue = { enqueueEvaluation: jest.fn() };
+        const { service, repository } = fixture(guildQueue);
+        const manager = { getRepository: jest.fn(() => repository) };
+
+        await service.updateGameCompletionStatus(
+            "user",
+            10,
+            achievements,
+            obtained,
+            manager as any,
+        );
+
+        expect(repository.save).toHaveBeenCalled();
+        expect(guildQueue.enqueueEvaluation).not.toHaveBeenCalled();
+    });
+
+    it("does not wait for the evaluation queue before returning", async () => {
+        const guildQueue = {
+            enqueueEvaluation: jest.fn(() => new Promise(() => {})),
+        };
+        const { service } = fixture(guildQueue);
+
+        await expect(
+            service.updateGameCompletionStatus(
+                "user",
+                10,
+                achievements,
+                obtained,
+            ),
+        ).resolves.toBe(true);
+        expect(guildQueue.enqueueEvaluation).toHaveBeenCalledTimes(1);
+    });
+});

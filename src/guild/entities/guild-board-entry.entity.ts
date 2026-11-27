@@ -9,6 +9,8 @@ import {
 } from "typeorm";
 import { Profile } from "../../profile/entities/profile.entity";
 import {
+    GuildBoardCycle,
+    GuildBonusObjective,
     GuildCategory,
     GuildCriteria,
     GuildObjectiveType,
@@ -24,13 +26,15 @@ export interface GuildBoardCandidateGame {
 }
 
 /**
- * One persisted non-event quest of a user's Monday board (design 3).
- * UNIQUE (profileUserId, weekStart, slotIndex) makes same-week generation idempotent.
+ * One persisted non-event quest of a user's weekly board or Monthly Expedition.
+ * UNIQUE (profileUserId, cycle, periodKey, slotIndex) makes same-period generation idempotent.
+ * `weekStart` stays the first day of the period for backwards compatibility.
  */
 @Entity()
-@Unique("UQ_guild_board_entry_user_week_slot", [
+@Unique("UQ_guild_board_entry_user_cycle_period_slot", [
     "profileUserId",
-    "weekStart",
+    "cycle",
+    "periodKey",
     "slotIndex",
 ])
 export class GuildBoardEntry {
@@ -52,6 +56,14 @@ export class GuildBoardEntry {
     @Column({ type: "date" })
     weekStart: string;
 
+    /** "weekly" or "monthly"; Monthly Expeditions keep weekStart as the 1st. */
+    @Column({ type: "varchar", length: 16, default: GuildBoardCycle.WEEKLY })
+    cycle: GuildBoardCycle;
+
+    /** "YYYY-MM-DD" for weekly boards, "YYYY-MM" for monthly expeditions. */
+    @Column({ type: "varchar", length: 10, nullable: true, default: null })
+    periodKey: string | null;
+
     @Column({ type: "tinyint", unsigned: true })
     slotIndex: number;
 
@@ -67,6 +79,9 @@ export class GuildBoardEntry {
     @Column({ type: "int", unsigned: true })
     xpReward: number;
 
+    @Column({ type: "int", unsigned: true, default: 0 })
+    sealsReward: number;
+
     @Column({ type: "varchar", length: 32 })
     objectiveType: GuildObjectiveType;
 
@@ -75,6 +90,16 @@ export class GuildBoardEntry {
 
     @Column({ type: "json" })
     criteria: GuildCriteria;
+
+    @Column({ type: "json", nullable: true, default: null })
+    bonusObjective: GuildBonusObjective | null;
+
+    /** Procedural display params: genreName, franchiseName, decade, staleDays. */
+    @Column({ type: "json", nullable: true, default: null })
+    meta: Record<string, unknown> | null;
+
+    @Column({ type: "tinyint", unsigned: true, default: 0 })
+    rerollCount: number;
 
     @Column({ type: "json" })
     candidateGames: GuildBoardCandidateGame[];

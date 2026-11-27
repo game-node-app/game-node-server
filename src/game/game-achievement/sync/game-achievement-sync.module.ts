@@ -6,6 +6,7 @@ import { GameAchievementModule } from "../game-achievement.module";
 import { BullModule } from "@nestjs/bullmq";
 import { GAME_ACHIEVEMENT_SYNC_QUEUE_NAME } from "./game-achievement-sync.constants";
 import { seconds } from "@nestjs/throttler";
+import { GuildQueueModule } from "../../../guild/guild-queue/guild-queue.module";
 
 /**
  * Module responsible for controlling the synchronization of game achievement data.
@@ -25,6 +26,7 @@ import { seconds } from "@nestjs/throttler";
             },
         }),
         forwardRef(() => GameAchievementModule),
+        GuildQueueModule,
     ],
     providers: [GameAchievementSyncQueueService, GameAchievementSyncProcessor],
     exports: [GameAchievementSyncQueueService],

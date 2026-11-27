@@ -1,34 +1,16 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { DataSource, EntityManager } from "typeorm";
-import { CollectionEntryStatus } from "../collections/collections-entries/collections-entries.constants";
-import { dailyToday } from "../daily/daily.constants";
 import { appendNotificationIntent } from "../notifications/notifications-outbox.service";
+import { PlaytimeHistoryService } from "../playtime/playtime-history.service";
 import { GuildContract } from "./entities/guild-contract.entity";
+import { GuildContractStatus } from "./guild.constants";
 import {
-    GUILD_MIN_REVIEW_CHARS,
-    GuildContractStatus,
-    GuildCriteria,
-    GuildObjectiveType,
-} from "./guild.constants";
-import {
-    GuildTimeToBeatService,
-    getEffectiveTtbSeconds,
-} from "./guild-time-to-beat.service";
-
-/** First instant of the month containing `now` and of the next month, in São Paulo. */
-function currentMonthBounds(now: Date): { start: Date; end: Date } {
-    const [year, month] = dailyToday(now).split("-").map(Number);
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    return {
-        start: new Date(
-            `${year}-${String(month).padStart(2, "0")}-01T00:00:00-03:00`,
-        ),
-        end: new Date(
-            `${nextYear}-${String(nextMonth).padStart(2, "0")}-01T00:00:00-03:00`,
-        ),
-    };
-}
+    GuildEvaluationContext,
+    GuildObjectiveEvaluation,
+    evaluateGuildBonusObjective,
+    evaluateGuildObjective,
+} from "./evaluators";
+import { GuildTimeToBeatService } from "./guild-time-to-beat.service";
 
 /**
  * Evaluates accepted contracts against facts committed after `acceptedAt`,
@@ -36,9 +18,12 @@ function currentMonthBounds(now: Date): { start: Date; end: Date } {
  */
 @Injectable()
 export class GuildContractEvaluatorService {
+    private readonly logger = new Logger(GuildContractEvaluatorService.name);
+
     constructor(
         private readonly dataSource: DataSource,
         private readonly guildTimeToBeatService: GuildTimeToBeatService,
+        private readonly playtimeHistoryService: PlaytimeHistoryService,
     ) {}
 
     /** Lazily expires overdue `active` contracts; ready/completed rows never expire. */
@@ -77,7 +62,37 @@ export class GuildContractEvaluatorService {
             `UPDATE guild_contract SET status = ? WHERE ${conditions.join(" AND ")}`,
             parameters,
         );
+        // A stage contract can no longer be claimed once expired, so its chain
+        // pointer must not keep pointing at it.
+        const chainConditions = ["gc.status = ?"];
+        const chainParameters: unknown[] = [GuildContractStatus.EXPIRED];
+        if (userId) {
+            chainConditions.push("c.profileUserId = ?");
+            chainParameters.push(userId);
+        }
+        await manager.query(
+            `UPDATE guild_user_chain c
+             INNER JOIN guild_contract gc ON gc.id = c.activeContractId
+             SET c.activeContractId = NULL
+             WHERE ${chainConditions.join(" AND ")}`,
+            chainParameters,
+        );
         return Number(result.affectedRows ?? 0);
+    }
+
+    /** One contract evaluated with the real playtime/TTB services (claim re-check). */
+    public async evaluateContractWithManager(
+        manager: EntityManager,
+        contract: GuildContract,
+        now: Date,
+    ): Promise<GuildObjectiveEvaluation> {
+        return evaluateGuildObjective({
+            query: manager,
+            contract,
+            now,
+            playtimeHistory: this.playtimeHistoryService,
+            timeToBeat: this.guildTimeToBeatService,
+        });
     }
 
     public async evaluateUserContracts(
@@ -106,189 +121,71 @@ export class GuildContractEvaluatorService {
             if (contract.expiresAt !== null && contract.expiresAt <= now)
                 continue;
 
-            const computed =
-                contract.objectiveType === GuildObjectiveType.FINISH_GAME
-                    ? await this.countFinishedGames(contract, now)
-                    : await this.countReviews(contract, now);
+            const evaluation = await evaluateGuildObjective(
+                this.evaluationContext(contract, now),
+            );
 
-            if (computed >= contract.progressTarget) {
-                await this.markReady(contract, now);
-            } else if (computed !== contract.progressCurrent) {
+            if (evaluation.progress >= contract.progressTarget) {
+                const bonusCompleted = await this.bonusCompleted(
+                    contract,
+                    evaluation,
+                    now,
+                );
+                await this.markReady(contract, now, bonusCompleted);
+            } else if (evaluation.progress !== contract.progressCurrent) {
                 await this.dataSource.getRepository(GuildContract).update(
                     {
                         id: contract.id,
                         status: GuildContractStatus.ACTIVE,
                     },
-                    { progressCurrent: computed },
+                    { progressCurrent: evaluation.progress },
                 );
             }
         }
     }
 
-    private async countFinishedGames(
+    private evaluationContext(
         contract: GuildContract,
         now: Date,
-    ): Promise<number> {
-        const conditions = [
-            "h.libraryUserId = ?",
-            "h.toStatus = ?",
-            "h.source = ?",
-            "h.occurredAt >= ?",
-            // The earliest finish is the game's first finish; a re-finish never counts.
-            `NOT EXISTS (
-                SELECT 1 FROM collection_entry_status_history earlier
-                WHERE earlier.libraryUserId = h.libraryUserId
-                  AND earlier.gameId = h.gameId
-                  AND earlier.toStatus = h.toStatus
-                  AND (earlier.occurredAt < h.occurredAt
-                       OR (earlier.occurredAt = h.occurredAt AND earlier.id < h.id))
-            )`,
-        ];
-        const parameters: unknown[] = [
-            contract.profileUserId,
-            CollectionEntryStatus.FINISHED,
-            "manual",
-            contract.acceptedAt,
-        ];
-        if (contract.expiresAt !== null) {
-            conditions.push("h.occurredAt < ?");
-            parameters.push(contract.expiresAt);
-        }
-        // A finish dated after the evaluation instant is not progress yet.
-        conditions.push("h.occurredAt <= ?");
-        parameters.push(now);
-        if (contract.targetGameId !== null) {
-            conditions.push("h.gameId = ?");
-            parameters.push(contract.targetGameId);
-        }
-        this.applyGameCriteria(
-            conditions,
-            parameters,
-            contract.criteria,
-            "h.gameId",
-        );
-
-        const rows: Array<{ gameId: number }> = await this.dataSource.query(
-            `SELECT DISTINCT h.gameId FROM collection_entry_status_history h
-                 WHERE ${conditions.join(" AND ")}`,
-            parameters,
-        );
-        return this.countWithinTimeToBeat(
-            rows.map((row) => Number(row.gameId)),
-            contract.criteria,
+    ): GuildEvaluationContext {
+        return {
+            query: this.dataSource,
+            contract,
             now,
-        );
+            playtimeHistory: this.playtimeHistoryService,
+            timeToBeat: this.guildTimeToBeatService,
+        };
     }
 
-    private async countReviews(
+    /** A bonus failure is never allowed to block the base completion. */
+    private async bonusCompleted(
+        contract: GuildContract,
+        evaluation: GuildObjectiveEvaluation,
+        now: Date,
+    ): Promise<boolean> {
+        if (!contract.bonusObjective) return false;
+        try {
+            return await evaluateGuildBonusObjective({
+                query: this.dataSource,
+                contract,
+                evaluation,
+                now,
+            });
+        } catch (error) {
+            this.logger.warn(
+                `Guild bonus objective evaluation failed for contract ${contract.id}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+            return false;
+        }
+    }
+
+    private async markReady(
         contract: GuildContract,
         now: Date,
-    ): Promise<number> {
-        const conditions = [
-            "r.profileUserId = ?",
-            "r.createdAt >= ?",
-            "CHAR_LENGTH(TRIM(r.content)) >= ?",
-        ];
-        const parameters: unknown[] = [
-            contract.profileUserId,
-            contract.acceptedAt,
-            GUILD_MIN_REVIEW_CHARS,
-        ];
-        if (contract.expiresAt !== null) {
-            conditions.push("r.createdAt < ?");
-            parameters.push(contract.expiresAt);
-        }
-        if (contract.targetGameId !== null) {
-            conditions.push("r.gameId = ?");
-            parameters.push(contract.targetGameId);
-        }
-        this.applyGameCriteria(
-            conditions,
-            parameters,
-            contract.criteria,
-            "r.gameId",
-        );
-        if (contract.criteria.finishedInCurrentMonth === true) {
-            const { start, end } = currentMonthBounds(now);
-            conditions.push(
-                `EXISTS (SELECT 1 FROM collection_entry ce
-                     WHERE ce.libraryUserId = r.profileUserId
-                       AND ce.gameId = r.gameId
-                       AND ce.status = ?
-                       AND ce.finishedAt >= ? AND ce.finishedAt < ?)`,
-            );
-            parameters.push(CollectionEntryStatus.FINISHED, start, end);
-        }
-
-        // shortcut: deleting and rewriting a review for the same game can count
-        // again in a later contract; upgrade with review history if abused.
-        const rows: Array<{ gameId: number }> = await this.dataSource.query(
-            `SELECT DISTINCT r.gameId FROM review r
-             WHERE ${conditions.join(" AND ")}`,
-            parameters,
-        );
-        return rows.length;
-    }
-
-    /** Game-set filters shared by finishes and reviews. */
-    private applyGameCriteria(
-        conditions: string[],
-        parameters: unknown[],
-        criteria: GuildCriteria,
-        gameColumn = "ce.gameId",
-    ): void {
-        const inClause = (values: number[]) => values.map(() => "?").join(",");
-
-        if (criteria.gameIds?.length) {
-            conditions.push(`${gameColumn} IN (${inClause(criteria.gameIds)})`);
-            parameters.push(...criteria.gameIds);
-        }
-        if (criteria.genreIds?.length) {
-            conditions.push(
-                `EXISTS (SELECT 1 FROM game_genres_game_genre gg
-                     WHERE gg.gameId = ${gameColumn}
-                       AND gg.gameGenreId IN (${inClause(criteria.genreIds)}))`,
-            );
-            parameters.push(...criteria.genreIds);
-        }
-        if (criteria.themeIds?.length) {
-            conditions.push(
-                `EXISTS (SELECT 1 FROM game_themes_game_theme gt
-                     WHERE gt.gameId = ${gameColumn}
-                       AND gt.gameThemeId IN (${inClause(criteria.themeIds)}))`,
-            );
-            parameters.push(...criteria.themeIds);
-        }
-        if (criteria.keywordIds?.length) {
-            conditions.push(
-                `EXISTS (SELECT 1 FROM game_keywords_game_keyword gk
-                     WHERE gk.gameId = ${gameColumn}
-                       AND gk.gameKeywordId IN (${inClause(criteria.keywordIds)}))`,
-            );
-            parameters.push(...criteria.keywordIds);
-        }
-    }
-
-    /** Games with no cached time-to-beat never qualify a TTB-limited contract. */
-    private async countWithinTimeToBeat(
-        gameIds: number[],
-        criteria: GuildCriteria,
-        now: Date,
-    ): Promise<number> {
-        if (criteria.maxTimeToBeatHours == null) return gameIds.length;
-
-        const cached = await this.guildTimeToBeatService.getForGameIds(
-            gameIds,
-            now,
-        );
-        const maxSeconds = criteria.maxTimeToBeatHours * 60 * 60;
-        return gameIds.filter((gameId) => {
-            const seconds = getEffectiveTtbSeconds(cached.get(gameId));
-            return seconds !== null && seconds > 0 && seconds <= maxSeconds;
-        }).length;
-    }
-
-    private async markReady(contract: GuildContract, now: Date): Promise<void> {
+        bonusCompleted: boolean,
+    ): Promise<void> {
         await this.dataSource.transaction(async (manager) => {
             const rows: Array<{
                 id: string;
@@ -305,12 +202,13 @@ export class GuildContractEvaluatorService {
 
             const result = await manager.query(
                 `UPDATE guild_contract
-                 SET status = ?, progressCurrent = ?, readyAt = ?
+                 SET status = ?, progressCurrent = ?, readyAt = ?, bonusCompleted = ?
                  WHERE id = ? AND status = ?`,
                 [
                     GuildContractStatus.READY_TO_CLAIM,
                     contract.progressTarget,
                     now,
+                    bonusCompleted,
                     contract.id,
                     GuildContractStatus.ACTIVE,
                 ],

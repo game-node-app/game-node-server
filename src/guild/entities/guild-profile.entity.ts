@@ -38,6 +38,43 @@ export class GuildProfile {
     @Column({ type: "varchar", length: 4, default: GuildRank.E })
     rank: GuildRank;
 
+    @Column({ type: "int", unsigned: true, default: 0 })
+    sealsBalance: number;
+
+    @Column({ type: "int", unsigned: true, default: 0 })
+    prestigeLevel: number;
+
+    /** Highest rank whose promotion package was granted; drives lazy reconciliation. */
+    @Column({ type: "varchar", length: 4, default: GuildRank.E })
+    highestPromotedRank: GuildRank;
+
+    @Column({ type: "varchar", length: 64, nullable: true, default: null })
+    equippedLicenseThemeKey: string | null;
+
+    @Column({ type: "varchar", length: 64, nullable: true, default: null })
+    equippedStampStyleKey: string | null;
+
+    /** Up to 4 `tavern_decor` reward keys. */
+    @Column({ type: "json", nullable: true, default: null })
+    equippedDecorKeys: string[] | null;
+
+    /** Up to 3 owned achievement definition IDs shown on the Guild License. */
+    @Column({ type: "json", nullable: true, default: null })
+    showcaseBadgeIds: string[] | null;
+
+    @Column({ type: "date", nullable: true, default: null })
+    freeRerollWeekStart: string | null;
+
+    @Column({ type: "tinyint", unsigned: true, default: 0 })
+    freeRerollsUsedThisWeek: number;
+
+    /** "YYYY-MM" São Paulo month of the last free Rank A/S Hourglass. */
+    @Column({ type: "char", length: 7, nullable: true, default: null })
+    freeHourglassMonthKey: string | null;
+
+    @Column({ type: "date", nullable: true, default: null })
+    extraSlotPermitWeekStart: string | null;
+
     @Column({ type: "datetime", precision: 6, nullable: true, default: null })
     lastBoardSeenAt: Date | null;
 
