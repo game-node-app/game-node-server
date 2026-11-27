@@ -16,6 +16,7 @@ import {
     ValidatorConstraintInterface,
 } from "class-validator";
 import { CollectionEntryStatus } from "../../collections/collections-entries/collections-entries.constants";
+import { MaxListSize } from "../../utils/request-bounds";
 
 @ValidatorConstraint({ name: "importSelection" })
 class ImportSelection implements ValidatorConstraintInterface {
@@ -43,6 +44,7 @@ export class ImporterBatchImportRequestDto {
     @IsInt({ each: true })
     @Min(1, { each: true })
     @Max(Number.MAX_SAFE_INTEGER, { each: true })
+    @MaxListSize()
     externalGameIds?: number[];
 
     @ApiPropertyOptional({ type: Boolean, default: false })
@@ -63,5 +65,6 @@ export class ImporterBatchImportRequestDto {
     @IsOptional()
     @IsArray()
     @IsUUID("all", { each: true })
+    @MaxListSize()
     collectionIds?: string[];
 }

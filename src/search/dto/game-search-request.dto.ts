@@ -23,6 +23,7 @@ import {
     VALID_GAME_CATEGORY_VALUES,
     VALID_GAME_STATUS_VALUES,
 } from "./search-validation";
+import { MaxListSize } from "../../utils/request-bounds";
 
 export class GameSearchRequestDto {
     @ApiPropertyOptional({
@@ -44,6 +45,7 @@ export class GameSearchRequestDto {
     })
     @PreserveRawValue()
     @IsStrictEnumIntArray(VALID_GAME_CATEGORY_VALUES, "EGameCategory")
+    @MaxListSize()
     category?: number[];
 
     @ApiPropertyOptional({
@@ -55,6 +57,7 @@ export class GameSearchRequestDto {
     })
     @PreserveRawValue()
     @IsStrictEnumIntArray(VALID_GAME_STATUS_VALUES, "EGameStatus")
+    @MaxListSize()
     status?: number[];
 
     @ApiPropertyOptional({
@@ -64,6 +67,7 @@ export class GameSearchRequestDto {
     })
     @PreserveRawValue()
     @IsStrictFilterStringArray()
+    @MaxListSize()
     genres?: string[];
 
     @ApiPropertyOptional({
@@ -73,6 +77,7 @@ export class GameSearchRequestDto {
     })
     @PreserveRawValue()
     @IsStrictFilterStringArray()
+    @MaxListSize()
     themes?: string[];
 
     @ApiPropertyOptional({
@@ -82,6 +87,7 @@ export class GameSearchRequestDto {
     })
     @PreserveRawValue()
     @IsStrictFilterStringArray()
+    @MaxListSize()
     platforms?: string[];
 
     @ApiPropertyOptional({

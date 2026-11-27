@@ -4,6 +4,7 @@ import { BaseFindDto } from "../../../utils/base-find.dto";
 import { Game } from "../entities/game.entity";
 import { Type } from "class-transformer";
 import { ApiPropertyOptional, OmitType } from "@nestjs/swagger";
+import { MaxListSize } from "../../../utils/request-bounds";
 
 export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     "search",
@@ -20,6 +21,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     @IsNumber(undefined, {
         each: true,
     })
+    @MaxListSize()
     ids?: number[];
     /**
      * Minimum number of external critic reviews (`aggregatedRatingCount`).
@@ -36,6 +38,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     @IsEnum(EGameStatus, {
         each: true,
     })
+    @MaxListSize()
     status?: EGameStatus[];
     @ApiPropertyOptional({ enum: EGameCategory, isArray: true })
     @IsOptional()
@@ -43,6 +46,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     @IsEnum(EGameCategory, {
         each: true,
     })
+    @MaxListSize()
     category?: EGameCategory[];
     @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
@@ -51,6 +55,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
     @IsNumber(undefined, {
         each: true,
     })
+    @MaxListSize()
     themes?: number[];
     @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
@@ -59,6 +64,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
         each: true,
     })
     @Type(() => Number)
+    @MaxListSize()
     gameModes?: number[];
     @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
@@ -67,6 +73,7 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
         each: true,
     })
     @Type(() => Number)
+    @MaxListSize()
     platforms?: number[];
     @ApiPropertyOptional({ type: [Number] })
     @IsOptional()
@@ -75,5 +82,6 @@ export class GameRepositoryFilterDto extends OmitType(BaseFindDto<Game>, [
         each: true,
     })
     @Type(() => Number)
+    @MaxListSize()
     genres?: number[];
 }
