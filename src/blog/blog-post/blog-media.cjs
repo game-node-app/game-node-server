@@ -7,7 +7,8 @@ function mediaReference(source, cmsUrl) {
     const base = new URL(cmsUrl);
     const url = new URL(source, base);
     if (url.origin !== base.origin || !url.pathname.startsWith('/assets/')) return null;
-    const id = url.pathname.split('/')[2];
+    // The Directus editor links images as /assets/<uuid>.<ext>; the extension is cosmetic.
+    const id = url.pathname.split('/')[2].replace(/\.[a-z0-9]+$/i, '');
     if (!uuid.test(id)) throw new Error('Invalid CMS asset reference');
     const params = new URLSearchParams();
     for (const [key, value] of url.searchParams) {
