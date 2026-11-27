@@ -1,5 +1,6 @@
 import { DataSource } from "typeorm";
 import { InitialSchema1793500000000 } from "../src/migrations/1793500000000-InitialSchema";
+import { AddPlayerConnectionLibraryCandidates1796300000000 } from "../src/migrations/1796300000000-AddPlayerConnectionLibraryCandidates";
 
 /**
  * Creates only `tables` from the baseline (plus their seed rows). Foreign keys to tables
@@ -34,6 +35,10 @@ export async function createBaselineTables(
             );
         }
         await runner.query("SET FOREIGN_KEY_CHECKS = 1");
+        if (tables.includes("player_connection_sync"))
+            await new AddPlayerConnectionLibraryCandidates1796300000000().up(
+                runner,
+            );
     } finally {
         await runner.release();
     }

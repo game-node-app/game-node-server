@@ -28,12 +28,14 @@ export class Report {
      * Indexed to improve speed when filtering by type.
      */
     @Column({
+        type: String,
         nullable: false,
     })
     @Index()
     sourceType: ReportSourceType;
 
     @Column({
+        type: String,
         nullable: false,
     })
     category: ReportCategory;

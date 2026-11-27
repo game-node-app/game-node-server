@@ -15,6 +15,7 @@ export abstract class UserPlaytimeBase {
     @PrimaryGeneratedColumn()
     id: number;
     @Column({
+        type: String,
         nullable: false,
     })
     source: UserPlaytimeSource;

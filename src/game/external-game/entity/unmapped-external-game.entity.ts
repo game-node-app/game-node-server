@@ -17,6 +17,7 @@ export class UnmappedExternalGame {
     })
     sourceUid: string;
     @Column({
+        type: Number,
         nullable: false,
     })
     category: EGameExternalGameCategory;

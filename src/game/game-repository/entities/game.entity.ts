@@ -91,10 +91,12 @@ export class Game {
     })
     aggregatedRatingCount?: number;
     @Column({
+        type: Number,
         default: EGameCategory.Main,
     })
     category: EGameCategory;
     @Column({
+        type: Number,
         default: EGameStatus.Released,
     })
     status: EGameStatus;

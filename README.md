@@ -311,24 +311,26 @@ curl http://localhost:5000/.well-known/oauth-authorization-server/v1/auth
 ## Test
 
 ```bash
-# TypeScript checks for source and tests
+# TypeScript checks for source and tests (Jest does not type check)
 $ pnpm test:typecheck
 
-# unit tests
+# unit tests: no services needed
 $ pnpm test
 
-# e2e tests
-$ pnpm test:e2e
+# integration tests (*.integration.spec.ts and test/igdb): disposable MySQL and Redis
+$ pnpm test:services:up
+$ pnpm test:integration
+$ pnpm test:services:down
 
-# test coverage
-$ pnpm test:cov
+# search integration tests, which also need Manticore
+$ pnpm test:search:services:up
+$ pnpm test:search:integration
+$ pnpm test:search:services:down
 ```
 
-Jest compiles TypeScript files individually, uses at most two workers, and recycles
-workers whose heap exceeds 512 MB after a suite. This is not a hard process memory
-limit, and recycling does not apply to `--runInBand`.
-Run `pnpm test:typecheck` for full type checking; CI runs it
-before Jest. Use `pnpm test --maxWorkers=N` to override the worker limit.
+A spec that needs MySQL, Redis or ffmpeg must be named `*.integration.spec.ts`.
+Integration suites share one database and run in a single worker. Run a subset with
+`pnpm test:integration --testPathPatterns=notifications/`.
 
 Keep in mind that it's not possible to test Supertokens' routes (nor should we have to).
 

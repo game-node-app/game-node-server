@@ -35,6 +35,7 @@ export class Activity {
     @PrimaryGeneratedColumn("uuid")
     id: string;
     @Column({
+        type: String,
         nullable: false,
     })
     type: ActivityType;

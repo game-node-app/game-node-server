@@ -14,10 +14,13 @@ export function getPreferredXboxPlatformAbbreviation(
 
     const platformAbbreviations = deviceTitles.map(getXboxPlatformAbbreviation);
 
-    return platformAbbreviations.toSorted((a, b) => {
+    const preferred = platformAbbreviations.toSorted((a, b) => {
         return (
             platformsPreferenceOrder.indexOf(a) -
             platformsPreferenceOrder.indexOf(b)
         );
     })[0];
+
+    // Xbox returns no devices for some titles; default like unknown device names.
+    return preferred ?? GamePlatformAbbreviations.XboxSeriesXS;
 }

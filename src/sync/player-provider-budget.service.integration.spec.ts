@@ -1,3 +1,4 @@
+import { testEnvironment } from "../../test/igdb/helpers/test-environment";
 import { randomUUID } from "node:crypto";
 import { Queue } from "bullmq";
 import {
@@ -71,10 +72,7 @@ describe("PlayerProviderBudgetService provider validation and budget scoping", (
     });
 });
 
-const redisDescribe = process.env.PLAYER_IMPORT_TEST_REDIS_PORT
-    ? describe
-    : describe.skip;
-redisDescribe("shared player provider admission (real Redis)", () => {
+describe("shared player provider admission (real Redis)", () => {
     const prefix = `player-provider-test-${randomUUID()}`;
     let queue: Queue;
     let first: PlayerProviderBudgetService;
@@ -84,7 +82,7 @@ redisDescribe("shared player provider admission (real Redis)", () => {
             prefix,
             connection: {
                 host: "127.0.0.1",
-                port: Number(process.env.PLAYER_IMPORT_TEST_REDIS_PORT),
+                port: testEnvironment(process.env).redis.port,
                 maxRetriesPerRequest: null,
             },
         });
