@@ -92,6 +92,20 @@ async function admit(
 
     const acquired = slot;
     if (closed) return releaseSlot(redis, activeKey, acquired);
-    res.once("close", () => void releaseSlot(redis, activeKey, acquired));
+    let released = false;
+    const release = () => {
+        if (released) return;
+        released = true;
+        void releaseSlot(redis, activeKey, acquired);
+    };
+    // Hanging up doesn't stop the handler, so the slot is held until the response is written, not until "close";
+    // otherwise a client could abort and resend to run any number of queries. A handler that never answers frees it after ACTIVE_STALE_MS.
+    const end = res.end;
+    res.end = function (this: Response, ...args: Parameters<Response["end"]>) {
+        release();
+        return end.apply(this, args);
+    } as Response["end"];
+    // A streamed response (headers already sent) may never end once the client is gone.
+    res.once("close", () => res.headersSent && release());
     next();
 }

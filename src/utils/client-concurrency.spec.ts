@@ -19,18 +19,27 @@ const settle = () => new Promise((r) => setTimeout(r, 150));
 function request(ip: string) {
     const res = Object.assign(new EventEmitter(), {
         statusCode: 200,
+        headersSent: false,
         status(code: number) {
             this.statusCode = code;
             return this;
         },
         json: jest.fn(),
+        end() {
+            this.headersSent = true;
+            return this;
+        },
     });
     const next = jest.fn();
     return {
         req: { headers: { "cf-connecting-ip": ip } } as never,
         res,
         next,
-        finish: () => res.emit("close"),
+        finish: () => {
+            res.end();
+            res.emit("close");
+        },
+        hangUp: () => res.emit("close"),
     };
 }
 
@@ -76,6 +85,27 @@ describe("limitConcurrencyPerClient", () => {
         expect(started()).toHaveLength(MAX_ACTIVE_PER_CLIENT + 1);
 
         for (const r of burst) r.finish();
+    });
+
+    it("keeps a slot while the handler still runs after the client hangs up", async () => {
+        const limit = limitConcurrencyPerClient(redis);
+        const running = Array.from({ length: MAX_ACTIVE_PER_CLIENT }, () =>
+            request("192.0.2.1"),
+        );
+        for (const r of running) await limit(r.req, r.res as never, r.next);
+        for (const r of running) r.hangUp();
+
+        const next = request("192.0.2.1");
+        void limit(next.req, next.res as never, next.next);
+        await settle();
+        expect(next.next).not.toHaveBeenCalled();
+
+        // The handler answers, even to a gone client: now the slot frees.
+        running[0].res.end();
+        await settle();
+        expect(next.next).toHaveBeenCalled();
+
+        for (const r of [...running, next]) r.finish();
     });
 
     it("gives a trusted forwarder more room", async () => {

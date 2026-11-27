@@ -55,13 +55,30 @@ export function countRelationPaths(relations: object, depth = 1): number {
     return paths;
 }
 
-/** Rows one item costs with these relations: itself, one per flat relation, a fan-out per nested one. */
+/** Game relations that load a list of whole games, so even `similarGames: true` fans out. */
+const GAME_LIST_RELATIONS = new Set([
+    "dlcs",
+    "dlcOf",
+    "expansions",
+    "expansionOf",
+    "expandedGames",
+    "expandedGameOf",
+    "similarGames",
+    "similarGameOf",
+    "remakes",
+    "remakeOf",
+    "remasters",
+    "remasterOf",
+]);
+
+/** Rows one item costs with these relations: itself, one per flat relation, a fan-out per nested one or game list. */
 export function relationRowCost(relations: object): number {
     let cost = 1;
-    for (const nested of Object.values(relations)) {
+    for (const [name, nested] of Object.entries(relations)) {
         if (typeof nested === "object" && nested !== null)
             cost += NESTED_RELATION_FAN_OUT * relationRowCost(nested);
-        else if (nested) cost += 1;
+        else if (nested)
+            cost += GAME_LIST_RELATIONS.has(name) ? NESTED_RELATION_FAN_OUT : 1;
     }
     return cost;
 }

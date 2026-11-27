@@ -36,7 +36,8 @@ export class FindGamesByCollectionTypeRequestDto extends PickType(BaseFindDto, [
     @IsOptional()
     @IsObject()
     @IsBoundedRelations<FindGamesByCollectionTypeRequestDto>(
-        (dto) => dto.limit ?? 20,
+        // Same fallback as buildBaseFindOptions, so limit: 0 counts the 20 games it loads.
+        (dto) => dto.limit || 20,
     )
     relations?: FindOptionsRelations<Game>;
 }

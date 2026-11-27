@@ -98,6 +98,8 @@ describe("request bounds", () => {
                 relations: { cover: true, platforms: true, genres: true },
             },
             { gameIds: [1], relations: { a: { b: { c: true } } } },
+            // Game lists fan out even without nested relations.
+            { gameIds, relations: { similarGames: true, dlcs: true } },
             {
                 gameIds: [1],
                 relations: {
