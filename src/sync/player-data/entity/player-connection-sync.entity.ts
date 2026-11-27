@@ -60,4 +60,8 @@ export class PlayerConnectionSync {
 
     @Column({ type: "datetime", precision: 3, nullable: true })
     attemptStartedAt: Date | null = null;
+
+    /** Library games the last discovery found not yet imported or ignored; read by the connection summaries. */
+    @Column({ type: "json", nullable: true })
+    libraryCandidates: { id: number; gameId: number }[] | null = null;
 }

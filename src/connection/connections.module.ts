@@ -30,6 +30,8 @@ import { PsnSyncService } from "../sync/psn/psn-sync.service";
 import { ConnectionsSummaryService } from "./connections-summary.service";
 import { CollectionEntry } from "../collections/collections-entries/entities/collection-entry.entity";
 import { PlayerConnectionSync } from "../sync/player-data/entity/player-connection-sync.entity";
+import { ImporterProcessedEntry } from "../importer/entity/importer-processed-entry.entity";
+import { ImporterIgnoredEntry } from "../importer/entity/importer-ignored-entry.entity";
 
 @Module({
     imports: [
@@ -41,6 +43,8 @@ import { PlayerConnectionSync } from "../sync/player-data/entity/player-connecti
             UserConnectionCredential,
             CollectionEntry,
             PlayerConnectionSync,
+            ImporterProcessedEntry,
+            ImporterIgnoredEntry,
         ]),
         SteamSyncModule,
         PsnSyncModule,

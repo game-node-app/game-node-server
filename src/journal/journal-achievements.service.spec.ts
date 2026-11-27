@@ -21,7 +21,7 @@ describe("JournalAchievementsService", () => {
     });
     afterAll(() => limiterRedis().disconnect());
 
-    it("shares one build between concurrent calls and caps the per-game fan-out", async () => {
+    it("shares one build between concurrent calls and reads every game's achievements at once", async () => {
         const obtained = Array.from({ length: 12 }, (_, i) => ({
             externalGameId: i,
             externalId: `a${i}`,
@@ -33,16 +33,17 @@ describe("JournalAchievementsService", () => {
         const findAllObtainedByUserId = jest
             .fn()
             .mockResolvedValue([obtained, obtained.length]);
-        let active = 0;
-        let maxActive = 0;
-        const findAllByExternalGameId = jest.fn(async (externalGameId) => {
-            maxActive = Math.max(maxActive, ++active);
-            await new Promise((r) => setTimeout(r, 1));
-            active--;
-            return [{ externalGameId, externalId: `a${externalGameId}` }];
-        });
+        const findAllByExternalGameIds = jest.fn(
+            async (ids: number[]) =>
+                new Map(
+                    ids.map((id) => [
+                        id,
+                        [{ externalGameId: id, externalId: `a${id}` }],
+                    ]),
+                ),
+        );
         const service = new JournalAchievementsService(
-            { findAllByExternalGameId } as never,
+            { findAllByExternalGameIds } as never,
             { findAllObtainedByUserId } as never,
         );
 
@@ -53,8 +54,9 @@ describe("JournalAchievementsService", () => {
 
         expect(findAllObtainedByUserId).toHaveBeenCalledTimes(1);
         expect(second).toEqual(JSON.parse(JSON.stringify(first)));
-        expect(findAllByExternalGameId).toHaveBeenCalledTimes(12);
-        expect(maxActive).toBeLessThanOrEqual(5);
+        // Every game's achievements in one call, not one per game.
+        expect(findAllByExternalGameIds).toHaveBeenCalledTimes(1);
+        expect(findAllByExternalGameIds.mock.calls[0][0]).toHaveLength(12);
         expect(first.years[0].totalObtained).toBe(12);
     });
 
@@ -68,7 +70,7 @@ describe("JournalAchievementsService", () => {
             return [[], 0];
         });
         const service = new JournalAchievementsService(
-            {} as never,
+            { findAllByExternalGameIds: async () => new Map() } as never,
             { findAllObtainedByUserId } as never,
         );
 
