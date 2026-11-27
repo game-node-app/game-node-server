@@ -7,6 +7,18 @@ export function setCacheManager(cache: Cache) {
     cacheManager = cache;
 }
 
+const inFlight = new Map<string, Promise<unknown>>();
+
+/** Waiters get their own copy, like the JSON a cache hit returns, so callers can't mutate each other's result. */
+function copyLikeCacheHit<T>(result: T): T {
+    if (result == null) return result;
+    try {
+        return JSON.parse(JSON.stringify(result));
+    } catch {
+        return result;
+    }
+}
+
 /**
  * A custom decorator that automatically applies caching logic to any valid method
  *
@@ -59,20 +71,29 @@ export function Cacheable(
                 );
             }
 
-            // Call the original method if cache miss
-            const result = await originalMethod.apply(this, args);
+            // Concurrent misses share one call, so N identical requests cost one computation.
+            const pending = inFlight.get(finalCacheKey);
+            if (pending) return pending.then(copyLikeCacheHit);
 
-            // Set the new result in cache
-            if (result != null || cacheNullable) {
-                cacheManager.set(finalCacheKey, result, ttl).catch((err) => {
-                    console.error(
-                        `Cache set error for key: ${finalCacheKey}:`,
-                        err,
-                    );
-                });
-            }
+            const call = (async () => {
+                const result = await originalMethod.apply(this, args);
 
-            return result;
+                // Set the new result in cache
+                if (result != null || cacheNullable) {
+                    cacheManager!
+                        .set(finalCacheKey, result, ttl)
+                        .catch((err) => {
+                            console.error(
+                                `Cache set error for key: ${finalCacheKey}:`,
+                                err,
+                            );
+                        });
+                }
+
+                return result;
+            })().finally(() => inFlight.delete(finalCacheKey));
+            inFlight.set(finalCacheKey, call);
+            return call;
         };
 
         return descriptor;

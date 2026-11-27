@@ -7,7 +7,8 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { BullModule } from "@nestjs/bullmq";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
-import { seconds, ThrottlerModule } from "@nestjs/throttler";
+import { seconds, ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { LevelModule } from "./level/level.module";
 import { HealthModule } from "./health/health.module";
@@ -153,7 +154,12 @@ import { ProfilePresenceModule } from "./profile/profile-presence/profile-presen
             useFactory: () => {
                 const { port, host } = getRedisConfig();
                 return {
-                    throttlers: [{ limit: 10, ttl: seconds(60) }],
+                    // Applies to every route via APP_GUARD; sensitive routes set a stricter @Throttle.
+                    throttlers: [{ limit: 300, ttl: seconds(60) }],
+                    // The origin only receives Cloudflare traffic, so req.ip is always the proxy.
+                    getTracker: (req) =>
+                        (req.headers["cf-connecting-ip"] as string | undefined) ??
+                        req.ip,
                     storage: new ThrottlerStorageRedisService({
                         host: host,
                         autoResubscribe: true,
@@ -202,6 +208,7 @@ import { ProfilePresenceModule } from "./profile/profile-presence/profile-presen
         SupportersModule,
         ProfilePresenceModule,
     ],
+    providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

@@ -11,14 +11,14 @@ import { GetRecommendationsRequestDto } from "./dto/get-recommendations.dto";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "src/auth/auth.guard";
 import { CacheTTL } from "@nestjs/cache-manager";
-import { hours, ThrottlerGuard } from "@nestjs/throttler";
+import { hours, seconds, Throttle } from "@nestjs/throttler";
 import { SessionAwareCacheInterceptor } from "../interceptor/session-aware-cache/session-aware-cache.interceptor";
 
 @Controller("recommendation")
 @ApiTags("recommendation")
 @UseGuards(AuthGuard)
 @UseInterceptors(SessionAwareCacheInterceptor)
-@UseGuards(ThrottlerGuard)
+@Throttle({ default: { limit: 10, ttl: seconds(60) } })
 export class RecommendationController {
     constructor(
         private readonly recommendationService: RecommendationService,

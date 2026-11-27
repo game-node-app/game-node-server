@@ -195,7 +195,11 @@ export class AuthService implements OnModuleDestroy {
                     .filter(Boolean),
             ],
             database: this.pool,
-            advanced: { database: { generateId: "uuid" } },
+            advanced: {
+                database: { generateId: "uuid" },
+                // The origin only receives Cloudflare traffic; x-forwarded-for holds the Cloudflare edge, not the client.
+                ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
+            },
             socialProviders: {
                 google: provider("GOOGLE"),
                 discord: provider("DISCORD"),

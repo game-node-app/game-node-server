@@ -27,7 +27,7 @@ import {
     GetPostsRequestDto,
 } from "./dto/get-posts.dto";
 import { CursorPaginationInterceptor } from "../interceptor/cursor-pagination.interceptor";
-import { ThrottlerGuard } from "@nestjs/throttler";
+import { seconds, Throttle } from "@nestjs/throttler";
 import { Public } from "../auth/public.decorator";
 
 @Controller("posts/repository")
@@ -63,7 +63,7 @@ export class PostsController {
     @Post("image")
     @ApiConsumes("multipart/form-data")
     @UseInterceptors(FileInterceptor("file"))
-    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 10, ttl: seconds(60) } })
     async uploadPostImage(
         @Session() session: SessionContainer,
         @Body() dto: UploadPostImageRequestDto,

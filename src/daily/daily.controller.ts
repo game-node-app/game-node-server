@@ -10,7 +10,7 @@ import {
     UseGuards,
 } from "@nestjs/common";
 import { ApiOkResponse, ApiProduces, ApiTags } from "@nestjs/swagger";
-import { seconds, Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { seconds, Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
@@ -105,7 +105,6 @@ export class DailyController {
      */
     @Post("practice")
     @Public()
-    @UseGuards(ThrottlerGuard)
     @Throttle({ default: { limit: 30, ttl: seconds(60) } })
     async startPractice(
         @Body() dto: DailyPracticeStartRequestDto,
