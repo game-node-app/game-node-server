@@ -392,7 +392,7 @@ export class CollectionsEntriesService {
 
     private combineGameIdConditions(
         ...conditions: (FindOperator<number> | undefined)[]
-    ) {
+    ): FindOperator<number> | undefined {
         const defined = conditions.filter(
             (condition): condition is FindOperator<number> =>
                 condition !== undefined,
@@ -437,6 +437,11 @@ export class CollectionsEntriesService {
             }
         }
 
+        const gameId = this.combineGameIdConditions(
+            customCoverGameIds ? In(customCoverGameIds) : undefined,
+            searchFilter.gameId,
+        );
+
         const findOptions: FindManyOptions<CollectionEntry> = {
             ...baseFindOptions,
             where: {
@@ -446,10 +451,7 @@ export class CollectionsEntriesService {
                     },
                 },
                 visibility: In(access.visibleEntryLevels),
-                gameId: this.combineGameIdConditions(
-                    customCoverGameIds ? In(customCoverGameIds) : undefined,
-                    searchFilter.gameId,
-                ),
+                ...(gameId !== undefined && { gameId }),
                 game: buildGameFilterFindOptions(dto?.gameFilters),
             },
             order: {
@@ -518,17 +520,19 @@ export class CollectionsEntriesService {
             }
         }
 
+        const gameId = this.combineGameIdConditions(
+            customCoverGameIds ? In(customCoverGameIds) : undefined,
+            searchFilter.gameId,
+        );
+
         const [entries, total] =
             await this.collectionEntriesRepository.findAndCount({
                 ...findOptions,
                 where: {
                     libraryUserId: targetUserId,
                     visibility: In(access.visibleEntryLevels),
-                    status: dto.status,
-                    gameId: this.combineGameIdConditions(
-                        customCoverGameIds ? In(customCoverGameIds) : undefined,
-                        searchFilter.gameId,
-                    ),
+                    ...(dto.status !== undefined && { status: dto.status }),
+                    ...(gameId !== undefined && { gameId }),
                     game: buildGameFilterFindOptions(dto.gameFilters),
                 },
                 order: {
@@ -614,6 +618,11 @@ export class CollectionsEntriesService {
             }
         }
 
+        const gameId = this.combineGameIdConditions(
+            customCoverGameIds ? In(customCoverGameIds) : undefined,
+            searchFilter.gameId,
+        );
+
         const [entries, total] =
             await this.collectionEntriesRepository.findAndCount({
                 ...findOptions,
@@ -621,11 +630,8 @@ export class CollectionsEntriesService {
                     isFavorite: true,
                     libraryUserId: targetUserId,
                     visibility: In(access.visibleEntryLevels),
-                    status: dto.status,
-                    gameId: this.combineGameIdConditions(
-                        customCoverGameIds ? In(customCoverGameIds) : undefined,
-                        searchFilter.gameId,
-                    ),
+                    ...(dto.status !== undefined && { status: dto.status }),
+                    ...(gameId !== undefined && { gameId }),
                 },
                 order: {
                     createdAt: dto?.orderBy?.addedDate,

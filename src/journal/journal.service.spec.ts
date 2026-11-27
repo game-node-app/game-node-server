@@ -114,14 +114,14 @@ test("reads only the journal columns with the visible levels and no relations", 
     await service.getOverview(undefined, "owner");
 
     expect(repository.find).toHaveBeenCalledWith({
-        select: [
-            "id",
-            "gameId",
-            "startedAt",
-            "finishedAt",
-            "droppedAt",
-            "plannedAt",
-        ],
+        select: {
+            id: true,
+            gameId: true,
+            startedAt: true,
+            finishedAt: true,
+            droppedAt: true,
+            plannedAt: true,
+        },
         where: {
             libraryUserId: "owner",
             visibility: In([LibraryVisibility.Public]),

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DataSource } from "typeorm";
+import { DataSource, In } from "typeorm";
 import {
     addTransactionalDataSource,
     deleteDataSourceByName,
@@ -129,7 +129,7 @@ describe("batch import transactions", () => {
         };
         const collections = {
             findAllByIds: async (ids: string[]) =>
-                source.getRepository(Collection).findByIds(ids),
+                source.getRepository(Collection).findBy({ id: In(ids) }),
         };
         const entries = new CollectionsEntriesService(
             source.getRepository(CollectionEntry),

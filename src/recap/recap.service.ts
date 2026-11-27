@@ -1,8 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { YearRecap } from "./entity/year-recap.entity";
-import { In, Repository } from "typeorm";
-import { FindOptionsRelations } from "typeorm/find-options/FindOptionsRelations";
+import { FindOptionsRelations, In, Repository } from "typeorm";
 import { ProfileService } from "../profile/profile.service";
 import { RecapStatusDto } from "./dto/recap-status.dto";
 import { minutes } from "@nestjs/throttler";
