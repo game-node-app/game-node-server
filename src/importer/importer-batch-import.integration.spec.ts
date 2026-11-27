@@ -267,7 +267,9 @@ mysqlDescribe("batch import transactions", () => {
         });
 
         expect(await f.entries.createForImport(f.userId, 1, 6)).toBe("skipped");
-        expect(await f.entries.createForImport(f.userId, 2, 6)).toBe("imported");
+        expect(await f.entries.createForImport(f.userId, 2, 6)).toBe(
+            "imported",
+        );
 
         expect(
             await source
@@ -673,13 +675,9 @@ mysqlDescribe("batch import transactions", () => {
             const summary = new ConnectionsSummaryService(
                 source.getRepository(CollectionEntry),
                 source.getRepository(PlayerConnectionSync),
+                source.getRepository(ImporterProcessedEntry),
+                source.getRepository(ImporterIgnoredEntry),
                 f.registry,
-                {
-                    findOneByUserIdAndType: () =>
-                        source
-                            .getRepository(UserConnection)
-                            .findOneBy({ id: f.connection.id }),
-                } as any,
             );
             let queries = 0;
             const logger = jest
@@ -720,8 +718,10 @@ mysqlDescribe("batch import transactions", () => {
         }
         console.log("IMPORTER_MEASUREMENTS", JSON.stringify(measurements));
         for (const operation of ["listing", "summary", "batch"]) {
-            expect(measurements[1][operation].providerCalls).toBe(1);
-            expect(measurements[25][operation].providerCalls).toBe(1);
+            // The summary reads what discovery stored instead of calling the store.
+            const calls = operation === "summary" ? 0 : 1;
+            expect(measurements[1][operation].providerCalls).toBe(calls);
+            expect(measurements[25][operation].providerCalls).toBe(calls);
             expect(measurements[25][operation].queries).toBe(
                 measurements[1][operation].queries,
             );

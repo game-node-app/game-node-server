@@ -379,3 +379,42 @@ describe("stored achievement catalog", () => {
         expect(catalogs.rows.has(500)).toBe(false);
     });
 });
+
+describe("warming catalogs from sync", () => {
+    it("fills a missing catalog in the background and leaves a fresh one alone", async () => {
+        const catalogs = catalogRepository();
+        catalogs.rows.set(2, {
+            externalGameId: 2,
+            achievements: [{ externalId: "fresh" }],
+            fetchedAt: new Date(),
+        });
+        const getAvailableAchievements = jest.fn(async (appId: number) => [
+            { name: `a${appId}`, displayName: "A", icon: "i" },
+        ]);
+        const service = new GameAchievementService(
+            {
+                findOneByIdOrFail: async (id: number) => ({
+                    id,
+                    gameId: id * 10,
+                    uid: String(id),
+                    category: EGameExternalGameCategory.Steam,
+                }),
+            } as any,
+            {
+                getAvailableAchievements,
+                getAchievementsPercentage: async () => [],
+            } as any,
+            {} as any,
+            {} as any,
+            { getGamePlatformsMap: async () => new Map() } as any,
+            {} as any,
+            {} as any,
+            catalogs,
+        );
+        service.warmCatalog(1);
+        service.warmCatalog(2);
+        await new Promise((r) => setTimeout(r, 0));
+        expect(getAvailableAchievements.mock.calls).toEqual([[1]]);
+        expect(catalogs.rows.get(1).achievements[0].externalId).toBe("a1");
+    });
+});

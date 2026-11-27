@@ -235,6 +235,10 @@ export class GameAchievementSyncProcessor extends WorkerHostProcessor {
             }
         }
 
+        // Journal games are synced games: keep their catalogs ready so a journal build never waits on a store.
+        if (actuallyObtainedAchievementsInGame.length)
+            this.gameAchievementService.warmCatalog(externalGameId);
+
         if (activity) {
             try {
                 await this.gameAchievementActivityService.publish(activity);

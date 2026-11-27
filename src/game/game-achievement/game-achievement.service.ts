@@ -156,6 +156,20 @@ export class GameAchievementService {
         return achievements;
     }
 
+    /** Fills a game's catalog in the background, or refreshes it once stale; never throws or waits on a store. */
+    public warmCatalog(externalGameId: number) {
+        this.catalogRepository.findOneBy({ externalGameId }).then(
+            (stored) =>
+                stored
+                    ? this.served(stored)
+                    : this.queueRefresh(externalGameId),
+            (error: unknown) =>
+                this.logger.warn(
+                    `Achievement catalog lookup failed for external game ${externalGameId}: ${error}`,
+                ),
+        );
+    }
+
     private readonly refreshQueue = new Set<number>();
     private activeRefreshes = 0;
 
