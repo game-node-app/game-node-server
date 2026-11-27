@@ -36,6 +36,13 @@ import { runOnTransactionCommit, Transactional } from "typeorm-transactional";
 import { LibraryAccess } from "../libraries/library-visibility.constants";
 import { GuildQueueService } from "../guild/guild-queue/guild-queue.service";
 
+const PLAYTIME_ORDER_COLUMNS: string[] = [
+    "lastPlayedDate",
+    "totalPlayCount",
+    "recentPlaytimeSeconds",
+    "totalPlaytimeSeconds",
+];
+
 const persistedDate = (date: Date | null | undefined) =>
     date == null
         ? null
@@ -209,9 +216,13 @@ export class PlaytimeService {
         if (options.orderBy) {
             const orderObj: OrderByCondition = {};
 
-            for (const [key, v] of Object.entries(options.orderBy)) {
-                if (v) {
-                    orderObj[key] = v;
+            // QueryBuilder writes orderBy keys and values into SQL as is, so only known columns and directions pass.
+            for (const [key, direction] of Object.entries(options.orderBy)) {
+                if (direction && PLAYTIME_ORDER_COLUMNS.includes(key)) {
+                    orderObj[`up.${key}`] =
+                        String(direction).toUpperCase() === "ASC"
+                            ? "ASC"
+                            : "DESC";
                 }
             }
 
