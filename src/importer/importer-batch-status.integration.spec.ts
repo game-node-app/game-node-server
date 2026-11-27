@@ -20,10 +20,7 @@ import { ImporterService } from "./importer.service";
 import { EImporterSource } from "./importer.constants";
 import { ImporterWatchProcessor } from "./importer-watch/importer-watch.processor";
 
-const mysqlDescribe = process.env.IGDB_TEST_MYSQL_PORT
-    ? describe
-    : describe.skip;
-mysqlDescribe("batch status transactions", () => {
+describe("batch status transactions", () => {
     let source: DataSource;
     const users: string[] = [];
     beforeAll(async () => {

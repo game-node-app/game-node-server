@@ -6,8 +6,11 @@ import {
     JournalAchievementsMonthGroup,
     JournalAchievementsYearGroup,
 } from "./dto/get-obtained-achievements-journal.dto";
-import { Injectable, Logger } from "@nestjs/common";
-import { GameAchievementDto } from "../game/game-achievement/dto/game-achievement.dto";
+import {
+    Injectable,
+    Logger,
+    ServiceUnavailableException,
+} from "@nestjs/common";
 import {
     GameAchievementWithObtainedInfo,
     GameObtainedAchievementDto,
@@ -21,6 +24,20 @@ import {
     checkIfGameIsComplete,
     checkIfGameIsPlatinum,
 } from "../game/game-achievement/game-achievement.utils";
+import { Cacheable } from "../utils/cacheable";
+import {
+    limiterRedis,
+    releaseSlot,
+    waitForSlot,
+} from "../utils/redis-semaphore";
+import { minutes } from "@nestjs/throttler";
+
+/** A build may still fetch games no one opened before from their stores; a crawl of many profiles shares these few slots. */
+const MAX_CONCURRENT_BUILDS = 4;
+/** Redis key of the build slots, shared by every API process. */
+export const JOURNAL_BUILDS_KEY = "journal-achievements:builds";
+/** A build holding its slot longer than this is presumed dead (its process exited) and the slot freed. */
+const BUILD_STALE_MS = minutes(5);
 
 @Injectable()
 export class JournalAchievementsService {
@@ -31,7 +48,30 @@ export class JournalAchievementsService {
         private readonly gameObtainedAchievementService: GameObtainedAchievementService,
     ) {}
 
+    @Cacheable(JournalAchievementsService.name, minutes(10))
     public async buildObtainedAchievementsJournal(
+        userId: string,
+    ): Promise<GetObtainedAchievementsJournalResponseDto> {
+        const redis = limiterRedis();
+        const slot = await waitForSlot(
+            redis,
+            JOURNAL_BUILDS_KEY,
+            MAX_CONCURRENT_BUILDS,
+            BUILD_STALE_MS,
+            { timeoutMs: minutes(1), pollMs: 250 },
+        );
+        if (!slot)
+            throw new ServiceUnavailableException(
+                "Too many journals are being built right now, try again shortly.",
+            );
+        try {
+            return await this.build(userId);
+        } finally {
+            await releaseSlot(redis, JOURNAL_BUILDS_KEY, slot);
+        }
+    }
+
+    private async build(
         userId: string,
     ): Promise<GetObtainedAchievementsJournalResponseDto> {
         const [userObtainedAchievements] =
@@ -47,33 +87,16 @@ export class JournalAchievementsService {
             (a) => a.externalGameId,
         );
 
-        const achievementsPerExternalGameId = new Map<
-            number,
-            GameAchievementDto[]
-        >();
-
-        const achievementsPerGamePromises = obtainedByExternalGameId
-            .keys()
-            .map((externalGameId) =>
-                this.gameAchievementService.findAllByExternalGameId(
-                    externalGameId,
-                ),
-            );
-
-        const achievementsPerGameResults = await Promise.allSettled(
-            achievementsPerGamePromises,
+        const achievementsPerExternalGameId =
+            await this.gameAchievementService.findAllByExternalGameIds([
+                ...obtainedByExternalGameId.keys(),
+            ]);
+        const achievementByExternalId = new Map(
+            [...achievementsPerExternalGameId].map(([id, achievements]) => [
+                id,
+                new Map(achievements.map((a) => [a.externalId, a])),
+            ]),
         );
-
-        for (const result of achievementsPerGameResults) {
-            if (result.status === "fulfilled") {
-                const achievements = result.value;
-                if (achievements.length === 0) continue;
-
-                const externalGameId = achievements[0].externalGameId;
-
-                achievementsPerExternalGameId.set(externalGameId, achievements);
-            }
-        }
 
         /**
          * Entries grouped by year, then by month, then by externalGameId.
@@ -137,20 +160,23 @@ export class JournalAchievementsService {
                         obtainedByExternalGameId.get(externalGameId)!,
                     );
 
+                    const definitions =
+                        achievementByExternalId.get(externalGameId)!;
+                    // An achievement the store no longer lists has nothing to show.
                     const allObtainedWithInfoForGame: GameAchievementWithObtainedInfo[] =
-                        obtainedAchievements.map((obtained) => {
-                            const relatedAchievement = gameAchievements.find(
-                                (a) =>
-                                    a.externalGameId ===
-                                        obtained.externalGameId &&
-                                    a.externalId === obtained.externalId,
-                            )!;
-
-                            return {
-                                ...relatedAchievement,
-                                isObtained: true,
-                                obtainedAt: obtained.obtainedAt!,
-                            };
+                        obtainedAchievements.flatMap((obtained) => {
+                            const relatedAchievement = definitions.get(
+                                obtained.externalId,
+                            );
+                            return relatedAchievement
+                                ? [
+                                      {
+                                          ...relatedAchievement,
+                                          isObtained: true,
+                                          obtainedAt: obtained.obtainedAt!,
+                                      },
+                                  ]
+                                : [];
                         });
 
                     if (allObtainedWithInfoForGame.length === 0) continue;

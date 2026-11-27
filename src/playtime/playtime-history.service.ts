@@ -141,8 +141,8 @@ export class PlaytimeHistoryService {
         return await this.playtimeHistoryRepository.find({
             where: {
                 profileUserId: userId,
-                source,
-                platformId,
+                ...(source !== undefined && { source }),
+                ...(platformId !== undefined && { platformId }),
             },
         });
     }
@@ -157,8 +157,8 @@ export class PlaytimeHistoryService {
             where: {
                 profileUserId: userId,
                 gameId: gameId,
-                source,
-                platformId,
+                ...(source !== undefined && { source }),
+                ...(platformId !== undefined && { platformId }),
             },
         });
     }

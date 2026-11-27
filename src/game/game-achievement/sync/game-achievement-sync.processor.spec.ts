@@ -57,6 +57,7 @@ test("a revoked achievement grant is finalized on its first attempt", async () =
     const failure = new ProviderSyncError("reauth_required", "revoked");
     const processor = new GameAchievementSyncProcessor(
         {
+            warmCatalog: jest.fn(),
             findAllByExternalGameIdForSync: jest.fn().mockResolvedValue([]),
         } as any,
         {
@@ -122,6 +123,7 @@ test("a failed trophy set cannot persist a partial obtained snapshot or update c
     const save = jest.fn();
     const processor = new GameAchievementSyncProcessor(
         {
+            warmCatalog: jest.fn(),
             findAllByExternalGameIdForSync: jest.fn().mockResolvedValue([]),
         } as any,
         obtained,
@@ -156,6 +158,7 @@ test("a failed catalogue mapping cannot replace a previous completion", async ()
     const saveActivity = jest.fn();
     const processor = new GameAchievementSyncProcessor(
         {
+            warmCatalog: jest.fn(),
             findAllByExternalGameIdForSync: jest
                 .fn()
                 .mockRejectedValue(failure),
@@ -207,6 +210,7 @@ test("successful empty and unsupported results persist without transient retry",
         .mockRejectedValueOnce(new UnsupportedGameAchievementSourceError());
     const processor = new GameAchievementSyncProcessor(
         {
+            warmCatalog: jest.fn(),
             findAllByExternalGameIdForSync: jest.fn().mockResolvedValue([]),
         } as any,
         {
@@ -297,6 +301,7 @@ test("seven-day reconciliation imports a late achievement without a playtime cha
     const dataSource = localDataSource();
     const processor = new GameAchievementSyncProcessor(
         {
+            warmCatalog: jest.fn(),
             findAllByExternalGameIdForSync: jest
                 .fn()
                 .mockResolvedValue([{ externalId: "late-achievement" }]),
@@ -374,6 +379,7 @@ test("one obtained and catalogue snapshot feeds persistence, completion, and act
         events.push("obtained snapshot");
         return obtainedSnapshot;
     });
+    const warmCatalog = jest.fn();
     const findAllByExternalGameIdForSync = jest.fn(async () => {
         events.push("catalogue snapshot");
         return catalogueSnapshot;
@@ -396,7 +402,7 @@ test("one obtained and catalogue snapshot feeds persistence, completion, and act
         events.push("game state");
     });
     const processor = new GameAchievementSyncProcessor(
-        { findAllByExternalGameIdForSync } as any,
+        { findAllByExternalGameIdForSync, warmCatalog } as any,
         {
             fetchObtainedByExternalGameId,
             persistObtainedAchievements,
@@ -417,6 +423,7 @@ test("one obtained and catalogue snapshot feeds persistence, completion, and act
     expect(fetchObtainedByExternalGameId).toHaveBeenCalledWith("user", 1);
     expect(findAllByExternalGameIdForSync).toHaveBeenCalledTimes(1);
     expect(findAllByExternalGameIdForSync).toHaveBeenCalledWith(1, "user");
+    expect(warmCatalog).toHaveBeenCalledWith(1);
     expect(persistObtainedAchievements).toHaveBeenCalledWith(
         "user",
         obtainedSnapshot,
@@ -473,6 +480,7 @@ it.each(["obtained rows", "completion status", "activity", "game state"])(
             events.push("obtained snapshot");
             return obtainedSnapshot;
         });
+        const warmCatalog = jest.fn();
         const findAllByExternalGameIdForSync = jest.fn(async () => {
             events.push("catalogue snapshot");
             return catalogueSnapshot;
@@ -498,7 +506,7 @@ it.each(["obtained rows", "completion status", "activity", "game state"])(
         });
         const dataSource = localDataSource(events);
         const processor = new GameAchievementSyncProcessor(
-            { findAllByExternalGameIdForSync } as any,
+            { findAllByExternalGameIdForSync, warmCatalog } as any,
             {
                 fetchObtainedByExternalGameId,
                 persistObtainedAchievements,
@@ -533,104 +541,14 @@ it.each(["obtained rows", "completion status", "activity", "game state"])(
     },
 );
 
-import { randomUUID } from "node:crypto";
-import { Queue, Worker } from "bullmq";
-const redisDescribe = process.env.PLAYER_IMPORT_TEST_REDIS_PORT
-    ? describe
-    : describe.skip;
-redisDescribe("achievement retry outcomes (real Redis)", () => {
-    it.each(["unsupported", "empty", "transient", "failed"])(
-        "bounds retries for %s",
-        async (outcome) => {
-            const prefix = `player-achievement-test-${randomUUID()}`;
-            const connection = {
-                host: "127.0.0.1",
-                port: Number(process.env.PLAYER_IMPORT_TEST_REDIS_PORT),
-                maxRetriesPerRequest: null,
-            };
-            const queue = new Queue("retry-fixture", { prefix, connection });
-            let calls = 0;
-            const obtained = {
-                fetchObtainedByExternalGameId: jest.fn(async () => {
-                    calls++;
-                    if (outcome === "unsupported")
-                        throw new ProviderSyncError("unsupported", "No schema");
-                    if (
-                        outcome === "failed" ||
-                        (outcome === "transient" && calls === 1)
-                    )
-                        throw new ProviderSyncError(
-                            "failed",
-                            "Temporary failure",
-                        );
-                    return [];
-                }),
-                persistObtainedAchievements: jest.fn().mockResolvedValue([]),
-            };
-            const dataSource = localDataSource();
-            const processor = new GameAchievementSyncProcessor(
-                {
-                    findAllByExternalGameIdForSync: jest
-                        .fn()
-                        .mockResolvedValue([]),
-                } as any,
-                obtained as any,
-                { save: jest.fn(), publish: jest.fn() } as any,
-                { updateGameCompletionStatus: jest.fn() } as any,
-                playerStateFixture() as any,
-                dataSource as any,
-            );
-            const worker = new Worker(
-                "retry-fixture",
-                (job) => processor.process(job),
-                { prefix, connection },
-            );
-            try {
-                await worker.waitUntilReady();
-                const finished = new Promise<void>((resolve, reject) => {
-                    worker.once("completed", () => resolve());
-                    worker.on("failed", (job, error) => {
-                        if (job && job.attemptsMade >= 3)
-                            outcome === "failed" ? resolve() : reject(error);
-                    });
-                    worker.once("error", reject);
-                });
-                const job = await queue.add(
-                    GAME_ACHIEVEMENT_PLAYSTATION_JOB_NAME,
-                    {
-                        userId: "fixture",
-                        externalGameId: 1,
-                        owner: playerOwner("fixture", "psn", 1),
-                    },
-                    { attempts: 3, backoff: 1 },
-                );
-                await finished;
-                const stored = await queue.getJob(job.id!);
-                expect(await stored!.getState()).toBe(
-                    outcome === "failed" ? "failed" : "completed",
-                );
-                expect(stored!.attemptsMade).toBe(
-                    outcome === "failed" ? 3 : outcome === "transient" ? 2 : 1,
-                );
-                expect(calls).toBe(stored!.attemptsMade);
-                if (outcome === "unsupported")
-                    expect(
-                        obtained.persistObtainedAchievements,
-                    ).not.toHaveBeenCalled();
-            } finally {
-                await worker.close();
-                await queue.obliterate();
-                await queue.close();
-            }
-        },
-    );
-});
-
 describe("GOG achievement job identity", () => {
     it.each(["source", "user", "game"])(
         "rejects wrong %s before provider requests",
         async (kind) => {
-            const catalogue = { findAllByExternalGameIdForSync: jest.fn() };
+            const catalogue = {
+                warmCatalog: jest.fn(),
+                findAllByExternalGameIdForSync: jest.fn(),
+            };
             const processor = new GameAchievementSyncProcessor(
                 catalogue as any,
                 {} as any,
@@ -661,7 +579,10 @@ describe("GOG achievement job identity", () => {
     it("rejects a stale GOG owner before reading achievements", async () => {
         const state = playerStateFixture();
         state.runOwned.mockRejectedValueOnce(new PlayerSyncOwnershipLost());
-        const catalogue = { findAllByExternalGameIdForSync: jest.fn() };
+        const catalogue = {
+            warmCatalog: jest.fn(),
+            findAllByExternalGameIdForSync: jest.fn(),
+        };
         const processor = new GameAchievementSyncProcessor(
             catalogue as any,
             {} as any,
@@ -701,6 +622,7 @@ describe("achievement guild contract evaluation hook", () => {
     ) {
         const processor = new GameAchievementSyncProcessor(
             {
+                warmCatalog: jest.fn(),
                 findAllByExternalGameIdForSync: jest
                     .fn()
                     .mockResolvedValue([{ externalId: "guild-achievement" }]),

@@ -9,10 +9,7 @@ import { UnmappedExternalGame } from "./entity/unmapped-external-game.entity";
 import { UnmappedExternalGameOwner } from "./entity/unmapped-external-game-owner.entity";
 import { EGameExternalGameCategory } from "../game-repository/game-repository.constants";
 
-const mysqlDescribe = process.env.IGDB_TEST_MYSQL_PORT
-    ? describe
-    : describe.skip;
-mysqlDescribe("unmapped external games", () => {
+describe("unmapped external games", () => {
     const Steam = EGameExternalGameCategory.Steam;
     let source: DataSource;
     let service: ExternalGameService;

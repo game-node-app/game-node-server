@@ -1,3 +1,6 @@
+# Stateful / shared infrastructure for GameNode production (Redis, Manticore, Directus CMS, autoheal).
+# API replicas (gamenode-api-1, gamenode-api-2), worker (gamenode-worker), and migrations (gamenode-migration)
+# are separate Coolify resources so routine code deploys roll with zero downtime without touching infra.
 services:
   # Redis server for caching; disposable, so no persistence.
   redis:
@@ -6,17 +9,17 @@ services:
     command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
-
     restart: always
-
+    cpus: 0.5
+    mem_limit: 640m
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-
     deploy:
       replicas: 1
-
     networks:
-      - game_node_app
+      game_node_app: {}
+      gamenode:
+        aliases: [server-redis]
 
   # Redis server exclusive to BullMQ
   redis_bullmq:
@@ -26,13 +29,16 @@ services:
     environment:
       ALLOW_EMPTY_PASSWORD: 'yes'
     restart: always
+    cpus: 0.5
+    mem_limit: 1280m
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
     volumes:
       - redis_bullmq:/data
-
     networks:
-      - game_node_app
+      game_node_app: {}
+      gamenode:
+        aliases: [server-redis-bullmq]
 
   manticore:
     # Config template, entrypoint and reindex script are baked into the image (docker/manticore/Dockerfile);
@@ -48,6 +54,8 @@ services:
       DB_DATABASE: gamenode
       CREATE_PLAIN_TABLES: "games:0 3 * * *;users:0 * * * *;games;users"
     restart: always
+    cpus: 1
+    mem_limit: 1g
     deploy:
       replicas: 1
     ulimits:
@@ -71,6 +79,7 @@ services:
     restart: "no"
     volumes:
       - blog-cms-public:/media
+
   cms:
     image: directus/directus:12.6.0
     environment:
@@ -114,7 +123,8 @@ services:
     networks:
       game_node_app:
         aliases: [blog-cms]
-      gamenode: {}
+      gamenode:
+        aliases: [blog-cms]
     depends_on:
       cms-media-init:
         condition: service_completed_successfully
@@ -128,117 +138,16 @@ services:
       start_period: 60s
     restart: unless-stopped
 
-  server:
-    depends_on:
-      cms-media-init:
-        condition: service_completed_successfully
-      server_migration:
-        condition: service_completed_successfully
-    image: lamarcke/game-node-server:${SERVER_IMAGE_TAG:?set SERVER_IMAGE_TAG}
-    hostname: server
-
-    # Only variables listed here reach the container; Coolify uses its env values for interpolation.
+  # Docker alone never restarts an unhealthy container; this restarts the services labelled autoheal=true.
+  # The socket mount gives it control of the host's Docker, so it is pinned and scoped by label.
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
     environment:
-      NODE_ENV: production
-      REDIS_URL: redis://server-redis:6379
-      BULLMQ_REDIS_URL: redis://server-redis-bullmq:6379
-      MANTICORE_URL: http://manticore:9308
-      SERVER_PORT: 5000
-      DOMAIN_API: https://server.gamenode.app
-      DOMAIN_WEBSITE: https://gamenode.app
-      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
-      DB_HOST: ${DB_HOST:?set DB_HOST}
-      DB_DATABASE: gamenode
-      DB_PASS: ${DB_PASS}
-      DB_USER: ${DB_USER}
-      DB_PORT: 3306
-      PROVIDER_GOOGLE_CLIENT_ID: ${PROVIDER_GOOGLE_CLIENT_ID}
-      PROVIDER_GOOGLE_CLIENT_SECRET: ${PROVIDER_GOOGLE_CLIENT_SECRET}
-      PROVIDER_DISCORD_CLIENT_ID: ${PROVIDER_DISCORD_CLIENT_ID}
-      PROVIDER_DISCORD_CLIENT_SECRET: ${PROVIDER_DISCORD_CLIENT_SECRET}
-      PROVIDER_TWITTER_CLIENT_ID: ${PROVIDER_TWITTER_CLIENT_ID}
-      PROVIDER_TWITTER_CLIENT_SECRET: ${PROVIDER_TWITTER_CLIENT_SECRET}
-      XBOX_OAUTH_CLIENT_ID: ${XBOX_OAUTH_CLIENT_ID}
-      XBOX_OAUTH_CLIENT_SECRET: ${XBOX_OAUTH_CLIENT_SECRET}
-      XBOX_OAUTH_REDIRECT_URI: ${XBOX_OAUTH_REDIRECT_URI}
-      EPIC_OAUTH_CLIENT_ID: ${EPIC_OAUTH_CLIENT_ID}
-      EPIC_OAUTH_CLIENT_SECRET: ${EPIC_OAUTH_CLIENT_SECRET}
-      STEAM_API_KEY: ${STEAM_API_KEY}
-      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID}
-      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET}
-      PSN_NPSSO_KEY: ${PSN_NPSSO_KEY}
-      S3_ENDPOINT: ${S3_ENDPOINT}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      BLOG_CMS_URL: http://blog-cms:8055
-      BLOG_CMS_PUBLIC_URL: ${BLOG_CMS_PUBLIC_URL}
-      BLOG_CMS_DELIVERY_TOKEN: ${BLOG_CMS_DELIVERY_TOKEN}
-      BLOG_CMS_PREVIEW_TOKEN: ${BLOG_CMS_PREVIEW_TOKEN}
-      BLOG_PUBLIC_MEDIA_PATH: /app/blog-public-media
-      CONNECTION_CREDENTIAL_ENCRYPTION_KEY: ${CONNECTION_CREDENTIAL_ENCRYPTION_KEY:?set CONNECTION_CREDENTIAL_ENCRYPTION_KEY}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
-      DAILY_IMAGE_SECRET: ${DAILY_IMAGE_SECRET:?set DAILY_IMAGE_SECRET}
-      # Supporter billing; set all four to enable it. Without them the API boots and billing returns 503.
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-      STRIPE_PRICE_SUPPORTER_MONTHLY: ${STRIPE_PRICE_SUPPORTER_MONTHLY:-}
-      STRIPE_PRICE_SUPPORTER_YEARLY: ${STRIPE_PRICE_SUPPORTER_YEARLY:-}
-      # Starts paused for the initial validation; set true in Coolify after the smoke tests.
-      PLAYER_DATA_SYNC_ENABLED: ${PLAYER_DATA_SYNC_ENABLED:-false}
-      # Adventurers Guild rollout gate; supporters restricts it to active supporters and editors.
-      GUILD_ACCESS_MODE: ${GUILD_ACCESS_MODE:-public}
-      # Telemetry to PostHog; disabled while the endpoint is empty. See docs/observability.md.
-      OTEL_SERVICE_NAME: game-node-server
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
-      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}
-      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER:-none}
-      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
-      OTEL_TRACES_SAMPLER: parentbased_traceidratio
-      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1}
-
-
-    healthcheck:
-      test: [ "CMD-SHELL", "pnpm run healthcheck" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-    restart: always
-
-    deploy:
-      replicas: 1
-
-    command: "pnpm start:prod"
-
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 10
     volumes:
-      - blog-cms-public:/app/blog-public-media:ro
-
-    networks:
-      - game_node_app
-      - gamenode
-
-  # Runs pending migrations once per deploy; the server only starts after it exits successfully.
-  # Uses the same SERVER_IMAGE_TAG as the server, set by the Deploy workflow.
-  server_migration:
-    image: lamarcke/game-node-server:${SERVER_IMAGE_TAG:?set SERVER_IMAGE_TAG}
-    hostname: server-migration
-    environment:
-      DB_HOST: ${DB_HOST:?set DB_HOST}
-      DB_DATABASE: gamenode
-      DB_PASS: ${DB_PASS}
-      DB_USER: ${DB_USER}
-      DB_PORT: 3306
-
-    # Coolify leaves restart "no" services out of the application status, so the exited container is not "degraded".
-    restart: "no"
-    command: "pnpm migration:run"
-
-    networks:
-      - game_node_app
-      - gamenode
-
-
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
 
 networks:
   game_node_app:

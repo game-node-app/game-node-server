@@ -9,6 +9,7 @@ import {
 import { StatisticsProjectionService } from "./statistics-projection.service";
 import { StatisticsService } from "./statistics.service";
 import { StatisticsSourceType } from "./statistics.constants";
+import { ensureStatisticsTarget } from "./statistics-target.repository";
 
 describe("statistics views and temporal reads", () => {
     let dataSource: DataSource;
@@ -148,7 +149,9 @@ describe("statistics views and temporal reads", () => {
 
     it("keeps microseconds on both half-open boundaries", async () => {
         const sourceId = await createPost();
-        await service.findSummary(viewDto(sourceId));
+        await dataSource.transaction((manager) =>
+            ensureStatisticsTarget(manager, StatisticsSourceType.POST, sourceId),
+        );
         const [target] = await dataSource.query("SELECT statisticsTargetId FROM post WHERE id = ?", [sourceId]);
         const targetId = Number(target.statisticsTargetId);
         const namespace = randomUUID();

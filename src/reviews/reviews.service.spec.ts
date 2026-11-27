@@ -74,17 +74,67 @@ describe("guild contract evaluation hook", () => {
     });
 
     test("schedules evaluation after an existing review is edited", async () => {
-        const { service, guildQueue, events } = fixture({
+        const { service, repository, guildQueue, events } = fixture({
             id: "review",
             rating: 3,
+            content: "<p>old</p>",
+            profile: { userId: "user", avatar: null },
         });
 
-        await service.createOrUpdate("user", { gameId: 1, rating: 5 });
+        await service.createOrUpdate("user", {
+            gameId: 1,
+            rating: 5,
+            content: "<p>new</p>",
+        });
 
         expect(events).toEqual(["updated", "enqueued"]);
+        expect(repository.update).toHaveBeenCalledWith("review", {
+            content: "<p>new</p>",
+            rating: 5,
+        });
         expect(guildQueue.enqueueEvaluation).toHaveBeenCalledWith(
             "user",
             "review",
+        );
+    });
+});
+
+describe("review read relations", () => {
+    function readFixture() {
+        const repository = {
+            findOne: jest.fn(async () => null),
+            findAndCount: jest.fn(async () => [[], 0]),
+            find: jest.fn(async () => []),
+        };
+        const service = new ReviewsService(
+            repository as any,
+            {} as any,
+            {} as any,
+            {} as any,
+            {} as any,
+        );
+        return { service, repository };
+    }
+
+    test("embeds the author profile and avatar on every read query", async () => {
+        const { service, repository } = readFixture();
+        const relations = { profile: { avatar: true } };
+
+        await service.findOneById("review");
+        await service.findOneByUserIdAndGameId("user", 1);
+        await service.findAllByUserId("user");
+        await service.findAllByGameId(1);
+        await service.findAllByUserIdAndGameIds("user", [1]);
+        await service.findAllByIdIn(["review"]);
+
+        expect(repository.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({ relations }),
+        );
+        expect(repository.findAndCount).toHaveBeenCalledWith(
+            expect.objectContaining({ relations }),
+        );
+        expect(repository.find).toHaveBeenCalledWith(
+            expect.objectContaining({ relations }),
         );
     });
 });

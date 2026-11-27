@@ -41,7 +41,7 @@ export class BlogCmsService {
     }
 
     // Each miss is four paginated Directus calls (130–550 ms); new posts appear within the TTL.
-    @Cacheable(BlogCmsService.name, minutes(2))
+    @Cacheable(BlogCmsService.name, minutes(10))
     private published(): Promise<CmsArticle[]> {
         return this.load(false);
     }

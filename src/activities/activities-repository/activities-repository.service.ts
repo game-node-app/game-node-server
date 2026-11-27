@@ -473,16 +473,18 @@ export class ActivitiesRepositoryService {
         viewerUserId?: string,
     ) {
         const baseFindOptions = buildBaseFindOptions(dto);
+        const profileFilter =
+            dto.userId !== undefined ? { profileUserId: dto.userId } : {};
         return await this.findLatestBy(
             {
                 ...baseFindOptions,
                 where: [
                     {
-                        profileUserId: dto.userId,
-                        type: dto.type,
+                        ...profileFilter,
+                        ...(dto.type !== undefined && { type: dto.type }),
                     },
                     {
-                        profileUserId: dto.userId,
+                        ...profileFilter,
                         type: Not(In(excludedTypes)),
                     },
                 ],
@@ -497,8 +499,10 @@ export class ActivitiesRepositoryService {
             {
                 ...baseFindOptions,
                 where: {
-                    profileUserId: dto.userId,
-                    type: dto.type,
+                    ...(dto.userId !== undefined && {
+                        profileUserId: dto.userId,
+                    }),
+                    ...(dto.type !== undefined && { type: dto.type }),
                 },
             },
             viewerUserId,

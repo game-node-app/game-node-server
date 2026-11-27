@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_infra:
+        description: "Also redeploy the shared infra Compose stack (Redis, Manticore, CMS, autoheal)"
+        type: boolean
+        default: false
 
 # One production deploy at a time; queued runs wait instead of cancelling a deploy mid-flight.
 concurrency:
@@ -13,7 +18,11 @@ concurrency:
 env:
   IMAGE: lamarcke/game-node-server
   MANTICORE_IMAGE: lamarcke/game-node-manticore
-  COOLIFY_APP_UUID: lwi5aeyjnmuc0yzrqpq8c78n
+  COOLIFY_INFRA_UUID: lwi5aeyjnmuc0yzrqpq8c78n
+  COOLIFY_MIGRATION_UUID: vubu76okzxkrrqjvfb6flz03
+  COOLIFY_API_1_UUID: pohwgb0ebnbry84vhl3eywdc
+  COOLIFY_API_2_UUID: nwsf2l3sgmezaux4p85rpiz3
+  COOLIFY_WORKER_UUID: ksrejsintsrdwl8oc9o56fwn
 
 jobs:
   build:
@@ -43,8 +52,27 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      infra_changed: ${{ steps.infra.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: infra
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.deploy_infra }}" = "true" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            base_sha="${{ github.event.before }}"
+            if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base_sha^{commit}" 2>/dev/null; then
+              base_sha="HEAD~1"
+            fi
+            if git diff --name-only "$base_sha" HEAD 2>/dev/null | grep -Eq '^(docker-compose\.prod\.yml|docker/manticore/|docker/cms/|src/blog/blog-post/blog-media\.cjs)'; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
       # Content-addressed tag: identical files always map to the same, already published image.
       - id: tag
@@ -71,9 +99,8 @@ jobs:
           push: true
           tags: ${{ env.MANTICORE_IMAGE }}:${{ steps.tag.outputs.tag }}
 
-  # Runs the image that was just pushed through `pnpm migration:run` on an empty MySQL, the way
-  # docker-compose.prod.yml does, so a broken migration step fails here, before Coolify removes
-  # the running containers.
+  # Runs the image that was just pushed through `pnpm migration:run` on an empty MySQL,
+  # so a broken migration step fails here before anything touches production.
   migrations:
     name: Check migrations on an empty database
     needs: build
@@ -102,35 +129,74 @@ jobs:
             "$IMAGE:${{ github.sha }}" pnpm migration:run
 
   deploy:
-    name: Deploy to Coolify
+    name: Rolling deploy to Coolify
     needs: [build, manticore, migrations]
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Point the compose at the new images
+      - name: Run migrations and rolling deploy API replicas + worker
         run: |
-          set_env() {
-            curl -fsS -X PATCH "${{ secrets.COOLIFY_URL }}/api/v1/applications/$COOLIFY_APP_UUID/envs" \
-              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d "{\"key\":\"$1\",\"value\":\"$2\",\"is_literal\":true}"
-          }
-          set_env SERVER_IMAGE_TAG "${{ github.sha }}"
-          set_env MANTICORE_IMAGE_TAG "${{ needs.manticore.outputs.tag }}"
-
-      - name: Deploy and wait for the result
-        run: |
+          set -euo pipefail
           auth="Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
-          deployment=$(curl -fsS -X POST "${{ secrets.COOLIFY_URL }}/api/v1/deploy?uuid=$COOLIFY_APP_UUID" -H "$auth" \
-            | jq -r '.deployments[0].deployment_uuid')
-          echo "Coolify deployment: $deployment"
-          for _ in $(seq 120); do
-            status=$(curl -fsS "${{ secrets.COOLIFY_URL }}/api/v1/deployments/$deployment" -H "$auth" | jq -r .status)
-            echo "status: $status"
-            case "$status" in
-              finished) exit 0 ;;
-              failed|cancelled*) exit 1 ;;
-            esac
-            sleep 10
-          done
-          echo "Timed out waiting for the deployment" && exit 1
+          base="${{ secrets.COOLIFY_URL }}/api/v1"
+
+          set_env() {
+            local uuid="$1" key="$2" value="$3"
+            curl -fsS -X PATCH "$base/applications/$uuid/envs" \
+              -H "$auth" -H "Content-Type: application/json" \
+              -d "{\"key\":\"$key\",\"value\":\"$value\",\"is_literal\":true}" >/dev/null
+          }
+
+          wait_deploy() {
+            local label="$1" uuid="$2" force="${3:-false}"
+            echo "::group::Deploy $label ($uuid)"
+            local url="$base/deploy?uuid=$uuid"
+            [ "$force" = "true" ] && url="$url&force=true"
+            local deployment
+            deployment=$(curl -fsS -X POST "$url" -H "$auth" | jq -r '.deployments[0].deployment_uuid')
+            echo "Coolify deployment: $deployment"
+            for _ in $(seq 120); do
+              local status
+              status=$(curl -fsS "$base/deployments/$deployment" -H "$auth" | jq -r .status)
+              echo "$label status: $status"
+              case "$status" in
+                finished)
+                  echo "::endgroup::"
+                  return 0
+                  ;;
+                failed|cancelled*)
+                  echo "::endgroup::"
+                  return 1
+                  ;;
+              esac
+              sleep 5
+            done
+            echo "Timed out waiting for $label"
+            echo "::endgroup::"
+            return 1
+          }
+
+          deploy_image_app() {
+            local label="$1" uuid="$2" tag="$3"
+            curl -fsS -X PATCH "$base/applications/$uuid" \
+              -H "$auth" -H "Content-Type: application/json" \
+              -d "{\"docker_registry_image_tag\":\"$tag\"}" >/dev/null
+            wait_deploy "$label" "$uuid"
+          }
+
+          # 1. Database migrations — must succeed before any API replica updates.
+          set_env "$COOLIFY_MIGRATION_UUID" SERVER_IMAGE_TAG "${{ github.sha }}"
+          wait_deploy "migrations" "$COOLIFY_MIGRATION_UUID" "true"
+
+          # 2. Rolling API deploy — one replica at a time so Traefik always keeps a healthy upstream.
+          deploy_image_app "api-1" "$COOLIFY_API_1_UUID" "${{ github.sha }}"
+          deploy_image_app "api-2" "$COOLIFY_API_2_UUID" "${{ github.sha }}"
+
+          # 3. Infra stack (Redis, Manticore, CMS, autoheal) — only when infra files changed.
+          if [ "${{ needs.manticore.outputs.infra_changed }}" = "true" ]; then
+            set_env "$COOLIFY_INFRA_UUID" MANTICORE_IMAGE_TAG "${{ needs.manticore.outputs.tag }}"
+            wait_deploy "infra" "$COOLIFY_INFRA_UUID"
+          fi
+
+          # 4. Background worker (crons, BullMQ, ffmpeg).
+          deploy_image_app "worker" "$COOLIFY_WORKER_UUID" "${{ github.sha }}"

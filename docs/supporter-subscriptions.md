@@ -88,7 +88,7 @@ cancel/restore errors.
    live IDs ready.
 2. Add the four secrets to the deployment. Compose passes them through; without them the API boots
    with billing disabled.
-3. Run the migration (`server_migration` runs `pnpm migration:run`). It only adds
+3. Run the migration (the Deploy workflow runs `gamenode-migration` before the API). It only adds
    `user.stripeCustomerId` and the `subscription` table with its indexes.
 4. Deploy the API. Verify boot, `GET /v1/billing/offers`, one Checkout Session and webhook delivery.
 5. Smoke test monthly/yearly in BRL and USD, `GET /v1/billing/me`, cancel at period end, restore and

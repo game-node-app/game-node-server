@@ -9,6 +9,7 @@ import {
     Min,
 } from "class-validator";
 import { EImporterSource } from "../importer.constants";
+import { MaxListSize } from "../../utils/request-bounds";
 
 export class ImporterBatchStatusRequestDto {
     @ApiProperty({ enum: EImporterSource })
@@ -21,6 +22,7 @@ export class ImporterBatchStatusRequestDto {
     @IsInt({ each: true })
     @Min(1, { each: true })
     @Max(Number.MAX_SAFE_INTEGER, { each: true })
+    @MaxListSize()
     externalGameIds: number[];
 
     @ApiProperty({ enum: ["processed", "ignored"] })

@@ -8,6 +8,9 @@ import { BullModule } from "@nestjs/bullmq";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { ActivitiesFeedModule } from "./activities/activities-feed/activities-feed.module";
 import { seconds, ThrottlerModule } from "@nestjs/throttler";
+import { AppThrottlerGuard } from "./utils/app-throttler.guard";
+import { clientIp } from "./utils/client-ip";
+import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { LevelModule } from "./level/level.module";
 import { HealthModule } from "./health/health.module";
@@ -51,6 +54,8 @@ import { BillingModule } from "./billing/billing.module";
 import { SupportersModule } from "./supporters/supporters.module";
 import { ProfilePresenceModule } from "./profile/profile-presence/profile-presence.module";
 import { GuildModule } from "./guild/guild.module";
+import { RUNS_BACKGROUND_WORK } from "./utils/app-role";
+import { API_MAX_SELECT_MS, limitSelectTime } from "./utils/limit-select-time";
 
 /**
  * IMPORTANT: For any package that uses the "ioredis" module internally, make sure to use "forRootAsync".
@@ -62,7 +67,8 @@ import { GuildModule } from "./guild/guild.module";
         ConfigModule.forRoot({
             isGlobal: true,
         }),
-        ScheduleModule.forRoot(),
+        // Without ScheduleModule the @Cron/@Interval decorators stay inert.
+        ...(RUNS_BACKGROUND_WORK ? [ScheduleModule.forRoot()] : []),
         LoggerModule.forRoot(),
         AuthModule,
         HealthModule,
@@ -117,7 +123,13 @@ import { GuildModule } from "./guild/guild.module";
                 if (!options) {
                     throw new Error("Invalid datasource config");
                 }
-                return addTransactionalDataSource(new DataSource(options));
+                const dataSource = new DataSource(options);
+                if (!RUNS_BACKGROUND_WORK) {
+                    // The pool only exists after initialize; registering afterwards keeps retries safe.
+                    await dataSource.initialize();
+                    limitSelectTime(dataSource, API_MAX_SELECT_MS);
+                }
+                return addTransactionalDataSource(dataSource);
             },
         }),
         CacheModule.registerAsync({
@@ -132,6 +144,8 @@ import { GuildModule } from "./guild/guild.module";
             },
         }),
         BullModule.forRootAsync({
+            // API instances only enqueue; no queue workers start there.
+            extraOptions: { manualRegistration: !RUNS_BACKGROUND_WORK },
             inject: [ConfigService],
             useFactory: async () => {
                 const { port, host } = getRedisConfig("bullmq");
@@ -154,7 +168,9 @@ import { GuildModule } from "./guild/guild.module";
             useFactory: () => {
                 const { port, host } = getRedisConfig();
                 return {
-                    throttlers: [{ limit: 10, ttl: seconds(60) }],
+                    // Applies to every route via APP_GUARD; sensitive routes set a stricter @Throttle.
+                    throttlers: [{ limit: 300, ttl: seconds(60) }],
+                    getTracker: (req) => clientIp(req as never),
                     storage: new ThrottlerStorageRedisService({
                         host: host,
                         autoResubscribe: true,
@@ -204,6 +220,7 @@ import { GuildModule } from "./guild/guild.module";
         ProfilePresenceModule,
         GuildModule,
     ],
+    providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

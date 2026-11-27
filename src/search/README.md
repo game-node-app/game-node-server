@@ -48,7 +48,7 @@ The disposable integration test stack (`test/search/docker-compose.yml`) uses Co
 pnpm run test:search:services:up
 
 # Run search unit tests
-pnpm run test:search:unit
+pnpm test src/search
 
 # Run engine-backed search integration tests
 pnpm run test:search:integration

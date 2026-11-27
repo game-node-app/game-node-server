@@ -20,12 +20,18 @@ it("a complete empty discovery completes the worker without treating other 404s 
     const importer: ImporterService = Object.assign(
         Object.create(ImporterService.prototype),
         {
-            findUnprocessedCandidates: jest.fn().mockResolvedValue([]),
+            findUnprocessedCandidates: jest
+                .fn()
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([
+                    { id: 7, gameId: 70, name: "kept out of the row" },
+                ]),
         },
     );
     const save = jest.fn();
+    const update = jest.fn();
     const processor = new ImporterWatchProcessor(
-        { save } as any,
+        { save, manager: { update } } as any,
         { save, find: jest.fn().mockResolvedValue([]) } as any,
         importer,
         {} as any,
@@ -41,6 +47,29 @@ it("a complete empty discovery completes the worker without treating other 404s 
     } as any;
     await expect(processor.run(job.data)).resolves.toBe("empty");
     expect(save).not.toHaveBeenCalled();
+    expect(update).toHaveBeenLastCalledWith(
+        expect.anything(),
+        {
+            connectionId: job.data.owner.connectionId,
+            sourceUserId: job.data.owner.sourceUserId,
+        },
+        { libraryCandidates: [] },
+    );
+    // Auto-import is off for this connection, so discovery only stores what it found.
+    Object.assign(processor, {
+        connectionsService: { findOneByUserIdAndType: async () => null },
+        importerNotifiedEntryRepository: {
+            manager: { update },
+            findBy: async () => [],
+            upsert: jest.fn(),
+        },
+    });
+    await processor.run(job.data).catch(() => undefined);
+    expect(update).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { libraryCandidates: [{ id: 7, gameId: 70 }] },
+    );
     const missingConnection = new HttpException("Connection not found", 404);
     jest.spyOn(importer, "findUnprocessedCandidates").mockRejectedValue(
         missingConnection,

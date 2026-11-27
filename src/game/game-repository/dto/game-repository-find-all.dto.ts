@@ -8,6 +8,7 @@ import {
 } from "class-validator";
 import { FindOptionsRelations } from "typeorm";
 import { ToBoolean } from "../../../utils/toBoolean";
+import { IsBoundedRelations, MaxListSize } from "../../../utils/request-bounds";
 
 export class GameRepositoryFindAllDto {
     @IsNotEmpty()
@@ -20,9 +21,13 @@ export class GameRepositoryFindAllDto {
             each: true,
         },
     )
+    @MaxListSize()
     gameIds: number[];
     @IsOptional()
     @IsObject()
+    @IsBoundedRelations<GameRepositoryFindAllDto>(
+        (dto) => dto.gameIds?.length ?? 0,
+    )
     relations?: FindOptionsRelations<Game>;
     @IsOptional()
     @ToBoolean()

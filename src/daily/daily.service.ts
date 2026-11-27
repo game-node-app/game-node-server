@@ -164,7 +164,7 @@ export class DailyService {
     ): Promise<DailyArchiveResponseDto> {
         const [puzzles, total] = await this.puzzleRepository.findAndCount({
             where: {
-                mode: dto.mode,
+                ...(dto.mode !== undefined && { mode: dto.mode }),
                 kind: "daily",
                 date: LessThan(dailyToday()),
             },

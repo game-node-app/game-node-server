@@ -595,6 +595,7 @@ describe("import and notification recovery on disposable MySQL", () => {
                 {} as any,
             );
             const catalogue = {
+                warmCatalog: jest.fn(),
                 findAllByExternalGameIdForSync: jest.fn(async (id: number) => [
                     {
                         externalId: "award",

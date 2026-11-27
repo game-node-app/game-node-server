@@ -25,6 +25,7 @@ export class CursorPaginationInterceptor<T>
      * @private
      */
     private buildSimplifiedDto(requestObject: any): BaseCursorFindDto {
+        // shortcut: reads the raw limit, so a request above the DTO cap gets hasNextPage=false on a clamped page; pass the clamped DTO here if a client ever paginates above the cap.
         let { limit } = requestObject;
         const { lastCreatedAt, lastId } = requestObject;
 

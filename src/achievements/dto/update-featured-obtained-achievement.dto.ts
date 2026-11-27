@@ -1,4 +1,5 @@
 import { IsArray, IsBoolean, IsNotEmpty } from "class-validator";
+import { MaxListSize } from "../../utils/request-bounds";
 
 export class UpdateFeaturedObtainedAchievementDto {
     @IsNotEmpty()
@@ -13,5 +14,6 @@ export class UpdateFeaturedObtainedAchievementV2Dto {
      */
     @IsNotEmpty()
     @IsArray()
+    @MaxListSize()
     featuredAchievementIds: string[];
 }

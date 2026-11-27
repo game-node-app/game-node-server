@@ -26,6 +26,8 @@ import { importerToConnectionSource } from "../importer.util";
 import { ImporterResponseItemDto } from "../dto/importer-response-item.dto";
 import { appendNotificationIntent } from "../../notifications/notifications-outbox.service";
 import { Game } from "../../game/game-repository/entities/game.entity";
+import { PlayerConnectionSync } from "../../sync/player-data/entity/player-connection-sync.entity";
+import type { PlayerSyncOwner } from "../../sync/player-data/player-sync-state.service";
 
 @Processor(IMPORTER_WATCH_QUEUE_NAME, {
     limiter: {
@@ -61,6 +63,7 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
             data.source,
         );
         candidates.sort((a, b) => a.gameId - b.gameId);
+        if (data.owner) await this.storeCandidates(data.owner, candidates);
         for (let offset = 0; offset < candidates.length; offset += 100) {
             const games = candidates.slice(offset, offset + 100);
             seen += games.length;
@@ -76,6 +79,31 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
         }
         if (failed) throw new Error(`${failed} automatic imports failed`);
         return worked ? ("complete" as const) : ("empty" as const);
+    }
+
+    /**
+     * Kept for the connection summaries, so showing the unimported count never calls the store.
+     * Not an owned write: an owned transaction saves the whole state row it loaded and would put the old list back.
+     * The row lock orders this update after any owned transaction in flight, and later ones load the new list.
+     */
+    private async storeCandidates(
+        owner: PlayerSyncOwner,
+        candidates: ImporterResponseItemDto[],
+    ) {
+        assertPlayerSyncActive();
+        await this.importerNotifiedEntryRepository.manager.update(
+            PlayerConnectionSync,
+            {
+                connectionId: owner.connectionId,
+                sourceUserId: owner.sourceUserId,
+            },
+            {
+                libraryCandidates: candidates.map(({ id, gameId }) => ({
+                    id,
+                    gameId,
+                })),
+            },
+        );
     }
 
     @PlayerSyncWrite()
@@ -208,10 +236,7 @@ export class ImporterWatchProcessor extends WorkerHostProcessor {
                                 game.name ||
                                 catalogNames.get(game.gameId) ||
                                 "Game"
-                            ).slice(
-                                0,
-                                100,
-                            ),
+                            ).slice(0, 100),
                         })),
                     },
                 },

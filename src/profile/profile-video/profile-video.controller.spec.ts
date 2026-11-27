@@ -8,7 +8,8 @@ jest.mock("./profile-video-media", () => {
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { getQueueToken } from "@nestjs/bullmq";
-import { ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import request from "supertest";
 import { readdir, rm, stat } from "node:fs/promises";
@@ -84,6 +85,7 @@ describe("ProfileVideoController", () => {
             imports: [ThrottlerModule.forRoot([{ limit: 5, ttl: 60_000 }])],
             controllers: [ProfileVideoController],
             providers: [
+                { provide: APP_GUARD, useClass: ThrottlerGuard },
                 ProfileVideoService,
                 ProfileVideoQueueService,
                 SupporterGuard,

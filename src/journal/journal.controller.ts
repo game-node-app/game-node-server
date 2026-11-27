@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
 import { Public } from "../auth/public.decorator";
 import { Session, SessionContainer } from "../auth/session.decorator";
@@ -7,6 +7,8 @@ import { ApiTags } from "@nestjs/swagger";
 import { JournalPlayLogService } from "./journal-play-log.service";
 import { JournalHeatmapService } from "./journal-heatmap.service";
 import { JournalAchievementsService } from "./journal-achievements.service";
+import { GetJournalOverviewQueryDto } from "./dto/get-journal-overview.dto";
+import { seconds, Throttle } from "@nestjs/throttler";
 
 @Controller("journal")
 @ApiTags("journal")
@@ -24,8 +26,13 @@ export class JournalController {
     public async getJournalOverview(
         @Session() session: SessionContainer | undefined,
         @Param("userId") userId: string,
+        @Query() dto: GetJournalOverviewQueryDto,
     ) {
-        return this.journalService.getOverview(session?.getUserId(), userId);
+        return this.journalService.getOverview(
+            session?.getUserId(),
+            userId,
+            dto?.year,
+        );
     }
 
     @Get("playlog/:userId/:gameId")
@@ -56,6 +63,8 @@ export class JournalController {
 
     @Get("achievements/:userId")
     @Public()
+    // A cold build is expensive, so one client can't walk through many profiles.
+    @Throttle({ default: { limit: 10, ttl: seconds(60) } })
     public async getObtainedAchievementsJournal(
         @Param("userId") userId: string,
     ) {

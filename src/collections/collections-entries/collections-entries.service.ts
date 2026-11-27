@@ -242,6 +242,22 @@ export class CollectionsEntriesService {
         return entry;
     }
 
+    /**
+     * The caller's own entries for the given games, in whatever order the database returns them.
+     */
+    async findOwnByGameIds(
+        userId: string,
+        gameIds: number[],
+    ): Promise<CollectionEntry[]> {
+        return this.collectionEntriesRepository.find({
+            where: {
+                libraryUserId: userId,
+                gameId: In([...new Set(gameIds)]),
+            },
+            relations: this.relations,
+        });
+    }
+
     async findOneByUserIdAndGameIdForViewer(
         viewerId: string | undefined,
         userId: string,
@@ -376,7 +392,7 @@ export class CollectionsEntriesService {
 
     private combineGameIdConditions(
         ...conditions: (FindOperator<number> | undefined)[]
-    ) {
+    ): FindOperator<number> | undefined {
         const defined = conditions.filter(
             (condition): condition is FindOperator<number> =>
                 condition !== undefined,
@@ -421,6 +437,11 @@ export class CollectionsEntriesService {
             }
         }
 
+        const gameId = this.combineGameIdConditions(
+            customCoverGameIds ? In(customCoverGameIds) : undefined,
+            searchFilter.gameId,
+        );
+
         const findOptions: FindManyOptions<CollectionEntry> = {
             ...baseFindOptions,
             where: {
@@ -430,10 +451,7 @@ export class CollectionsEntriesService {
                     },
                 },
                 visibility: In(access.visibleEntryLevels),
-                gameId: this.combineGameIdConditions(
-                    customCoverGameIds ? In(customCoverGameIds) : undefined,
-                    searchFilter.gameId,
-                ),
+                ...(gameId !== undefined && { gameId }),
                 game: buildGameFilterFindOptions(dto?.gameFilters),
             },
             order: {
@@ -458,6 +476,19 @@ export class CollectionsEntriesService {
             ),
             total,
         ];
+    }
+
+    /** Start and finish dates of every entry the viewer can see, for stats that only count them. */
+    async findPlayDatesForLibrary(targetUserId: string, access: LibraryAccess) {
+        if (!access.canViewLibrary) return [];
+        return this.collectionEntriesRepository.find({
+            // id keeps entries with no dates (planned games); TypeORM drops rows whose selected columns are all null.
+            select: { id: true, startedAt: true, finishedAt: true },
+            where: {
+                libraryUserId: targetUserId,
+                visibility: In(access.visibleEntryLevels),
+            },
+        });
     }
 
     async findAllByUserIdWithPermissions(
@@ -489,17 +520,19 @@ export class CollectionsEntriesService {
             }
         }
 
+        const gameId = this.combineGameIdConditions(
+            customCoverGameIds ? In(customCoverGameIds) : undefined,
+            searchFilter.gameId,
+        );
+
         const [entries, total] =
             await this.collectionEntriesRepository.findAndCount({
                 ...findOptions,
                 where: {
                     libraryUserId: targetUserId,
                     visibility: In(access.visibleEntryLevels),
-                    status: dto.status,
-                    gameId: this.combineGameIdConditions(
-                        customCoverGameIds ? In(customCoverGameIds) : undefined,
-                        searchFilter.gameId,
-                    ),
+                    ...(dto.status !== undefined && { status: dto.status }),
+                    ...(gameId !== undefined && { gameId }),
                     game: buildGameFilterFindOptions(dto.gameFilters),
                 },
                 order: {
@@ -585,6 +618,11 @@ export class CollectionsEntriesService {
             }
         }
 
+        const gameId = this.combineGameIdConditions(
+            customCoverGameIds ? In(customCoverGameIds) : undefined,
+            searchFilter.gameId,
+        );
+
         const [entries, total] =
             await this.collectionEntriesRepository.findAndCount({
                 ...findOptions,
@@ -592,11 +630,8 @@ export class CollectionsEntriesService {
                     isFavorite: true,
                     libraryUserId: targetUserId,
                     visibility: In(access.visibleEntryLevels),
-                    status: dto.status,
-                    gameId: this.combineGameIdConditions(
-                        customCoverGameIds ? In(customCoverGameIds) : undefined,
-                        searchFilter.gameId,
-                    ),
+                    ...(dto.status !== undefined && { status: dto.status }),
+                    ...(gameId !== undefined && { gameId }),
                 },
                 order: {
                     createdAt: dto?.orderBy?.addedDate,

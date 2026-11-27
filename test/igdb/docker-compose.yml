@@ -3,6 +3,11 @@ name: igdb-sync-test
 services:
   mysql:
     image: mysql:8.4.13
+    # Throwaway data: durability off, because schema creation dominates suite time.
+    command:
+      - --skip-log-bin
+      - --innodb-flush-log-at-trx-commit=0
+      - --innodb-doublewrite=OFF
     environment:
       MYSQL_ROOT_PASSWORD: igdb-test-root
       MYSQL_DATABASE: igdb_sync_test
@@ -10,8 +15,8 @@ services:
       MYSQL_PASSWORD: igdb-test-password
     ports:
       - "127.0.0.1:${IGDB_TEST_MYSQL_PORT:-13306}:3306"
-    volumes:
-      - mysql-test-data:/var/lib/mysql
+    tmpfs:
+      - /var/lib/mysql:size=2g
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 2s
@@ -33,5 +38,4 @@ services:
       retries: 30
 
 volumes:
-  mysql-test-data:
   redis-test-data:

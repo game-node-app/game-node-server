@@ -1,3 +1,4 @@
+import { testEnvironment } from "../../test/igdb/helpers/test-environment";
 import { ConnectionProviderRegistry } from "../connection/connection-provider.registry";
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
@@ -18,11 +19,7 @@ import { UserPlaytimeSource } from "./playtime.constants";
 import { createBaselineTables } from "../../test/baseline-schema";
 import { setCacheManager } from "../utils/cacheable";
 
-const mysqlDescribe = process.env.PLAYER_IMPORT_TEST_MYSQL_PORT
-    ? describe
-    : describe.skip;
-
-mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
+describe("playtime observation transaction on disposable MySQL", () => {
     const database = `player_import_test_${randomUUID().replaceAll("-", "")}`;
     const profileUserId = `playtime-${randomUUID()}`;
     let source: DataSource;
@@ -36,9 +33,9 @@ mysqlDescribe("playtime observation transaction on disposable MySQL", () => {
         const options = {
             type: "mysql" as const,
             host: "127.0.0.1",
-            port: Number(process.env.PLAYER_IMPORT_TEST_MYSQL_PORT),
+            port: testEnvironment(process.env).mysql.port,
             username: "root",
-            password: "",
+            password: "igdb-test-root",
             timezone: "Z",
             connectTimeout: 5000,
         };

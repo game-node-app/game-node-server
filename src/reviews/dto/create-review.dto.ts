@@ -9,6 +9,7 @@ import {
     MinLength,
 } from "class-validator";
 import { Transform } from "class-transformer";
+import { MaxListSize } from "../../utils/request-bounds";
 
 export class CreateReviewDto {
     @IsNumber()
@@ -37,5 +38,6 @@ export class CreateReviewDto {
     @Length(36, undefined, {
         each: true,
     })
+    @MaxListSize()
     mentionedUserIds?: string[] = [];
 }

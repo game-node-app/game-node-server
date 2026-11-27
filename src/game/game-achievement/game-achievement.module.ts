@@ -20,6 +20,7 @@ import { ActivitiesQueueModule } from "../../activities/activities-queue/activit
 import { GameCompletionStatus } from "./entity/game-completion-status.entity";
 import { GameAchievementStatusService } from "./game-achievement-status.service";
 import { GuildQueueModule } from "../../guild/guild-queue/guild-queue.module";
+import { GameAchievementCatalog } from "./entity/game-achievement-catalog.entity";
 
 @Module({
     imports: [
@@ -29,6 +30,7 @@ import { GuildQueueModule } from "../../guild/guild-queue/guild-queue.module";
             ObtainedGameAchievement,
             ObtainedGameAchievementActivity,
             GameCompletionStatus,
+            GameAchievementCatalog,
         ]),
         ExternalGameModule,
         SteamSyncModule,

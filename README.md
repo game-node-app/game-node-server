@@ -46,10 +46,31 @@ Create and review migrations in development against a disposable database, then
 commit them with the application changes. Do not generate migrations inside a
 running production container.
 
-At deployment, the `server_migration` service in `docker-compose.prod.yml` runs
-the committed migrations once and exits; the API starts only after it succeeds,
-so replicas never run migrations concurrently. Its image tag is independent of
-the API's. Back up the database before deploying a new migration.
+At deployment, the `gamenode-migration` Coolify resource
+(`docker-compose.migration.yml`) runs the committed migrations once and exits;
+the Deploy workflow updates the API replicas only after it succeeds, so replicas
+never run migrations concurrently. During the rollout the old and new API run
+side by side, so a migration must stay compatible with the previous release
+(add first, remove in a later release). Back up the database before deploying a
+new migration.
+
+#### Production layout
+
+Each is a separate Coolify resource, so a code deploy never restarts the infra:
+
+| Resource | What | Deployed by |
+| --- | --- | --- |
+| `gamenode-migration` | `docker-compose.migration.yml`, one-shot `pnpm migration:run` | Deploy workflow, first |
+| `gamenode-api-1`, `gamenode-api-2` | Docker Image, `APP_ROLE=api`, 1.5 CPU / 2 GB each | Deploy workflow, one after the other |
+| `gamenode-worker` | Docker Image, `APP_ROLE=worker` (crons, BullMQ, ffmpeg). Keep exactly one | Deploy workflow, last |
+| infra | `docker-compose.prod.yml`: Redis ×2, Manticore, Directus, autoheal | Deploy workflow only when its files change, or `deploy_infra` on a manual run |
+
+Traefik balances `server.gamenode.app` and `search.gamenode.app` across both API
+replicas (label service `gamenode-api`, active check on `/v1/health`); the
+routers live in [docker/traefik/gamenode-api.yaml](docker/traefik/gamenode-api.yaml),
+which must be copied by hand to the proxy's dynamic configuration. The API and
+worker bind-mount the infra stack's `profile-video-tmp` and `blog-cms-public`
+volumes, so all of them must stay on the same server.
 
 The database must use `utf8mb4` with the `utf8mb4_0900_ai_ci` collation (the
 MySQL 8 default). Released migrations create tables without an explicit
@@ -311,24 +332,26 @@ curl http://localhost:5000/.well-known/oauth-authorization-server/v1/auth
 ## Test
 
 ```bash
-# TypeScript checks for source and tests
+# TypeScript checks for source and tests (Jest does not type check)
 $ pnpm test:typecheck
 
-# unit tests
+# unit tests: no services needed
 $ pnpm test
 
-# e2e tests
-$ pnpm test:e2e
+# integration tests (*.integration.spec.ts and test/igdb): disposable MySQL and Redis
+$ pnpm test:services:up
+$ pnpm test:integration
+$ pnpm test:services:down
 
-# test coverage
-$ pnpm test:cov
+# search integration tests, which also need Manticore
+$ pnpm test:search:services:up
+$ pnpm test:search:integration
+$ pnpm test:search:services:down
 ```
 
-Jest compiles TypeScript files individually, uses at most two workers, and recycles
-workers whose heap exceeds 512 MB after a suite. This is not a hard process memory
-limit, and recycling does not apply to `--runInBand`.
-Run `pnpm test:typecheck` for full type checking; CI runs it
-before Jest. Use `pnpm test --maxWorkers=N` to override the worker limit.
+A spec that needs MySQL, Redis or ffmpeg must be named `*.integration.spec.ts`.
+Integration suites share one database and run in a single worker. Run a subset with
+`pnpm test:integration --testPathPatterns=notifications/`.
 
 Keep in mind that it's not possible to test Supertokens' routes (nor should we have to).
 

@@ -31,6 +31,7 @@ import { LibraryVisibility } from "../../../libraries/library-visibility.constan
     "libraryUserId",
     "visibility",
 ])
+@Index("IDX_collection_entry_library_game", ["libraryUserId", "gameId"])
 export class CollectionEntry {
     @PrimaryGeneratedColumn("uuid")
     id: string;

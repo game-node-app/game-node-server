@@ -1,0 +1,35 @@
+# Copy of /data/coolify/proxy/dynamic/gamenode-api.yaml on the VPS (Coolify → Server → Proxy → Dynamic Configurations);
+# edit there and keep this file in sync. Coolify does not deploy it from Git.
+# Managed dynamic routers for the GameNode HTTP API load balancer.
+# Backends are discovered automatically via Docker labels on gamenode-api-1 and gamenode-api-2
+# (traefik.http.services.gamenode-api.*) with active /v1/health checks.
+http:
+  middlewares:
+    gamenode-redirect-to-https:
+      redirectScheme:
+        scheme: https
+    gamenode-gzip-sse:
+      compress:
+        excludedContentTypes:
+          - text/event-stream
+
+  routers:
+    gamenode-api-http:
+      entryPoints:
+        - http
+      rule: "Host(`server.gamenode.app`) || Host(`search.gamenode.app`)"
+      priority: 10
+      middlewares:
+        - gamenode-redirect-to-https
+      service: gamenode-api@docker
+
+    gamenode-api-https:
+      entryPoints:
+        - https
+      rule: "Host(`server.gamenode.app`) || Host(`search.gamenode.app`)"
+      priority: 10
+      middlewares:
+        - gamenode-gzip-sse
+      service: gamenode-api@docker
+      tls:
+        certResolver: letsencrypt

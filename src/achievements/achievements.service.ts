@@ -109,7 +109,10 @@ export class AchievementsService {
         order?: FindOptionsOrder<ObtainedAchievement>,
     ): Promise<ObtainedAchievementDto[]> {
         const rows = await this.obtainedAchievementsRepository.find({
-            where: { profileUserId: userId, achievementId },
+            where: {
+                profileUserId: userId,
+                ...(achievementId !== undefined && { achievementId }),
+            },
             relations: { definition: { tiers: true } },
             order,
         });

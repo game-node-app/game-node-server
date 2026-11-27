@@ -1,3 +1,4 @@
+import { testEnvironment } from "../../test/igdb/helpers/test-environment";
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
@@ -7,11 +8,7 @@ import { UserPlaytimeHistory } from "./entity/user-playtime-history.entity";
 import { PlaytimeHistoryService } from "./playtime-history.service";
 import { UserPlaytimeSource } from "./playtime.constants";
 
-const mysqlDescribe = process.env.PLAYER_IMPORT_TEST_MYSQL_PORT
-    ? describe
-    : describe.skip;
-
-mysqlDescribe("daily playtime attribution on disposable MySQL", () => {
+describe("daily playtime attribution on disposable MySQL", () => {
     const database = `playtime_daily_test_${randomUUID().replaceAll("-", "")}`;
     let source: DataSource;
     let admin: DataSource;
@@ -21,9 +18,9 @@ mysqlDescribe("daily playtime attribution on disposable MySQL", () => {
         const options = {
             type: "mysql" as const,
             host: "127.0.0.1",
-            port: Number(process.env.PLAYER_IMPORT_TEST_MYSQL_PORT),
+            port: testEnvironment(process.env).mysql.port,
             username: "root",
-            password: "",
+            password: "igdb-test-root",
             timezone: "Z",
             connectTimeout: 5000,
         };

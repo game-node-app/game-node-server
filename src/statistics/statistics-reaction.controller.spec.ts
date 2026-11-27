@@ -4,7 +4,8 @@ import {
     UnauthorizedException,
 } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
 import { CacheModule } from "@nestjs/cache-manager";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import request from "supertest";
@@ -22,6 +23,7 @@ describe("reaction write guards", () => {
     const statisticsService = {
         applyReaction,
         findSummary: jest.fn(),
+        findBatchSummary: jest.fn(),
         getStatus: jest.fn(),
         findSeries: jest.fn(),
         recordView: jest.fn(),
@@ -39,17 +41,20 @@ describe("reaction write guards", () => {
             .mockReset()
             .mockResolvedValue({ isLiked: true, likesCount: 1 });
         statisticsService.findSummary.mockReset();
+        statisticsService.findBatchSummary.mockReset().mockResolvedValue({ items: [] });
         statisticsService.getStatus.mockReset();
         statisticsService.findSeries.mockReset();
         statisticsService.recordView.mockReset().mockResolvedValue({ accepted: true, viewId: body.sourceId });
         findRankings.mockReset();
         const module = await Test.createTestingModule({
             imports: [
-                ThrottlerModule.forRoot([{ ttl: 60000, limit: 2 }]),
+                // The default now covers every route; the like routes set their own limit.
+                ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
                 CacheModule.register(),
             ],
             controllers: [StatisticsController],
             providers: [
+                { provide: APP_GUARD, useClass: ThrottlerGuard },
                 { provide: StatisticsService, useValue: statisticsService },
                 { provide: StatisticsRankingService, useValue: { findRankings } },
             ],
@@ -77,19 +82,17 @@ describe("reaction write guards", () => {
     it.each(["put", "delete"] as const)(
         "throttles %s before another reaction reaches persistence",
         async (method) => {
-            await request(app.getHttpServer())
-                [method]("/statistics/like")
-                .send(body)
-                .expect(200);
-            await request(app.getHttpServer())
-                [method]("/statistics/like")
-                .send(body)
-                .expect(200);
+            // The route's @Throttle allows 10 per minute.
+            for (let n = 0; n < 10; n++)
+                await request(app.getHttpServer())
+                    [method]("/statistics/like")
+                    .send(body)
+                    .expect(200);
             await request(app.getHttpServer())
                 [method]("/statistics/like")
                 .send(body)
                 .expect(429);
-            expect(applyReaction).toHaveBeenCalledTimes(2);
+            expect(applyReaction).toHaveBeenCalledTimes(10);
             expect(applyReaction).toHaveBeenCalledWith(
                 "session-actor",
                 body,
@@ -125,6 +128,7 @@ describe("reaction write guards", () => {
         );
         for (const [path, method, status] of [
             ["/statistics", "post", "200"],
+            ["/statistics/batch", "post", "200"],
             ["/statistics/status", "get", "200"],
             ["/statistics/series", "post", "200"],
             ["/statistics/rankings", "post", "200"],
@@ -163,6 +167,33 @@ describe("reaction write guards", () => {
             .send({ ...body, viewId, targetUserId: "forged" })
             .expect(400);
         expect(statisticsService.recordView).toHaveBeenCalledTimes(1);
+    });
+
+    it("validates batch source ids and unknown properties before reading", async () => {
+        const sourceId = "123e4567-e89b-42d3-a456-426614174000";
+        await request(app.getHttpServer())
+            .post("/statistics/batch")
+            .send({ sourceType: "review", sourceIds: [sourceId] })
+            .expect(200);
+        expect(statisticsService.findBatchSummary).toHaveBeenCalledWith(
+            {
+                sourceType: "review",
+                sourceIds: [sourceId],
+            },
+            "session-actor",
+        );
+        for (const input of [
+            { sourceType: "review", sourceIds: [] },
+            { sourceType: "game", sourceIds: [sourceId] },
+            { sourceType: "review", sourceIds: [1] },
+            { sourceType: "review", sourceIds: [sourceId], targetUserId: "forged" },
+        ]) {
+            await request(app.getHttpServer())
+                .post("/statistics/batch")
+                .send(input)
+                .expect(400);
+        }
+        expect(statisticsService.findBatchSummary).toHaveBeenCalledTimes(1);
     });
 
     it("rejects obsolete routes and raw ranking inputs", async () => {

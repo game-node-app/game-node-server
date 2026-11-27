@@ -7,6 +7,7 @@ import {
     PROFILE_VIDEO_TEMP_ROOT,
 } from "./profile-video.constants";
 import { ensureProfileVideoTempRoot } from "./profile-video.service";
+import { RUNS_BACKGROUND_WORK } from "../../utils/app-role";
 
 @Injectable()
 export class ProfileVideoTempService implements OnModuleInit {
@@ -14,7 +15,7 @@ export class ProfileVideoTempService implements OnModuleInit {
 
     async onModuleInit() {
         await ensureProfileVideoTempRoot();
-        await this.sweep();
+        if (RUNS_BACKGROUND_WORK) await this.sweep();
     }
 
     @Cron("0 * * * *")

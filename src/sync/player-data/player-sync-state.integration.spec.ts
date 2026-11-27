@@ -1,3 +1,4 @@
+import { testEnvironment } from "../../../test/igdb/helpers/test-environment";
 import { createBaselineTables } from "../../../test/baseline-schema";
 import { ConnectionProviderRegistry } from "../../connection/connection-provider.registry";
 import { EConnectionAuthMode } from "../../connection/connections.constants";
@@ -39,10 +40,7 @@ import { DataSource } from "typeorm";
 import { resolve } from "node:path";
 import { PlayerConnectionSync } from "./entity/player-connection-sync.entity";
 
-const mysqlDescribe = process.env.PLAYER_IMPORT_TEST_MYSQL_PORT
-    ? describe
-    : describe.skip;
-mysqlDescribe("player synchronization state on disposable MySQL", () => {
+describe("player synchronization state on disposable MySQL", () => {
     const database = `player_import_test_${randomUUID().replaceAll("-", "")}`;
     let source: DataSource;
     let admin: DataSource;
@@ -63,9 +61,9 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
         const options = {
             type: "mysql" as const,
             host: "127.0.0.1",
-            port: Number(process.env.PLAYER_IMPORT_TEST_MYSQL_PORT),
+            port: testEnvironment(process.env).mysql.port,
             username: "root",
-            password: "",
+            password: "igdb-test-root",
             timezone: "Z",
             connectTimeout: 5000,
         };
@@ -434,8 +432,7 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
             ),
         ).toEqual([]);
     });
-    const redisIt = process.env.PLAYER_IMPORT_TEST_REDIS_PORT ? it : it.skip;
-    redisIt.each(["rejection", "lost acknowledgement", "death before enqueue"])(
+    it.each(["rejection", "lost acknowledgement", "death before enqueue"])(
         "recovers admission after %s (real MySQL/Redis)",
         async (scenario) => {
             const connectionId =
@@ -456,7 +453,7 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
                 prefix: `player-admission-test-${randomUUID()}`,
                 connection: {
                     host: "127.0.0.1",
-                    port: Number(process.env.PLAYER_IMPORT_TEST_REDIS_PORT),
+                    port: testEnvironment(process.env).redis.port,
                     maxRetriesPerRequest: null,
                 },
             });
@@ -685,12 +682,7 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
         ).toEqual([6500]);
     });
 
-    const cycleIt = process.env.PLAYER_IMPORT_TEST_REDIS_PORT ? it : it.skip;
-    cycleIt.each([
-        EConnectionType.STEAM,
-        EConnectionType.PSN,
-        EConnectionType.XBOX,
-    ])(
+    it.each([EConnectionType.STEAM, EConnectionType.PSN, EConnectionType.XBOX])(
         "coordinates two %s instances, a restart, and two daily cycles",
         async (provider) => {
             const connectionId =
@@ -717,7 +709,7 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
             );
             const connection = {
                 host: "127.0.0.1",
-                port: Number(process.env.PLAYER_IMPORT_TEST_REDIS_PORT),
+                port: testEnvironment(process.env).redis.port,
                 maxRetriesPerRequest: null,
             };
             const prefix = `player-daily-test-${randomUUID()}`;
@@ -925,224 +917,204 @@ mysqlDescribe("player synchronization state on disposable MySQL", () => {
         });
     });
 
-    cycleIt(
-        "new links run immediately, settings retain cooldown, and reconnect jobs reject old accounts",
-        async () => {
-            const state = new PlayerSyncStateService(source);
-            const clock = new Date("2026-11-01T00:00:00Z");
-            jest.useFakeTimers({
-                now: clock,
-                doNotFake: [
-                    "nextTick",
-                    "setImmediate",
-                    "clearImmediate",
-                    "setTimeout",
-                    "clearTimeout",
-                    "setInterval",
-                    "clearInterval",
-                    "queueMicrotask",
-                    "performance",
-                    "hrtime",
-                ],
-            });
-            jest.spyOn(state as any, "now").mockImplementation(
-                async () => new Date(clock),
-            );
-            const queue = new Queue(PLAYER_DATA_QUEUE, {
-                prefix: `player-onboarding-test-${randomUUID()}`,
-                connection: {
-                    host: "127.0.0.1",
-                    port: Number(process.env.PLAYER_IMPORT_TEST_REDIS_PORT),
-                    maxRetriesPerRequest: null,
-                },
-            });
-            const admission = new PlayerDataQueueService(queue as any, state, {
-                get: () => "true",
-            } as any);
-            let account = "account-a";
-            const registry = new ConnectionProviderRegistry();
-            registry.register({
-                type: EConnectionType.STEAM,
-                name: "steam",
-                iconName: "steam",
-                authMode: EConnectionAuthMode.PUBLIC_IDENTIFIER,
-                isImporterViable: true,
-                isImporterWatchViable: true,
-                isPlaytimeImportViable: true,
-                isAchievementImportViable: true,
-            });
-            registry.registerAuthStrategy(EConnectionType.STEAM, {
-                resolvePublicIdentifier: async () => ({
-                    sourceUserId: account,
-                    sourceUsername: "fixture",
-                }),
-            });
-            const connections = new ConnectionsService(
-                source.getRepository(UserConnection),
-                new PlaytimeWatchService(admission),
-                {} as any,
-                state,
-                registry,
-                {} as any,
-                {} as any,
-            );
-            const dto = {
-                type: EConnectionType.STEAM,
-                userIdentifier: "fixture",
-                isAutoImportEnabled: false,
-            };
-            try {
-                await connections.createOrUpdate("onboarding-user", dto);
-                expect(await queue.getWaitingCount()).toBe(1);
-                const oldJob = (await queue.getWaiting())[0];
-                const owner = oldJob.data.owner;
-                await state.start(owner);
-                await state.completeStage(owner, "playtime", "empty");
-                await state.completeStage(owner, "discovery", "empty");
-                await state.finish(owner);
-                const before = await state.status(
-                    "onboarding-user",
-                    EConnectionType.STEAM,
-                );
-                await connections.createOrUpdate("onboarding-user", {
-                    ...dto,
-                    isAutoImportEnabled: true,
-                });
-                expect(
-                    await state.status(
-                        "onboarding-user",
-                        EConnectionType.STEAM,
-                    ),
-                ).toEqual(before);
-                expect(await queue.getWaitingCount()).toBe(1);
-                account = "account-b";
-                await connections.createOrUpdate("onboarding-user", dto);
-                expect(await queue.getWaitingCount()).toBe(2);
-                const playtime = { updateSteamPlaytimeInfo: jest.fn() };
-                const processor = new PlayerDataProcessor(
-                    state,
-                    playtime as any,
-                    {} as any,
-                );
-                await expect(processor.process(oldJob as any)).resolves.toEqual(
-                    { outcome: "stale-skip" },
-                );
-                expect(playtime.updateSteamPlaytimeInfo).not.toHaveBeenCalled();
-                const current = (await queue.getWaiting()).find(
-                    (job) => job.data.owner.sourceUserId === "account-b",
-                );
-                expect(current).toBeTruthy();
-                expect(current!.data.owner.ownerToken).not.toBe(
-                    owner.ownerToken,
-                );
-            } finally {
-                await queue.obliterate();
-                await queue.close();
-                jest.useRealTimers();
-            }
-        },
-    );
-    cycleIt(
-        "retries only a failed stage while retaining the other stage's committed result",
-        async () => {
-            const state = new PlayerSyncStateService(source);
-            const clock = new Date("2026-11-02T00:00:00Z");
-            jest.spyOn(state as any, "now").mockImplementation(
-                async () => new Date(clock),
-            );
-            await source.query(
-                "INSERT INTO user_connection (id, sourceUserId, profileUserId) VALUES (7100, 'account', 'stage-retry-user')",
-            );
-            await state.initialize(7100, "account", clock);
-            const connection = {
+    it("new links run immediately, settings retain cooldown, and reconnect jobs reject old accounts", async () => {
+        const state = new PlayerSyncStateService(source);
+        const clock = new Date("2026-11-01T00:00:00Z");
+        jest.useFakeTimers({
+            now: clock,
+            doNotFake: [
+                "nextTick",
+                "setImmediate",
+                "clearImmediate",
+                "setTimeout",
+                "clearTimeout",
+                "setInterval",
+                "clearInterval",
+                "queueMicrotask",
+                "performance",
+                "hrtime",
+            ],
+        });
+        jest.spyOn(state as any, "now").mockImplementation(
+            async () => new Date(clock),
+        );
+        const queue = new Queue(PLAYER_DATA_QUEUE, {
+            prefix: `player-onboarding-test-${randomUUID()}`,
+            connection: {
                 host: "127.0.0.1",
-                port: Number(process.env.PLAYER_IMPORT_TEST_REDIS_PORT),
+                port: testEnvironment(process.env).redis.port,
                 maxRetriesPerRequest: null,
-            };
-            const prefix = `player-stage-test-${randomUUID()}`;
-            const queue = new Queue(PLAYER_DATA_QUEUE, {
-                prefix,
-                connection,
-                defaultJobOptions: { attempts: 2, backoff: 1 },
+            },
+        });
+        const admission = new PlayerDataQueueService(queue as any, state, {
+            get: () => "true",
+        } as any);
+        let account = "account-a";
+        const registry = new ConnectionProviderRegistry();
+        registry.register({
+            type: EConnectionType.STEAM,
+            name: "steam",
+            iconName: "steam",
+            authMode: EConnectionAuthMode.PUBLIC_IDENTIFIER,
+            isImporterViable: true,
+            isImporterWatchViable: true,
+            isPlaytimeImportViable: true,
+            isAchievementImportViable: true,
+        });
+        registry.registerAuthStrategy(EConnectionType.STEAM, {
+            resolvePublicIdentifier: async () => ({
+                sourceUserId: account,
+                sourceUsername: "fixture",
+            }),
+        });
+        const connections = new ConnectionsService(
+            source.getRepository(UserConnection),
+            new PlaytimeWatchService(admission),
+            {} as any,
+            state,
+            registry,
+            {} as any,
+            {} as any,
+        );
+        const dto = {
+            type: EConnectionType.STEAM,
+            userIdentifier: "fixture",
+            isAutoImportEnabled: false,
+        };
+        try {
+            await connections.createOrUpdate("onboarding-user", dto);
+            expect(await queue.getWaitingCount()).toBe(1);
+            const oldJob = (await queue.getWaiting())[0];
+            const owner = oldJob.data.owner;
+            await state.start(owner);
+            await state.completeStage(owner, "playtime", "empty");
+            await state.completeStage(owner, "discovery", "empty");
+            await state.finish(owner);
+            const before = await state.status(
+                "onboarding-user",
+                EConnectionType.STEAM,
+            );
+            await connections.createOrUpdate("onboarding-user", {
+                ...dto,
+                isAutoImportEnabled: true,
             });
-            const admission = new PlayerDataQueueService(queue as any, state, {
-                get: () => "true",
-            } as any);
-            let attempts = 0;
-            const playtime = {
-                updatePlaytimeInfo: async (): Promise<any> =>
-                    playtime.updateSteamPlaytimeInfo(),
-                updateSteamPlaytimeInfo: jest.fn(async () => {
-                    if (++attempts === 1)
-                        throw new Error("fixture failed write");
-                    return { outcome: "empty" };
-                }),
-            };
-            const importer = { run: jest.fn().mockResolvedValue("empty") };
+            expect(
+                await state.status("onboarding-user", EConnectionType.STEAM),
+            ).toEqual(before);
+            expect(await queue.getWaitingCount()).toBe(1);
+            account = "account-b";
+            await connections.createOrUpdate("onboarding-user", dto);
+            expect(await queue.getWaitingCount()).toBe(2);
+            const playtime = { updateSteamPlaytimeInfo: jest.fn() };
             const processor = new PlayerDataProcessor(
                 state,
                 playtime as any,
-                importer as any,
+                {} as any,
             );
-            let firstFailure: PlayerConnectionSync | undefined;
-            const worker = new Worker(
-                PLAYER_DATA_QUEUE,
-                (job) => processor.process(job),
-                { prefix, connection },
+            await expect(processor.process(oldJob as any)).resolves.toEqual({
+                outcome: "stale-skip",
+            });
+            expect(playtime.updateSteamPlaytimeInfo).not.toHaveBeenCalled();
+            const current = (await queue.getWaiting()).find(
+                (job) => job.data.owner.sourceUserId === "account-b",
             );
-            try {
-                await worker.waitUntilReady();
-                const complete = new Promise<void>((resolve, reject) => {
-                    worker.once("completed", () => resolve());
-                    worker.on("failed", (job, error) => {
-                        if (job && job.attemptsMade >= 2) reject(error);
-                    });
-                    worker.once("error", reject);
+            expect(current).toBeTruthy();
+            expect(current!.data.owner.ownerToken).not.toBe(owner.ownerToken);
+        } finally {
+            await queue.obliterate();
+            await queue.close();
+            jest.useRealTimers();
+        }
+    });
+    it("retries only a failed stage while retaining the other stage's committed result", async () => {
+        const state = new PlayerSyncStateService(source);
+        const clock = new Date("2026-11-02T00:00:00Z");
+        jest.spyOn(state as any, "now").mockImplementation(
+            async () => new Date(clock),
+        );
+        await source.query(
+            "INSERT INTO user_connection (id, sourceUserId, profileUserId) VALUES (7100, 'account', 'stage-retry-user')",
+        );
+        await state.initialize(7100, "account", clock);
+        const connection = {
+            host: "127.0.0.1",
+            port: testEnvironment(process.env).redis.port,
+            maxRetriesPerRequest: null,
+        };
+        const prefix = `player-stage-test-${randomUUID()}`;
+        const queue = new Queue(PLAYER_DATA_QUEUE, {
+            prefix,
+            connection,
+            defaultJobOptions: { attempts: 2, backoff: 1 },
+        });
+        const admission = new PlayerDataQueueService(queue as any, state, {
+            get: () => "true",
+        } as any);
+        let attempts = 0;
+        const playtime = {
+            updatePlaytimeInfo: async (): Promise<any> =>
+                playtime.updateSteamPlaytimeInfo(),
+            updateSteamPlaytimeInfo: jest.fn(async () => {
+                if (++attempts === 1) throw new Error("fixture failed write");
+                return { outcome: "empty" };
+            }),
+        };
+        const importer = { run: jest.fn().mockResolvedValue("empty") };
+        const processor = new PlayerDataProcessor(
+            state,
+            playtime as any,
+            importer as any,
+        );
+        let firstFailure: PlayerConnectionSync | undefined;
+        const worker = new Worker(
+            PLAYER_DATA_QUEUE,
+            (job) => processor.process(job),
+            { prefix, connection },
+        );
+        try {
+            await worker.waitUntilReady();
+            const complete = new Promise<void>((resolve, reject) => {
+                worker.once("completed", () => resolve());
+                worker.on("failed", (job, error) => {
+                    if (job && job.attemptsMade >= 2) reject(error);
                 });
-                playtime.updateSteamPlaytimeInfo
-                    .mockImplementationOnce(async () => {
-                        throw new Error("fixture failed write");
-                    })
-                    .mockImplementation(async () => {
-                        firstFailure = await source
-                            .getRepository(PlayerConnectionSync)
-                            .findOneByOrFail({ connectionId: 7100 });
-                        return { outcome: "empty" };
-                    });
-                await admission.request(
-                    "stage-retry-user",
-                    EConnectionType.STEAM,
-                );
-                await complete;
-                expect(playtime.updateSteamPlaytimeInfo).toHaveBeenCalledTimes(
-                    2,
-                );
-                expect(importer.run).toHaveBeenCalledTimes(1);
-                expect(firstFailure).toMatchObject({
-                    lastSucceededAt: null,
-                    stages: {
-                        playtime: { outcome: "failed", lastSucceededAt: null },
-                        discovery: {
-                            outcome: "empty",
-                            lastSucceededAt: clock.toISOString(),
-                        },
+                worker.once("error", reject);
+            });
+            playtime.updateSteamPlaytimeInfo
+                .mockImplementationOnce(async () => {
+                    throw new Error("fixture failed write");
+                })
+                .mockImplementation(async () => {
+                    firstFailure = await source
+                        .getRepository(PlayerConnectionSync)
+                        .findOneByOrFail({ connectionId: 7100 });
+                    return { outcome: "empty" };
+                });
+            await admission.request("stage-retry-user", EConnectionType.STEAM);
+            await complete;
+            expect(playtime.updateSteamPlaytimeInfo).toHaveBeenCalledTimes(2);
+            expect(importer.run).toHaveBeenCalledTimes(1);
+            expect(firstFailure).toMatchObject({
+                lastSucceededAt: null,
+                stages: {
+                    playtime: { outcome: "failed", lastSucceededAt: null },
+                    discovery: {
+                        outcome: "empty",
+                        lastSucceededAt: clock.toISOString(),
                     },
-                });
-                expect(
-                    await state.status(
-                        "stage-retry-user",
-                        EConnectionType.STEAM,
-                    ),
-                ).toMatchObject({
-                    status: "cooldown",
-                    outcome: "empty",
-                    lastSucceededAt: clock,
-                });
-            } finally {
-                await worker.close();
-                await queue.obliterate();
-                await queue.close();
-            }
-        },
-    );
+                },
+            });
+            expect(
+                await state.status("stage-retry-user", EConnectionType.STEAM),
+            ).toMatchObject({
+                status: "cooldown",
+                outcome: "empty",
+                lastSucceededAt: clock,
+            });
+        } finally {
+            await worker.close();
+            await queue.obliterate();
+            await queue.close();
+        }
+    });
 });

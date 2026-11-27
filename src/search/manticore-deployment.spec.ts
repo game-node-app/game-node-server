@@ -178,10 +178,6 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                     DB_USER: "prod_db_user_from_env",
                     DB_PASS: "prod_db_pass_from_env",
                     DB_HOST: "managed-mysql-uuid",
-                    CONNECTION_CREDENTIAL_ENCRYPTION_KEY: "test_connection_key",
-                    BETTER_AUTH_SECRET: "test_better_auth_secret",
-                    DAILY_IMAGE_SECRET: "test_daily_image_secret",
-                    SERVER_IMAGE_TAG: "test",
                     MANTICORE_IMAGE_TAG: "test",
                     CMS_DB_PASSWORD: "cms_db_pass",
                     CMS_SECRET: "cms_test_secret",
@@ -200,14 +196,55 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
         expect(prodConfig.services.redis_bullmq.volumes[0].target).toBe(
             "/data",
         );
-        expect(prodConfig.services.server.environment.BETTER_AUTH_SECRET).toBe(
-            "test_better_auth_secret",
+        expect(prodConfig.services.redis.networks.gamenode.aliases).toContain(
+            "server-redis",
         );
-        expect(prodConfig.services.server.deploy.replicas).toBe(1);
         expect(
-            prodConfig.services.server.depends_on.server_migration.condition,
+            prodConfig.services.redis_bullmq.networks.gamenode.aliases,
+        ).toContain("server-redis-bullmq");
+        expect(prodConfig.services.cms.networks.gamenode.aliases).toContain(
+            "blog-cms",
+        );
+        // API replicas, worker, and migrations are separate Coolify resources for zero-downtime deploys.
+        expect(prodConfig.services.server).toBeUndefined();
+        expect(prodConfig.services.server_worker).toBeUndefined();
+        expect(prodConfig.services.server_migration).toBeUndefined();
+
+        const migrationConfigJson = execFileSync(
+            "docker",
+            [
+                "compose",
+                "-f",
+                "docker-compose.migration.yml",
+                "config",
+                "--format",
+                "json",
+            ],
+            {
+                cwd: REPO_ROOT,
+                encoding: "utf8",
+                env: {
+                    ...process.env,
+                    DB_USER: "prod_db_user_from_env",
+                    DB_PASS: "prod_db_pass_from_env",
+                    DB_HOST: "managed-mysql-uuid",
+                    SERVER_IMAGE_TAG: "test",
+                },
+            },
+        );
+        const migrationConfig = JSON.parse(migrationConfigJson);
+        expect(migrationConfig.services.server_migration.restart).toBe("no");
+        expect(
+            migrationConfig.services.migration_gate.depends_on.server_migration
+                .condition,
         ).toBe("service_completed_successfully");
-        expect(prodConfig.services.server_migration.restart).toBe("no");
+        expect(migrationConfig.services.server_migration.environment.DB_HOST).toBe(
+            "managed-mysql-uuid",
+        );
+        expect(
+            Object.keys(migrationConfig.services.server_migration.networks),
+        ).toContain("gamenode");
+
         const prodManticore = prodConfig.services.manticore;
         expect(prodManticore).toBeDefined();
         // Config files ship inside the image; bind mounts get frozen by Coolify and went stale in prod.
@@ -228,9 +265,6 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
             "game_node_app",
             "gamenode",
         ]);
-        expect(prodConfig.services.server.environment.MANTICORE_URL).toBe(
-            "http://manticore:9308",
-        );
         expect(prodConfig.volumes.manticore).toBeDefined();
 
         // Production MySQL is the Coolify-managed resource, reached on the dedicated gamenode network.
@@ -246,7 +280,7 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
                 (service: any) => service.ports,
             ),
         ).toHaveLength(0);
-        for (const name of ["server", "server_migration", "cms", "manticore"]) {
+        for (const name of ["cms", "manticore"]) {
             const service = prodConfig.services[name];
             expect(
                 service.environment.DB_HOST ?? service.environment.MYSQL_HOST,
@@ -256,23 +290,12 @@ describe("Manticore 29.9.0 config, template rendering, and Compose definitions (
         expect(prodConfig.services.cms.environment.DB_DATABASE).toBe(
             "blog_cms",
         );
-        expect(prodConfig.services.cms.environment.DB_USER).not.toBe(
-            prodConfig.services.server.environment.DB_USER,
-        );
-        expect(
-            prodConfig.services.server.depends_on["cms-media-init"].condition,
-        ).toBe("service_completed_successfully");
+        expect(prodConfig.services.cms.environment.DB_USER).toBe("blog_cms");
         expect(prodConfig.volumes["blog-cms-public"].external).not.toBe(true);
         const publicMedia = prodConfig.services.cms.volumes.find(
             (volume: any) => volume.target === "/directus/public-media",
         );
-        expect(publicMedia.source).toBe(
-            prodConfig.services.server.volumes.find(
-                (volume: any) =>
-                    volume.target === "/app/blog-public-media" &&
-                    volume.read_only,
-            ).source,
-        );
+        expect(publicMedia).toBeDefined();
         expect(prodConfig.services.cms.environment).toMatchObject({
             STORAGE_PRIVATE_DRIVER: "s3",
             STORAGE_PRIVATE_BUCKET: "gamenode-user-uploads",

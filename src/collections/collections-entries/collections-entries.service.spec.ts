@@ -634,11 +634,10 @@ describe("library search filter", () => {
             search: "   ",
         });
 
-        expect(repository.findAndCount).toHaveBeenCalledWith(
-            expect.objectContaining({
-                where: expect.objectContaining({ gameId: undefined }),
-            }),
-        );
+        const [{ where }] = repository.findAndCount.mock.calls[0] as [
+            { where: Record<string, unknown> },
+        ];
+        expect(where).not.toHaveProperty("gameId");
     });
 
     test.each(["%%%", "'", "_"])(
@@ -1109,5 +1108,49 @@ describe("single-entry reads for a viewer", () => {
 
         expect(entry.collections.map((collection) => collection.isPublic))
             .toEqual([true]);
+    });
+});
+
+describe("own entries by game ids", () => {
+    test("looks up only the caller's entries with their usual relations", async () => {
+        const { service, repository } = fixture();
+        const entries = [{ id: "entry", gameId: 8 }];
+        repository.find.mockResolvedValue(entries);
+
+        await expect(
+            service.findOwnByGameIds("owner", [7, 8]),
+        ).resolves.toBe(entries);
+        expect(repository.find).toHaveBeenCalledWith({
+            where: {
+                libraryUserId: "owner",
+                gameId: In([7, 8]),
+            },
+            relations: expect.objectContaining({
+                collectionsMap: { collection: true },
+                game: true,
+                ownedPlatforms: true,
+            }),
+        });
+    });
+
+    test("deduplicates repeated game ids", async () => {
+        const { service, repository } = fixture();
+
+        await service.findOwnByGameIds("owner", [7, 7, 8, 8, 7]);
+
+        expect(repository.find).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({ gameId: In([7, 8]) }),
+            }),
+        );
+    });
+
+    test("resolves to an empty list when the caller owns none of the games", async () => {
+        const { service, repository } = fixture();
+        repository.find.mockResolvedValue([]);
+
+        await expect(service.findOwnByGameIds("owner", [7, 8])).resolves.toEqual(
+            [],
+        );
     });
 });

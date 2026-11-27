@@ -9,6 +9,7 @@ import {
     Max,
     Min,
 } from "class-validator";
+import { MAX_OFFSET } from "../../utils/request-bounds";
 import { PaginationInfo } from "../../utils/pagination/pagination-response.dto";
 import {
     GuildBonusObjective,
@@ -82,6 +83,7 @@ export class GetGuildContractsQueryDto {
     @Type(() => Number)
     @IsInt()
     @Min(0)
+    @Max(MAX_OFFSET)
     offset?: number;
 
     @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })

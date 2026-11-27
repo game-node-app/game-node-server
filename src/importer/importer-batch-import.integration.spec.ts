@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DataSource } from "typeorm";
+import { DataSource, In } from "typeorm";
 import {
     addTransactionalDataSource,
     deleteDataSourceByName,
@@ -38,10 +38,7 @@ import { PlayerConnectionSync } from "../sync/player-data/entity/player-connecti
 import { EImporterSource } from "./importer.constants";
 import { LibraryVisibility } from "../libraries/library-visibility.constants";
 
-const mysqlDescribe = process.env.IGDB_TEST_MYSQL_PORT
-    ? describe
-    : describe.skip;
-mysqlDescribe("batch import transactions", () => {
+describe("batch import transactions", () => {
     let source: DataSource;
     const users: string[] = [];
     beforeAll(async () => {
@@ -132,7 +129,7 @@ mysqlDescribe("batch import transactions", () => {
         };
         const collections = {
             findAllByIds: async (ids: string[]) =>
-                source.getRepository(Collection).findByIds(ids),
+                source.getRepository(Collection).findBy({ id: In(ids) }),
         };
         const entries = new CollectionsEntriesService(
             source.getRepository(CollectionEntry),
@@ -267,7 +264,9 @@ mysqlDescribe("batch import transactions", () => {
         });
 
         expect(await f.entries.createForImport(f.userId, 1, 6)).toBe("skipped");
-        expect(await f.entries.createForImport(f.userId, 2, 6)).toBe("imported");
+        expect(await f.entries.createForImport(f.userId, 2, 6)).toBe(
+            "imported",
+        );
 
         expect(
             await source
@@ -673,13 +672,9 @@ mysqlDescribe("batch import transactions", () => {
             const summary = new ConnectionsSummaryService(
                 source.getRepository(CollectionEntry),
                 source.getRepository(PlayerConnectionSync),
+                source.getRepository(ImporterProcessedEntry),
+                source.getRepository(ImporterIgnoredEntry),
                 f.registry,
-                {
-                    findOneByUserIdAndType: () =>
-                        source
-                            .getRepository(UserConnection)
-                            .findOneBy({ id: f.connection.id }),
-                } as any,
             );
             let queries = 0;
             const logger = jest
@@ -720,8 +715,10 @@ mysqlDescribe("batch import transactions", () => {
         }
         console.log("IMPORTER_MEASUREMENTS", JSON.stringify(measurements));
         for (const operation of ["listing", "summary", "batch"]) {
-            expect(measurements[1][operation].providerCalls).toBe(1);
-            expect(measurements[25][operation].providerCalls).toBe(1);
+            // The summary reads what discovery stored instead of calling the store.
+            const calls = operation === "summary" ? 0 : 1;
+            expect(measurements[1][operation].providerCalls).toBe(calls);
+            expect(measurements[25][operation].providerCalls).toBe(calls);
             expect(measurements[25][operation].queries).toBe(
                 measurements[1][operation].queries,
             );

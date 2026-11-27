@@ -210,7 +210,6 @@ export class PlayerSyncStateService {
                     }),
                 );
             },
-            { connectionName: this.source.name },
         );
     }
 
@@ -511,7 +510,6 @@ export class PlayerSyncStateService {
                 await manager.save(state);
                 return result;
             },
-            { connectionName: this.source.name },
         );
     }
 

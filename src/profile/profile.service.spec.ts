@@ -3,7 +3,7 @@ jest.mock("../statistics/statistics-target.repository", () => ({
 }));
 
 import { ArgumentMetadata, ValidationPipe } from "@nestjs/common";
-import { getMetadataArgsStorage } from "typeorm";
+import { getMetadataArgsStorage, In } from "typeorm";
 import { ProfileService } from "./profile.service";
 import { Profile } from "./entities/profile.entity";
 import { ProfileAvatar } from "./entities/profile-avatar.entity";
@@ -387,6 +387,40 @@ describe("ProfileService", () => {
                 where: { userId: "user-1" },
                 relations: { avatar: true, banner: true },
             });
+        });
+    });
+
+    describe("findManyByIds", () => {
+        it("loads profiles with avatar and banner in one query", async () => {
+            const profiles = [{ userId: "user-1" }, { userId: "user-2" }];
+            const find = jest.fn(async () => profiles);
+            const service = new ProfileService(
+                { find } as never,
+                {} as never,
+                {} as never,
+                {} as never,
+            );
+
+            await expect(
+                service.findManyByIds(["user-1", "user-2"]),
+            ).resolves.toBe(profiles);
+            expect(find).toHaveBeenCalledWith({
+                where: { userId: In(["user-1", "user-2"]) },
+                relations: { avatar: true, banner: true },
+            });
+        });
+
+        it("returns no rows without querying for an empty batch", async () => {
+            const find = jest.fn();
+            const service = new ProfileService(
+                { find } as never,
+                {} as never,
+                {} as never,
+                {} as never,
+            );
+
+            await expect(service.findManyByIds([])).resolves.toEqual([]);
+            expect(find).not.toHaveBeenCalled();
         });
     });
 

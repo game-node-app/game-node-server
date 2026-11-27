@@ -7,10 +7,10 @@ The disposable harness runs only MySQL 8 and Redis 8, without application `.env`
 external authentication or live IGDB credentials.
 
 ```sh
-pnpm test:igdb:services:up
-pnpm test:igdb:unit
-pnpm test:igdb:integration
-pnpm test:igdb:services:down
+pnpm test sync/igdb
+pnpm test:services:up
+pnpm test:integration --testPathPatterns=igdb
+pnpm test:services:down
 ```
 
 Startup waits for healthy services. Cleanup removes only the `igdb-sync-test`
@@ -104,7 +104,7 @@ See [the fresh statistics installation](statistics.md#fresh-installation) for
 schema ordering. Focused verification:
 
 ```bash
-pnpm test --config test/igdb/jest-integration.json --runInBand --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts
+pnpm test:integration --runTestsByPath test/igdb/igdb-game-import.integration-spec.ts
 ```
 
 That fixture uses and cleans its own `gi_` tables in the existing
@@ -355,53 +355,13 @@ contain identifiers, committed counts, cursor, durations and sampled RSS/heap.
 Relationship chatter requires `IGDB_SYNC_PROFILE_HOT_PATH=true`; credentials
 and complete game payloads are excluded from operational summaries.
 
-## Resource and recovery checks
+## Recovery checks
 
-For the internal-only follow-up, `corepack pnpm build`, direct ESLint on changed
-TypeScript files without `--fix`, strict OpenSpec validation, and
-`git diff --check` passed. The unit, integration, and resource suites have not
-yet been rerun against the follow-up; task 10.5 remains open. The ignored reports
-above are from the initial implementation.
-
-Run the suites sequentially against the dedicated services. The resource command
-starts and awaits fresh Node child processes for 100 pages (2,500 games) and 1,000
-pages (25,000 games), at batch size 25 and seed 42. Source IDs are
-`seed % 997 + 3 * (index + 1)`, so gaps and expected counts are derived without
-keeping the catalog or request history in memory. Each game has a unique cover,
-a shared genre and a forward DLC reference; the final reference is above the
-scan boundary. Query-aware source responses are generated one page at a time.
+The recovery suite uses two local child workers with faults after game commit and
+before checkpoint, owner kill/lease takeover, invalid data and Redis disconnection.
 
 ```sh
-corepack pnpm test:igdb:services:up
-corepack pnpm test:igdb:unit
-corepack pnpm test:igdb:integration
-corepack pnpm test:igdb:resources
-cat .tmp/igdb-sync/resources-100.json
-cat .tmp/igdb-sync/resources-1000.json
-corepack pnpm test:igdb:services:down
+pnpm test:services:up
+pnpm test:integration --testPathPatterns=igdb
+pnpm test:services:down
 ```
-
-The resource run resets only the guarded `igdb_sync_test` import tables. Its
-loopback HTTP stub uses fixture authentication; it never requests live IGDB or
-Twitch credentials. Keep ordinary integration and resource commands sequential
-because they share these test-owned tables. Two-process recovery cases use
-unique table/queue prefixes, terminate their own child workers, and remove only
-those prefixed tables/queues.
-
-The checker asserts one live page, configured game/relationship bounds,
-identifier-only queue data, at most one unresolved run job, and final
-cursor/statistics-row counts. A separate 25-run finalization exercise
-checks ten completed/ten failed retention, including controlled failure/retry.
-Checker-sensitivity cases intentionally introduce eager page fetching and
-unbounded relationship work and require rejection.
-
-Reports are ignored artifacts. They record Node version, seed/size, configured
-and observed maxima, committed expectations, elapsed time and assertions.
-RSS/heap and Redis `used_memory` are sampled every ten pages into fixed-size
-warm-up/peak aggregates. These values diagnose local behavior; there is no
-machine-dependent memory threshold and no production-capacity conclusion.
-
-Missing Docker or unavailable local service ports produce prerequisite errors;
-start Docker and run the services-up command before retrying. Neither failures
-nor unexecuted suites should be described as passing. The checks need no remote
-server, production secrets, or existing deployment changes.

@@ -11,7 +11,7 @@ import {
     UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { seconds, Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { seconds, Throttle } from "@nestjs/throttler";
 import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { rm } from "node:fs/promises";
 import { AuthGuard } from "../../auth/auth.guard";
@@ -93,7 +93,7 @@ export class ProfileVideoController {
         },
     })
     @ApiResponse({ status: 202, type: UploadProfileVideoResponseDto })
-    @UseGuards(ThrottlerGuard, SupporterGuard)
+    @UseGuards(SupporterGuard)
     @Throttle({ default: { limit: 5, ttl: seconds(60) } })
     @UseInterceptors(
         FileInterceptor("file", {

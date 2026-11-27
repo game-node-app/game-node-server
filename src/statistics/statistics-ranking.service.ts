@@ -3,7 +3,11 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { createHash } from "node:crypto";
 import { DataSource, EntityManager } from "typeorm";
-import { GameRankingCriteriaDto, StatisticsRankingsRequestDto } from "./dto/statistics-api.dto";
+import {
+    GameRankingCriteriaDto,
+    StatisticsRankingMode,
+    StatisticsRankingsRequestDto,
+} from "./dto/statistics-api.dto";
 import { MATURE_THEME_ID } from "../game/game-filter/game-filter.constants";
 import { EGameCategory } from "../game/game-repository/game-repository.constants";
 import { StatisticsSourceType } from "./statistics.constants";
@@ -27,6 +31,13 @@ const periodDays: Record<string, number> = {
     year: 365,
 };
 const preparedPeriods = ["day", "week", "month", "quarter", "half_year", "year", "all"];
+const preparedTtlMs = 6 * 60 * 60_000;
+const warmedGameRankings: Array<{ mode: StatisticsRankingMode; period: string }> = [
+    { mode: StatisticsRankingMode.POPULAR, period: "week" },
+    { mode: StatisticsRankingMode.POPULAR, period: "month" },
+    { mode: StatisticsRankingMode.POPULAR, period: "all" },
+    { mode: StatisticsRankingMode.RECENT, period: "week" },
+];
 
 type SourceQuery = { from: string; where: string; parameters: unknown[]; id: string; alias: string };
 type ScoreQuery = { sql: string; parameters: unknown[] };
@@ -58,6 +69,18 @@ export class StatisticsRankingService {
             await Promise.all(batch.map((k) => this.refreshKey(k.sourceType, k.mode, k.period)));
         }
         await Promise.all(reviewKeys.map((k) => this.refreshKey(k.sourceType, k.mode, k.period)));
+        // Best effort: a warming failure must never fail the refresh that just published new scores.
+        await Promise.allSettled(
+            warmedGameRankings.map(({ mode, period }) =>
+                this.findRankings(undefined, {
+                    sourceType: StatisticsSourceType.GAME,
+                    mode,
+                    period,
+                    offset: 0,
+                    limit: 20,
+                }),
+            ),
+        );
     }
 
     private async refreshKey(
@@ -183,11 +206,19 @@ export class StatisticsRankingService {
 
         if (mode === "recent" && from === null)
             throw new BadRequestException("Recent rankings require a finite interval");
+        const preparedGameKey = sourceType === StatisticsSourceType.GAME ? rankingKey : null;
         const score = rankingKey
             ? { sql: "SELECT targetId, score FROM ranking_score WHERE rankingKey = ?", parameters: [rankingKey] }
             : this.scoreQuery(mode, fromInstant, toInstant, fromInstant === null);
         const source = this.sourceQuery(sourceType, dto, actorId, asOf);
-        if (sourceType === StatisticsSourceType.GAME) {
+        if (preparedGameKey) {
+            // Drive from the bounded positive prepared scores instead of scanning game row by row.
+            source.from = `FROM ranking_score prepared
+                STRAIGHT_JOIN game g ON g.statisticsTargetId = prepared.targetId
+                STRAIGHT_JOIN statistics_target t ON t.id = prepared.targetId`;
+            source.where = `prepared.rankingKey = ? AND prepared.score > 0 AND ${source.where}`;
+            source.parameters.unshift(preparedGameKey);
+        } else if (sourceType === StatisticsSourceType.GAME) {
             source.from += ` JOIN (${score.sql}) prepared ON prepared.targetId = t.id AND prepared.score > 0`;
             source.parameters.unshift(...score.parameters);
         }
@@ -201,11 +232,21 @@ export class StatisticsRankingService {
             const prepared = await this.cache?.get<any>(preparedKey).catch(() => undefined);
             if (prepared) return prepared;
         }
-        const countRows = await manager.query(
-            `SELECT COUNT(*) AS total ${source.from} WHERE ${source.where}`,
-            source.parameters,
-        );
-        const total = safeCount(countRows[0]?.total ?? 0);
+        const totalKey = preparedGameKey
+            ? this.totalCacheKey(actorId, dto, fromInstant, toInstant, asOfInstant)
+            : null;
+        const cachedTotal = totalKey
+            ? await this.cache?.get<number | null>(totalKey).catch(() => undefined)
+            : undefined;
+        let total = cachedTotal === null || cachedTotal === undefined ? NaN : Number(cachedTotal);
+        if (!Number.isSafeInteger(total) || total < 0) {
+            const countRows = await manager.query(
+                `SELECT COUNT(*) AS total ${source.from} WHERE ${source.where}`,
+                source.parameters,
+            );
+            total = safeCount(countRows[0]?.total ?? 0);
+            if (totalKey) await this.cache?.set(totalKey, total, preparedTtlMs).catch(() => undefined);
+        }
         const cached = await this.cache?.get<any>(cacheKey).catch(() => undefined);
         if (cached && cached.total === total && (!rankingKey || cached.asOf === asOfInstant.iso)) {
             const ids = cached.items.map((item: any) => item.sourceId);
@@ -227,7 +268,7 @@ export class StatisticsRankingService {
                     parseStatisticsInstant(cached.effectiveTo),
                     freshness,
                 );
-                if (preparedKey) await this.cache?.set(preparedKey, response, 6 * 60 * 60_000).catch(() => undefined);
+                if (preparedKey) await this.cache?.set(preparedKey, response, preparedTtlMs).catch(() => undefined);
                 return response;
             }
         }
@@ -236,7 +277,9 @@ export class StatisticsRankingService {
             ? `CASE WHEN ${source.alias}.id = ? THEN 0 ELSE 1 END, score DESC, ${source.alias}.id ASC`
             : `score DESC, ${source.alias}.id ASC`;
         const orderParameters = sourceType === StatisticsSourceType.REVIEW && dto.reviewId ? [dto.reviewId] : [];
-        const scoreJoin = `LEFT JOIN (${score.sql}) prepared ON prepared.targetId = t.id`;
+        const scoreJoin = rankingKey
+            ? `LEFT JOIN ranking_score prepared ON prepared.rankingKey = ? AND prepared.targetId = t.id`
+            : `LEFT JOIN (${score.sql}) prepared ON prepared.targetId = t.id`;
         const metricJoins = `LEFT JOIN metric_total views ON views.targetId = t.id AND views.metricCode = 'views'
             LEFT JOIN metric_total likes ON likes.targetId = t.id AND likes.metricCode = 'likes_current'`;
         const rows = sourceType === StatisticsSourceType.GAME
@@ -272,7 +315,7 @@ export class StatisticsRankingService {
         }, 15 * 60_000).catch(() => undefined);
         const freshness = await this.freshness(manager);
         const response = this.response(items, total, limit, offset, mode, asOfInstant, fromInstant, toInstant, freshness);
-        if (preparedKey) await this.cache?.set(preparedKey, response, 6 * 60 * 60_000).catch(() => undefined);
+        if (preparedKey) await this.cache?.set(preparedKey, response, preparedTtlMs).catch(() => undefined);
         return response;
     }
 
@@ -432,11 +475,12 @@ export class StatisticsRankingService {
         return Number(rows[0]?.count ?? 0);
     }
 
-    private cacheKey(
+    private filterDigest(
         actorId: string | undefined,
         dto: StatisticsRankingsRequestDto,
         fromInstant: StatisticsInstant | null,
         toInstant: StatisticsInstant,
+        pagination?: { limit?: number; offset?: number },
     ) {
         const filter = {
             definitionVersion,
@@ -451,12 +495,34 @@ export class StatisticsRankingService {
             authorId: dto.authorId,
             excludeOwn: dto.excludeOwn,
             reviewId: dto.reviewId,
-            limit: dto.limit,
-            offset: dto.offset,
+            ...pagination,
             actorId: dto.sourceType === StatisticsSourceType.REVIEW && dto.excludeOwn ? actorId ?? null : null,
         };
-        const digest = createHash("sha256").update(JSON.stringify(filter)).digest("hex");
+        return createHash("sha256").update(JSON.stringify(filter)).digest("hex");
+    }
+
+    private cacheKey(
+        actorId: string | undefined,
+        dto: StatisticsRankingsRequestDto,
+        fromInstant: StatisticsInstant | null,
+        toInstant: StatisticsInstant,
+    ) {
+        const digest = this.filterDigest(actorId, dto, fromInstant, toInstant, {
+            limit: dto.limit,
+            offset: dto.offset,
+        });
         return `statistics:rank:v3:${definitionVersion}:${digest}`;
+    }
+
+    private totalCacheKey(
+        actorId: string | undefined,
+        dto: StatisticsRankingsRequestDto,
+        fromInstant: StatisticsInstant | null,
+        toInstant: StatisticsInstant,
+        asOf: StatisticsInstant,
+    ) {
+        const digest = this.filterDigest(actorId, dto, fromInstant, toInstant);
+        return `statistics:rank:v3:${definitionVersion}:total:${digest}:${asOf.iso}`;
     }
 
     private async freshness(manager: EntityManager) {

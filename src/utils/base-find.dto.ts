@@ -1,7 +1,14 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import {
+    IsNotEmpty,
+    IsNumber,
+    IsOptional,
+    IsString,
+    Max,
+} from "class-validator";
 import { Expose, Transform } from "class-transformer";
 import { FindOptionsOrder } from "typeorm";
 import qs from "qs";
+import { ClampLimit, MAX_OFFSET, MAX_PAGE_LIMIT } from "./request-bounds";
 
 /**
  * Base find options for all models.
@@ -20,10 +27,12 @@ export class BaseFindDto<T> {
     @IsOptional()
     @IsNumber()
     @IsNotEmpty()
+    @Max(MAX_OFFSET)
     offset?: number = 0;
     @IsOptional()
     @IsNumber()
     @IsNotEmpty()
+    @ClampLimit(MAX_PAGE_LIMIT)
     limit?: number = 20;
     @IsOptional()
     // Forces orderBy's Transform to run

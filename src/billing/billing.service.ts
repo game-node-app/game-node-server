@@ -107,6 +107,26 @@ export class BillingService {
         ];
     }
 
+    /**
+     * Supporter ids among `userIds`, with the same entitlement rule as `isSupporter`. A failed
+     * lookup hides supporter perks instead of failing the profile read.
+     */
+    async findSupporterUserIdsIn(userIds: string[]): Promise<Set<string>> {
+        if (userIds.length === 0) return new Set();
+
+        try {
+            const rows =
+                await this.authService.getSubscriptionsForUsers(userIds);
+            return new Set(
+                rows
+                    .filter((row) => this.grantsEntitlement(row))
+                    .map((row) => row.referenceId),
+            );
+        } catch {
+            return new Set();
+        }
+    }
+
     async getMe(userId: string): Promise<BillingMeResponseDto> {
         this.requireStripe();
 

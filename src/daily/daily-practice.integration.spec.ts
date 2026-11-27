@@ -6,7 +6,8 @@ import {
     VersioningType,
 } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { seconds, ThrottlerModule } from "@nestjs/throttler";
+import { seconds, ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
 import request from "supertest";
 import { DataSource } from "typeorm";
 import { createNotificationTestDataSource } from "../../test/notifications/notification-test-harness";
@@ -172,6 +173,7 @@ describe("Daily practice over HTTP (integration)", () => {
             ],
             controllers: [DailyController],
             providers: [
+                { provide: APP_GUARD, useClass: ThrottlerGuard },
                 { provide: DailyService, useValue: dailyService },
                 { provide: DailyPracticeService, useValue: practiceService },
                 { provide: DailyPoolService, useValue: poolService },

@@ -14,7 +14,7 @@ const ExceptionNameToHttpCode = {
     NotFoundError: HttpStatus.NOT_FOUND,
     ForbiddenError: HttpStatus.FORBIDDEN,
     BadRequestError: HttpStatus.BAD_REQUEST,
-    EntityNotFound: HttpStatus.NOT_FOUND,
+    EntityNotFoundError: HttpStatus.NOT_FOUND,
 } as const
 
 interface MySQLError extends Error {
@@ -35,9 +35,12 @@ export class SQLExceptionFilter implements ExceptionFilter {
         this.logger.error(exception);
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
+        // ER_QUERY_TIMEOUT: the API's max_execution_time cut the query, so it's load, not the client.
         const status: HttpStatus =
-            ExceptionNameToHttpCode[exception.name as never] ??
-            HttpStatus.INTERNAL_SERVER_ERROR;
+            (exception as Partial<MySQLError>).errno === 3024
+                ? HttpStatus.SERVICE_UNAVAILABLE
+                : (ExceptionNameToHttpCode[exception.name as never] ??
+                  HttpStatus.INTERNAL_SERVER_ERROR);
 
         response.status(status).json({
             statusCode: status,

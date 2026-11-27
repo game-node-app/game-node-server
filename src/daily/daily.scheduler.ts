@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
+import { RUNS_BACKGROUND_WORK } from "../utils/app-role";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Between, In, LessThan, QueryFailedError, Repository } from "typeorm";
 import { DailyPuzzle } from "./entity/daily-puzzle.entity";
@@ -39,6 +40,7 @@ export class DailyScheduler implements OnApplicationBootstrap {
     ) {}
 
     onApplicationBootstrap() {
+        if (!RUNS_BACKGROUND_WORK) return;
         void this.bootstrap();
     }
 

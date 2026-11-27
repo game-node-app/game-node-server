@@ -20,3 +20,5 @@ RUN rm -f .env
 
 # Build app
 RUN pnpm build
+
+CMD ["pnpm", "start:prod"]
