@@ -26,6 +26,19 @@ import {
     isValidXboxProductId,
 } from "./game-achievement.utils";
 import { UnsupportedGameAchievementSourceError } from "./game-achievement.errors";
+import { InjectRepository } from "@nestjs/typeorm";
+import { In, Repository } from "typeorm";
+import { hours } from "@nestjs/throttler";
+import { GameAchievementCatalog } from "./entity/game-achievement-catalog.entity";
+
+/** How long a stored catalog is served before it is refreshed from the store; the stores' own caches lasted this long. */
+const CATALOG_FRESH_MS = hours(24);
+/** Stores called at once for catalogs a request waits on (never fetched before). */
+const CATALOG_FETCH_BATCH_SIZE = 5;
+/** Stores called at once, per process, for background refreshes. */
+const MAX_CONCURRENT_REFRESHES = 4;
+/** Bounds the refresh backlog; games past it are queued again on their next read. */
+const MAX_QUEUED_REFRESHES = 5000;
 
 @Injectable()
 export class GameAchievementService {
@@ -39,6 +52,8 @@ export class GameAchievementService {
         private readonly gameRepositoryService: GameRepositoryService,
         private readonly gogSyncService: GogSyncService,
         private readonly connectionsService: ConnectionsService,
+        @InjectRepository(GameAchievementCatalog)
+        private readonly catalogRepository: Repository<GameAchievementCatalog>,
     ) {}
 
     public async findOneByExternalGameId(
@@ -61,8 +76,115 @@ export class GameAchievementService {
         return relatedAchievement;
     }
 
-    public findAllByExternalGameId(externalGameId: number) {
-        return this.getAllByExternalGameId(externalGameId, false);
+    public async findAllByExternalGameId(
+        externalGameId: number,
+    ): Promise<GameAchievementDto[]> {
+        const stored = await this.catalogRepository.findOneBy({
+            externalGameId,
+        });
+        const achievements = stored
+            ? this.served(stored)
+            : await this.fetchCatalog(externalGameId);
+        if (achievements.length === 0)
+            throw new HttpException(
+                "Game has no available achievements for this source.",
+                HttpStatus.NOT_FOUND,
+            );
+        return achievements;
+    }
+
+    /**
+     * Achievements of many external games, keyed by id: stored catalogs in one query, the rest fetched from the
+     * stores a few at a time. Games whose store fails or lists nothing are left out.
+     */
+    public async findAllByExternalGameIds(
+        externalGameIds: number[],
+    ): Promise<Map<number, GameAchievementDto[]>> {
+        const result = new Map<number, GameAchievementDto[]>();
+        if (externalGameIds.length === 0) return result;
+        const stored = await this.catalogRepository.findBy({
+            externalGameId: In(externalGameIds),
+        });
+        for (const catalog of stored)
+            result.set(catalog.externalGameId, this.served(catalog));
+
+        const missing = externalGameIds.filter((id) => !result.has(id));
+        for (let i = 0; i < missing.length; i += CATALOG_FETCH_BATCH_SIZE) {
+            const batch = missing.slice(i, i + CATALOG_FETCH_BATCH_SIZE);
+            const fetched = await Promise.allSettled(
+                batch.map((id) => this.fetchCatalog(id)),
+            );
+            fetched.forEach((outcome, index) => {
+                if (outcome.status === "fulfilled")
+                    result.set(batch[index], outcome.value);
+            });
+        }
+        for (const [id, achievements] of result)
+            if (achievements.length === 0) result.delete(id);
+        return result;
+    }
+
+    /** A stored catalog, queued for a refresh once it is older than CATALOG_FRESH_MS. */
+    private served(catalog: GameAchievementCatalog) {
+        if (Date.now() - catalog.fetchedAt.getTime() > CATALOG_FRESH_MS)
+            this.queueRefresh(catalog.externalGameId);
+        return catalog.achievements;
+    }
+
+    /** Fetches a game's achievements from its store and keeps them; "none" is kept too, as an empty list. */
+    private async fetchCatalog(
+        externalGameId: number,
+    ): Promise<GameAchievementDto[]> {
+        let achievements: GameAchievementDto[];
+        try {
+            achievements = await this.getAllByExternalGameId(
+                externalGameId,
+                false,
+            );
+        } catch (error) {
+            if (
+                !(error instanceof HttpException) ||
+                error.getStatus() !== HttpStatus.NOT_FOUND
+            )
+                throw error;
+            achievements = [];
+        }
+        await this.catalogRepository.upsert(
+            { externalGameId, achievements, fetchedAt: new Date() },
+            ["externalGameId"],
+        );
+        return achievements;
+    }
+
+    private readonly refreshQueue = new Set<number>();
+    private activeRefreshes = 0;
+
+    /** Refreshes stale catalogs in the background, a few at a time, so a read never waits on a store for them. */
+    private queueRefresh(externalGameId: number) {
+        if (this.refreshQueue.size >= MAX_QUEUED_REFRESHES) return;
+        this.refreshQueue.add(externalGameId);
+        while (
+            this.activeRefreshes < MAX_CONCURRENT_REFRESHES &&
+            this.refreshQueue.size > 0
+        )
+            void this.drainRefreshes();
+    }
+
+    private async drainRefreshes() {
+        this.activeRefreshes++;
+        try {
+            for (const id of this.refreshQueue) {
+                this.refreshQueue.delete(id);
+                // A failed refresh keeps the stored catalog; the next read past the window tries again.
+                await this.fetchCatalog(id).catch((error: unknown) =>
+                    this.logger.warn(
+                        `Achievement catalog refresh failed for external game ${id}: ${error}`,
+                    ),
+                );
+            }
+        } finally {
+            this.activeRefreshes--;
+        }
     }
 
     public findAllByExternalGameIdForSync(

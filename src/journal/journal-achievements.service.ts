@@ -11,7 +11,6 @@ import {
     Logger,
     ServiceUnavailableException,
 } from "@nestjs/common";
-import { GameAchievementDto } from "../game/game-achievement/dto/game-achievement.dto";
 import {
     GameAchievementWithObtainedInfo,
     GameObtainedAchievementDto,
@@ -33,8 +32,7 @@ import {
 } from "../utils/redis-semaphore";
 import { minutes } from "@nestjs/throttler";
 
-const FAN_OUT_BATCH_SIZE = 5;
-/** Cold builds query every game's store; a crawl of many profiles shares these few slots instead of the DB pool. */
+/** A build may still fetch games no one opened before from their stores; a crawl of many profiles shares these few slots. */
 const MAX_CONCURRENT_BUILDS = 4;
 /** Redis key of the build slots, shared by every API process. */
 export const JOURNAL_BUILDS_KEY = "journal-achievements:builds";
@@ -89,40 +87,16 @@ export class JournalAchievementsService {
             (a) => a.externalGameId,
         );
 
-        const achievementsPerExternalGameId = new Map<
-            number,
-            GameAchievementDto[]
-        >();
-
-        // Batched so one user with hundreds of games can't take the whole DB pool.
-        const externalGameIds = [...obtainedByExternalGameId.keys()];
-        const achievementsPerGameResults: PromiseSettledResult<
-            GameAchievementDto[]
-        >[] = [];
-        for (let i = 0; i < externalGameIds.length; i += FAN_OUT_BATCH_SIZE) {
-            achievementsPerGameResults.push(
-                ...(await Promise.allSettled(
-                    externalGameIds
-                        .slice(i, i + FAN_OUT_BATCH_SIZE)
-                        .map((externalGameId) =>
-                            this.gameAchievementService.findAllByExternalGameId(
-                                externalGameId,
-                            ),
-                        ),
-                )),
-            );
-        }
-
-        for (const result of achievementsPerGameResults) {
-            if (result.status === "fulfilled") {
-                const achievements = result.value;
-                if (achievements.length === 0) continue;
-
-                const externalGameId = achievements[0].externalGameId;
-
-                achievementsPerExternalGameId.set(externalGameId, achievements);
-            }
-        }
+        const achievementsPerExternalGameId =
+            await this.gameAchievementService.findAllByExternalGameIds([
+                ...obtainedByExternalGameId.keys(),
+            ]);
+        const achievementByExternalId = new Map(
+            [...achievementsPerExternalGameId].map(([id, achievements]) => [
+                id,
+                new Map(achievements.map((a) => [a.externalId, a])),
+            ]),
+        );
 
         /**
          * Entries grouped by year, then by month, then by externalGameId.
@@ -186,20 +160,23 @@ export class JournalAchievementsService {
                         obtainedByExternalGameId.get(externalGameId)!,
                     );
 
+                    const definitions =
+                        achievementByExternalId.get(externalGameId)!;
+                    // An achievement the store no longer lists has nothing to show.
                     const allObtainedWithInfoForGame: GameAchievementWithObtainedInfo[] =
-                        obtainedAchievements.map((obtained) => {
-                            const relatedAchievement = gameAchievements.find(
-                                (a) =>
-                                    a.externalGameId ===
-                                        obtained.externalGameId &&
-                                    a.externalId === obtained.externalId,
-                            )!;
-
-                            return {
-                                ...relatedAchievement,
-                                isObtained: true,
-                                obtainedAt: obtained.obtainedAt!,
-                            };
+                        obtainedAchievements.flatMap((obtained) => {
+                            const relatedAchievement = definitions.get(
+                                obtained.externalId,
+                            );
+                            return relatedAchievement
+                                ? [
+                                      {
+                                          ...relatedAchievement,
+                                          isObtained: true,
+                                          obtainedAt: obtained.obtainedAt!,
+                                      },
+                                  ]
+                                : [];
                         });
 
                     if (allObtainedWithInfoForGame.length === 0) continue;

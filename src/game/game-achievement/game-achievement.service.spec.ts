@@ -4,6 +4,22 @@ import { ProviderSyncError } from "../../sync/provider-sync.error";
 import { getPSNAchievementId } from "./game-achievement.utils";
 import { UnsupportedGameAchievementSourceError } from "./game-achievement.errors";
 
+/** In-memory stand-in for the catalog table. */
+function catalogRepository(rows = new Map<number, any>()) {
+    return {
+        rows,
+        findOneBy: jest.fn(
+            async ({ externalGameId }) => rows.get(externalGameId) ?? null,
+        ),
+        findBy: jest.fn(async ({ externalGameId }) =>
+            [...rows.values()].filter((row) =>
+                externalGameId.value.includes(row.externalGameId),
+            ),
+        ),
+        upsert: jest.fn(async (row) => void rows.set(row.externalGameId, row)),
+    } as any;
+}
+
 test("unsupported external categories keep the shared HTTP 400 failure", async () => {
     const service = new GameAchievementService(
         {
@@ -19,6 +35,7 @@ test("unsupported external categories keep the shared HTTP 400 failure", async (
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
         {} as any,
         {} as any,
+        catalogRepository(),
     );
 
     const request = service.findAllByExternalGameId(10);
@@ -51,6 +68,7 @@ test("unsupported Steam schemas preserve the existing no-achievements response w
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
         {} as any,
         {} as any,
+        catalogRepository(),
     );
     await expect(service.findAllByExternalGameId(1)).rejects.toMatchObject({
         status: 404,
@@ -91,6 +109,7 @@ test("completion catalogue skips rarity and platform presentation data while dis
         { getGamePlatformsMap } as any,
         {} as any,
         {} as any,
+        catalogRepository(),
     );
 
     const displayed = await service.findAllByExternalGameId(10);
@@ -130,6 +149,7 @@ test("successful empty sync catalogue returns empty while display preserves its 
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
         {} as any,
         {} as any,
+        catalogRepository(),
     );
 
     await expect(
@@ -170,6 +190,7 @@ test("available PSN trophies fetch each communication and service mapping once",
         { getGamePlatformsMap: jest.fn().mockResolvedValue(new Map()) } as any,
         {} as any,
         {} as any,
+        catalogRepository(),
     );
 
     const achievements = await service.findAllByExternalGameId(10);
@@ -230,6 +251,7 @@ describe("GOG catalogue account context", () => {
             { getGamePlatformsMap: async () => new Map() } as any,
             gog as any,
             connections as any,
+            catalogRepository(),
         );
         return { service, gog, connections };
     };
@@ -278,5 +300,82 @@ describe("GOG catalogue account context", () => {
         await expect(service.findAllByExternalGameId(5)).rejects.toThrow(
             "no usable account",
         );
+    });
+});
+
+describe("stored achievement catalog", () => {
+    const steamGame = (id: number) => ({
+        id,
+        gameId: id * 10,
+        uid: String(id),
+        category: EGameExternalGameCategory.Steam,
+    });
+    const build = (catalogs = catalogRepository()) => {
+        const getAvailableAchievements = jest.fn(async (appId: number) =>
+            appId === 404
+                ? []
+                : appId === 500
+                  ? Promise.reject(new Error("store down"))
+                  : [{ name: `a${appId}`, displayName: "A", icon: "i" }],
+        );
+        const service = new GameAchievementService(
+            { findOneByIdOrFail: async (id: number) => steamGame(id) } as any,
+            {
+                getAvailableAchievements,
+                getAchievementsPercentage: async () => [],
+            } as any,
+            {} as any,
+            {} as any,
+            { getGamePlatformsMap: async () => new Map() } as any,
+            {} as any,
+            {} as any,
+            catalogs,
+        );
+        return { service, catalogs, getAvailableAchievements };
+    };
+
+    it("asks the store once, then serves the stored list, including a store with none", async () => {
+        const { service, getAvailableAchievements } = build();
+        await service.findAllByExternalGameId(1);
+        await service.findAllByExternalGameId(1);
+        for (let i = 0; i < 2; i++)
+            await expect(
+                service.findAllByExternalGameId(404),
+            ).rejects.toMatchObject({ status: 404 });
+        expect(getAvailableAchievements.mock.calls).toEqual([[1], [404]]);
+    });
+
+    it("serves a stale catalog right away and refreshes it in the background", async () => {
+        const catalogs = catalogRepository();
+        catalogs.rows.set(1, {
+            externalGameId: 1,
+            achievements: [{ externalId: "old" }],
+            fetchedAt: new Date(Date.now() - 25 * 3_600_000),
+        });
+        const { service, getAvailableAchievements } = build(catalogs);
+        await expect(service.findAllByExternalGameId(1)).resolves.toEqual([
+            { externalId: "old" },
+        ]);
+        await new Promise((r) => setTimeout(r, 0));
+        expect(getAvailableAchievements).toHaveBeenCalledWith(1);
+        expect(catalogs.rows.get(1).achievements[0].externalId).toBe("a1");
+    });
+
+    it("reads many games in one query, fetches the missing ones and leaves out failed or empty ones", async () => {
+        const catalogs = catalogRepository();
+        catalogs.rows.set(2, {
+            externalGameId: 2,
+            achievements: [{ externalId: "stored" }],
+            fetchedAt: new Date(),
+        });
+        const { service, getAvailableAchievements } = build(catalogs);
+        const result = await service.findAllByExternalGameIds([1, 2, 404, 500]);
+        expect([...result.keys()].sort()).toEqual([1, 2]);
+        expect(catalogs.findBy).toHaveBeenCalledTimes(1);
+        expect(getAvailableAchievements.mock.calls.flat().sort()).toEqual([
+            1, 404, 500,
+        ]);
+        // A failed store isn't kept, so the next read tries it again.
+        expect(catalogs.rows.has(500)).toBe(false);
     });
 });
