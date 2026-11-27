@@ -339,6 +339,9 @@ function posterArgs(videoPath: string, posterPath: string): string[] {
         "mjpeg",
         "-q:v",
         "2",
+        // One thread per core exceeds the process memory limit on many-core hosts.
+        "-threads",
+        "1",
         "-y",
         posterPath,
     ];
