@@ -13,7 +13,6 @@ import { json, urlencoded } from "express";
 import { AuthService } from "./auth/auth.service";
 import { mountAuth } from "./auth/mount-auth";
 import * as fs from "fs";
-import * as process from "process";
 import { SQLExceptionFilter } from "./filter/sql-exception.filter";
 import { AxiosExceptionFilter } from "./filter/axios-exception.filter";
 import {
@@ -24,6 +23,8 @@ import { Logger } from "nestjs-pino";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { setCacheManager } from "./utils/cacheable";
 import { CORS_OPTIONS } from "./auth/cors-options";
+import cluster from "node:cluster";
+import { RUNS_BACKGROUND_WORK } from "./utils/app-role";
 
 dayjs.extend(duration);
 
@@ -98,4 +99,39 @@ async function bootstrap() {
     await app.listen(process.env.SERVER_PORT || 5000);
 }
 
-bootstrap();
+/** Forks API processes that share the port, so one blocked event loop doesn't stall every request. */
+function runApiProcesses(count: number) {
+    if (RUNS_BACKGROUND_WORK) {
+        throw new Error(
+            "API_PROCESSES > 1 requires APP_ROLE=api; crons and boot jobs would run once per process",
+        );
+    }
+    let stopping = false;
+    for (let i = 0; i < count; i++) cluster.fork();
+    cluster.on("exit", (worker, code, signal) => {
+        if (stopping) {
+            if (Object.keys(cluster.workers ?? {}).length === 0) process.exit(0);
+            return;
+        }
+        console.error(
+            `API process ${worker.process.pid} exited (${signal ?? code}), restarting`,
+        );
+        // The delay keeps a process that fails at boot from spinning.
+        setTimeout(() => cluster.fork(), 1000);
+    });
+    for (const signal of ["SIGTERM", "SIGINT"] as const) {
+        process.on(signal, () => {
+            stopping = true;
+            for (const worker of Object.values(cluster.workers ?? {})) {
+                worker?.process.kill(signal);
+            }
+        });
+    }
+}
+
+const apiProcesses = Number(process.env.API_PROCESSES || 1);
+if (cluster.isPrimary && apiProcesses > 1) {
+    runApiProcesses(apiProcesses);
+} else {
+    bootstrap();
+}

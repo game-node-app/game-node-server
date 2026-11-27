@@ -14,6 +14,7 @@ import {
     PlayerSyncOwnershipLost,
     PlayerSyncStateService,
 } from "./player-sync-state.service";
+import { RUNS_BACKGROUND_WORK } from "../../utils/app-role";
 
 @Injectable()
 export class PlayerDataQueueService implements OnModuleInit {
@@ -25,6 +26,7 @@ export class PlayerDataQueueService implements OnModuleInit {
         private readonly config: ConfigService,
     ) {}
     async onModuleInit() {
+        if (!RUNS_BACKGROUND_WORK) return;
         await this.state.bootstrapExisting();
     }
 
