@@ -9,7 +9,7 @@ jest.mock("typeorm-transactional", () => ({
 }));
 
 import { PlaytimeService } from "./playtime.service";
-import { UserPlaytimeSource } from "./playtime.constants";
+import { PlaytimeFiterPeriod, UserPlaytimeSource } from "./playtime.constants";
 import { runPlayerSyncAttempt } from "../sync/player-sync-attempt";
 
 const now = new Date("2026-10-25T12:00:00.000Z");
@@ -304,5 +304,42 @@ describe("guild contract evaluation hook", () => {
 
         for (const callback of mockCommitCallbacks.splice(0)) callback();
         expect(current.guildQueue.enqueueEvaluation).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("playtime filter ordering", () => {
+    it("passes only known columns and ASC/DESC to the query builder", async () => {
+        const qb: any = new Proxy(
+            {},
+            {
+                get: (target: any, prop) =>
+                    prop in target
+                        ? target[prop]
+                        : prop === "getManyAndCount"
+                          ? async () => [[], 0]
+                          : (...args: unknown[]) => {
+                                if (prop === "orderBy") target.order = args[0];
+                                return qb;
+                            },
+            },
+        );
+        const service = new PlaytimeService(
+            { createQueryBuilder: () => qb } as any,
+            {} as any,
+        );
+
+        await service.findAllByUserIdWithFilters("user", {
+            period: PlaytimeFiterPeriod.ALL,
+            orderBy: {
+                totalPlaytimeSeconds: "ASC",
+                "(SELECT SLEEP(5))": "ASC",
+                lastPlayedDate: "DESC, (SELECT SLEEP(5))",
+            } as any,
+        });
+
+        expect(qb.order).toEqual({
+            "up.totalPlaytimeSeconds": "ASC",
+            "up.lastPlayedDate": "DESC",
+        });
     });
 });
