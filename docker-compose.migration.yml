@@ -1,0 +1,29 @@
+# One-shot TypeORM migration runner executed before rolling API deploys.
+# migration_gate waits for service_completed_successfully so `docker compose up -d`
+# blocks until migrations finish and fails the Coolify deployment on error.
+services:
+  server_migration:
+    image: lamarcke/game-node-server:${SERVER_IMAGE_TAG:?set SERVER_IMAGE_TAG}
+    hostname: server-migration
+    environment:
+      DB_HOST: ${DB_HOST:?set DB_HOST}
+      DB_DATABASE: gamenode
+      DB_PASS: ${DB_PASS}
+      DB_USER: ${DB_USER}
+      DB_PORT: 3306
+    restart: "no"
+    command: "pnpm migration:run"
+    networks:
+      - gamenode
+
+  migration_gate:
+    image: busybox:musl
+    depends_on:
+      server_migration:
+        condition: service_completed_successfully
+    restart: "no"
+    command: ["true"]
+
+networks:
+  gamenode:
+    external: true

@@ -90,11 +90,13 @@ async function bootstrap() {
         .build();
 
     const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-    const swaggerFileName = "server_swagger.json";
-    fs.writeFileSync(swaggerFileName, JSON.stringify(swaggerDocument));
-    console.log(
-        `Generated JSON of Swagger Documentation: ${swaggerFileName} at the project's root dir.`,
-    );
+    if (process.env.NODE_ENV !== "production") {
+        const swaggerFileName = "server_swagger.json";
+        fs.writeFileSync(swaggerFileName, JSON.stringify(swaggerDocument));
+        console.log(
+            `Generated JSON of Swagger Documentation: ${swaggerFileName} at the project's root dir.`,
+        );
+    }
 
     SwaggerModule.setup("v1/docs", app, swaggerDocument);
 
