@@ -1,3 +1,4 @@
+import { testEnvironment } from "../../test/igdb/helpers/test-environment";
 import {
     acquireTokenLock,
     renewTokenLock,
@@ -33,17 +34,11 @@ import { PlayerDataProcessor } from "../sync/player-data/player-data.processor";
 import { PLAYER_DATA_JOB } from "../sync/player-data/player-data.constants";
 import { ProviderSyncError } from "../sync/provider-sync.error";
 
-const integrationDescribe =
-    process.env.PLAYER_IMPORT_TEST_MYSQL_PORT &&
-    process.env.PLAYER_IMPORT_TEST_REDIS_PORT
-        ? describe
-        : describe.skip;
-
-integrationDescribe("connection auth on disposable MySQL and Redis", () => {
+describe("connection auth on disposable MySQL and Redis", () => {
     const database = `player_import_test_${randomUUID().replaceAll("-", "")}`;
     const redisConnection = {
         host: "127.0.0.1",
-        port: Number(process.env.PLAYER_IMPORT_TEST_REDIS_PORT),
+        port: testEnvironment(process.env).redis.port,
         maxRetriesPerRequest: null,
     };
     let source: DataSource;
@@ -59,9 +54,9 @@ integrationDescribe("connection auth on disposable MySQL and Redis", () => {
         const options = {
             type: "mysql" as const,
             host: "127.0.0.1",
-            port: Number(process.env.PLAYER_IMPORT_TEST_MYSQL_PORT),
+            port: testEnvironment(process.env).mysql.port,
             username: "root",
-            password: "",
+            password: "igdb-test-root",
             timezone: "Z",
         };
         admin = await new DataSource(options).initialize();

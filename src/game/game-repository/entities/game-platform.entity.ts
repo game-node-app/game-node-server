@@ -24,6 +24,7 @@ export class GamePlatform {
     })
     alternative_name: string;
     @Column({
+        type: Number,
         default: 1,
     })
     category: EGamePlatformCategory;

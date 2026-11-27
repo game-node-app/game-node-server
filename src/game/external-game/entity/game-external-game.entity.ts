@@ -33,10 +33,12 @@ export class GameExternalGame {
     })
     uid: string;
     @Column({
+        type: Number,
         nullable: true,
     })
     category?: EGameExternalGameCategory;
     @Column({
+        type: Number,
         nullable: true,
     })
     media?: EGameExternalGameMedia;

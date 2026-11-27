@@ -1,5 +1,4 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+# Unit and integration tests run as separate jobs, so unit feedback does not wait for services.
 
 name: Node.js CI
 
@@ -10,22 +9,32 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  unit:
+    name: Typecheck and unit tests
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [24.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
+    - uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 24.x
         cache: 'pnpm'
     - run: pnpm install --frozen-lockfile
     - run: pnpm test:typecheck
     - run: pnpm test
-    
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24.x
+        cache: 'pnpm'
+    - run: pnpm install --frozen-lockfile
+    # The profile video suites skip themselves without ffmpeg.
+    - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+    - run: pnpm test:services:up
+    - run: pnpm test:integration

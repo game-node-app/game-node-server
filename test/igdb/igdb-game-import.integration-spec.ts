@@ -281,7 +281,7 @@ describe("transactional game import on isolated MySQL", () => {
             null as any,
             null as any,
             source.getRepository(Game),
-            null as any,
+            { mget: async () => [], mset: async () => {} } as any,
         );
         const one = await repository.findOneByIdOrFail(17001, {
             relations: { videos: true },

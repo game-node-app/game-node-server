@@ -1,0 +1,19 @@
+{
+    "moduleFileExtensions": ["js", "mjs", "json", "ts"],
+    "rootDir": "..",
+    "testRegex": [
+        "src/.*\\.integration\\.spec\\.ts$",
+        "test/igdb/.*\\.integration-spec\\.ts$"
+    ],
+    "maxWorkers": 1,
+    "workerIdleMemoryLimit": "512MB",
+    "testTimeout": 120000,
+    "setupFiles": ["<rootDir>/test/integration-setup.ts"],
+    "transform": {
+        "^.+\\.(t|j)s$": [
+            "ts-jest",
+            { "tsconfig": { "isolatedModules": true } }
+        ]
+    },
+    "testEnvironment": "node"
+}

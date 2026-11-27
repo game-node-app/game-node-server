@@ -13,6 +13,7 @@ import { createKeyv } from "@keyv/redis";
 import request from "supertest";
 import { DataSource, In, Repository } from "typeorm";
 import { randomUUID } from "node:crypto";
+import { getRelationsCacheKey } from "../../src/game/game-repository/game-repository.utils";
 import { resolve } from "node:path";
 import { createNotificationTestDataSource } from "../notifications/notification-test-harness";
 import { testEnvironment } from "./helpers/test-environment";
@@ -524,9 +525,7 @@ describe("effective cover resolution on MySQL", () => {
             expect(personalized.status).toBe(200);
             expect(personalized.body[0].cover.imageId).toBe("choice-a");
 
-            const cacheKey = `GameRepositoryService#findAllByIds__${JSON.stringify(
-                [{ gameIds: [game], relations: { cover: true } }],
-            )}`;
+            const cacheKey = `game-repo:v1:${game}:${getRelationsCacheKey({ cover: true })}`;
             await waitForCachedValue(cacheKey);
 
             // A changed default in the database stays invisible while the shared cache lives.

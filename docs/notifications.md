@@ -2,14 +2,14 @@
 
 ## Isolated verification
 
-Run `pnpm test:igdb:services:up` to start the existing disposable MySQL/Redis stack,
-then `pnpm test:notifications` for notification, reaction, and affected producer suites.
+Run `pnpm test:services:up` to start the disposable MySQL/Redis stack,
+then `pnpm test:integration --testPathPatterns=notifications/` for the notification suites.
 These suites never load `.env` or use application `DB_*` settings. They accept only
 the fixture's loopback hosts and `igdb_sync_test` database, with its fixed test credentials.
 The helper creates the domain fixture schema and seeds game 1; test rows stay inside
 that disposable database. The unused connection credential table is omitted because
 its decorator's timestamp precision differs from its checked-in migration.
-Run `pnpm test:igdb:services:down` to remove the test services and their data.
+Run `pnpm test:services:down` to remove the test services and their data.
 
 Only use the services-down command after other IGDB tests using this stack finish.
 
